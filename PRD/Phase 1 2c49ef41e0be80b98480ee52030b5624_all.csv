@@ -1,0 +1,13 @@
+﻿Page,Checkbox,Feature,Tips
+,No,定制你的行程（城市，时间），选择 label，选择 spots,
+Homepage,No,推荐 spots by city,
+,No,地图模式（环球），支持标签筛选，地点卡片，点击去 Google map,
+,No,导入 Google map 已有标记（同步到整体云，共享，丰富库）,
+MyTrip,No,"spots management - Wishlist, Visited, Today’s Plan  
+- Visited: 标记日期，书写感受 + 上传图片 + 评分，地图置灰
+- Today’s Plan: 注重营业时间，地图位置，关注顺序，购票信息（后续）
+
+spots 优先级：必去，可去可不去",Local Timezone check
+,No,Foundation 能力 - 拍照识别，直接接 chatgpt or gemini,
+Foundation,No,"支付能力 stripe
+付费场景：1）仅支持 1 个城市，多个城市需要付费（可查看，不能收藏或者导入） 2）comment 免费，传图片付费 3）分享模板定制化付费   4）地图皮肤更换",可调整

@@ -10,12 +10,12 @@ class AppRouter {
   AppRouter._();
 
   static final GoRouter router = GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/home',
     routes: [
       GoRoute(
         path: '/login',
         name: 'login',
-        builder: (context, state) => const LoginPage(),
+        pageBuilder: (context, state) => _slideFromRight(const LoginPage()),
       ),
       GoRoute(
         path: '/register',
@@ -39,5 +39,29 @@ class AppRouter {
       ),
     ),
   );
+
+  // Slide transition helper (right -> left for push, left -> right for pop)
+  static CustomTransitionPage _slideFromRight(Widget child) {
+    return CustomTransitionPage(
+      child: child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final tween = Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).chain(CurveTween(curve: Curves.easeInOut));
+        final reverseTween = Tween<Offset>(
+          begin: Offset.zero,
+          end: const Offset(1, 0),
+        ).chain(CurveTween(curve: Curves.easeInOut));
+        return SlideTransition(
+          position: animation.drive(tween),
+          child: SlideTransition(
+            position: secondaryAnimation.drive(reverseTween),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
 }
 

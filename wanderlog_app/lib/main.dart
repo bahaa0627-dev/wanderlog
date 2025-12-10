@@ -4,12 +4,18 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/utils/app_router.dart';
+import 'core/network/dio_client.dart';
+import 'core/storage/storage_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Load environment variables
   await dotenv.load(fileName: '.env.dev');
+  
+  // Init services
+  await StorageService.instance.init();
+  DioClient.instance.init();
   
   runApp(
     const ProviderScope(
@@ -18,11 +24,11 @@ void main() async {
   );
 }
 
-class WanderlogApp extends StatelessWidget {
+class WanderlogApp extends ConsumerWidget {
   const WanderlogApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
@@ -32,7 +38,7 @@ class WanderlogApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      routerConfig: AppRouter.router,
+      routerConfig: AppRouter.createRouter(ref),
     );
   }
 }

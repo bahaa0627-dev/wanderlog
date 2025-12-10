@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../services/google_auth_service.dart';
+import '../../providers/auth_provider.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -22,10 +24,26 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _onLogin() {
+  Future<void> _onLogin() async {
     if (_formKey.currentState?.validate() ?? false) {
-      // TODO: replace with real auth; navigate to home for now.
-      context.go('/home');
+      try {
+        await ref.read(authProvider.notifier).login(
+              _emailController.text,
+              _passwordController.text,
+            );
+        if (mounted) {
+          context.go('/home');
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString()),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -38,6 +56,9 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final isLoading = authState.isLoading;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -123,19 +144,21 @@ class _LoginPageState extends State<LoginPage> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
-                              onPressed: _onLogin,
-                              child: const Text('Login'),
+                              onPressed: isLoading ? null : _onLogin,
+                              child: isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Login'),
                             ),
                           ),
                           const SizedBox(height: 12),
                           TextButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Register flow coming soon'),
-                                ),
-                              );
-                            },
+                            onPressed: () => context.go('/register'),
                             child: const Text('Create account'),
                           ),
                           const Divider(height: 32),

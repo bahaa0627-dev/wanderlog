@@ -23,9 +23,14 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+import authRoutes from './routes/authRoutes';
+import spotRoutes from './routes/spotRoutes';
+import tripRoutes from './routes/tripRoutes';
+
 // API Routes
-// TODO: Add routes
-// app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/spots', spotRoutes);
+app.use('/api/trips', tripRoutes);
 // app.use('/api/trips', tripRoutes);
 // app.use('/api/spots', spotRoutes);
 

@@ -1,14 +1,89 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/providers/auth_provider.dart';
 import '../../features/trips/presentation/pages/home_page.dart';
 import '../../features/trips/presentation/pages/trip_list_page.dart';
+import '../../features/trips/presentation/pages/trip_detail_page.dart';
+import '../../features/map/presentation/pages/map_view_page.dart';
 
 class AppRouter {
   AppRouter._();
 
+  static final _rootNavigatorKey = GlobalKey<NavigatorState>();
+
+  static GoRouter createRouter(WidgetRef ref) {
+    return GoRouter(
+      navigatorKey: _rootNavigatorKey,
+      initialLocation: '/home',
+      redirect: (context, state) {
+        final authState = ref.read(authProvider);
+        final isAuthenticated = authState.isAuthenticated;
+        final isGoingToAuth =
+            state.matchedLocation == '/login' || state.matchedLocation == '/register';
+
+        // Redirect to login if not authenticated and not going to auth pages
+        if (!isAuthenticated && !isGoingToAuth) {
+          return '/login';
+        }
+
+        // Redirect to home if authenticated and going to auth pages
+        if (isAuthenticated && isGoingToAuth) {
+          return '/home';
+        }
+
+        return null; // No redirect
+      },
+      routes: [
+        GoRoute(
+          path: '/login',
+          name: 'login',
+          pageBuilder: (context, state) => _slideFromRight(const LoginPage()),
+        ),
+        GoRoute(
+          path: '/register',
+          name: 'register',
+          builder: (context, state) => const RegisterPage(),
+        ),
+        GoRoute(
+          path: '/home',
+          name: 'home',
+          builder: (context, state) => const HomePage(),
+        ),
+        GoRoute(
+          path: '/map',
+          name: 'map',
+          builder: (context, state) {
+            final city = state.uri.queryParameters['city'];
+            return MapViewPage(city: city);
+          },
+        ),
+        GoRoute(
+          path: '/trips',
+          name: 'trips',
+          builder: (context, state) => const TripListPage(),
+        ),
+        GoRoute(
+          path: '/trips/:id',
+          name: 'trip-detail',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return TripDetailPage(tripId: id);
+          },
+        ),
+      ],
+      errorBuilder: (context, state) => Scaffold(
+        body: Center(
+          child: Text('Error: ${state.error}'),
+        ),
+      ),
+    );
+  }
+
+  // Legacy router for backwards compatibility
   static final GoRouter router = GoRouter(
     initialLocation: '/home',
     routes: [

@@ -1,142 +1,143 @@
-# Wanderlog App
+# Wanderlog iOS App (Flutter)
 
-A smart travel planning application built with Flutter for iOS, Android, and Web.
+A smart travel planning application for iOS, Android, and Web.
 
-## 🚀 Getting Started
-
-### Prerequisites
+## Prerequisites
 
 - Flutter SDK (>=3.4.0)
-- Dart SDK (>=3.4.0)
+- Dart SDK
 - Xcode (for iOS development)
-- Android Studio (for Android development)
-- VS Code or Android Studio (recommended IDEs)
+- Node.js (for backend)
 
-### Installation
+## Setup
 
-1. Install Flutter: https://flutter.dev/docs/get-started/install
+### 1. Install Dependencies
 
-2. Clone the repository:
-```bash
-git clone <repository-url>
-cd wanderlog/wanderlog_app
-```
-
-3. Install dependencies:
 ```bash
 flutter pub get
 ```
 
-4. Set up environment variables:
-```bash
-# Copy the example env file
-cp .env.dev.example .env.dev
+### 2. Environment Configuration
 
-# Edit .env.dev with your API keys and configuration
+Copy the `.env.dev` file and configure your API keys:
+
+```bash
+cp .env.dev .env
 ```
 
-5. Run code generation (if needed):
+Update the following values in `.env.dev`:
+- `API_BASE_URL`: Your backend API URL (default: http://localhost:3000/api)
+- `MAPBOX_ACCESS_TOKEN`: Get from https://mapbox.com
+- `GOOGLE_CLIENT_ID`: Get from Google Cloud Console
+- `STRIPE_PUBLISHABLE_KEY`: Get from Stripe Dashboard
+
+### 3. Generate Code
+
+Run build_runner to generate JSON serialization code:
+
 ```bash
 flutter pub run build_runner build --delete-conflicting-outputs
 ```
 
-### Running the App
+### 4. iOS Setup
 
-#### Development
-```bash
-flutter run -d chrome  # Web
-flutter run -d ios      # iOS Simulator
-flutter run -d android  # Android Emulator
+Update `ios/Runner/Info.plist` with location permissions:
+
+```xml
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>We need your location to show nearby spots</string>
+<key>NSLocationAlwaysUsageDescription</key>
+<string>We need your location to show nearby spots</string>
 ```
 
-#### Build
+### 5. Run the App
+
 ```bash
-# Web
-flutter build web
-
-# iOS
-flutter build ios
-
-# Android
-flutter build apk  # or flutter build appbundle
+flutter run
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 lib/
-├── core/                    # Core functionality
-│   ├── constants/          # App constants
-│   ├── network/            # Network layer (Dio client)
-│   ├── storage/            # Storage layer (Secure storage, SharedPreferences)
-│   └── utils/              # Utility functions
-├── features/               # Feature modules
-│   ├── auth/               # Authentication module
-│   ├── trips/              # Trips module
-│   ├── maps/               # Maps module
-│   ├── spots/              # Spots module
-│   └── payment/            # Payment module
-├── shared/                 # Shared components
-│   ├── widgets/           # Reusable widgets
-│   └── models/            # Shared data models
-└── services/              # Service layer
+├── core/               # Core utilities (network, storage, constants)
+├── features/           # Feature modules
+│   ├── auth/          # Authentication
+│   ├── trips/         # Trip management
+│   └── map/           # Map and spot discovery
+└── shared/            # Shared models and utilities
 ```
 
-## 🛠️ Tech Stack
+## Features
 
-- **Framework**: Flutter 3.24+
-- **State Management**: Riverpod
-- **Routing**: GoRouter
-- **Network**: Dio
-- **Local Storage**: Hive, SharedPreferences, Flutter Secure Storage
-- **Maps**: Mapbox Maps Flutter SDK
-- **Authentication**: Google Sign-In, Firebase Auth
-- **Payment**: Flutter Stripe
+### Phase 1 (Current)
+- ✅ User authentication (login/register)
+- ✅ Trip management (create, list, view)
+- ✅ Spot management (wishlist, today's plan, visited)
+- ✅ Map view with markers
+- ✅ Tag-based filtering
+- ✅ Check-in flow with ratings and notes
 
-## 📝 Development Guidelines
+### Phase 2 (Upcoming)
+- Photo upload for visited spots
+- AI-powered photo recognition
+- Stripe payment integration
+- Social sharing features
 
-- Follow the [Flutter Style Guide](https://flutter.dev/docs/development/ui/widgets-intro)
-- Use `flutter analyze` to check code quality
-- Run `flutter format .` before committing
-- Write tests for critical functionality
+## Backend
 
-## 🔐 Environment Variables
-
-Create `.env.dev`, `.env.staging`, and `.env.production` files with the following variables:
-
-- `API_BASE_URL`: Backend API base URL
-- `MAPBOX_ACCESS_TOKEN`: Mapbox access token
-- `GOOGLE_CLIENT_ID`: Google OAuth client ID
-- `STRIPE_PUBLISHABLE_KEY`: Stripe publishable key
-- `OPENAI_API_KEY` / `GEMINI_API_KEY`: AI service API keys
-
-## 📱 Platform-Specific Setup
-
-### iOS
-1. Open `ios/Runner.xcworkspace` in Xcode
-2. Configure signing and capabilities
-3. Add GoogleService-Info.plist for Firebase/Google Sign-In
-
-### Android
-1. Configure `android/app/build.gradle`
-2. Add `google-services.json` for Firebase/Google Sign-In
-3. Configure signing configs for release builds
-
-### Web
-1. Configure CORS settings if needed
-2. Set up hosting (Firebase Hosting, Vercel, etc.)
-
-## 🧪 Testing
+Make sure the backend API is running before using the app:
 
 ```bash
-# Run unit tests
-flutter test
-
-# Run integration tests
-flutter test integration_test/
+cd ../wanderlog_api
+npm install
+npm run dev
 ```
 
-## 📄 License
+## Troubleshooting
 
-[Your License Here]
+### Build Runner Issues
 
+If you encounter issues with code generation:
+
+```bash
+flutter clean
+flutter pub get
+flutter pub run build_runner build --delete-conflicting-outputs
+```
+
+### iOS Simulator
+
+If the app doesn't launch on iOS simulator:
+
+```bash
+cd ios
+pod install
+cd ..
+flutter run
+```
+
+## Development
+
+### State Management
+
+This app uses Riverpod for state management. Key providers:
+- `authProvider`: Authentication state
+- `tripsProvider`: Trip list
+- `spotsProvider`: Spots with filters
+
+### API Integration
+
+All API calls go through repositories in `lib/features/*/data/`.
+
+### Adding New Features
+
+1. Create feature folder in `lib/features/`
+2. Add data layer (repository)
+3. Add providers
+4. Add presentation layer (pages/widgets)
+5. Update router in `lib/core/utils/app_router.dart`
+
+## License
+
+MIT

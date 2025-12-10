@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../providers/spots_provider.dart';
+import '../../../auth/providers/auth_provider.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
+
+  @override
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  int _selectedIndex = 0;
 
   static const _mockTrips = [
     {
@@ -19,6 +29,24 @@ class HomePage extends StatelessWidget {
     },
   ];
 
+  void _onNavItemTapped(int index) {
+    setState(() => _selectedIndex = index);
+    switch (index) {
+      case 0:
+        // Already on home, do nothing
+        break;
+      case 1:
+        context.push('/trips');
+        break;
+      case 2:
+        // Profile page - placeholder
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile page coming soon')),
+        );
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -26,7 +54,7 @@ class HomePage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            _Header(),
+            _Header(ref: ref),
             const SizedBox(height: 12),
             _SearchBar(),
             const SizedBox(height: 16),
@@ -49,7 +77,10 @@ class HomePage extends StatelessWidget {
                 },
               ),
             ),
-            const _BottomNav(),
+            _BottomNav(
+              selectedIndex: _selectedIndex,
+              onItemTapped: _onNavItemTapped,
+            ),
           ],
         ),
       ),
@@ -57,9 +88,16 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
+  final WidgetRef ref;
+  
+  const _Header({required this.ref});
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final isAuthenticated = authState.isAuthenticated;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -71,10 +109,20 @@ class _Header extends StatelessWidget {
                 ),
           ),
           const Spacer(),
-          TextButton(
-            onPressed: () => context.go('/login'),
-            child: const Text('sign in'),
-          ),
+          if (isAuthenticated)
+            IconButton(
+              icon: const Icon(Icons.account_circle),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profile coming soon')),
+                );
+              },
+            )
+          else
+            TextButton(
+              onPressed: () => context.go('/login'),
+              child: const Text('sign in'),
+            ),
         ],
       ),
     );
@@ -259,7 +307,13 @@ class _Chip extends StatelessWidget {
 }
 
 class _BottomNav extends StatelessWidget {
-  const _BottomNav();
+  final int selectedIndex;
+  final Function(int) onItemTapped;
+
+  const _BottomNav({
+    required this.selectedIndex,
+    required this.onItemTapped,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -271,10 +325,22 @@ class _BottomNav extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          _NavItem(label: 'Home', active: true),
-          _NavItem(label: 'MyLand'),
-          _NavItem(label: 'Profile'),
+        children: [
+          _NavItem(
+            label: 'Home',
+            active: selectedIndex == 0,
+            onTap: () => onItemTapped(0),
+          ),
+          _NavItem(
+            label: 'MyLand',
+            active: selectedIndex == 1,
+            onTap: () => onItemTapped(1),
+          ),
+          _NavItem(
+            label: 'Profile',
+            active: selectedIndex == 2,
+            onTap: () => onItemTapped(2),
+          ),
         ],
       ),
     );
@@ -282,20 +348,28 @@ class _BottomNav extends StatelessWidget {
 }
 
 class _NavItem extends StatelessWidget {
-  const _NavItem({required this.label, this.active = false});
+  const _NavItem({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   final String label;
   final bool active;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final color = active ? Colors.yellow.shade700 : Colors.grey.shade600;
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: color,
+    return GestureDetector(
+      onTap: onTap,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }

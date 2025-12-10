@@ -6,17 +6,70 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
-// TODO: Add your database models here
-// Example:
-// model User {
-//   id        String   @id @default(cuid())
-//   email     String   @unique
-//   name      String?
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  trips     Trip[]
+}
 
+model Spot {
+  id            String     @id @default(cuid())
+  googlePlaceId String     @unique
+  name          String
+  latitude      Float
+  longitude     Float
+  address       String?
+  category      String?    // e.g., restaurant, museum, park
+  tags          String?    // JSON string: ["coffee", "cozy", "wifi"]
+  openingHours  String?    // JSON string: structured opening hours
+  images        String?    // JSON string: URLs of images
+  rating        Float?     // Google rating
+  priceLevel    Int?       // 0-4
+  website       String?
+  phoneNumber   String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  tripSpots     TripSpot[]
+}
+
+model Trip {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id])
+  name       String     // e.g., "Tokyo Trip"
+  city       String?    // e.g., "Tokyo"
+  startDate  DateTime?
+  endDate    DateTime?
+  coverImage String?
+  status     String     @default("PLANNING") // PLANNING, ACTIVE, COMPLETED
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  tripSpots  TripSpot[]
+}
+
+model TripSpot {
+  id         String    @id @default(cuid())
+  tripId     String
+  trip       Trip      @relation(fields: [tripId], references: [id])
+  spotId     String
+  spot       Spot      @relation(fields: [spotId], references: [id])
+  status     String    @default("WISHLIST") // WISHLIST, TODAYS_PLAN, VISITED
+  priority   String    @default("OPTIONAL") // MUST_GO, OPTIONAL
+  visitDate  DateTime? // Planned or actual visit date
+  userRating Int?      // 1-5
+  userNotes  String?
+  userPhotos String?   // JSON string: URLs of user uploaded photos
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([tripId, spotId])
+}

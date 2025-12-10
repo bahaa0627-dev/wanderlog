@@ -34,13 +34,13 @@ dependencies:
   go_router: ^13.0.0
   
   # Maps
-  mapbox_maps_flutter: ^1.0.0
+  mapbox_maps_flutter: ^2.0.0
   # Alternative: flutter_map: ^7.0.2
   
   # Authentication
   google_sign_in: ^6.2.1
-  firebase_auth: ^4.16.0
-  firebase_core: ^2.27.0
+  firebase_auth: ^5.3.3
+  firebase_core: ^3.8.1
   
   # Payment
   flutter_stripe: ^11.1.0
@@ -54,7 +54,7 @@ dependencies:
   intl: ^0.19.0
   timezone: ^0.9.2
   url_launcher: ^6.2.4
-  package_info_plus: ^5.0.1
+  package_info_plus: ^9.0.0
   device_info_plus: ^9.1.1
   
   # Logging
@@ -97,4 +97,6 @@ flutter:
   #   - family: CustomFont
   #     fonts:
   #       - asset: assets/fonts/CustomFont-Regular.ttf
+
+
 

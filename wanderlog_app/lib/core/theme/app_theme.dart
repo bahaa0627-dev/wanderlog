@@ -134,12 +134,10 @@ class AppTheme {
       primary: primaryYellow,
       secondary: accentPink,
       surface: white,
-      background: background,
       error: Colors.red.shade400,
       onPrimary: black,
       onSecondary: white,
       onSurface: black,
-      onBackground: black,
     ),
     scaffoldBackgroundColor: background,
     appBarTheme: AppBarTheme(

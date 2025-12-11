@@ -4,8 +4,7 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 /// 主要卡片样式 - 带黑色边框和阴影
 class PrimaryCard extends StatelessWidget {
   const PrimaryCard({
-    super.key,
-    required this.child,
+    required this.child, super.key,
     this.color,
     this.padding,
     this.onTap,
@@ -17,8 +16,7 @@ class PrimaryCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: onTap,
       child: Container(
         padding: padding ?? const EdgeInsets.all(20),
@@ -34,14 +32,12 @@ class PrimaryCard extends StatelessWidget {
         child: child,
       ),
     );
-  }
 }
 
 /// 黄色强调卡片 - 主题色背景
 class AccentCard extends StatelessWidget {
   const AccentCard({
-    super.key,
-    required this.child,
+    required this.child, super.key,
     this.padding,
     this.onTap,
   });
@@ -51,8 +47,7 @@ class AccentCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: onTap,
       child: Container(
         padding: padding ?? const EdgeInsets.all(20),
@@ -68,14 +63,12 @@ class AccentCard extends StatelessWidget {
         child: child,
       ),
     );
-  }
 }
 
 /// 弱样式卡片 - 无边框，浅色背景
 class SubtleCard extends StatelessWidget {
   const SubtleCard({
-    super.key,
-    required this.child,
+    required this.child, super.key,
     this.padding,
     this.onTap,
   });
@@ -85,8 +78,7 @@ class SubtleCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: onTap,
       child: Container(
         padding: padding ?? const EdgeInsets.all(16),
@@ -101,15 +93,12 @@ class SubtleCard extends StatelessWidget {
         child: child,
       ),
     );
-  }
 }
 
 /// 主要按钮 - 黄色背景，黑色边框
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
-    super.key,
-    required this.onPressed,
-    required this.text,
+    required this.onPressed, required this.text, super.key,
     this.icon,
     this.isLoading = false,
   });
@@ -120,8 +109,7 @@ class PrimaryButton extends StatelessWidget {
   final bool isLoading;
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
+  Widget build(BuildContext context) => Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: isLoading ? null : onPressed,
@@ -165,15 +153,12 @@ class PrimaryButton extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 
 /// 次要按钮 - 白色背景，黑色边框
 class SecondaryButton extends StatelessWidget {
   const SecondaryButton({
-    super.key,
-    required this.onPressed,
-    required this.text,
+    required this.onPressed, required this.text, super.key,
     this.icon,
   });
 
@@ -182,8 +167,7 @@ class SecondaryButton extends StatelessWidget {
   final IconData? icon;
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
+  Widget build(BuildContext context) => Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
@@ -215,15 +199,12 @@ class SecondaryButton extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 
 /// 文本按钮 - 无背景
 class TextButtonCustom extends StatelessWidget {
   const TextButtonCustom({
-    super.key,
-    required this.onPressed,
-    required this.text,
+    required this.onPressed, required this.text, super.key,
     this.color,
   });
 
@@ -232,8 +213,7 @@ class TextButtonCustom extends StatelessWidget {
   final Color? color;
 
   @override
-  Widget build(BuildContext context) {
-    return TextButton(
+  Widget build(BuildContext context) => TextButton(
       onPressed: onPressed,
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -246,14 +226,12 @@ class TextButtonCustom extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 
 /// 搜索框
 class SearchBox extends StatelessWidget {
   const SearchBox({
-    super.key,
-    required this.hintText,
+    required this.hintText, super.key,
     this.onChanged,
     this.onTap,
     this.controller,
@@ -267,8 +245,7 @@ class SearchBox extends StatelessWidget {
   final bool readOnly;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       decoration: BoxDecoration(
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
@@ -301,14 +278,12 @@ class SearchBox extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 
 /// 标签芯片
 class TagChip extends StatelessWidget {
   const TagChip({
-    super.key,
-    required this.label,
+    required this.label, super.key,
     this.isSelected = false,
     this.onTap,
     this.color,
@@ -320,8 +295,7 @@ class TagChip extends StatelessWidget {
   final Color? color;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -345,14 +319,12 @@ class TagChip extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 
 /// 徽章标签
 class CustomBadge extends StatelessWidget {
   const CustomBadge({
-    super.key,
-    required this.text,
+    required this.text, super.key,
     this.color,
   });
 
@@ -360,8 +332,7 @@ class CustomBadge extends StatelessWidget {
   final Color? color;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: color ?? AppTheme.accentPink,
@@ -379,15 +350,12 @@ class CustomBadge extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 
 /// 图标按钮
 class IconButtonCustom extends StatelessWidget {
   const IconButtonCustom({
-    super.key,
-    required this.icon,
-    required this.onPressed,
+    required this.icon, required this.onPressed, super.key,
     this.size = 48,
     this.backgroundColor,
   });
@@ -398,8 +366,7 @@ class IconButtonCustom extends StatelessWidget {
   final Color? backgroundColor;
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
+  Widget build(BuildContext context) => Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
@@ -423,5 +390,4 @@ class IconButtonCustom extends StatelessWidget {
         ),
       ),
     );
-  }
 }

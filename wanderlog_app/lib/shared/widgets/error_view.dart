@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 class ErrorView extends StatelessWidget {
 
   const ErrorView({
-    super.key,
-    required this.message,
+    required this.message, super.key,
     this.onRetry,
     this.icon = Icons.error_outline,
   });

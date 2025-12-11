@@ -26,15 +26,10 @@ class TripSpot {
     required this.id,
     required this.tripId,
     required this.spotId,
-    this.spot,
-    required this.status,
-    required this.priority,
+    required this.status, required this.priority, required this.userPhotos, required this.createdAt, required this.updatedAt, this.spot,
     this.visitDate,
     this.userRating,
     this.userNotes,
-    required this.userPhotos,
-    required this.createdAt,
-    required this.updatedAt,
   });
 
   factory TripSpot.fromJson(Map<String, dynamic> json) =>

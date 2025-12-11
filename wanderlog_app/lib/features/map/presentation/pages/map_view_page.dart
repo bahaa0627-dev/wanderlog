@@ -74,9 +74,9 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
               });
               return const SizedBox.shrink();
             },
-            loading: () => ColoredBox(
+            loading: () => const ColoredBox(
               color: Colors.black26,
-              child: const Center(child: CircularProgressIndicator()),
+              child: Center(child: CircularProgressIndicator()),
             ),
             error: (error, stack) => ColoredBox(
               color: Colors.black26,

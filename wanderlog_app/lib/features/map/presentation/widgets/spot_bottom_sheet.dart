@@ -6,7 +6,7 @@ import 'package:wanderlog/shared/models/trip_spot_model.dart';
 
 class SpotBottomSheet extends ConsumerStatefulWidget {
 
-  const SpotBottomSheet({super.key, required this.spot});
+  const SpotBottomSheet({required this.spot, super.key});
   final Spot spot;
 
   @override
@@ -118,7 +118,7 @@ class _SpotBottomSheetState extends ConsumerState<SpotBottomSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.location_on_outlined,
-                          size: 18, color: Colors.grey.shade600),
+                          size: 18, color: Colors.grey.shade600,),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -196,7 +196,7 @@ class _SpotBottomSheetState extends ConsumerState<SpotBottomSheet> {
                             labelText: 'Select Trip',
                             border: OutlineInputBorder(),
                           ),
-                          value: _selectedTripId,
+                          initialValue: _selectedTripId,
                           items: trips
                               .map(
                                 (trip) => DropdownMenuItem(

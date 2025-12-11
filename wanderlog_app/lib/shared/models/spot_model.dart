@@ -11,17 +11,13 @@ class Spot {
     required this.name,
     required this.latitude,
     required this.longitude,
-    this.address,
+    required this.tags, required this.images, required this.createdAt, required this.updatedAt, this.address,
     this.category,
-    required this.tags,
     this.openingHours,
-    required this.images,
     this.rating,
     this.priceLevel,
     this.website,
     this.phoneNumber,
-    required this.createdAt,
-    required this.updatedAt,
   });
 
   factory Spot.fromJson(Map<String, dynamic> json) => _$SpotFromJson(json);

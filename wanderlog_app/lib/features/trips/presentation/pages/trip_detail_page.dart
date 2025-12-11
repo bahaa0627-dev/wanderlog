@@ -6,7 +6,7 @@ import 'package:wanderlog/features/trips/presentation/widgets/spot_list_item.dar
 
 class TripDetailPage extends ConsumerStatefulWidget {
 
-  const TripDetailPage({super.key, required this.tripId});
+  const TripDetailPage({required this.tripId, super.key});
   final String tripId;
 
   @override

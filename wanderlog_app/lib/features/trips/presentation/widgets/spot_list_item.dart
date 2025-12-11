@@ -9,9 +9,7 @@ import 'package:wanderlog/core/providers/dio_provider.dart';
 class SpotListItem extends ConsumerWidget {
 
   const SpotListItem({
-    super.key,
-    required this.tripId,
-    required this.tripSpot,
+    required this.tripId, required this.tripSpot, super.key,
     this.showOpeningHours = false,
     this.showRating = false,
   });

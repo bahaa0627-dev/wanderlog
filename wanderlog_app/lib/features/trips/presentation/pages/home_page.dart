@@ -16,6 +16,7 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   int _selectedIndex = 0;
   int _selectedTab = 0; // 0: Album, 1: Map
+  bool _isMapFullscreen = false;
 
   static const _mockTrips = [
     {
@@ -23,42 +24,48 @@ class _HomePageState extends ConsumerState<HomePage> {
       'count': 50,
       'title': '3 day in copenhagen',
       'tags': ['architecture', 'coffee', 'bread', 'brunch'],
-      'image': 'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800', // 哥本哈根
+      'image':
+          'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800', // 哥本哈根
     },
     {
       'city': 'Porto',
       'count': 10,
       'title': 'Amazing Architectures in Porto',
       'tags': ['architecture', 'Siza'],
-      'image': 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800', // 波尔图
+      'image':
+          'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800', // 波尔图
     },
     {
       'city': 'Paris',
       'count': 85,
       'title': 'Romance & Art in Paris',
       'tags': ['museum', 'cafe', 'fashion'],
-      'image': 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800', // 巴黎
+      'image':
+          'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800', // 巴黎
     },
     {
       'city': 'Tokyo',
       'count': 120,
       'title': 'Tokyo Street Food Adventure',
       'tags': ['food', 'culture', 'nightlife'],
-      'image': 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800', // 东京
+      'image':
+          'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800', // 东京
     },
     {
       'city': 'Barcelona',
       'count': 65,
       'title': 'Gaudi & Beach Vibes',
       'tags': ['architecture', 'beach', 'tapas'],
-      'image': 'https://images.unsplash.com/photo-1583422409516-2895a77efded?w=800', // 巴塞罗那
+      'image':
+          'https://images.unsplash.com/photo-1583422409516-2895a77efded?w=800', // 巴塞罗那
     },
     {
       'city': 'Amsterdam',
       'count': 42,
       'title': 'Bikes & Canals',
       'tags': ['canal', 'museum', 'cafe'],
-      'image': 'https://images.unsplash.com/photo-1534351590666-13e3e96b5017?w=800', // 阿姆斯特丹
+      'image':
+          'https://images.unsplash.com/photo-1534351590666-13e3e96b5017?w=800', // 阿姆斯特丹
     },
   ];
 
@@ -80,70 +87,91 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
+  void _handleMapFullscreenChanged(bool isFullscreen) {
+    if (_isMapFullscreen == isFullscreen) {
+      return;
+    }
+    setState(() => _isMapFullscreen = isFullscreen);
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _Header(ref: ref),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SearchBox(
-                hintText: 'Where you wanna go?',
-                readOnly: true,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Search coming soon')),
-                  );
-                },
+        backgroundColor: AppTheme.background,
+        body: SafeArea(
+          top: !_isMapFullscreen,
+          bottom: !_isMapFullscreen,
+          child: Column(
+            children: [
+              if (!_isMapFullscreen) ...[
+                _Header(ref: ref),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SearchBox(
+                    hintText: 'Where you wanna go?',
+                    readOnly: true,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Search coming soon')),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _TabSwitcher(
+                  selectedTab: _selectedTab,
+                  onTabChanged: (index) {
+                    setState(() {
+                      _selectedTab = index;
+                      if (index != 1) {
+                        _isMapFullscreen = false;
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+              Expanded(
+                child: _selectedTab == 0
+                    ? GridView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 3 / 4, // 3:4 竖向构图
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        itemCount: _mockTrips.length,
+                        itemBuilder: (context, index) {
+                          final trip = _mockTrips[index];
+                          return _TripCard(
+                            city: trip['city'] as String,
+                            count: trip['count'] as int,
+                            title: trip['title'] as String,
+                            tags: (trip['tags'] as List<String>)
+                                .map((t) => '#$t')
+                                .toList(),
+                            imageUrl: trip['image'] as String,
+                          );
+                        },
+                      )
+                    : MapPage(
+                        onFullscreenChanged: _handleMapFullscreenChanged,
+                      ), // 显示地图页面
               ),
-            ),
-            const SizedBox(height: 20),
-            _TabSwitcher(
-              selectedTab: _selectedTab,
-              onTabChanged: (index) {
-                setState(() => _selectedTab = index);
-              },
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _selectedTab == 0
-                  ? GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 3 / 4, // 3:4 竖向构图
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                      ),
-                      itemCount: _mockTrips.length,
-                      itemBuilder: (context, index) {
-                        final trip = _mockTrips[index];
-                        return _TripCard(
-                          city: trip['city'] as String,
-                          count: trip['count'] as int,
-                          title: trip['title'] as String,
-                          tags: (trip['tags'] as List<String>).map((t) => '#$t').toList(),
-                          imageUrl: trip['image'] as String,
-                        );
-                      },
-                    )
-                  : const MapPage(), // 显示地图页面
-            ),
-            _BottomNav(
-              selectedIndex: _selectedIndex,
-              onItemTapped: _onNavItemTapped,
-            ),
-          ],
+              if (!_isMapFullscreen)
+                _BottomNav(
+                  selectedIndex: _selectedIndex,
+                  onItemTapped: _onNavItemTapped,
+                ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
 }
 
 class _Header extends ConsumerWidget {
-  
   const _Header({required this.ref});
   final WidgetRef ref;
 
@@ -192,67 +220,71 @@ class _TabSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 60), // 左右各60px margin
-      child: Container(
-        height: 44,
-        decoration: BoxDecoration(
-          color: AppTheme.white,
-          borderRadius: BorderRadius.circular(22), // 全圆角
-          border: Border.all(
-            color: AppTheme.black,
-            width: 1,
+        padding: const EdgeInsets.symmetric(horizontal: 60), // 左右各60px margin
+        child: Container(
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(22), // 全圆角
+            border: Border.all(
+              color: AppTheme.black,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => onTabChanged(0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: selectedTab == 0
+                          ? AppTheme.primaryYellow
+                          : Colors.transparent,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        bottomLeft: Radius.circular(20),
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Album',
+                        style: AppTheme.labelLarge(context),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Container(
+                width: 1,
+                color: AppTheme.black,
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => onTabChanged(1),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: selectedTab == 1
+                          ? AppTheme.primaryYellow
+                          : Colors.transparent,
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(20),
+                        bottomRight: Radius.circular(20),
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Map',
+                        style: AppTheme.labelLarge(context),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onTabChanged(0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: selectedTab == 0 ? AppTheme.primaryYellow : Colors.transparent,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      bottomLeft: Radius.circular(20),
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Album',
-                      style: AppTheme.labelLarge(context),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Container(
-              width: 1,
-              color: AppTheme.black,
-            ),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onTabChanged(1),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: selectedTab == 1 ? AppTheme.primaryYellow : Colors.transparent,
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(20),
-                      bottomRight: Radius.circular(20),
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Map',
-                      style: AppTheme.labelLarge(context),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+      );
 }
 
 class _TripCard extends StatelessWidget {
@@ -272,149 +304,156 @@ class _TripCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-      onTap: () {
-        // Navigate to trip detail
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderThick,
+        onTap: () {
+          // Navigate to trip detail
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+            border: Border.all(
+              color: AppTheme.black,
+              width: AppTheme.borderThick,
+            ),
+            boxShadow: AppTheme.cardShadow,
           ),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppTheme.radiusLarge - 2),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 背景图片
-              Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: AppTheme.lightGray,
-                  child: const Icon(Icons.image, size: 50, color: AppTheme.mediumGray),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge - 2),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 背景图片
+                Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => ColoredBox(
+                    color: AppTheme.lightGray,
+                    child: const Icon(Icons.image,
+                        size: 50, color: AppTheme.mediumGray),
+                  ),
                 ),
-              ),
-              
-              // 底部黑色渐变蒙层
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  height: 150,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
-                        Colors.black.withOpacity(0.9),
-                      ],
+
+                // 底部黑色渐变蒙层
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: 150,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
+                          Colors.black.withOpacity(0.9),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              
-              // 内容层
-              Positioned(
-                left: 12,
-                right: 12,
-                top: 12,
-                bottom: 12,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 顶部标签
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            city.toLowerCase(),
-                            style: AppTheme.labelSmall(context).copyWith(
-                              color: AppTheme.black,
-                              fontWeight: FontWeight.bold,
+
+                // 内容层
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  top: 12,
+                  bottom: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 顶部标签
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryYellow.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              city.toLowerCase(),
+                              style: AppTheme.labelSmall(context).copyWith(
+                                color: AppTheme.black,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                count.toString(),
-                                style: AppTheme.labelSmall(context).copyWith(
-                                  color: AppTheme.black,
-                                  fontWeight: FontWeight.bold,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryYellow.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  count.toString(),
+                                  style: AppTheme.labelSmall(context).copyWith(
+                                    color: AppTheme.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 2),
-                              const Icon(
-                                Icons.location_on,
-                                size: 12,
-                                color: AppTheme.black,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const Spacer(),
-                    
-                    // 底部标题和标签
-                    Text(
-                      title,
-                      style: AppTheme.headlineMedium(context).copyWith(
-                        color: AppTheme.white,
-                        shadows: [
-                          const Shadow(
-                            color: Colors.black,
-                            blurRadius: 4,
+                                const SizedBox(width: 2),
+                                const Icon(
+                                  Icons.location_on,
+                                  size: 12,
+                                  color: AppTheme.black,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: tags.take(2).map((tag) => Text(
-                        tag,
-                        style: AppTheme.labelSmall(context).copyWith(
-                          color: AppTheme.white.withOpacity(0.9),
+
+                      const Spacer(),
+
+                      // 底部标题和标签
+                      Text(
+                        title,
+                        style: AppTheme.headlineMedium(context).copyWith(
+                          color: AppTheme.white,
+                          shadows: [
+                            const Shadow(
+                              color: Colors.black,
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
-                      )).toList(),
-                    ),
-                  ],
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: tags
+                            .take(2)
+                            .map(
+                              (tag) => Text(
+                                tag,
+                                style: AppTheme.labelSmall(context).copyWith(
+                                  color: AppTheme.white.withOpacity(0.9),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
 }
 
 class _BottomNav extends StatelessWidget {
-
   const _BottomNav({
     required this.selectedIndex,
     required this.onItemTapped,
@@ -424,37 +463,37 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        border: Border(
-          top: BorderSide(
-            color: AppTheme.black,
-            width: AppTheme.borderMedium,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        decoration: const BoxDecoration(
+          color: AppTheme.white,
+          border: Border(
+            top: BorderSide(
+              color: AppTheme.black,
+              width: AppTheme.borderMedium,
+            ),
           ),
         ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _NavItem(
-            label: 'Home',
-            active: selectedIndex == 0,
-            onTap: () => onItemTapped(0),
-          ),
-          _NavItem(
-            label: 'MyLand',
-            active: selectedIndex == 1,
-            onTap: () => onItemTapped(1),
-          ),
-          _NavItem(
-            label: 'Profile',
-            active: selectedIndex == 2,
-            onTap: () => onItemTapped(2),
-          ),
-        ],
-      ),
-    );
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _NavItem(
+              label: 'Home',
+              active: selectedIndex == 0,
+              onTap: () => onItemTapped(0),
+            ),
+            _NavItem(
+              label: 'MyLand',
+              active: selectedIndex == 1,
+              onTap: () => onItemTapped(1),
+            ),
+            _NavItem(
+              label: 'Profile',
+              active: selectedIndex == 2,
+              onTap: () => onItemTapped(2),
+            ),
+          ],
+        ),
+      );
 }
 
 class _NavItem extends StatelessWidget {
@@ -469,25 +508,22 @@ class _NavItem extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: active
-            ? BoxDecoration(
-                color: AppTheme.primaryYellow,
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              )
-            : null,
-        child: Text(
-          label,
-          style: AppTheme.labelLarge(context).copyWith(
-            color: active ? AppTheme.black : AppTheme.mediumGray,
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: active
+              ? BoxDecoration(
+                  color: AppTheme.primaryYellow,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                )
+              : null,
+          child: Text(
+            label,
+            style: AppTheme.labelLarge(context).copyWith(
+              color: active ? AppTheme.black : AppTheme.mediumGray,
+            ),
           ),
         ),
-      ),
-    );
-  }
+      );
 }
-

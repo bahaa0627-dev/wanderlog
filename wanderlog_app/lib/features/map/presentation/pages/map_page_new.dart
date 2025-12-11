@@ -1,24 +1,15 @@
+import 'dart:async';
+import 'dart:io' show File;
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart' as picker;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 
-// Mock spot data model
 class Spot {
-  final String id;
-  final String name;
-  final String city;
-  final String category;
-  final double latitude;
-  final double longitude;
-  final double rating;
-  final int ratingCount;
-  final String coverImage;
-  final List<String> images;
-  final List<String> tags;
-  final String? aiSummary;
-
   Spot({
     required this.id,
     required this.name,
@@ -33,34 +24,126 @@ class Spot {
     required this.tags,
     this.aiSummary,
   });
+
+  final String id;
+  final String name;
+  final String city;
+  final String category;
+  final double latitude;
+  final double longitude;
+  final double rating;
+  final int ratingCount;
+  final String coverImage;
+  final List<String> images;
+  final List<String> tags;
+  final String? aiSummary;
+}
+
+class MapPageSnapshot {
+  MapPageSnapshot({
+    required this.selectedCity,
+    this.selectedSpot,
+    required this.selectedTags,
+    this.currentCenter,
+    required this.currentZoom,
+    this.searchImage,
+    required this.carouselSpots,
+    required this.currentCardIndex,
+  });
+
+  final String selectedCity;
+  final Spot? selectedSpot;
+  final Set<String> selectedTags;
+  final Position? currentCenter;
+  final double currentZoom;
+  final picker.XFile? searchImage;
+  final List<Spot> carouselSpots;
+  final int currentCardIndex;
+
+  MapPageSnapshot copyWith({
+    String? selectedCity,
+    Spot? selectedSpot,
+    Set<String>? selectedTags,
+    Position? currentCenter,
+    double? currentZoom,
+    picker.XFile? searchImage,
+    List<Spot>? carouselSpots,
+    int? currentCardIndex,
+  }) =>
+      MapPageSnapshot(
+        selectedCity: selectedCity ?? this.selectedCity,
+        selectedSpot: selectedSpot ?? this.selectedSpot,
+        selectedTags: selectedTags != null
+            ? Set<String>.from(selectedTags)
+            : Set<String>.from(this.selectedTags),
+        currentCenter: currentCenter ?? this.currentCenter,
+        currentZoom: currentZoom ?? this.currentZoom,
+        searchImage: searchImage ?? this.searchImage,
+        carouselSpots: carouselSpots != null
+            ? List<Spot>.from(carouselSpots)
+            : List<Spot>.from(this.carouselSpots),
+        currentCardIndex: currentCardIndex ?? this.currentCardIndex,
+      );
 }
 
 class MapPage extends ConsumerStatefulWidget {
-  const MapPage({super.key});
+  const MapPage({
+    super.key,
+    this.startFullscreen = false,
+    this.initialSnapshot,
+    this.initialSpotOverride,
+    this.onExitFullscreen,
+    this.onFullscreenChanged,
+  });
+
+  final bool startFullscreen;
+  final MapPageSnapshot? initialSnapshot;
+  final Spot? initialSpotOverride;
+  final ValueChanged<MapPageSnapshot>? onExitFullscreen;
+  final ValueChanged<bool>? onFullscreenChanged;
 
   @override
   ConsumerState<MapPage> createState() => _MapPageState();
 }
 
 class _MapPageState extends ConsumerState<MapPage> {
-  MapboxMap? _mapboxMap;
-  String _selectedCity = 'Copenhagen';
-  Spot? _selectedSpot;
-  bool _isFullscreen = false;
-  final TextEditingController _searchController = TextEditingController();
-  final PageController _cardPageController =
-      PageController(viewportFraction: 0.85);
-  int _currentCardIndex = 0;
-
-  final List<String> _cities = [
+  static const String _mapHeroTag = 'map-page-map-hero';
+  static const List<String> _cityOrder = [
     'Copenhagen',
     'Berlin',
     'Porto',
     'Paris',
     'Tokyo',
     'Barcelona',
-    'Amsterdam'
+    'Amsterdam',
   ];
+
+  static const List<String> _tagOptions = [
+    'Architecture',
+    'Museum',
+    'Coffee',
+    'Food',
+    'Nature',
+    'History',
+    'Culture',
+  ];
+
+  MapboxMap? _mapboxMap;
+  late String _selectedCity;
+  Spot? _selectedSpot;
+  late bool _isFullscreen;
+  late final bool _isOverlayInstance;
+  final TextEditingController _searchController = TextEditingController();
+  late final PageController _cardPageController;
+  int _currentCardIndex = 0;
+  Position? _currentMapCenter;
+  double _currentZoom = 13.0;
+  final Set<String> _selectedTags = {};
+  picker.XFile? _searchPickedImage;
+  List<Spot> _carouselSpots = const [];
+  bool _hasRequestedExit = false;
+
+  late final Map<String, List<Spot>> _spotsByCity;
 
   final Map<String, Position> _cityCoordinates = {
     'Copenhagen': Position(12.5683, 55.6761),
@@ -72,474 +155,508 @@ class _MapPageState extends ConsumerState<MapPage> {
     'Amsterdam': Position(4.9041, 52.3676),
   };
 
-  List<Spot> get _spots => [
-        Spot(
-          id: '1',
-          name: 'Design Museum',
-          city: 'Copenhagen',
-          category: 'Museum',
-          latitude: 55.6841,
-          longitude: 12.5934,
-          rating: 4.6,
-          ratingCount: 295,
-          coverImage:
-              'https://images.unsplash.com/photo-1565967511849-76a60a516170?w=800',
-          images: [
-            'https://images.unsplash.com/photo-1565967511849-76a60a516170?w=800',
-            'https://images.unsplash.com/photo-1580974852861-c381510bc98a?w=800',
-            'https://images.unsplash.com/photo-1513519245088-0e3ad0b04d77?w=800',
-          ],
-          tags: ['Museum', 'Art', 'Architecture', 'Design'],
-          aiSummary:
-              'Visitors love the modern design, exhibitions, and atmosphere. A must-visit for design enthusiasts with rotating exhibits.',
-        ),
-        Spot(
-          id: '2',
-          name: 'Torvehallerne',
-          city: 'Copenhagen',
-          category: 'Food',
-          latitude: 55.6839,
-          longitude: 12.5702,
-          rating: 4.5,
-          ratingCount: 412,
-          coverImage:
-              'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800',
-          images: [
-            'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800',
-            'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=800',
-          ],
-          tags: ['Food', 'Shopping', 'Market'],
-          aiSummary:
-              'Visitors love the fresh food, variety, and local atmosphere. Perfect spot for sampling Danish cuisine and local products.',
-        ),
-        Spot(
-          id: '3',
-          name: 'The Coffee Collective',
-          city: 'Copenhagen',
-          category: 'Coffee',
-          latitude: 55.6819,
-          longitude: 12.5778,
-          rating: 4.7,
-          ratingCount: 189,
-          coverImage:
-              'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=800',
-          images: [
-            'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=800',
-            'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800',
-          ],
-          tags: ['Coffee', 'Cafe'],
-          aiSummary:
-              'Visitors love the quality coffee, friendly staff, and cozy vibe. One of the best specialty coffee spots in Copenhagen.',
-        ),
-        Spot(
-          id: '4',
-          name: 'Vor Frelsers Kirke',
-          city: 'Copenhagen',
-          category: 'Church',
-          latitude: 55.6728,
-          longitude: 12.5941,
-          rating: 4.8,
-          ratingCount: 521,
-          coverImage:
-              'https://images.unsplash.com/photo-1605106715994-18d3fecffb98?w=800',
-          images: [
-            'https://images.unsplash.com/photo-1605106715994-18d3fecffb98?w=800',
-            'https://images.unsplash.com/photo-1519217812444-a8002ce4e296?w=800',
-          ],
-          tags: ['Church', 'Architecture', 'Historic'],
-          aiSummary:
-              'Visitors love the tower climb, views, and baroque architecture. The spiral staircase offers breathtaking views of Copenhagen.',
-        ),
-        Spot(
-          id: '5',
-          name: 'Nyhavn',
-          city: 'Copenhagen',
-          category: 'Attraction',
-          latitude: 55.6798,
-          longitude: 12.5912,
-          rating: 4.7,
-          ratingCount: 1250,
-          coverImage:
-              'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800',
-          images: [
-            'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800',
-            'https://images.unsplash.com/photo-1564629876375-607ed50d0f6b?w=800',
-          ],
-          tags: ['Waterfront', 'Historic', 'Dining'],
-          aiSummary:
-              'Visitors love the colorful buildings, canal views, and vibrant atmosphere. Perfect for a stroll and dining by the water.',
-        ),
-        Spot(
-          id: '6',
-          name: 'Tivoli Gardens',
-          city: 'Copenhagen',
-          category: 'Park',
-          latitude: 55.6738,
-          longitude: 12.5681,
-          rating: 4.6,
-          ratingCount: 2843,
-          coverImage:
-              'https://images.unsplash.com/photo-1551269901-5c5e14c25df7?w=800',
-          images: [
-            'https://images.unsplash.com/photo-1551269901-5c5e14c25df7?w=800',
-            'https://images.unsplash.com/photo-1594618547556-114f3c32d31c?w=800',
-          ],
-          tags: ['Park', 'Entertainment', 'Family'],
-          aiSummary:
-              'Visitors love the rides, gardens, and magical atmosphere. One of the oldest amusement parks in the world with beautiful gardens.',
-        ),
-        // Berlin spots
-        Spot(
-          id: '7',
-          name: 'Brandenburg Gate',
-          city: 'Berlin',
-          category: 'Attraction',
-          latitude: 52.5163,
-          longitude: 13.3777,
-          rating: 4.7,
-          ratingCount: 3542,
-          coverImage:
-              'https://images.unsplash.com/photo-1560969184-10fe8719e047?w=800',
-          images: [
-            'https://images.unsplash.com/photo-1560969184-10fe8719e047?w=800',
-            'https://images.unsplash.com/photo-1599946347371-68eb71b16afc?w=800',
-          ],
-          tags: ['Historic', 'Architecture', 'Landmark'],
-          aiSummary:
-              'Iconic 18th-century neoclassical monument and symbol of Berlin. A must-visit historical landmark.',
-        ),
-        Spot(
-          id: '8',
-          name: 'Museum Island',
-          city: 'Berlin',
-          category: 'Museum',
-          latitude: 52.5210,
-          longitude: 13.3983,
-          rating: 4.8,
-          ratingCount: 2156,
-          coverImage:
-              'https://images.unsplash.com/photo-1566463384861-0ebb800f4c0c?w=800',
-          images: [
-            'https://images.unsplash.com/photo-1566463384861-0ebb800f4c0c?w=800',
-            'https://images.unsplash.com/photo-1584554226349-0e2e83d00605?w=800',
-          ],
-          tags: ['Museum', 'Art', 'Culture', 'Historic'],
-          aiSummary:
-              'UNESCO World Heritage site with five world-renowned museums. Art and culture lovers paradise.',
-        ),
-        Spot(
-          id: '9',
-          name: 'Tiergarten',
-          city: 'Berlin',
-          category: 'Park',
-          latitude: 52.5144,
-          longitude: 13.3501,
-          rating: 4.6,
-          ratingCount: 1823,
-          coverImage:
-              'https://images.unsplash.com/photo-1591269373071-e6cf8eda67b1?w=800',
-          images: [
-            'https://images.unsplash.com/photo-1591269373071-e6cf8eda67b1?w=800',
-            'https://images.unsplash.com/photo-1513407030348-c983a97b98d8?w=800',
-          ],
-          tags: ['Park', 'Nature', 'Outdoor'],
-          aiSummary:
-              'Berlin\'s most popular inner-city park. Perfect for walking, cycling, and relaxing in nature.',
-        ),
-        Spot(
-          id: '10',
-          name: 'Kaffeebar',
-          city: 'Berlin',
-          category: 'Coffee',
-          latitude: 52.5234,
-          longitude: 13.4114,
-          rating: 4.5,
-          ratingCount: 412,
-          coverImage:
-              'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800',
-          images: [
-            'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800',
-          ],
-          tags: ['Coffee', 'Cafe'],
-          aiSummary:
-              'Cozy coffee shop with excellent espresso and friendly atmosphere. Local favorite.',
-        ),
-        Spot(
-          id: '11',
-          name: 'Berlin Cathedral',
-          city: 'Berlin',
-          category: 'Church',
-          latitude: 52.5192,
-          longitude: 13.4013,
-          rating: 4.7,
-          ratingCount: 1834,
-          coverImage:
-              'https://images.unsplash.com/photo-1599946347371-68eb71b16afc?w=800',
-          images: [
-            'https://images.unsplash.com/photo-1599946347371-68eb71b16afc?w=800',
-          ],
-          tags: ['Church', 'Architecture', 'Historic'],
-          aiSummary:
-              'Stunning baroque cathedral with dome access offering panoramic city views. Beautiful interior.',
-        ),
-      ];
-
-  List<Spot> get _currentCitySpots {
-    final filtered = _spots.where((s) => s.city == _selectedCity).toList();
-    print(
-        '_currentCitySpots: city=$_selectedCity, found ${filtered.length} spots');
-    for (var spot in filtered) {
-      print('  - ${spot.name} (${spot.city})');
-    }
-    return filtered;
-  }
-
-  List<Spot> get _nearbySpots {
-    if (_selectedSpot == null) return [];
-
-    final spots = _currentCitySpots;
-    final currentIndex = spots.indexWhere((s) => s.id == _selectedSpot!.id);
-
-    if (currentIndex == -1) return [];
-
-    List<Spot> nearby = [];
-    for (int i = -1; i <= 1; i++) {
-      int index = (currentIndex + i) % spots.length;
-      if (index < 0) index += spots.length;
-      nearby.add(spots[index]);
-    }
-
-    return nearby;
-  }
-
   @override
   void initState() {
     super.initState();
-    _cardPageController.addListener(() {
-      final page = _cardPageController.page?.round() ?? 0;
-      if (page != _currentCardIndex) {
-        setState(() {
-          _currentCardIndex = page;
-          if (_nearbySpots.isNotEmpty && page < _nearbySpots.length) {
-            _selectedSpot = _nearbySpots[page];
-          }
-        });
-      }
-    });
+    _spotsByCity = _buildMockSpots();
+    _isOverlayInstance = widget.onExitFullscreen != null;
+    _isFullscreen = widget.startFullscreen;
+    _selectedCity = widget.initialSnapshot?.selectedCity ?? _cityOrder.first;
+    _selectedSpot = widget.initialSnapshot?.selectedSpot;
+    _selectedTags.addAll(widget.initialSnapshot?.selectedTags ?? <String>{});
+    _currentMapCenter =
+        widget.initialSnapshot?.currentCenter ?? _cityPosition(_selectedCity);
+    _currentZoom = widget.initialSnapshot?.currentZoom ?? _currentZoom;
+    _searchPickedImage = widget.initialSnapshot?.searchImage;
+    _carouselSpots = widget.initialSnapshot?.carouselSpots ?? const <Spot>[];
+    _currentCardIndex =
+        widget.initialSnapshot?.currentCardIndex ?? _currentCardIndex;
+
+    final overrideSpot = widget.initialSpotOverride;
+    if (overrideSpot != null) {
+      _selectedCity = overrideSpot.city;
+      _selectedSpot = overrideSpot;
+      _carouselSpots = _computeNearbySpots(overrideSpot);
+      _currentCardIndex = 0;
+      _currentMapCenter =
+          Position(overrideSpot.longitude, overrideSpot.latitude);
+    }
+
+    _cardPageController = PageController(
+      viewportFraction: 0.85,
+      initialPage: _currentCardIndex,
+    );
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
     _cardPageController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  void _updateCamera() {
-    if (_mapboxMap != null) {
-      _mapboxMap!.flyTo(
-        CameraOptions(
-          center: Point(coordinates: _cityCoordinates[_selectedCity]!),
-          zoom: 13.0,
-        ),
-        MapAnimationOptions(duration: 1000),
-      );
+  List<String> get _cities => _cityOrder;
+
+  List<Spot> get _currentCitySpots => _spotsByCity[_selectedCity] ?? const [];
+
+  List<Spot> get _filteredSpots {
+    final spots = _currentCitySpots;
+    if (_selectedTags.isEmpty) {
+      return spots;
     }
+    return spots
+        .where((spot) => spot.tags.any(_selectedTags.contains))
+        .toList();
   }
 
-  void _onSpotTapped(Spot spot) {
+  Future<void> _animateCamera(Position newCenter, {double? zoom}) async {
+    _currentMapCenter = newCenter;
+    if (zoom != null) {
+      _currentZoom = zoom;
+    }
+
+    final map = _mapboxMap;
+    if (map == null) return;
+
+    await map.flyTo(
+      CameraOptions(
+        center: Point(coordinates: newCenter),
+        zoom: zoom ?? _currentZoom,
+      ),
+      MapAnimationOptions(duration: 500),
+    );
+  }
+
+  void _handleSpotTap(Spot spot) {
+    if (!_isOverlayInstance) {
+      _openFullscreen(focusSpot: spot);
+      return;
+    }
+
+    final newCarousel = _computeNearbySpots(spot);
     setState(() {
       _selectedSpot = spot;
-      _isFullscreen = true;
-      _currentCardIndex = 1;
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _cardPageController.jumpToPage(1);
-      });
+      _carouselSpots = newCarousel;
+      _currentCardIndex = 0;
+    });
+    _jumpToPage(0);
+    _animateCamera(
+      Position(spot.longitude, spot.latitude),
+      zoom: math.max(_currentZoom, 14.0),
+    );
+  }
+
+  void _jumpToPage(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_cardPageController.hasClients) {
+        _cardPageController.jumpToPage(index);
+      }
     });
   }
 
+  RectTween _mapHeroRectTween(Rect? begin, Rect? end) =>
+      RectTween(begin: begin, end: end);
+
+  Widget _mapHeroFlight(
+    BuildContext flightContext,
+    Animation<double> animation,
+    HeroFlightDirection direction,
+    BuildContext fromContext,
+    BuildContext toContext,
+  ) {
+    final Widget target = direction == HeroFlightDirection.push
+        ? toContext.widget
+        : fromContext.widget;
+    return Material(
+      color: Colors.transparent,
+      child: target,
+    );
+  }
+
+  void _requestExitFullscreen() {
+    if (!_isOverlayInstance) {
+      if (!_isFullscreen) {
+        return;
+      }
+      setState(() {
+        _isFullscreen = false;
+        _selectedSpot = null;
+        _carouselSpots = const [];
+        _currentCardIndex = 0;
+      });
+      widget.onFullscreenChanged?.call(false);
+      _jumpToPage(0);
+      return;
+    }
+
+    if (_hasRequestedExit) {
+      return;
+    }
+    _hasRequestedExit = true;
+    final snapshot = _createSnapshot();
+    widget.onExitFullscreen?.call(snapshot);
+  }
+
+  Future<void> _openFullscreen({Spot? focusSpot}) async {
+    if (!_isOverlayInstance) {
+      final wasFullscreen = _isFullscreen;
+      List<Spot>? newCarousel;
+      if (focusSpot != null) {
+        newCarousel = _computeNearbySpots(focusSpot);
+      }
+      setState(() {
+        _isFullscreen = true;
+        if (focusSpot != null) {
+          _selectedSpot = focusSpot;
+          _carouselSpots = newCarousel ?? _carouselSpots;
+          _currentCardIndex = 0;
+        }
+      });
+      if (!wasFullscreen) {
+        widget.onFullscreenChanged?.call(true);
+      }
+      if (focusSpot != null) {
+        _jumpToPage(0);
+        _animateCamera(
+          Position(focusSpot.longitude, focusSpot.latitude),
+          zoom: math.max(_currentZoom, 14.0),
+        );
+      }
+      return;
+    }
+
+    final snapshotForRoute = () {
+      final base = _createSnapshot();
+      if (focusSpot == null) {
+        return base;
+      }
+      final focusCenter = Position(focusSpot.longitude, focusSpot.latitude);
+      return base.copyWith(
+        selectedCity: focusSpot.city,
+        selectedSpot: focusSpot,
+        carouselSpots: _computeNearbySpots(focusSpot),
+        currentCardIndex: 0,
+        currentCenter: focusCenter,
+        currentZoom: math.max(_currentZoom, 14.0),
+      );
+    }();
+
+    final result = await Navigator.of(context).push<MapPageSnapshot>(
+      PageRouteBuilder<MapPageSnapshot>(
+        transitionDuration: const Duration(milliseconds: 350),
+        reverseTransitionDuration: const Duration(milliseconds: 280),
+        pageBuilder: (routeContext, animation, secondaryAnimation) => MapPage(
+          startFullscreen: true,
+          initialSnapshot: snapshotForRoute,
+          initialSpotOverride: focusSpot,
+          onExitFullscreen: (exitSnapshot) {
+            Navigator.of(routeContext).pop(exitSnapshot);
+          },
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            child,
+      ),
+    );
+
+    if (result == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedCity = result.selectedCity;
+      _selectedSpot = result.selectedSpot;
+      _selectedTags
+        ..clear()
+        ..addAll(result.selectedTags);
+      _currentMapCenter =
+          result.currentCenter ?? _cityPosition(result.selectedCity);
+      _currentZoom = result.currentZoom;
+      _searchPickedImage = result.searchImage;
+      _carouselSpots = result.carouselSpots;
+      _currentCardIndex = result.currentCardIndex;
+    });
+
+    final targetCenter = _currentMapCenter ?? _cityPosition(_selectedCity);
+    _animateCamera(targetCenter, zoom: _currentZoom);
+
+    if (_carouselSpots.isNotEmpty &&
+        _currentCardIndex >= 0 &&
+        _currentCardIndex < _carouselSpots.length) {
+      _jumpToPage(_currentCardIndex);
+    } else {
+      _jumpToPage(0);
+    }
+  }
+
+  MapPageSnapshot _createSnapshot() => MapPageSnapshot(
+        selectedCity: _selectedCity,
+        selectedSpot: _selectedSpot,
+        selectedTags: Set<String>.from(_selectedTags),
+        currentCenter: _currentMapCenter,
+        currentZoom: _currentZoom,
+        searchImage: _searchPickedImage,
+        carouselSpots: List<Spot>.from(_carouselSpots),
+        currentCardIndex: _currentCardIndex,
+      );
+
+  Position _cityPosition(String city) =>
+      _cityCoordinates[city] ?? _cityCoordinates[_cityOrder.first]!;
+
+  List<Spot> _computeNearbySpots(Spot anchor) {
+    final spots = _filteredSpots;
+    if (spots.isEmpty) {
+      return const [];
+    }
+
+    final sorted = List<Spot>.from(spots)
+      ..sort(
+        (a, b) => _distanceBetween(
+          a.latitude,
+          a.longitude,
+          anchor.latitude,
+          anchor.longitude,
+        ).compareTo(
+          _distanceBetween(
+            b.latitude,
+            b.longitude,
+            anchor.latitude,
+            anchor.longitude,
+          ),
+        ),
+      );
+
+    return sorted.take(5).toList();
+  }
+
+  double _distanceBetween(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    const radius = 6371000.0;
+    final dLat = _degToRad(lat2 - lat1);
+    final dLng = _degToRad(lng2 - lng1);
+
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_degToRad(lat1)) *
+            math.cos(_degToRad(lat2)) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return radius * c;
+  }
+
+  double _degToRad(double value) => value * math.pi / 180;
+
   @override
   Widget build(BuildContext context) {
-    // 调试信息
-    print('Current city: $_selectedCity');
-    print('Current city spots count: ${_currentCitySpots.length}');
+    final mediaQuery = MediaQuery.of(context);
+    final topPadding = mediaQuery.padding.top;
+    final borderRadius = BorderRadius.circular(
+      _isFullscreen ? 0 : AppTheme.radiusMedium,
+    );
 
-    // 全屏模式下，地图完全覆盖，不使用 SafeArea
-    if (_isFullscreen) {
-      return Scaffold(
+    final carouselSpots = _carouselSpots;
+
+    return WillPopScope(
+      onWillPop: () async {
+        if (_isOverlayInstance && _isFullscreen && !_hasRequestedExit) {
+          _requestExitFullscreen();
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            // 地图层 - 铺满整个屏幕
-            Positioned.fill(
-              child: MapWidget(
-                key: const ValueKey('mapWidget'),
-                cameraOptions: CameraOptions(
-                  center: Point(coordinates: _cityCoordinates[_selectedCity]!),
-                  zoom: 13.0,
-                ),
-                onMapCreated: (MapboxMap mapboxMap) {
-                  _mapboxMap = mapboxMap;
-                },
-              ),
-            ),
+            AnimatedPositioned(
+              duration: _isFullscreen
+                  ? Duration.zero
+                  : const Duration(milliseconds: 350),
+              curve: Curves.easeInOut,
+              top: _isFullscreen ? 0 : 12,
+              left: _isFullscreen ? 0 : 16,
+              right: _isFullscreen ? 0 : 16,
+              bottom: _isFullscreen ? 0 : 12,
+              child: Hero(
+                tag: _mapHeroTag,
+                createRectTween: _mapHeroRectTween,
+                flightShuttleBuilder: _mapHeroFlight,
+                transitionOnUserGestures: false,
+                child: AnimatedContainer(
+                  duration: _isFullscreen
+                      ? Duration.zero
+                      : const Duration(milliseconds: 350),
+                  curve: Curves.easeInOut,
+                  decoration: _isFullscreen
+                      ? const BoxDecoration()
+                      : BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: borderRadius,
+                          border: Border.all(
+                            color: AppTheme.black,
+                            width: AppTheme.borderMedium,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                  child: GestureDetector(
+                    onTap: !_isOverlayInstance && !_isFullscreen
+                        ? () => _openFullscreen()
+                        : null,
+                    behavior: HitTestBehavior.opaque,
+                    child: ClipRRect(
+                      borderRadius: borderRadius,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final width = constraints.maxWidth;
+                          final height = constraints.maxHeight;
 
-            // Spot 标记层
-            ..._buildSpotMarkers(),
-
-            // 顶部工具栏
-            Positioned(
-              top: 50,
-              left: 16,
-              child: _CitySelector(
-                selectedCity: _selectedCity,
-                cities: _cities,
-                onCityChanged: (city) {
-                  setState(() {
-                    _selectedCity = city;
-                    _selectedSpot = null;
-                  });
-                  _updateCamera();
-                },
-              ),
-            ),
-
-            // 搜索框和相机按钮
-            Positioned(
-              top: 50,
-              left: 140,
-              right: 80,
-              child: Container(
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  border: Border.all(
-                    color: AppTheme.black,
-                    width: AppTheme.borderMedium,
+                          return Stack(
+                            children: [
+                              MapWidget(
+                                key: const ValueKey('mapWidget'),
+                                cameraOptions: CameraOptions(
+                                  center: Point(
+                                    coordinates: (_currentMapCenter ??
+                                        _cityCoordinates[_selectedCity])!,
+                                  ),
+                                  zoom: _currentZoom,
+                                ),
+                                onTapListener: (_) {
+                                  if (_isOverlayInstance || _isFullscreen) {
+                                    return;
+                                  }
+                                  _openFullscreen();
+                                },
+                                onMapCreated: (mapboxMap) {
+                                  _mapboxMap = mapboxMap;
+                                  final center = _currentMapCenter ??
+                                      _cityCoordinates[_selectedCity]!;
+                                  _animateCamera(center, zoom: _currentZoom);
+                                },
+                              ),
+                              ..._buildSpotMarkers(width, height),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 12),
-                    const Icon(
-                      Icons.search,
-                      size: 20,
-                      color: AppTheme.mediumGray,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        style: AppTheme.bodyMedium(context),
-                        decoration: InputDecoration(
-                          hintText: 'Find your interest',
-                          hintStyle: AppTheme.bodySmall(context).copyWith(
-                            color: AppTheme.mediumGray,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const Icon(
-                      Icons.photo_camera,
-                      size: 20,
-                      color: AppTheme.mediumGray,
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                ),
               ),
             ),
-
-            // 全屏退出按钮
-            Positioned(
-              top: 50,
-              right: 16,
-              child: IconButtonCustom(
-                icon: Icons.fullscreen_exit,
-                onPressed: () {
-                  setState(() {
-                    _isFullscreen = false;
-                    _selectedSpot = null;
-                  });
-                },
-                backgroundColor: Colors.white,
-              ),
-            ),
-
-            // 标签筛选栏
-            Positioned(
-              top: 110,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 40,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount:
-                      ['Museum', 'Coffee', 'Church', 'Architecture'].length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final tags = ['Museum', 'Coffee', 'Church', 'Architecture'];
-                    final tag = tags[index];
-                    final icon = index == 0
-                        ? '🎨'
-                        : index == 1
-                            ? '☕'
-                            : index == 2
-                                ? '⛪'
-                                : '🏛️';
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusMedium),
-                        border: Border.all(
-                          color: AppTheme.black,
-                          width: AppTheme.borderMedium,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(icon, style: const TextStyle(fontSize: 16)),
-                          const SizedBox(width: 6),
-                          Text(
-                            tag,
-                            style: AppTheme.labelMedium(context),
-                          ),
+            if (_isFullscreen)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  ignoring: true,
+                  child: Container(
+                    height: topPadding + 160,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withOpacity(0.85),
+                          Colors.white.withOpacity(0.0),
                         ],
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
+            Positioned(
+              top: topPadding + 12,
+              left: 0,
+              right: 0,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        _CitySelector(
+                          selectedCity: _selectedCity,
+                          cities: _cities,
+                          onCityChanged: (city) {
+                            setState(() {
+                              _selectedCity = city;
+                              _selectedSpot = null;
+                              _carouselSpots = const [];
+                              _currentCardIndex = 0;
+                              _currentMapCenter = _cityCoordinates[city];
+                            });
+                            _jumpToPage(0);
+                            _animateCamera(_cityCoordinates[city]!);
+                          },
+                        ),
+                        const Spacer(),
+                        IconButtonCustom(
+                          icon: _isFullscreen
+                              ? Icons.fullscreen_exit
+                              : Icons.fullscreen,
+                          onPressed: () {
+                            if (_isFullscreen) {
+                              _requestExitFullscreen();
+                            } else {
+                              _openFullscreen();
+                            }
+                          },
+                          backgroundColor: Colors.white,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_isFullscreen) ...[
+                    const SizedBox(height: 12),
+                    _buildFullscreenSearchBar(context),
+                    const SizedBox(height: 12),
+                    _buildTagBar(),
+                  ],
+                ],
+              ),
             ),
-
-            // 底部地点卡片轮播
-            if (_selectedSpot != null && _nearbySpots.isNotEmpty)
+            if (_isFullscreen && carouselSpots.isNotEmpty)
               Positioned(
-                bottom: 80,
+                bottom: 32,
                 left: 0,
                 right: 0,
                 child: SizedBox(
-                  height: 200,
+                  height: 240,
                   child: PageView.builder(
                     controller: _cardPageController,
-                    itemCount: _nearbySpots.length,
+                    onPageChanged: (index) {
+                      if (index >= carouselSpots.length) {
+                        return;
+                      }
+                      final spot = carouselSpots[index];
+                      setState(() {
+                        _currentCardIndex = index;
+                        _selectedSpot = spot;
+                      });
+                      _animateCamera(
+                        Position(spot.longitude, spot.latitude),
+                      );
+                    },
+                    itemCount: carouselSpots.length,
                     itemBuilder: (context, index) {
-                      final spot = _nearbySpots[index];
-                      final isCenter = index == 1;
+                      final spot = carouselSpots[index];
+                      final isCenter = index == _currentCardIndex;
                       return AnimatedScale(
-                        scale: isCenter ? 1.0 : 0.9,
-                        duration: const Duration(milliseconds: 300),
+                        scale: isCenter ? 1.0 : 0.92,
+                        duration: const Duration(milliseconds: 250),
                         child: _BottomSpotCard(
                           spot: spot,
                           onTap: () => _showSpotDetail(spot),
@@ -551,173 +668,232 @@ class _MapPageState extends ConsumerState<MapPage> {
               ),
           ],
         ),
-      );
-    }
-
-    // 非全屏模式
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          // 地图层 - 铺满整个屏幕
-          Positioned.fill(
-            child: MapWidget(
-              key: const ValueKey('mapWidget'),
-              cameraOptions: CameraOptions(
-                center: Point(coordinates: _cityCoordinates[_selectedCity]!),
-                zoom: 13.0,
-              ),
-              onMapCreated: (MapboxMap mapboxMap) {
-                _mapboxMap = mapboxMap;
-              },
-            ),
-          ),
-
-          // Spot 标记层
-          ..._buildSpotMarkers(),
-
-          // UI 控制层
-          SafeArea(
-            child: Column(
-              children: [
-                // 顶部控制栏
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      _CitySelector(
-                        selectedCity: _selectedCity,
-                        cities: _cities,
-                        onCityChanged: (city) {
-                          setState(() {
-                            _selectedCity = city;
-                            _selectedSpot = null;
-                          });
-                          _updateCamera();
-                        },
-                      ),
-                      const Spacer(),
-                      IconButtonCustom(
-                        icon: Icons.fullscreen,
-                        onPressed: () {
-                          setState(() {
-                            _isFullscreen = true;
-                          });
-                        },
-                        backgroundColor: Colors.white,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  List<Widget> _buildSpotMarkers() {
-    final mapCenter = _cityCoordinates[_selectedCity]!;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+  List<Widget> _buildSpotMarkers(double width, double height) {
+    final mapCenter = _currentMapCenter ?? _cityCoordinates[_selectedCity]!;
+    final spots = _filteredSpots;
 
-    final spots = _currentCitySpots;
-    print('Building markers for ${spots.length} spots');
-
-    // 如果没有spots，显示调试信息
     if (spots.isEmpty) {
-      print('WARNING: No spots found for city $_selectedCity');
-      return [];
+      return const [];
     }
 
-    return spots.asMap().entries.map((entry) {
-      final index = entry.key;
-      final spot = entry.value;
+    final num zoomFactor = math.pow(2, _currentZoom - 13);
+    final pixelsPerDegree = 7500.0 * zoomFactor.toDouble();
 
-      // 使用更精确的墨卡托投影近似
-      final latDiff = spot.latitude - mapCenter.lat;
-      final lngDiff = spot.longitude - mapCenter.lng;
+    final markers = <Widget>[];
+    for (final spot in spots) {
+      final dx = (spot.longitude - mapCenter.lng) * pixelsPerDegree;
+      final dy = -(spot.latitude - mapCenter.lat) * pixelsPerDegree;
+      final left = width / 2 + dx;
+      final top = height / 2 + dy;
 
-      // 在zoom=13时，调整像素转换比例
-      // 修正后的比例让标记显示在可见范围内
-      final pixelsPerDegree = 8000.0;
-
-      final dx = lngDiff * pixelsPerDegree;
-      final dy = -latDiff * pixelsPerDegree; // 注意y轴方向相反
-
-      final left = screenWidth / 2 + dx;
-      final top = screenHeight / 2 + dy;
-
-      print(
-          'Marker ${index + 1}. ${spot.name}: lat=${spot.latitude}, lng=${spot.longitude}');
-      print('  Diff: lat=$latDiff, lng=$lngDiff');
-      print(
-          '  Screen position: left=${left.toStringAsFixed(1)}, top=${top.toStringAsFixed(1)}');
+      if (left < -140 ||
+          left > width + 140 ||
+          top < -140 ||
+          top > height + 140) {
+        continue;
+      }
 
       final isSelected = _selectedSpot?.id == spot.id;
-
-      return Positioned(
-        left: left - 60,
-        top: top - 20,
-        child: GestureDetector(
-          onTap: () => _onSpotTapped(spot),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: isSelected ? AppTheme.primaryYellow : Colors.white,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-              border: Border.all(
-                color: AppTheme.black,
-                width: AppTheme.borderMedium,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _getCategoryIcon(spot.category),
-                  size: 16,
-                  color: AppTheme.black,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  spot.name,
-                  style: AppTheme.labelMedium(context),
-                ),
-              ],
-            ),
+      markers.add(
+        Positioned(
+          left: left - 60,
+          top: top - 28,
+          child: GestureDetector(
+            onTap: () => _handleSpotTap(spot),
+            child: _buildMarkerChip(spot, isSelected),
           ),
         ),
       );
-    }).toList();
+    }
+
+    return markers;
   }
 
-  IconData _getCategoryIcon(String category) {
-    switch (category.toLowerCase()) {
+  Widget _buildMarkerChip(Spot spot, bool isSelected) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryYellow : Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          border: Border.all(
+            color: AppTheme.black,
+            width: AppTheme.borderMedium,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _getCategoryIcon(spot.category),
+              size: 16,
+              color: AppTheme.black,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              spot.name,
+              style: AppTheme.labelMedium(context),
+            ),
+          ],
+        ),
+      );
+
+  Widget _buildFullscreenSearchBar(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            border: Border.all(
+              color: AppTheme.black,
+              width: AppTheme.borderMedium,
+            ),
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 12),
+              const Icon(
+                Icons.search,
+                size: 20,
+                color: AppTheme.mediumGray,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  style: AppTheme.bodyMedium(context),
+                  decoration: InputDecoration(
+                    hintText: 'Find your interest',
+                    hintStyle: AppTheme.bodySmall(context).copyWith(
+                      color: AppTheme.mediumGray,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.photo_camera,
+                  size: 20,
+                  color: AppTheme.mediumGray,
+                ),
+                onPressed: () async {
+                  try {
+                    final picked = await picker.ImagePicker().pickImage(
+                      source: picker.ImageSource.gallery,
+                    );
+                    if (picked != null) {
+                      setState(() => _searchPickedImage = picked);
+                    }
+                  } catch (_) {}
+                },
+              ),
+              if (_searchPickedImage != null) ...[
+                const SizedBox(width: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.file(
+                    File(_searchPickedImage!.path),
+                    width: 36,
+                    height: 36,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ] else ...[
+                const SizedBox(width: 12),
+              ],
+            ],
+          ),
+        ),
+      );
+
+  Widget _buildTagBar() {
+    final tags = _tagOptions;
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: tags.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final tag = tags[index];
+          final isSelected = _selectedTags.contains(tag);
+          final emoji = _tagEmoji(tag);
+          return GestureDetector(
+            onTap: () => _toggleTag(tag),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primaryYellow : Colors.white,
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                border: Border.all(
+                  color: AppTheme.black,
+                  width: AppTheme.borderMedium,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 16)),
+                  const SizedBox(width: 6),
+                  Text(
+                    tag,
+                    style: AppTheme.labelMedium(context),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _toggleTag(String tag) {
+    setState(() {
+      if (_selectedTags.contains(tag)) {
+        _selectedTags.remove(tag);
+      } else {
+        _selectedTags.add(tag);
+      }
+      _selectedSpot = null;
+      _carouselSpots = const [];
+      _currentCardIndex = 0;
+    });
+    _jumpToPage(0);
+  }
+
+  String _tagEmoji(String tag) {
+    switch (tag.toLowerCase()) {
+      case 'architecture':
+        return '🏛️';
       case 'museum':
-        return Icons.museum;
+        return '🎨';
       case 'coffee':
-      case 'cafe':
-        return Icons.coffee;
+        return '☕';
       case 'food':
-      case 'restaurant':
-        return Icons.restaurant;
-      case 'church':
-        return Icons.church;
-      case 'park':
-        return Icons.park;
-      case 'attraction':
-        return Icons.place;
+        return '🍽️';
+      case 'nature':
+        return '🌿';
+      case 'history':
+        return '📜';
+      case 'culture':
+        return '🎭';
       default:
-        return Icons.location_on;
+        return '📍';
     }
   }
 
@@ -728,6 +904,470 @@ class _MapPageState extends ConsumerState<MapPage> {
       backgroundColor: Colors.transparent,
       builder: (context) => SpotDetailModal(spot: spot),
     );
+  }
+
+  Map<String, List<Spot>> _buildMockSpots() => {
+        'Copenhagen': [
+          Spot(
+            id: 'cph-nyhavn',
+            name: 'Nyhavn Harbour',
+            city: 'Copenhagen',
+            category: 'Waterfront',
+            latitude: 55.6804,
+            longitude: 12.5870,
+            rating: 4.8,
+            ratingCount: 3287,
+            coverImage:
+                'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1451153378752-16ef2b36ad05?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Architecture', 'Food', 'History'],
+            aiSummary:
+                'Colorful 17th-century waterfront lined with ships, cafes, and lively outdoor terraces.',
+          ),
+          Spot(
+            id: 'cph-rosenborg',
+            name: 'Rosenborg Castle',
+            city: 'Copenhagen',
+            category: 'Museum',
+            latitude: 55.6857,
+            longitude: 12.5763,
+            rating: 4.7,
+            ratingCount: 1822,
+            coverImage:
+                'https://images.unsplash.com/photo-1511840636560-acee95b47a37?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1511840636560-acee95b47a37?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Museum', 'History', 'Architecture'],
+            aiSummary:
+                'Renaissance castle housing royal collections, crown jewels, and manicured palace gardens.',
+          ),
+          Spot(
+            id: 'cph-roundtower',
+            name: 'The Round Tower',
+            city: 'Copenhagen',
+            category: 'Landmark',
+            latitude: 55.6816,
+            longitude: 12.5732,
+            rating: 4.6,
+            ratingCount: 1395,
+            coverImage:
+                'https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1475264673458-81b48b834667?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Architecture', 'History'],
+            aiSummary:
+                '17th-century astronomical observatory with a spiraling ramp and sweeping city views.',
+          ),
+        ],
+        'Berlin': [
+          Spot(
+            id: 'berlin-brandenburg',
+            name: 'Brandenburg Gate',
+            city: 'Berlin',
+            category: 'Landmark',
+            latitude: 52.5163,
+            longitude: 13.3777,
+            rating: 4.7,
+            ratingCount: 5124,
+            coverImage:
+                'https://images.unsplash.com/photo-1562619421-e3f3a0c0c5c7?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1562619421-e3f3a0c0c5c7?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1604754742629-3bdb6df56a58?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1446160657592-4782fb76fb99?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Architecture', 'History'],
+            aiSummary:
+                'Iconic neoclassical gate symbolizing Berlin’s reunification with a grand city square.',
+          ),
+          Spot(
+            id: 'berlin-museum-island',
+            name: 'Museum Island',
+            city: 'Berlin',
+            category: 'Museum',
+            latitude: 52.5169,
+            longitude: 13.4010,
+            rating: 4.8,
+            ratingCount: 2984,
+            coverImage:
+                'https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1530023367847-a683933f4177?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1543780217-f600fcec90cd?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Museum', 'History', 'Architecture'],
+            aiSummary:
+                'UNESCO-listed ensemble of five world-class museums on the Spree River.',
+          ),
+          Spot(
+            id: 'berlin-coffee',
+            name: 'Kreuzberg Coffee Lab',
+            city: 'Berlin',
+            category: 'Coffee',
+            latitude: 52.4986,
+            longitude: 13.4034,
+            rating: 4.5,
+            ratingCount: 947,
+            coverImage:
+                'https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1529078155058-5d716f45d604?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1534040385115-33dcb3acba5e?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Coffee', 'Food'],
+            aiSummary:
+                'Third-wave coffee bar roasting beans on site with minimalist interiors and local pastry pairings.',
+          ),
+        ],
+        'Porto': [
+          Spot(
+            id: 'porto-livraria',
+            name: 'Livraria Lello',
+            city: 'Porto',
+            category: 'Bookstore',
+            latitude: 41.1472,
+            longitude: -8.6140,
+            rating: 4.7,
+            ratingCount: 2651,
+            coverImage:
+                'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['History', 'Architecture'],
+            aiSummary:
+                'Neo-Gothic bookstore famed for its sculpted staircase and literary inspirations.',
+          ),
+          Spot(
+            id: 'porto-bridge',
+            name: 'Dom Luís I Bridge',
+            city: 'Porto',
+            category: 'Landmark',
+            latitude: 41.1408,
+            longitude: -8.6110,
+            rating: 4.8,
+            ratingCount: 4122,
+            coverImage:
+                'https://images.unsplash.com/photo-1555448248-2571daf6344b?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1555448248-2571daf6344b?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1518860308377-3978c859c423?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1531254725343-18b640be11d9?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Architecture', 'History'],
+            aiSummary:
+                'Double-deck metal arch bridge connecting Porto and Vila Nova de Gaia over the Douro River.',
+          ),
+          Spot(
+            id: 'porto-clerigos',
+            name: 'Clérigos Tower',
+            city: 'Porto',
+            category: 'Landmark',
+            latitude: 41.1456,
+            longitude: -8.6148,
+            rating: 4.6,
+            ratingCount: 1788,
+            coverImage:
+                'https://images.unsplash.com/photo-1507048331197-7d4ac70811cf?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1507048331197-7d4ac70811cf?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1534219620024-7a4f61b06abb?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1528901166007-3784c7dd3653?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Architecture', 'History'],
+            aiSummary:
+                'Baroque bell tower offering panoramic views after a climb up its historic staircase.',
+          ),
+        ],
+        'Paris': [
+          Spot(
+            id: 'paris-louvre',
+            name: 'Louvre Museum',
+            city: 'Paris',
+            category: 'Museum',
+            latitude: 48.8606,
+            longitude: 2.3376,
+            rating: 4.8,
+            ratingCount: 6215,
+            coverImage:
+                'https://images.unsplash.com/photo-1523731407965-2430cd12f5e4?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1523731407965-2430cd12f5e4?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Museum', 'History', 'Architecture'],
+            aiSummary:
+                'World-renowned museum housing masterpieces like the Mona Lisa inside a glass pyramid entrance.',
+          ),
+          Spot(
+            id: 'paris-cafedeflore',
+            name: 'Café de Flore',
+            city: 'Paris',
+            category: 'Cafe',
+            latitude: 48.8553,
+            longitude: 2.3332,
+            rating: 4.5,
+            ratingCount: 2599,
+            coverImage:
+                'https://images.unsplash.com/photo-1543342386-1bb0e29017c4?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1543342386-1bb0e29017c4?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Food', 'Coffee', 'History'],
+            aiSummary:
+                'Historic Left Bank cafe famous for literary patrons, classic French fare, and polished service.',
+          ),
+          Spot(
+            id: 'paris-notredame',
+            name: 'Notre-Dame Cathedral',
+            city: 'Paris',
+            category: 'Landmark',
+            latitude: 48.8530,
+            longitude: 2.3499,
+            rating: 4.7,
+            ratingCount: 5412,
+            coverImage:
+                'https://images.unsplash.com/photo-1471623320832-752e2aa2d08b?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1471623320832-752e2aa2d08b?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['History', 'Architecture'],
+            aiSummary:
+                'Gothic cathedral celebrated for its stained glass, flying buttresses, and iconic twin towers.',
+          ),
+        ],
+        'Tokyo': [
+          Spot(
+            id: 'tokyo-sensoji',
+            name: 'Sensō-ji Temple',
+            city: 'Tokyo',
+            category: 'Temple',
+            latitude: 35.7148,
+            longitude: 139.7967,
+            rating: 4.8,
+            ratingCount: 4985,
+            coverImage:
+                'https://images.unsplash.com/photo-1581804928342-4e3405e39c91?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1581804928342-4e3405e39c91?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['History', 'Architecture', 'Culture'],
+            aiSummary:
+                'Tokyo’s oldest Buddhist temple with vibrant gates, incense rituals, and Nakamise shopping street.',
+          ),
+          Spot(
+            id: 'tokyo-teamlab',
+            name: 'teamLab Planets',
+            city: 'Tokyo',
+            category: 'Museum',
+            latitude: 35.6457,
+            longitude: 139.7847,
+            rating: 4.7,
+            ratingCount: 2674,
+            coverImage:
+                'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Museum', 'Nature'],
+            aiSummary:
+                'Immersive digital art experience where visitors walk through water and responsive light installations.',
+          ),
+          Spot(
+            id: 'tokyo-tsukiji',
+            name: 'Tsukiji Outer Market',
+            city: 'Tokyo',
+            category: 'Market',
+            latitude: 35.6655,
+            longitude: 139.7708,
+            rating: 4.6,
+            ratingCount: 3894,
+            coverImage:
+                'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Food', 'Culture'],
+            aiSummary:
+                'Bustling seafood market with street-side sushi, produce vendors, and kitchenware boutiques.',
+          ),
+        ],
+        'Barcelona': [
+          Spot(
+            id: 'barcelona-sagrada',
+            name: 'Sagrada Família',
+            city: 'Barcelona',
+            category: 'Landmark',
+            latitude: 41.4036,
+            longitude: 2.1744,
+            rating: 4.8,
+            ratingCount: 6376,
+            coverImage:
+                'https://images.unsplash.com/photo-1523475472560-d2df97ec485c?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1523475472560-d2df97ec485c?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Architecture', 'History'],
+            aiSummary:
+                'Gaudí’s unfinished basilica blending Gothic and Art Nouveau with soaring spires and organic forms.',
+          ),
+          Spot(
+            id: 'barcelona-parkguell',
+            name: 'Park Güell',
+            city: 'Barcelona',
+            category: 'Park',
+            latitude: 41.4145,
+            longitude: 2.1527,
+            rating: 4.7,
+            ratingCount: 4211,
+            coverImage:
+                'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1526481280695-3c469d3b0835?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Nature', 'Architecture'],
+            aiSummary:
+                'Whimsical park with mosaic benches, serpent fountains, and panoramic views of Barcelona.',
+          ),
+          Spot(
+            id: 'barcelona-boqueria',
+            name: 'La Boqueria Market',
+            city: 'Barcelona',
+            category: 'Market',
+            latitude: 41.3826,
+            longitude: 2.1722,
+            rating: 4.6,
+            ratingCount: 3524,
+            coverImage:
+                'https://images.unsplash.com/photo-1584305574647-0ada08d59c11?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1584305574647-0ada08d59c11?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1523475472560-d2df97ec485c?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Food', 'Culture'],
+            aiSummary:
+                'Historic covered market brimming with fresh seafood, Iberian delicacies, and tapas bars.',
+          ),
+        ],
+        'Amsterdam': [
+          Spot(
+            id: 'ams-rijksmuseum',
+            name: 'Rijksmuseum',
+            city: 'Amsterdam',
+            category: 'Museum',
+            latitude: 52.3600,
+            longitude: 4.8852,
+            rating: 4.8,
+            ratingCount: 4891,
+            coverImage:
+                'https://images.unsplash.com/photo-1504977402025-6b7a5bca8151?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1504977402025-6b7a5bca8151?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Museum', 'History', 'Architecture'],
+            aiSummary:
+                'Dutch national museum showcasing masterpieces by Rembrandt and Vermeer in a monumental building.',
+          ),
+          Spot(
+            id: 'ams-annefrank',
+            name: 'Anne Frank House',
+            city: 'Amsterdam',
+            category: 'Museum',
+            latitude: 52.3752,
+            longitude: 4.8836,
+            rating: 4.7,
+            ratingCount: 3722,
+            coverImage:
+                'https://images.unsplash.com/photo-1521540216272-a50305cd4421?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1521540216272-a50305cd4421?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1470137430626-983a37b8ea46?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['History', 'Museum'],
+            aiSummary:
+                'House and museum preserving the wartime hiding place of Anne Frank with poignant exhibits.',
+          ),
+          Spot(
+            id: 'ams-vondelpark',
+            name: 'Vondelpark',
+            city: 'Amsterdam',
+            category: 'Park',
+            latitude: 52.3584,
+            longitude: 4.8686,
+            rating: 4.7,
+            ratingCount: 4185,
+            coverImage:
+                'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=1200&q=80',
+              'https://images.unsplash.com/photo-1455906876003-298dd8c44dd9?auto=format&fit=crop&w=1200&q=80',
+            ],
+            tags: const ['Nature', 'History'],
+            aiSummary:
+                'Expansive urban park with lakes, bike paths, open-air theatre, and shaded lawns popular with locals.',
+          ),
+        ],
+      };
+}
+
+IconData _getCategoryIcon(String category) {
+  switch (category.toLowerCase()) {
+    case 'museum':
+      return Icons.museum;
+    case 'coffee':
+      return Icons.coffee;
+    case 'cafe':
+      return Icons.local_cafe;
+    case 'food':
+    case 'market':
+      return Icons.restaurant;
+    case 'temple':
+    case 'church':
+      return Icons.church;
+    case 'park':
+      return Icons.park;
+    case 'bookstore':
+      return Icons.menu_book;
+    case 'waterfront':
+      return Icons.sailing;
+    case 'landmark':
+      return Icons.place;
+    default:
+      return Icons.location_on;
   }
 }
 
@@ -743,31 +1383,29 @@ class _CitySelector extends StatelessWidget {
   final ValueChanged<String> onCityChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _showCityPicker(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border:
-              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: () => _showCityPicker(context),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            border:
+                Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                selectedCity,
+                style: AppTheme.labelLarge(context),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.keyboard_arrow_down, size: 20),
+            ],
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              selectedCity,
-              style: AppTheme.labelLarge(context),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
+      );
 
   void _showCityPicker(BuildContext context) {
     showModalBottomSheet<void>(
@@ -784,16 +1422,18 @@ class _CitySelector extends StatelessWidget {
           children: [
             Text('Select City', style: AppTheme.headlineMedium(context)),
             const SizedBox(height: 16),
-            ...cities.map((city) => ListTile(
-                  title: Text(city, style: AppTheme.bodyLarge(context)),
-                  trailing: city == selectedCity
-                      ? const Icon(Icons.check, color: AppTheme.primaryYellow)
-                      : null,
-                  onTap: () {
-                    onCityChanged(city);
-                    Navigator.pop(context);
-                  },
-                )),
+            ...cities.map(
+              (city) => ListTile(
+                title: Text(city, style: AppTheme.bodyLarge(context)),
+                trailing: city == selectedCity
+                    ? const Icon(Icons.check, color: AppTheme.primaryYellow)
+                    : null,
+                onTap: () {
+                  onCityChanged(city);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -811,109 +1451,111 @@ class _BottomSpotCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border:
-              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.horizontal(
-                left: Radius.circular(AppTheme.radiusMedium - 1),
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            border:
+                Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-              child: Image.network(
-                spot.coverImage,
-                width: 120,
-                height: 200,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Wrap(
-                      spacing: 6,
-                      children: spot.tags.take(2).map((tag) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow.withOpacity(0.3),
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusSmall),
-                            border: Border.all(
-                              color: AppTheme.black,
-                              width: 0.5,
-                            ),
-                          ),
-                          child: Text(
-                            tag,
-                            style: AppTheme.labelSmall(context),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      spot.name,
-                      style: AppTheme.bodyLarge(context).copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
+            ],
+          ),
+          child: SizedBox(
+            width: 180,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(AppTheme.radiusMedium - 1),
+                  ),
+                  child: Image.network(
+                    spot.coverImage,
+                    height: 135,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.star,
-                            color: AppTheme.primaryYellow, size: 16),
-                        const SizedBox(width: 4),
+                        Wrap(
+                          spacing: 6,
+                          children: spot.tags.take(2).map((tag) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryYellow.withOpacity(0.3),
+                                borderRadius:
+                                    BorderRadius.circular(AppTheme.radiusSmall),
+                                border: Border.all(
+                                  color: AppTheme.black,
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                tag,
+                                style: AppTheme.labelSmall(context),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 8),
                         Text(
-                          '${spot.rating}',
-                          style: AppTheme.bodyMedium(context).copyWith(
+                          spot.name,
+                          style: AppTheme.bodyLarge(context).copyWith(
                             fontWeight: FontWeight.bold,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '(${spot.ratingCount})',
-                          style: AppTheme.bodySmall(context).copyWith(
-                            color: AppTheme.mediumGray,
-                          ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.star,
+                                color: AppTheme.primaryYellow, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${spot.rating}',
+                              style: AppTheme.bodyMedium(context).copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '(${spot.ratingCount})',
+                              style: AppTheme.bodySmall(context).copyWith(
+                                color: AppTheme.mediumGray,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-    );
-  }
+      );
 }
 
 class SpotDetailModal extends StatefulWidget {
-  const SpotDetailModal({super.key, required this.spot});
+  const SpotDetailModal({required this.spot, super.key});
 
   final Spot spot;
 
@@ -932,178 +1574,178 @@ class _SpotDetailModalState extends State<SpotDetailModal> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(24),
+  Widget build(BuildContext context) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(24),
+          ),
+          border:
+              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
         ),
-        border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-      ),
-      child: Column(
-        children: [
-          Stack(
-            children: [
-              SizedBox(
-                height: 300,
-                child: PageView.builder(
-                  controller: _imagePageController,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _currentImageIndex = index;
-                    });
-                  },
-                  itemCount: widget.spot.images.length,
-                  itemBuilder: (context, index) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(24),
-                        ),
-                        image: DecorationImage(
-                          image: NetworkImage(widget.spot.images[index]),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              if (widget.spot.images.length > 1)
-                Positioned(
-                  bottom: 12,
-                  left: 0,
-                  right: 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      widget.spot.images.length,
-                      (index) => Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: 8,
-                        height: 8,
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                SizedBox(
+                  height: 300,
+                  child: PageView.builder(
+                    controller: _imagePageController,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentImageIndex = index;
+                      });
+                    },
+                    itemCount: widget.spot.images.length,
+                    itemBuilder: (context, index) {
+                      return Container(
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: index == _currentImageIndex
-                              ? AppTheme.primaryYellow
-                              : Colors.white.withOpacity(0.5),
-                          border: Border.all(color: AppTheme.black, width: 1),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
+                          image: DecorationImage(
+                            image: NetworkImage(widget.spot.images[index]),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                if (widget.spot.images.length > 1)
+                  Positioned(
+                    bottom: 12,
+                    left: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        widget.spot.images.length,
+                        (index) => Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: index == _currentImageIndex
+                                ? AppTheme.primaryYellow
+                                : Colors.white.withOpacity(0.5),
+                            border: Border.all(color: AppTheme.black, width: 1),
+                          ),
                         ),
                       ),
                     ),
                   ),
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: IconButtonCustom(
+                    icon: Icons.close,
+                    onPressed: () => Navigator.pop(context),
+                    backgroundColor: Colors.white,
+                  ),
                 ),
-              Positioned(
-                top: 16,
-                right: 16,
-                child: IconButtonCustom(
-                  icon: Icons.close,
-                  onPressed: () => Navigator.pop(context),
-                  backgroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: widget.spot.tags.take(4).map((tag) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryYellow.withOpacity(0.3),
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusSmall),
-                          border: Border.all(
-                            color: AppTheme.black,
-                            width: AppTheme.borderMedium,
+              ],
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: widget.spot.tags.take(4).map((tag) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryYellow.withOpacity(0.3),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSmall),
+                            border: Border.all(
+                              color: AppTheme.black,
+                              width: AppTheme.borderMedium,
+                            ),
                           ),
-                        ),
-                        child: Text(tag, style: AppTheme.labelMedium(context)),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    widget.spot.name,
-                    style: AppTheme.headlineLarge(context),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 16),
-                  if (widget.spot.aiSummary != null) ...[
+                          child:
+                              Text(tag, style: AppTheme.labelMedium(context)),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
                     Text(
-                      widget.spot.aiSummary!,
-                      style: AppTheme.bodyLarge(context).copyWith(
-                        color: AppTheme.darkGray,
-                      ),
-                      maxLines: 3,
+                      widget.spot.name,
+                      style: AppTheme.headlineLarge(context),
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 16),
-                  ],
-                  Row(
-                    children: [
+                    if (widget.spot.aiSummary != null) ...[
                       Text(
-                        '${widget.spot.rating}',
-                        style: AppTheme.headlineMedium(context).copyWith(
-                          fontWeight: FontWeight.bold,
+                        widget.spot.aiSummary!,
+                        style: AppTheme.bodyLarge(context).copyWith(
+                          color: AppTheme.darkGray,
                         ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 8),
-                      ...List.generate(5, (index) {
-                        return Icon(
-                          index < widget.spot.rating.floor()
-                              ? Icons.star
-                              : (index < widget.spot.rating
-                                  ? Icons.star_half
-                                  : Icons.star_border),
-                          color: AppTheme.primaryYellow,
-                          size: 24,
-                        );
-                      }),
-                      const SizedBox(width: 8),
-                      Text(
-                        '(${widget.spot.ratingCount})',
-                        style: AppTheme.bodyMedium(context).copyWith(
-                          color: AppTheme.mediumGray,
-                        ),
-                      ),
+                      const SizedBox(height: 16),
                     ],
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: PrimaryButton(
-                      text: 'Add to Wishlist',
-                      onPressed: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content:
-                                Text('${widget.spot.name} added to wishlist!'),
-                            backgroundColor: AppTheme.primaryYellow,
-                            behavior: SnackBarBehavior.floating,
+                    Row(
+                      children: [
+                        Text(
+                          '${widget.spot.rating}',
+                          style: AppTheme.headlineMedium(context).copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
-                        );
-                      },
+                        ),
+                        const SizedBox(width: 8),
+                        ...List.generate(5, (index) {
+                          return Icon(
+                            index < widget.spot.rating.floor()
+                                ? Icons.star
+                                : (index < widget.spot.rating
+                                    ? Icons.star_half
+                                    : Icons.star_border),
+                            color: AppTheme.primaryYellow,
+                            size: 24,
+                          );
+                        }),
+                        const SizedBox(width: 8),
+                        Text(
+                          '(${widget.spot.ratingCount})',
+                          style: AppTheme.bodyMedium(context).copyWith(
+                            color: AppTheme.mediumGray,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: PrimaryButton(
+                        text: 'Add to Wishlist',
+                        onPressed: () {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  '${widget.spot.name} added to wishlist!'),
+                              backgroundColor: AppTheme.primaryYellow,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+      );
 }

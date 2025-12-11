@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 class TagFilterBar extends StatelessWidget {
 
   const TagFilterBar({
-    super.key,
-    required this.selectedTags,
-    required this.onTagsChanged,
+    required this.selectedTags, required this.onTagsChanged, super.key,
   });
   final List<String> selectedTags;
   final void Function(List<String>) onTagsChanged;

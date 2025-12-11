@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../shared/models/trip_spot_model.dart';
-import '../../providers/trips_provider.dart';
-import '../widgets/spot_list_item.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/features/trips/presentation/widgets/spot_list_item.dart';
 
 class TripDetailPage extends ConsumerStatefulWidget {
-  final String tripId;
 
   const TripDetailPage({super.key, required this.tripId});
+  final String tripId;
 
   @override
   ConsumerState<TripDetailPage> createState() => _TripDetailPageState();
@@ -81,7 +81,7 @@ class _TripDetailPageState extends ConsumerState<TripDetailPage>
             children: [
               const Icon(Icons.error_outline, size: 60, color: Colors.red),
               const SizedBox(height: 16),
-              Text('Error loading trip'),
+              const Text('Error loading trip'),
               const SizedBox(height: 8),
               Text(error.toString()),
               const SizedBox(height: 16),
@@ -100,10 +100,10 @@ class _TripDetailPageState extends ConsumerState<TripDetailPage>
 }
 
 class _WishlistTab extends StatelessWidget {
-  final String tripId;
-  final List<TripSpot> spots;
 
   const _WishlistTab({required this.tripId, required this.spots});
+  final String tripId;
+  final List<TripSpot> spots;
 
   @override
   Widget build(BuildContext context) {
@@ -144,21 +144,19 @@ class _WishlistTab extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: sortedSpots.length,
-      itemBuilder: (context, index) {
-        return SpotListItem(
+      itemBuilder: (context, index) => SpotListItem(
           tripId: tripId,
           tripSpot: sortedSpots[index],
-        );
-      },
+        ),
     );
   }
 }
 
 class _TodaysPlanTab extends StatelessWidget {
-  final String tripId;
-  final List<TripSpot> spots;
 
   const _TodaysPlanTab({required this.tripId, required this.spots});
+  final String tripId;
+  final List<TripSpot> spots;
 
   @override
   Widget build(BuildContext context) {
@@ -192,22 +190,20 @@ class _TodaysPlanTab extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: spots.length,
-      itemBuilder: (context, index) {
-        return SpotListItem(
+      itemBuilder: (context, index) => SpotListItem(
           tripId: tripId,
           tripSpot: spots[index],
           showOpeningHours: true,
-        );
-      },
+        ),
     );
   }
 }
 
 class _VisitedTab extends StatelessWidget {
-  final String tripId;
-  final List<TripSpot> spots;
 
   const _VisitedTab({required this.tripId, required this.spots});
+  final String tripId;
+  final List<TripSpot> spots;
 
   @override
   Widget build(BuildContext context) {
@@ -217,7 +213,7 @@ class _VisitedTab extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.check_circle_outline,
-                size: 80, color: Colors.grey.shade400),
+                size: 80, color: Colors.grey.shade400,),
             const SizedBox(height: 16),
             Text(
               'No visited spots yet',
@@ -251,15 +247,14 @@ class _VisitedTab extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: sortedSpots.length,
-      itemBuilder: (context, index) {
-        return SpotListItem(
+      itemBuilder: (context, index) => SpotListItem(
           tripId: tripId,
           tripSpot: sortedSpots[index],
           showRating: true,
-        );
-      },
+        ),
     );
   }
 }
+
 
 

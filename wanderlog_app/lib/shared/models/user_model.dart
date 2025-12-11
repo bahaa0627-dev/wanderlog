@@ -4,12 +4,6 @@ part 'user_model.g.dart';
 
 @JsonSerializable()
 class User {
-  final String id;
-  final String email;
-  final String? name;
-  final String? avatarUrl;
-  final DateTime createdAt;
-  final DateTime updatedAt;
 
   User({
     required this.id,
@@ -21,6 +15,12 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
+  final String id;
+  final String email;
+  final String? name;
+  final String? avatarUrl;
+  final DateTime createdAt;
+  final DateTime updatedAt;
   Map<String, dynamic> toJson() => _$UserToJson(this);
 
   User copyWith({
@@ -30,8 +30,7 @@ class User {
     String? avatarUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) {
-    return User(
+  }) => User(
       id: id ?? this.id,
       email: email ?? this.email,
       name: name ?? this.name,
@@ -39,7 +38,7 @@ class User {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
-  }
 }
+
 
 

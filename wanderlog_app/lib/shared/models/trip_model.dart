@@ -1,5 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
-import 'trip_spot_model.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
 
 part 'trip_model.g.dart';
 
@@ -14,20 +14,6 @@ enum TripStatus {
 
 @JsonSerializable()
 class Trip {
-  final String id;
-  final String userId;
-  final String name;
-  final String? city;
-  final DateTime? startDate;
-  final DateTime? endDate;
-  final String? coverImage;
-  final TripStatus status;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final List<TripSpot>? tripSpots;
-  
-  @JsonKey(name: '_count')
-  final Map<String, dynamic>? count;
 
   Trip({
     required this.id,
@@ -45,6 +31,20 @@ class Trip {
   });
 
   factory Trip.fromJson(Map<String, dynamic> json) => _$TripFromJson(json);
+  final String id;
+  final String userId;
+  final String name;
+  final String? city;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String? coverImage;
+  final TripStatus status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<TripSpot>? tripSpots;
+  
+  @JsonKey(name: '_count')
+  final Map<String, dynamic>? count;
   Map<String, dynamic> toJson() => _$TripToJson(this);
 
   int get spotCount {
@@ -67,8 +67,7 @@ class Trip {
     DateTime? updatedAt,
     List<TripSpot>? tripSpots,
     Map<String, dynamic>? count,
-  }) {
-    return Trip(
+  }) => Trip(
       id: id ?? this.id,
       userId: userId ?? this.userId,
       name: name ?? this.name,
@@ -82,7 +81,7 @@ class Trip {
       tripSpots: tripSpots ?? this.tripSpots,
       count: count ?? this.count,
     );
-  }
 }
+
 
 

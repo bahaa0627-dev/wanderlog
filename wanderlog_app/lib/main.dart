@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'core/constants/app_constants.dart';
-import 'core/utils/app_router.dart';
-import 'core/network/dio_client.dart';
-import 'core/storage/storage_service.dart';
+import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/app_router.dart';
+import 'package:wanderlog/core/network/dio_client.dart';
+import 'package:wanderlog/core/storage/storage_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,18 +28,11 @@ class WanderlogApp extends ConsumerWidget {
   const WanderlogApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return MaterialApp.router(
-      title: AppConstants.appName,
+  Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
+      title: 'WanderLog',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppConstants.primaryColor,
-        ),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.themeData,
       routerConfig: AppRouter.createRouter(ref),
     );
-  }
 }
 

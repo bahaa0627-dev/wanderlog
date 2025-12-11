@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/providers/dio_provider.dart';
-import '../../../shared/models/spot_model.dart';
-import '../data/spot_repository.dart';
+import 'package:wanderlog/core/providers/dio_provider.dart';
+import 'package:wanderlog/shared/models/spot_model.dart';
+import 'package:wanderlog/features/trips/data/spot_repository.dart';
 
 // Spot Repository Provider
 final spotRepositoryProvider = Provider<SpotRepository>((ref) {
@@ -25,10 +25,10 @@ final spotProvider = FutureProvider.family<Spot, String>((ref, spotId) async {
 });
 
 class SpotFilters {
-  final String? city;
-  final String? category;
 
   SpotFilters({this.city, this.category});
+  final String? city;
+  final String? category;
 
   @override
   bool operator ==(Object other) =>
@@ -41,5 +41,6 @@ class SpotFilters {
   @override
   int get hashCode => city.hashCode ^ category.hashCode;
 }
+
 
 

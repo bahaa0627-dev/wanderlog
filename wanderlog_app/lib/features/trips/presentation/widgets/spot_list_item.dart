@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../../../shared/models/trip_spot_model.dart';
-import '../../data/trip_repository.dart';
-import '../../providers/trips_provider.dart';
-import '../../../core/providers/dio_provider.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
+import 'package:wanderlog/features/trips/data/trip_repository.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/core/providers/dio_provider.dart';
 
 class SpotListItem extends ConsumerWidget {
-  final String tripId;
-  final TripSpot tripSpot;
-  final bool showOpeningHours;
-  final bool showRating;
 
   const SpotListItem({
     super.key,
@@ -19,6 +15,10 @@ class SpotListItem extends ConsumerWidget {
     this.showOpeningHours = false,
     this.showRating = false,
   });
+  final String tripId;
+  final TripSpot tripSpot;
+  final bool showOpeningHours;
+  final bool showRating;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -200,7 +200,7 @@ class SpotListItem extends ConsumerWidget {
   }
 
   void _showSpotActions(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       builder: (context) => _SpotActionsSheet(
         tripId: tripId,
@@ -214,15 +214,15 @@ class SpotListItem extends ConsumerWidget {
 }
 
 class _SpotActionsSheet extends StatefulWidget {
-  final String tripId;
-  final TripSpot tripSpot;
-  final VoidCallback onRefresh;
 
   const _SpotActionsSheet({
     required this.tripId,
     required this.tripSpot,
     required this.onRefresh,
   });
+  final String tripId;
+  final TripSpot tripSpot;
+  final VoidCallback onRefresh;
 
   @override
   State<_SpotActionsSheet> createState() => _SpotActionsSheetState();
@@ -232,11 +232,12 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
   bool _isLoading = false;
 
   Future<void> _changeStatus(
-      BuildContext context, TripSpotStatus newStatus) async {
+      BuildContext context, TripSpotStatus newStatus,) async {
     setState(() => _isLoading = true);
 
     try {
-      final dio = context.read(dioProvider);
+      final container = ProviderScope.containerOf(context);
+      final dio = container.read(dioProvider);
       final repository = TripRepository(dio);
 
       await repository.manageTripSpot(
@@ -277,7 +278,8 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
     setState(() => _isLoading = true);
 
     try {
-      final dio = context.read(dioProvider);
+      final container = ProviderScope.containerOf(context);
+      final dio = container.read(dioProvider);
       final repository = TripRepository(dio);
 
       await repository.manageTripSpot(
@@ -309,7 +311,7 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
 
   void _showCheckInDialog(BuildContext context) {
     Navigator.of(context).pop();
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => _CheckInDialog(
         tripId: widget.tripId,
@@ -382,15 +384,15 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
 }
 
 class _CheckInDialog extends StatefulWidget {
-  final String tripId;
-  final TripSpot tripSpot;
-  final VoidCallback onRefresh;
 
   const _CheckInDialog({
     required this.tripId,
     required this.tripSpot,
     required this.onRefresh,
   });
+  final String tripId;
+  final TripSpot tripSpot;
+  final VoidCallback onRefresh;
 
   @override
   State<_CheckInDialog> createState() => _CheckInDialogState();
@@ -412,7 +414,8 @@ class _CheckInDialogState extends State<_CheckInDialog> {
     setState(() => _isLoading = true);
 
     try {
-      final dio = context.read(dioProvider);
+      final container = ProviderScope.containerOf(context);
+      final dio = container.read(dioProvider);
       final repository = TripRepository(dio);
 
       await repository.manageTripSpot(
@@ -450,8 +453,7 @@ class _CheckInDialogState extends State<_CheckInDialog> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
+  Widget build(BuildContext context) => AlertDialog(
       title: const Text('Check In'),
       content: SingleChildScrollView(
         child: Column(
@@ -530,13 +532,6 @@ class _CheckInDialogState extends State<_CheckInDialog> {
         ),
       ],
     );
-  }
-}
-
-extension on BuildContext {
-  T read<T>(ProviderListenable<T> provider) {
-    return ProviderScope.containerOf(this, listen: false).read(provider);
-  }
 }
 
 

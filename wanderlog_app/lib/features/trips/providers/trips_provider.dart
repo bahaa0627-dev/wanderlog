@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/providers/dio_provider.dart';
-import '../../../shared/models/trip_model.dart';
-import '../data/trip_repository.dart';
+import 'package:wanderlog/core/providers/dio_provider.dart';
+import 'package:wanderlog/shared/models/trip_model.dart';
+import 'package:wanderlog/features/trips/data/trip_repository.dart';
 
 // Trip Repository Provider
 final tripRepositoryProvider = Provider<TripRepository>((ref) {
@@ -28,10 +28,10 @@ final tripActionsProvider = Provider<TripActions>((ref) {
 });
 
 class TripActions {
-  final TripRepository _repository;
-  final Ref _ref;
 
   TripActions(this._repository, this._ref);
+  final TripRepository _repository;
+  final Ref _ref;
 
   Future<Trip> createTrip({
     required String name,
@@ -60,5 +60,6 @@ class TripActions {
     _ref.invalidate(tripProvider(tripId));
   }
 }
+
 
 

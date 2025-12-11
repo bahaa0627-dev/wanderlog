@@ -23,22 +23,35 @@ model User {
 
 model Spot {
   id            String     @id @default(cuid())
-  googlePlaceId String     @unique
+  googlePlaceId String?    @unique
   name          String
-  latitude      Float
-  longitude     Float
-  address       String?
-  category      String?    // e.g., restaurant, museum, park
-  tags          String?    // JSON string: ["coffee", "cozy", "wifi"]
-  openingHours  String?    // JSON string: structured opening hours
-  images        String?    // JSON string: URLs of images
-  rating        Float?     // Google rating
-  priceLevel    Int?       // 0-4
+  city          String     // 所在城市
+  country       String     @default("Denmark") // 所在国家
+  latitude      Float      // 纬度
+  longitude     Float      // 经度
+  address       String?    // 详细地址
+  description   String?    // 基本介绍
+  openingHours  String?    // JSON string: 营业时间
+  rating        Float?     // 当前评分
+  ratingCount   Int?       // 评分人数
+  category      String?    // 客观属性分类：博物馆、咖啡馆、餐厅等
+  aiSummary     String?    // AI介绍：根据最高10条评价总结的一句话
+  tags          String?    // JSON string: 标签组 ["cozy", "wifi", "romantic"]
+  coverImage    String?    // 封面图URL
+  images        String?    // JSON string: 其他图片URLs
+  priceLevel    Int?       // 0-4 价格等级
   website       String?
   phoneNumber   String?
+  source        String     @default("google_maps") // 数据来源：google_maps, user_import
+  isVerified    Boolean    @default(false) // 是否经过人工验证
+  lastSyncedAt  DateTime?  // 最后同步时间（每周日22:00更新）
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   tripSpots     TripSpot[]
+
+  @@index([city])
+  @@index([category])
+  @@index([rating])
 }
 
 model Trip {

@@ -2,13 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logger/logger.dart';
-import '../constants/app_constants.dart';
-import '../storage/storage_service.dart';
+import 'package:wanderlog/core/constants/app_constants.dart';
+import 'package:wanderlog/core/storage/storage_service.dart';
 
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
-      baseUrl: dotenv.get('API_BASE_URL', defaultValue: AppConstants.apiBaseUrl),
+      baseUrl: dotenv.maybeGet('API_BASE_URL') ?? AppConstants.apiBaseUrl,
       connectTimeout: AppConstants.connectionTimeout,
       receiveTimeout: AppConstants.receiveTimeout,
       headers: {
@@ -47,5 +47,6 @@ final dioProvider = Provider<Dio>((ref) {
 
   return dio;
 });
+
 
 

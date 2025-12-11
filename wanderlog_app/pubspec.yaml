@@ -13,6 +13,7 @@ dependencies:
   # UI & Design
   cupertino_icons: ^1.0.8
   material_design_icons_flutter: ^7.0.7296
+  google_fonts: ^6.1.0
   
   # State Management
   flutter_riverpod: ^2.5.1

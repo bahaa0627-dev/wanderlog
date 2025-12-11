@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logger/logger.dart';
 
-import '../constants/app_constants.dart';
+import 'package:wanderlog/core/constants/app_constants.dart';
 
 class DioClient {
   DioClient._();
@@ -17,7 +17,7 @@ class DioClient {
   void init() {
     _dio = Dio(
       BaseOptions(
-        baseUrl: dotenv.get('API_BASE_URL', defaultValue: AppConstants.apiBaseUrl),
+        baseUrl: dotenv.maybeGet('API_BASE_URL') ?? AppConstants.apiBaseUrl,
         connectTimeout: AppConstants.connectionTimeout,
         receiveTimeout: AppConstants.receiveTimeout,
         headers: {
@@ -51,6 +51,7 @@ class DioClient {
     );
   }
 }
+
 
 
 

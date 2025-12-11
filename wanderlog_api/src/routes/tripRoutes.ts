@@ -14,3 +14,4 @@ router.put('/:id/spots', manageTripSpot); // Add or update spot in trip
 export default router;
 
 
+

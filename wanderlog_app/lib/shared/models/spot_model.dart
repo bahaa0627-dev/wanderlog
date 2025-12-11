@@ -4,22 +4,6 @@ part 'spot_model.g.dart';
 
 @JsonSerializable()
 class Spot {
-  final String id;
-  final String googlePlaceId;
-  final String name;
-  final double latitude;
-  final double longitude;
-  final String? address;
-  final String? category;
-  final List<String> tags;
-  final Map<String, dynamic>? openingHours;
-  final List<String> images;
-  final double? rating;
-  final int? priceLevel;
-  final String? website;
-  final String? phoneNumber;
-  final DateTime createdAt;
-  final DateTime updatedAt;
 
   Spot({
     required this.id,
@@ -41,6 +25,22 @@ class Spot {
   });
 
   factory Spot.fromJson(Map<String, dynamic> json) => _$SpotFromJson(json);
+  final String id;
+  final String googlePlaceId;
+  final String name;
+  final double latitude;
+  final double longitude;
+  final String? address;
+  final String? category;
+  final List<String> tags;
+  final Map<String, dynamic>? openingHours;
+  final List<String> images;
+  final double? rating;
+  final int? priceLevel;
+  final String? website;
+  final String? phoneNumber;
+  final DateTime createdAt;
+  final DateTime updatedAt;
   Map<String, dynamic> toJson() => _$SpotToJson(this);
 
   Spot copyWith({
@@ -60,8 +60,7 @@ class Spot {
     String? phoneNumber,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) {
-    return Spot(
+  }) => Spot(
       id: id ?? this.id,
       googlePlaceId: googlePlaceId ?? this.googlePlaceId,
       name: name ?? this.name,
@@ -79,7 +78,7 @@ class Spot {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
-  }
 }
+
 
 

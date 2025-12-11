@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
 class ErrorView extends StatelessWidget {
-  final String message;
-  final VoidCallback? onRetry;
-  final IconData icon;
 
   const ErrorView({
     super.key,
@@ -11,10 +8,12 @@ class ErrorView extends StatelessWidget {
     this.onRetry,
     this.icon = Icons.error_outline,
   });
+  final String message;
+  final VoidCallback? onRetry;
+  final IconData icon;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
+  Widget build(BuildContext context) => Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -53,7 +52,7 @@ class ErrorView extends StatelessWidget {
         ),
       ),
     );
-  }
 }
+
 
 

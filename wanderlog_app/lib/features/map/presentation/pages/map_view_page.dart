@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../../../trips/providers/spots_provider.dart';
-import '../../../../shared/models/spot_model.dart';
-import '../widgets/spot_bottom_sheet.dart';
-import '../widgets/tag_filter_bar.dart';
+import 'package:wanderlog/features/trips/providers/spots_provider.dart';
+import 'package:wanderlog/shared/models/spot_model.dart';
+import 'package:wanderlog/features/map/presentation/widgets/tag_filter_bar.dart';
 
 class MapViewPage extends ConsumerStatefulWidget {
-  final String? city;
 
   const MapViewPage({super.key, this.city});
+  final String? city;
 
   @override
   ConsumerState<MapViewPage> createState() => _MapViewPageState();
@@ -76,11 +74,11 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
               });
               return const SizedBox.shrink();
             },
-            loading: () => Container(
+            loading: () => ColoredBox(
               color: Colors.black26,
               child: const Center(child: CircularProgressIndicator()),
             ),
-            error: (error, stack) => Container(
+            error: (error, stack) => ColoredBox(
               color: Colors.black26,
               child: Center(
                 child: Card(
@@ -91,7 +89,7 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.error_outline,
-                            size: 48, color: Colors.red),
+                            size: 48, color: Colors.red,),
                         const SizedBox(height: 16),
                         const Text('Error loading spots'),
                         const SizedBox(height: 8),
@@ -139,9 +137,7 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
     // Filter by selected tags
     final filteredSpots = _selectedTags.isEmpty
         ? spots
-        : spots.where((spot) {
-            return spot.tags.any((tag) => _selectedTags.contains(tag));
-          }).toList();
+        : spots.where((spot) => spot.tags.any((tag) => _selectedTags.contains(tag))).toList();
 
     // TODO: Add point annotations for each spot
     // This requires setting up the annotations plugin
@@ -170,7 +166,7 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
   }
 
   void _showFilterDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Filter by Category'),
@@ -218,14 +214,7 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
       ),
     );
   }
-
-  void _showSpotDetails(Spot spot) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => SpotBottomSheet(spot: spot),
-    );
-  }
 }
+
 
 

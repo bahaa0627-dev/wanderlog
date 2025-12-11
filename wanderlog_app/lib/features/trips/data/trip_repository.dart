@@ -1,17 +1,17 @@
 import 'package:dio/dio.dart';
-import '../../../shared/models/trip_model.dart';
-import '../../../shared/models/trip_spot_model.dart';
+import 'package:wanderlog/shared/models/trip_model.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
 
 class TripRepository {
-  final Dio _dio;
 
   TripRepository(this._dio);
+  final Dio _dio;
 
   Future<List<Trip>> getMyTrips() async {
     try {
-      final response = await _dio.get('/trips');
-      final List<dynamic> data = response.data;
-      return data.map((json) => Trip.fromJson(json)).toList();
+      final response = await _dio.get<List<dynamic>>('/trips');
+      final List<dynamic> data = response.data as List<dynamic>;
+      return data.map((json) => Trip.fromJson(json as Map<String, dynamic>)).toList();
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -19,8 +19,8 @@ class TripRepository {
 
   Future<Trip> getTripById(String id) async {
     try {
-      final response = await _dio.get('/trips/$id');
-      return Trip.fromJson(response.data);
+      final response = await _dio.get<Map<String, dynamic>>('/trips/$id');
+      return Trip.fromJson(response.data!);
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -33,7 +33,7 @@ class TripRepository {
     DateTime? endDate,
   }) async {
     try {
-      final response = await _dio.post(
+      final response = await _dio.post<Map<String, dynamic>>(
         '/trips',
         data: {
           'name': name,
@@ -42,7 +42,7 @@ class TripRepository {
           'endDate': endDate?.toIso8601String(),
         },
       );
-      return Trip.fromJson(response.data);
+      return Trip.fromJson(response.data!);
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -68,11 +68,11 @@ class TripRepository {
       if (userRating != null) data['userRating'] = userRating;
       if (userNotes != null) data['userNotes'] = userNotes;
 
-      final response = await _dio.put(
+      final response = await _dio.put<Map<String, dynamic>>(
         '/trips/$tripId/spots',
         data: data,
       );
-      return TripSpot.fromJson(response.data);
+      return TripSpot.fromJson(response.data!);
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -81,10 +81,11 @@ class TripRepository {
   String _handleError(DioException e) {
     if (e.response != null) {
       final message = e.response?.data['message'];
-      if (message != null) return message;
+      if (message != null) return message as String;
     }
     return e.message ?? 'An error occurred';
   }
 }
+
 
 

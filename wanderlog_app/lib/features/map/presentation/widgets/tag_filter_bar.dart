@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
 class TagFilterBar extends StatelessWidget {
-  final List<String> selectedTags;
-  final Function(List<String>) onTagsChanged;
 
   const TagFilterBar({
     super.key,
     required this.selectedTags,
     required this.onTagsChanged,
   });
+  final List<String> selectedTags;
+  final void Function(List<String>) onTagsChanged;
 
   static const List<String> availableTags = [
     'coffee',
@@ -24,8 +24,7 @@ class TagFilterBar extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       height: 60,
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
@@ -67,7 +66,7 @@ class TagFilterBar extends StatelessWidget {
         },
       ),
     );
-  }
 }
+
 
 

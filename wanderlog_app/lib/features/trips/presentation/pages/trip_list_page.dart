@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../shared/models/trip_model.dart';
-import '../../providers/trips_provider.dart';
+import 'package:wanderlog/shared/models/trip_model.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 
 class TripListPage extends ConsumerWidget {
   const TripListPage({super.key});
@@ -124,7 +124,7 @@ class TripListPage extends ConsumerWidget {
     final cityController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Create New Trip'),

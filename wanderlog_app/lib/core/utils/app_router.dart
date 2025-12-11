@@ -2,40 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/presentation/pages/login_page.dart';
-import '../../features/auth/presentation/pages/register_page.dart';
-import '../../features/auth/providers/auth_provider.dart';
-import '../../features/trips/presentation/pages/home_page.dart';
-import '../../features/trips/presentation/pages/trip_list_page.dart';
-import '../../features/trips/presentation/pages/trip_detail_page.dart';
-import '../../features/map/presentation/pages/map_view_page.dart';
+import 'package:wanderlog/features/auth/presentation/pages/login_page.dart';
+import 'package:wanderlog/features/auth/presentation/pages/register_page.dart';
+import 'package:wanderlog/features/trips/presentation/pages/home_page.dart';
+import 'package:wanderlog/features/trips/presentation/pages/trip_list_page.dart';
+import 'package:wanderlog/features/trips/presentation/pages/trip_detail_page.dart';
+import 'package:wanderlog/features/map/presentation/pages/map_view_page.dart';
 
 class AppRouter {
   AppRouter._();
 
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-  static GoRouter createRouter(WidgetRef ref) {
-    return GoRouter(
+  static GoRouter createRouter(WidgetRef ref) => GoRouter(
       navigatorKey: _rootNavigatorKey,
       initialLocation: '/home',
+      // 移除认证重定向，允许访问所有页面
       redirect: (context, state) {
-        final authState = ref.read(authProvider);
-        final isAuthenticated = authState.isAuthenticated;
-        final isGoingToAuth =
-            state.matchedLocation == '/login' || state.matchedLocation == '/register';
-
-        // Redirect to login if not authenticated and not going to auth pages
-        if (!isAuthenticated && !isGoingToAuth) {
-          return '/login';
-        }
-
-        // Redirect to home if authenticated and going to auth pages
-        if (isAuthenticated && isGoingToAuth) {
-          return '/home';
-        }
-
-        return null; // No redirect
+        return null; // 不进行任何重定向
       },
       routes: [
         GoRoute(
@@ -81,7 +65,6 @@ class AppRouter {
         ),
       ),
     );
-  }
 
   // Legacy router for backwards compatibility
   static final GoRouter router = GoRouter(
@@ -116,8 +99,7 @@ class AppRouter {
   );
 
   // Slide transition helper (right -> left for push, left -> right for pop)
-  static CustomTransitionPage _slideFromRight(Widget child) {
-    return CustomTransitionPage(
+  static CustomTransitionPage<void> _slideFromRight(Widget child) => CustomTransitionPage<void>(
       child: child,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         final tween = Tween<Offset>(
@@ -137,6 +119,5 @@ class AppRouter {
         );
       },
     );
-  }
 }
 

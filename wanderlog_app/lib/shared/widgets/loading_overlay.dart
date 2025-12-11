@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
 class LoadingOverlay extends StatelessWidget {
-  final bool isLoading;
-  final Widget child;
-  final String? message;
 
   const LoadingOverlay({
     super.key,
@@ -11,10 +8,12 @@ class LoadingOverlay extends StatelessWidget {
     required this.child,
     this.message,
   });
+  final bool isLoading;
+  final Widget child;
+  final String? message;
 
   @override
-  Widget build(BuildContext context) {
-    return Stack(
+  Widget build(BuildContext context) => Stack(
       children: [
         child,
         if (isLoading)
@@ -40,7 +39,7 @@ class LoadingOverlay extends StatelessWidget {
           ),
       ],
     );
-  }
 }
+
 
 

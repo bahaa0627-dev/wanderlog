@@ -122,3 +122,4 @@ export const manageTripSpot = async (req: Request, res: Response) => {
 };
 
 
+

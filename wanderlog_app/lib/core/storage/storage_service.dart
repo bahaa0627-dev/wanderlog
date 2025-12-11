@@ -18,9 +18,7 @@ class StorageService {
     await _secureStorage.write(key: key, value: value);
   }
 
-  Future<String?> getSecure(String key) async {
-    return await _secureStorage.read(key: key);
-  }
+  Future<String?> getSecure(String key) async => await _secureStorage.read(key: key);
 
   Future<void> deleteSecure(String key) async {
     await _secureStorage.delete(key: key);
@@ -35,25 +33,19 @@ class StorageService {
     await _prefs?.setString(key, value);
   }
 
-  String? getString(String key) {
-    return _prefs?.getString(key);
-  }
+  String? getString(String key) => _prefs?.getString(key);
 
   Future<void> setBool(String key, bool value) async {
     await _prefs?.setBool(key, value);
   }
 
-  bool? getBool(String key) {
-    return _prefs?.getBool(key);
-  }
+  bool? getBool(String key) => _prefs?.getBool(key);
 
   Future<void> setInt(String key, int value) async {
     await _prefs?.setInt(key, value);
   }
 
-  int? getInt(String key) {
-    return _prefs?.getInt(key);
-  }
+  int? getInt(String key) => _prefs?.getInt(key);
 
   Future<void> remove(String key) async {
     await _prefs?.remove(key);
@@ -63,6 +55,7 @@ class StorageService {
     await _prefs?.clear();
   }
 }
+
 
 
 

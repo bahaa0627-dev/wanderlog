@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../shared/models/spot_model.dart';
-import '../../../trips/providers/trips_provider.dart';
-import '../../../../shared/models/trip_spot_model.dart';
+import 'package:wanderlog/shared/models/spot_model.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
 
 class SpotBottomSheet extends ConsumerStatefulWidget {
-  final Spot spot;
 
   const SpotBottomSheet({super.key, required this.spot});
+  final Spot spot;
 
   @override
   ConsumerState<SpotBottomSheet> createState() => _SpotBottomSheetState();
@@ -25,8 +25,7 @@ class _SpotBottomSheetState extends ConsumerState<SpotBottomSheet> {
       initialChildSize: 0.6,
       minChildSize: 0.4,
       maxChildSize: 0.9,
-      builder: (context, scrollController) {
-        return Container(
+      builder: (context, scrollController) => Container(
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -236,8 +235,7 @@ class _SpotBottomSheetState extends ConsumerState<SpotBottomSheet> {
               ],
             ),
           ),
-        );
-      },
+        ),
     );
   }
 
@@ -276,5 +274,6 @@ class _SpotBottomSheetState extends ConsumerState<SpotBottomSheet> {
     }
   }
 }
+
 
 

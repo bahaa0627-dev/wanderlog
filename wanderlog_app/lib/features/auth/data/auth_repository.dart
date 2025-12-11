@@ -1,18 +1,16 @@
 import 'package:dio/dio.dart';
-import '../../../core/storage/storage_service.dart';
-import '../../../shared/models/user_model.dart';
+import 'package:wanderlog/core/storage/storage_service.dart';
+import 'package:wanderlog/shared/models/user_model.dart';
 
 class AuthRepository {
+
+  AuthRepository(this._dio, this._storage);
   final Dio _dio;
   final StorageService _storage;
 
   static const String _tokenKey = 'auth_token';
 
-  AuthRepository(this._dio, this._storage);
-
-  Future<String?> getToken() async {
-    return await _storage.getSecure(_tokenKey);
-  }
+  Future<String?> getToken() async => await _storage.getSecure(_tokenKey);
 
   Future<void> _saveToken(String token) async {
     await _storage.setSecure(_tokenKey, token);
@@ -24,7 +22,7 @@ class AuthRepository {
 
   Future<AuthResult> login(String email, String password) async {
     try {
-      final response = await _dio.post(
+      final response = await _dio.post<Map<String, dynamic>>(
         '/auth/login',
         data: {
           'email': email,
@@ -32,8 +30,8 @@ class AuthRepository {
         },
       );
 
-      final token = response.data['token'] as String;
-      final user = User.fromJson(response.data['user']);
+      final token = response.data!['token'] as String;
+      final user = User.fromJson(response.data!['user'] as Map<String, dynamic>);
 
       await _saveToken(token);
 
@@ -45,7 +43,7 @@ class AuthRepository {
 
   Future<AuthResult> register(String email, String password, String? name) async {
     try {
-      final response = await _dio.post(
+      final response = await _dio.post<Map<String, dynamic>>(
         '/auth/register',
         data: {
           'email': email,
@@ -54,8 +52,8 @@ class AuthRepository {
         },
       );
 
-      final token = response.data['token'] as String;
-      final user = User.fromJson(response.data['user']);
+      final token = response.data!['token'] as String;
+      final user = User.fromJson(response.data!['user'] as Map<String, dynamic>);
 
       await _saveToken(token);
 
@@ -67,8 +65,8 @@ class AuthRepository {
 
   Future<User> getMe() async {
     try {
-      final response = await _dio.get('/auth/me');
-      return User.fromJson(response.data);
+      final response = await _dio.get<Map<String, dynamic>>('/auth/me');
+      return User.fromJson(response.data!);
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -81,17 +79,18 @@ class AuthRepository {
   String _handleError(DioException e) {
     if (e.response != null) {
       final message = e.response?.data['message'];
-      if (message != null) return message;
+      if (message != null) return message as String;
     }
     return e.message ?? 'An error occurred';
   }
 }
 
 class AuthResult {
-  final User user;
-  final String token;
 
   AuthResult({required this.user, required this.token});
+  final User user;
+  final String token;
 }
+
 
 

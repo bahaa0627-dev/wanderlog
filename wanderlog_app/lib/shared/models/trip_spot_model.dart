@@ -1,5 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
-import 'spot_model.dart';
+import 'package:wanderlog/shared/models/spot_model.dart';
 
 part 'trip_spot_model.g.dart';
 
@@ -21,18 +21,6 @@ enum SpotPriority {
 
 @JsonSerializable()
 class TripSpot {
-  final String id;
-  final String tripId;
-  final String spotId;
-  final Spot? spot;
-  final TripSpotStatus status;
-  final SpotPriority priority;
-  final DateTime? visitDate;
-  final int? userRating;
-  final String? userNotes;
-  final List<String> userPhotos;
-  final DateTime createdAt;
-  final DateTime updatedAt;
 
   TripSpot({
     required this.id,
@@ -51,6 +39,18 @@ class TripSpot {
 
   factory TripSpot.fromJson(Map<String, dynamic> json) =>
       _$TripSpotFromJson(json);
+  final String id;
+  final String tripId;
+  final String spotId;
+  final Spot? spot;
+  final TripSpotStatus status;
+  final SpotPriority priority;
+  final DateTime? visitDate;
+  final int? userRating;
+  final String? userNotes;
+  final List<String> userPhotos;
+  final DateTime createdAt;
+  final DateTime updatedAt;
   Map<String, dynamic> toJson() => _$TripSpotToJson(this);
 
   TripSpot copyWith({
@@ -66,8 +66,7 @@ class TripSpot {
     List<String>? userPhotos,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) {
-    return TripSpot(
+  }) => TripSpot(
       id: id ?? this.id,
       tripId: tripId ?? this.tripId,
       spotId: spotId ?? this.spotId,
@@ -81,7 +80,7 @@ class TripSpot {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
-  }
 }
+
 
 

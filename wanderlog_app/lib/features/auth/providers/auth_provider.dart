@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/providers/dio_provider.dart';
-import '../../../core/storage/storage_service.dart';
-import '../../../shared/models/user_model.dart';
-import '../data/auth_repository.dart';
+import 'package:wanderlog/core/providers/dio_provider.dart';
+import 'package:wanderlog/core/storage/storage_service.dart';
+import 'package:wanderlog/shared/models/user_model.dart';
+import 'package:wanderlog/features/auth/data/auth_repository.dart';
 
 // Auth Repository Provider
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -12,15 +12,15 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
 // Auth State
 class AuthState {
-  final User? user;
-  final bool isLoading;
-  final String? error;
 
   AuthState({
     this.user,
     this.isLoading = false,
     this.error,
   });
+  final User? user;
+  final bool isLoading;
+  final String? error;
 
   bool get isAuthenticated => user != null;
 
@@ -28,22 +28,20 @@ class AuthState {
     User? user,
     bool? isLoading,
     String? error,
-  }) {
-    return AuthState(
+  }) => AuthState(
       user: user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
     );
-  }
 }
 
 // Auth State Notifier
 class AuthNotifier extends StateNotifier<AuthState> {
-  final AuthRepository _repository;
 
   AuthNotifier(this._repository) : super(AuthState()) {
     _checkAuthStatus();
   }
+  final AuthRepository _repository;
 
   Future<void> _checkAuthStatus() async {
     final token = await _repository.getToken();
@@ -91,5 +89,6 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return AuthNotifier(repository);
 });
+
 
 

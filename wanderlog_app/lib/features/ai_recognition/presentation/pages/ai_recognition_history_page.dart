@@ -65,15 +65,14 @@ class _AIRecognitionHistoryPageState extends State<AIRecognitionHistoryPage> {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed ?? false) {
       await _historyService.clearAllHistories();
       await _loadHistories();
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -107,10 +106,8 @@ class _AIRecognitionHistoryPageState extends State<AIRecognitionHistoryPage> {
               ? _buildEmptyState()
               : _buildHistoryList(),
     );
-  }
 
-  Widget _buildEmptyState() {
-    return Center(
+  Widget _buildEmptyState() => Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -138,10 +135,8 @@ class _AIRecognitionHistoryPageState extends State<AIRecognitionHistoryPage> {
         ],
       ),
     );
-  }
 
-  Widget _buildHistoryList() {
-    return ListView.separated(
+  Widget _buildHistoryList() => ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: _histories.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
@@ -157,7 +152,6 @@ class _AIRecognitionHistoryPageState extends State<AIRecognitionHistoryPage> {
         );
       },
     );
-  }
 }
 
 class _HistoryCard extends StatelessWidget {
@@ -172,8 +166,7 @@ class _HistoryCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
@@ -244,7 +237,7 @@ class _HistoryCard extends StatelessWidget {
                               ],
                             ),
                           );
-                          if (confirmed == true) {
+                          if (confirmed ?? false) {
                             onDelete();
                           }
                         },
@@ -282,21 +275,16 @@ class _HistoryCard extends StatelessWidget {
         ),
       ),
     );
-  }
 
-  Widget _buildImage(String path) {
-    return Container(
+  Widget _buildImage(String path) => Container(
       margin: const EdgeInsets.only(right: 1),
       child: Image.file(
         File(path),
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
+        errorBuilder: (context, error, stackTrace) => Container(
             color: Colors.grey[200],
             child: const Icon(Icons.broken_image, color: Colors.grey),
-          );
-        },
+          ),
       ),
     );
-  }
 }

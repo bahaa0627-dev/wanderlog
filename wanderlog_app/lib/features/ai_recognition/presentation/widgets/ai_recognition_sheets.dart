@@ -11,18 +11,15 @@ import 'package:dio/dio.dart';
 class AIRecognitionIntroSheet extends StatelessWidget {
   const AIRecognitionIntroSheet({super.key});
 
-  static Future<void> show(BuildContext context) {
-    return showModalBottomSheet<void>(
+  static Future<void> show(BuildContext context) => showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const AIRecognitionIntroSheet(),
     );
-  }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       height: MediaQuery.of(context).size.height * 0.65,
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -136,7 +133,6 @@ class AIRecognitionIntroSheet extends StatelessWidget {
         ],
       ),
     );
-  }
 
   Future<void> _handleOpenAlbum(BuildContext context) async {
     final picker = ImagePicker();
@@ -194,14 +190,12 @@ class AIRecognitionIntroSheet extends StatelessWidget {
 /// AI识别聊天式底部弹窗
 class AIRecognitionChatSheet extends StatefulWidget {
   const AIRecognitionChatSheet({
-    super.key,
-    required this.images,
+    required this.images, super.key,
   });
 
   final List<XFile> images;
 
-  static Future<void> show(BuildContext context, List<XFile> images) {
-    return showModalBottomSheet<void>(
+  static Future<void> show(BuildContext context, List<XFile> images) => showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -209,7 +203,6 @@ class AIRecognitionChatSheet extends StatefulWidget {
       enableDrag: false,
       builder: (context) => AIRecognitionChatSheet(images: images),
     );
-  }
 
   @override
   State<AIRecognitionChatSheet> createState() => _AIRecognitionChatSheetState();
@@ -262,8 +255,7 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -274,7 +266,7 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
           // 顶部栏
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               border: Border(
                 bottom: BorderSide(
                   color: AppTheme.lightGray,
@@ -309,10 +301,8 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
         ],
       ),
     );
-  }
 
-  Widget _buildLoadingState() {
-    return Center(
+  Widget _buildLoadingState() => Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -339,10 +329,8 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
         ],
       ),
     );
-  }
 
-  Widget _buildErrorState() {
-    return Center(
+  Widget _buildErrorState() => Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -379,7 +367,6 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
         ),
       ),
     );
-  }
 
   Widget _buildResultState() {
     if (_result == null) return const SizedBox.shrink();
@@ -460,8 +447,7 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
 /// 识别结果的地点卡片组件（4:3竖向）
 class SpotRecognitionCard extends StatefulWidget {
   const SpotRecognitionCard({
-    super.key,
-    required this.spot,
+    required this.spot, super.key,
   });
 
   final Spot spot;
@@ -474,8 +460,7 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
   bool _isInWishlist = false;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: () {
         // 打开地点详情页面
         showModalBottomSheet<void>(
@@ -517,8 +502,7 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
                     width: double.infinity,
                     height: 160,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
+                    errorBuilder: (context, error, stackTrace) => Container(
                         height: 160,
                         color: AppTheme.lightGray,
                         child: const Center(
@@ -528,8 +512,7 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
                             color: AppTheme.mediumGray,
                           ),
                         ),
-                      );
-                    },
+                      ),
                   ),
                 ),
                 // 加入Wishlist按钮
@@ -584,8 +567,7 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
                     Wrap(
                       spacing: 4,
                       runSpacing: 4,
-                      children: widget.spot.tags.take(2).map((tag) {
-                        return Container(
+                      children: widget.spot.tags.take(2).map((tag) => Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
                             vertical: 4,
@@ -604,8 +586,7 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
                               fontSize: 10,
                             ),
                           ),
-                        );
-                      }).toList(),
+                        ),).toList(),
                     ),
                   const SizedBox(height: 8),
                   // 地点名称
@@ -648,5 +629,4 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
         ),
       ),
     );
-  }
 }

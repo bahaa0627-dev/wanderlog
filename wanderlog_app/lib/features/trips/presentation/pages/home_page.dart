@@ -5,6 +5,7 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
+import 'package:wanderlog/features/map/presentation/pages/album_spots_map_page.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/widgets/ai_recognition_sheets_new.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -22,9 +23,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   static const _mockTrips = [
     {
       'city': 'copenhagen',
-      'count': 50,
+      'count': 15,
       'title': '3 day in copenhagen',
-      'tags': ['architecture', 'coffee', 'bread', 'brunch'],
+      'tags': ['Landmark', 'Park'], // Top 2 categories by count
       'image':
           'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800', // 哥本哈根
     },
@@ -158,6 +159,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 .map((t) => '#$t')
                                 .toList(),
                             imageUrl: trip['image'] as String,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (context) => AlbumSpotsMapPage(
+                                    city: trip['city'] as String,
+                                    albumTitle: trip['title'] as String,
+                                  ),
+                                ),
+                              );
+                            },
                           );
                         },
                       )
@@ -299,6 +310,7 @@ class _TripCard extends StatelessWidget {
     required this.title,
     required this.tags,
     required this.imageUrl,
+    required this.onTap,
   });
 
   final String city;
@@ -306,12 +318,11 @@ class _TripCard extends StatelessWidget {
   final String title;
   final List<String> tags;
   final String imageUrl;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: () {
-          // Navigate to trip detail
-        },
+        onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
@@ -330,10 +341,14 @@ class _TripCard extends StatelessWidget {
                 Image.network(
                   imageUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => ColoredBox(
+                  errorBuilder: (context, error, stackTrace) =>
+                      const ColoredBox(
                     color: AppTheme.lightGray,
-                    child: const Icon(Icons.image,
-                        size: 50, color: AppTheme.mediumGray),
+                    child: Icon(
+                      Icons.image,
+                      size: 50,
+                      color: AppTheme.mediumGray,
+                    ),
                   ),
                 ),
 
@@ -373,7 +388,9 @@ class _TripCard extends StatelessWidget {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.primaryYellow.withOpacity(0.5),
                               borderRadius: BorderRadius.circular(20),
@@ -388,7 +405,9 @@ class _TripCard extends StatelessWidget {
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.primaryYellow.withOpacity(0.5),
                               borderRadius: BorderRadius.circular(20),

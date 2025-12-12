@@ -14,18 +14,15 @@ import 'package:dio/dio.dart';
 class AIRecognitionIntroSheet extends StatelessWidget {
   const AIRecognitionIntroSheet({super.key});
 
-  static Future<void> show(BuildContext context) {
-    return showModalBottomSheet<void>(
+  static Future<void> show(BuildContext context) => showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const AIRecognitionIntroSheet(),
     );
-  }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       height: MediaQuery.of(context).size.height * 0.65,
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -194,7 +191,6 @@ class AIRecognitionIntroSheet extends StatelessWidget {
         ],
       ),
     );
-  }
 
   Future<void> _handleOpenAlbum(BuildContext context) async {
     final picker = ImagePicker();
@@ -301,16 +297,14 @@ class AIRecognitionIntroSheet extends StatelessWidget {
 /// AI识别聊天式底部弹窗 - 重新设计为对话风格
 class AIRecognitionChatSheet extends StatefulWidget {
   const AIRecognitionChatSheet({
-    super.key,
-    required this.images,
+    required this.images, super.key,
     this.historyResult,
   });
 
   final List<XFile> images;
   final AIRecognitionResult? historyResult;
 
-  static Future<void> show(BuildContext context, List<XFile> images) {
-    return showModalBottomSheet<void>(
+  static Future<void> show(BuildContext context, List<XFile> images) => showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -318,7 +312,6 @@ class AIRecognitionChatSheet extends StatefulWidget {
       enableDrag: false,
       builder: (context) => AIRecognitionChatSheet(images: images),
     );
-  }
 
   /// 从历史记录打开
   static Future<void> showFromHistory(
@@ -418,8 +411,7 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       height: MediaQuery.of(context).size.height * 0.9,
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -453,12 +445,10 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
         ],
       ),
     );
-  }
 
-  Widget _buildHeader() {
-    return Container(
+  Widget _buildHeader() => Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         border: Border(
           bottom: BorderSide(
             color: AppTheme.lightGray,
@@ -498,11 +488,9 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
         ],
       ),
     );
-  }
 
   /// 用户消息：显示上传的图片（右侧对齐）
-  Widget _buildUserMessage() {
-    return Row(
+  Widget _buildUserMessage() => Row(
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -581,11 +569,9 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
         ),
       ],
     );
-  }
 
   /// AI加载消息
-  Widget _buildLoadingMessage() {
-    return Row(
+  Widget _buildLoadingMessage() => Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildAIAvatar(),
@@ -632,11 +618,9 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
         ),
       ],
     );
-  }
 
   /// AI错误消息
-  Widget _buildErrorMessage() {
-    return Row(
+  Widget _buildErrorMessage() => Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildAIAvatar(),
@@ -687,7 +671,6 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
         ),
       ],
     );
-  }
 
   /// AI响应消息（包含文案和地点卡片）
   Widget _buildAIResponse() {
@@ -748,7 +731,7 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
                     ..._result!.spots.map((spot) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: SpotCardOverlay(spot: spot),
-                        )),
+                        ),),
                   ],
                 ),
               ),
@@ -759,8 +742,7 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
     );
   }
 
-  Widget _buildAIAvatar() {
-    return Container(
+  Widget _buildAIAvatar() => Container(
       width: 32,
       height: 32,
       decoration: BoxDecoration(
@@ -775,7 +757,6 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
         child: Text('🤖', style: TextStyle(fontSize: 16)),
       ),
     );
-  }
 
   void _showFullImage(int index) {
     showDialog<void>(
@@ -805,8 +786,7 @@ class _AIRecognitionChatSheetState extends State<AIRecognitionChatSheet> {
 /// 地点卡片 - 4:3比例，信息叠加在图片上
 class SpotCardOverlay extends StatefulWidget {
   const SpotCardOverlay({
-    super.key,
-    required this.spot,
+    required this.spot, super.key,
   });
 
   final Spot spot;
@@ -819,8 +799,7 @@ class _SpotCardOverlayState extends State<SpotCardOverlay> {
   bool _isInWishlist = false;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: () {
         // 打开地点详情页面
         showModalBottomSheet<void>(
@@ -856,18 +835,16 @@ class _SpotCardOverlayState extends State<SpotCardOverlay> {
                 Image.network(
                   widget.spot.coverImage,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
+                  errorBuilder: (context, error, stackTrace) => const ColoredBox(
                       color: AppTheme.lightGray,
-                      child: const Center(
+                      child: Center(
                         child: Icon(
                           Icons.image_not_supported,
                           size: 48,
                           color: AppTheme.mediumGray,
                         ),
                       ),
-                    );
-                  },
+                    ),
                 ),
                 // 渐变遮罩
                 Positioned.fill(
@@ -899,8 +876,7 @@ class _SpotCardOverlayState extends State<SpotCardOverlay> {
                         Wrap(
                           spacing: 4,
                           runSpacing: 4,
-                          children: widget.spot.tags.take(3).map((tag) {
-                            return Container(
+                          children: widget.spot.tags.take(3).map((tag) => Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 4,
@@ -920,8 +896,7 @@ class _SpotCardOverlayState extends State<SpotCardOverlay> {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            );
-                          }).toList(),
+                            ),).toList(),
                         ),
                       const SizedBox(height: 8),
                       // 地点名称
@@ -1010,5 +985,4 @@ class _SpotCardOverlayState extends State<SpotCardOverlay> {
         ),
       ),
     );
-  }
 }

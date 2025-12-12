@@ -6,14 +6,9 @@ class AIRecognitionResult {
     required this.message,
     required this.spots,
     required this.imageUrls,
-  });
+  }); // 上传的图片URL列表
 
-  final String message; // AI返回的文案描述
-  final List<Spot> spots; // 识别到的地点列表
-  final List<String> imageUrls; // 上传的图片URL列表
-
-  factory AIRecognitionResult.fromJson(Map<String, dynamic> json) {
-    return AIRecognitionResult(
+  factory AIRecognitionResult.fromJson(Map<String, dynamic> json) => AIRecognitionResult(
       message: json['message'] as String? ?? '',
       spots: (json['spots'] as List?)
               ?.map((spot) => spotFromJson(spot as Map<String, dynamic>))
@@ -22,10 +17,12 @@ class AIRecognitionResult {
       imageUrls:
           (json['imageUrls'] as List?)?.map((e) => e as String).toList() ?? [],
     );
-  }
 
-  static Spot spotFromJson(Map<String, dynamic> json) {
-    return Spot(
+  final String message; // AI返回的文案描述
+  final List<Spot> spots; // 识别到的地点列表
+  final List<String> imageUrls;
+
+  static Spot spotFromJson(Map<String, dynamic> json) => Spot(
       id: json['id'] as String,
       name: json['name'] as String,
       city: json['city'] as String? ?? '',
@@ -39,7 +36,6 @@ class AIRecognitionResult {
       tags: (json['tags'] as List?)?.map((e) => e as String).toList() ?? [],
       aiSummary: json['aiSummary'] as String?,
     );
-  }
 
   Map<String, dynamic> toJson() => {
         'message': message,

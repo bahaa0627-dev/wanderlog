@@ -1,0 +1,429 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
+import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_history_service.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/widgets/ai_recognition_sheets_new.dart';
+
+/// AI识别历史会话页面 - 展示所有历史对话（与上传后界面完全一致）
+class AIRecognitionHistoryChatPage extends StatefulWidget {
+  const AIRecognitionHistoryChatPage({super.key});
+
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => const AIRecognitionHistoryChatPage(),
+    );
+  }
+
+  @override
+  State<AIRecognitionHistoryChatPage> createState() => _AIRecognitionHistoryChatPageState();
+}
+
+class _AIRecognitionHistoryChatPageState extends State<AIRecognitionHistoryChatPage> {
+  final _historyService = AIRecognitionHistoryService();
+  final _scrollController = ScrollController();
+  
+  List<AIRecognitionHistory> _allHistories = [];
+  List<AIRecognitionHistory> _displayedHistories = [];
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  
+  static const int _pageSize = 20;
+  int _currentPage = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialHistories();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadInitialHistories() async {
+    setState(() => _isLoading = true);
+    
+    _allHistories = await _historyService.getHistories();
+    _displayedHistories = _allHistories.take(_pageSize).toList();
+    
+    setState(() => _isLoading = false);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _displayedHistories.length < _allHistories.length) {
+        _loadMoreHistories();
+      }
+    }
+  }
+
+  Future<void> _loadMoreHistories() async {
+    if (_isLoadingMore) return;
+    
+    setState(() => _isLoadingMore = true);
+    
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    
+    final nextPage = _currentPage + 1;
+    final startIndex = _currentPage * _pageSize;
+    final endIndex = (startIndex + _pageSize).clamp(0, _allHistories.length);
+    
+    final moreHistories = _allHistories.sublist(startIndex, endIndex);
+    
+    setState(() {
+      _displayedHistories.addAll(moreHistories);
+      _currentPage = nextPage;
+      _isLoadingMore = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.9,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Header - 与对话组件一致
+          _buildHeader(),
+          // Content
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _displayedHistories.isEmpty
+                    ? _buildEmptyState()
+                    : _buildChatList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: AppTheme.lightGray,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryYellow,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppTheme.black,
+                width: 2,
+              ),
+            ),
+            child: const Center(
+              child: Text('🤖', style: TextStyle(fontSize: 16)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'AI Travel Assistant',
+            style: AppTheme.headlineMedium(context).copyWith(fontSize: 18),
+          ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.arrow_back, size: 24),
+            onPressed: () {
+              Navigator.pop(context);
+              // 显示引导上传半层
+              AIRecognitionIntroSheet.show(context);
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 80,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No recognition history',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatList() {
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(16),
+      itemCount: _displayedHistories.length + (_isLoadingMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == _displayedHistories.length) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        
+        final history = _displayedHistories[index];
+        final isLastInPage = (index + 1) % _pageSize == 0;
+        
+        return Column(
+          children: [
+            _buildConversation(history),
+            if (isLastInPage && index < _displayedHistories.length - 1)
+              _buildPageDivider(index ~/ _pageSize + 1),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPageDivider(int pageNumber) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 24),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: Colors.grey[300])),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              '第 $pageNumber 页',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[500],
+              ),
+            ),
+          ),
+          Expanded(child: Divider(color: Colors.grey[300])),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConversation(AIRecognitionHistory history) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 时间戳
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              history.formattedTime,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[500],
+              ),
+            ),
+          ),
+          
+          // 用户消息（图片）- 右侧对齐
+          _buildUserMessage(history.imageUrls),
+          
+          const SizedBox(height: 16),
+          
+          // AI回复（识别结果）- 左侧对齐
+          _buildAIMessage(history),
+        ],
+      ),
+    );
+  }
+
+  /// 用户消息：显示上传的图片（右侧对齐，与上传后界面一致）
+  Widget _buildUserMessage(List<String> imageUrls) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(maxWidth: 280),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryYellow.withValues(alpha: 0.3),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(4),
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
+                  border: Border.all(
+                    color: AppTheme.black,
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Help me find these places',
+                      style: AppTheme.bodySmall(context).copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildImageGrid(imageUrls),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImageGrid(List<String> imageUrls) {
+    if (imageUrls.length == 1) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.file(
+          File(imageUrls[0]),
+          height: 160,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: 160,
+              color: Colors.grey[200],
+              child: const Icon(Icons.broken_image, color: Colors.grey),
+            );
+          },
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 1,
+      ),
+      itemCount: imageUrls.length.clamp(0, 4),
+      itemBuilder: (context, index) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.file(
+                File(imageUrls[index]),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.broken_image, color: Colors.grey, size: 24),
+                  );
+                },
+              ),
+            ),
+            if (imageUrls.length > 4 && index == 3)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    '+${imageUrls.length - 4}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// AI消息：识别结果（左侧对齐，与上传后界面一致）
+  Widget _buildAIMessage(AIRecognitionHistory history) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Flexible(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            constraints: const BoxConstraints(maxWidth: 320),
+            decoration: BoxDecoration(
+              color: AppTheme.background,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
+              ),
+              border: Border.all(
+                color: AppTheme.black,
+                width: AppTheme.borderMedium,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  history.result.message,
+                  style: AppTheme.bodyMedium(context),
+                ),
+                if (history.result.spots.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  ...history.result.spots.map((spot) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: SpotCardOverlay(spot: spot),
+                  )),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

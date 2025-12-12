@@ -11,7 +11,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Load environment variables
-  await dotenv.load(fileName: '.env.dev');
+  await dotenv.load(fileName: '.env');
   
   // Init services
   await StorageService.instance.init();

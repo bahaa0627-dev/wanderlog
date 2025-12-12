@@ -5,6 +5,7 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/widgets/ai_recognition_sheets_new.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -114,6 +115,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Search coming soon')),
                       );
+                    },
+                    trailingIcon: Icons.photo_library_outlined,
+                    onTrailingIconTap: () {
+                      AIRecognitionIntroSheet.show(context);
                     },
                   ),
                 ),

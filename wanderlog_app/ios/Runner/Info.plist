@@ -45,6 +45,10 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photo library to let you select images for AI location recognition.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We need access to your camera to take photos for AI location recognition.</string>
 	<key>MBXAccessToken</key>
 	<string>pk.eyJ1IjoibW9yaWJhaGFhIiwiYSI6ImNtaXp0MzM5NjAxamgzZXB0dnI3MTl4dzIifQ.sHnu6-JSac2YGSwEhkK8ag</string>
 </dict>

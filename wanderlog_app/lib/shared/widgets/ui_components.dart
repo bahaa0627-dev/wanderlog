@@ -236,6 +236,8 @@ class SearchBox extends StatelessWidget {
     this.onTap,
     this.controller,
     this.readOnly = false,
+    this.trailingIcon,
+    this.onTrailingIconTap,
   });
 
   final String hintText;
@@ -243,6 +245,8 @@ class SearchBox extends StatelessWidget {
   final VoidCallback? onTap;
   final TextEditingController? controller;
   final bool readOnly;
+  final IconData? trailingIcon;
+  final VoidCallback? onTrailingIconTap;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -270,6 +274,16 @@ class SearchBox extends StatelessWidget {
             color: AppTheme.mediumGray,
             size: 20,
           ),
+          suffixIcon: trailingIcon != null
+              ? IconButton(
+                  icon: Icon(
+                    trailingIcon,
+                    color: AppTheme.mediumGray,
+                    size: 20,
+                  ),
+                  onPressed: onTrailingIconTap,
+                )
+              : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 20,

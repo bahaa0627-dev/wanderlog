@@ -132,7 +132,6 @@ class _MapPageState extends ConsumerState<MapPage> {
   late String _selectedCity;
   Spot? _selectedSpot;
   late bool _isFullscreen;
-  late final bool _isOverlayInstance;
   final TextEditingController _searchController = TextEditingController();
   late final PageController _cardPageController;
   int _currentCardIndex = 0;
@@ -141,7 +140,6 @@ class _MapPageState extends ConsumerState<MapPage> {
   final Set<String> _selectedTags = {};
   picker.XFile? _searchPickedImage;
   List<Spot> _carouselSpots = const [];
-  bool _hasRequestedExit = false;
 
   late final Map<String, List<Spot>> _spotsByCity;
 
@@ -159,7 +157,6 @@ class _MapPageState extends ConsumerState<MapPage> {
   void initState() {
     super.initState();
     _spotsByCity = _buildMockSpots();
-    _isOverlayInstance = widget.onExitFullscreen != null;
     _isFullscreen = widget.startFullscreen;
     _selectedCity = widget.initialSnapshot?.selectedCity ?? _cityOrder.first;
     _selectedSpot = widget.initialSnapshot?.selectedSpot;
@@ -228,11 +225,13 @@ class _MapPageState extends ConsumerState<MapPage> {
   }
 
   void _handleSpotTap(Spot spot) {
-    if (!_isOverlayInstance) {
+    // 如果未全屏，先切换到全屏
+    if (!_isFullscreen) {
       _openFullscreen(focusSpot: spot);
       return;
     }
 
+    // 如果已经全屏，更新选中的spot
     final newCarousel = _computeNearbySpots(spot);
     setState(() {
       _selectedSpot = spot;
@@ -274,110 +273,44 @@ class _MapPageState extends ConsumerState<MapPage> {
   }
 
   void _requestExitFullscreen() {
-    if (!_isOverlayInstance) {
-      if (!_isFullscreen) {
-        return;
-      }
-      setState(() {
-        _isFullscreen = false;
-        _selectedSpot = null;
-        _carouselSpots = const [];
-        _currentCardIndex = 0;
-      });
-      widget.onFullscreenChanged?.call(false);
-      _jumpToPage(0);
+    if (!_isFullscreen) {
       return;
     }
-
-    if (_hasRequestedExit) {
-      return;
-    }
-    _hasRequestedExit = true;
-    final snapshot = _createSnapshot();
-    widget.onExitFullscreen?.call(snapshot);
+    setState(() {
+      _isFullscreen = false;
+      _selectedSpot = null;
+      _carouselSpots = const [];
+      _currentCardIndex = 0;
+    });
+    widget.onFullscreenChanged?.call(false);
+    _jumpToPage(0);
   }
 
   Future<void> _openFullscreen({Spot? focusSpot}) async {
-    if (!_isOverlayInstance) {
-      final wasFullscreen = _isFullscreen;
-      List<Spot>? newCarousel;
-      if (focusSpot != null) {
-        newCarousel = _computeNearbySpots(focusSpot);
-      }
-      setState(() {
-        _isFullscreen = true;
-        if (focusSpot != null) {
-          _selectedSpot = focusSpot;
-          _carouselSpots = newCarousel ?? _carouselSpots;
-          _currentCardIndex = 0;
-        }
-      });
-      if (!wasFullscreen) {
-        widget.onFullscreenChanged?.call(true);
-      }
-      if (focusSpot != null) {
-        _jumpToPage(0);
-        _animateCamera(
-          Position(focusSpot.longitude, focusSpot.latitude),
-          zoom: math.max(_currentZoom, 14.0),
-        );
-      }
-      return;
+    // 直接在当前页面切换到全屏状态
+    final wasFullscreen = _isFullscreen;
+    List<Spot>? newCarousel;
+    if (focusSpot != null) {
+      newCarousel = _computeNearbySpots(focusSpot);
     }
-
-    final snapshotForRoute = () {
-      final base = _createSnapshot();
-      if (focusSpot == null) {
-        return base;
-      }
-      final focusCenter = Position(focusSpot.longitude, focusSpot.latitude);
-      return base.copyWith(
-        selectedCity: focusSpot.city,
-        selectedSpot: focusSpot,
-        carouselSpots: _computeNearbySpots(focusSpot),
-        currentCardIndex: 0,
-        currentCenter: focusCenter,
-        currentZoom: math.max(_currentZoom, 14.0),
-      );
-    }();
-
-    final result = await Navigator.of(context).push<MapPageSnapshot>(
-      PageRouteBuilder<MapPageSnapshot>(
-        transitionDuration: const Duration(milliseconds: 350),
-        reverseTransitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (routeContext, animation, secondaryAnimation) => MapPage(
-          startFullscreen: true,
-          initialSnapshot: snapshotForRoute,
-          initialSpotOverride: focusSpot,
-          onExitFullscreen: (exitSnapshot) {
-            Navigator.of(routeContext).pop(exitSnapshot);
-          },
-        ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-            child,
-      ),
-    );
-
-    if (result == null) {
-      return;
-    }
-
     setState(() {
-      _selectedCity = result.selectedCity;
-      _selectedSpot = result.selectedSpot;
-      _selectedTags
-        ..clear()
-        ..addAll(result.selectedTags);
-      _currentMapCenter =
-          result.currentCenter ?? _cityPosition(result.selectedCity);
-      _currentZoom = result.currentZoom;
-      _searchPickedImage = result.searchImage;
-      _carouselSpots = result.carouselSpots;
-      _currentCardIndex = result.currentCardIndex;
+      _isFullscreen = true;
+      if (focusSpot != null) {
+        _selectedSpot = focusSpot;
+        _carouselSpots = newCarousel ?? _carouselSpots;
+        _currentCardIndex = 0;
+      }
     });
-
-    final targetCenter = _currentMapCenter ?? _cityPosition(_selectedCity);
-    _animateCamera(targetCenter, zoom: _currentZoom);
+    if (!wasFullscreen) {
+      widget.onFullscreenChanged?.call(true);
+    }
+    if (focusSpot != null) {
+      _jumpToPage(0);
+      _animateCamera(
+        Position(focusSpot.longitude, focusSpot.latitude),
+        zoom: math.max(_currentZoom, 14.0),
+      );
+    }
 
     if (_carouselSpots.isNotEmpty &&
         _currentCardIndex >= 0 &&
@@ -387,17 +320,6 @@ class _MapPageState extends ConsumerState<MapPage> {
       _jumpToPage(0);
     }
   }
-
-  MapPageSnapshot _createSnapshot() => MapPageSnapshot(
-        selectedCity: _selectedCity,
-        selectedSpot: _selectedSpot,
-        selectedTags: Set<String>.from(_selectedTags),
-        currentCenter: _currentMapCenter,
-        currentZoom: _currentZoom,
-        searchImage: _searchPickedImage,
-        carouselSpots: List<Spot>.from(_carouselSpots),
-        currentCardIndex: _currentCardIndex,
-      );
 
   Position _cityPosition(String city) =>
       _cityCoordinates[city] ?? _cityCoordinates[_cityOrder.first]!;
@@ -462,7 +384,7 @@ class _MapPageState extends ConsumerState<MapPage> {
 
     return WillPopScope(
       onWillPop: () async {
-        if (_isOverlayInstance && _isFullscreen && !_hasRequestedExit) {
+        if (_isFullscreen) {
           _requestExitFullscreen();
           return false;
         }
@@ -473,9 +395,7 @@ class _MapPageState extends ConsumerState<MapPage> {
         body: Stack(
           children: [
             AnimatedPositioned(
-              duration: _isFullscreen
-                  ? Duration.zero
-                  : const Duration(milliseconds: 350),
+              duration: const Duration(milliseconds: 350),
               curve: Curves.easeInOut,
               top: _isFullscreen ? 0 : 12,
               left: _isFullscreen ? 0 : 16,
@@ -487,9 +407,7 @@ class _MapPageState extends ConsumerState<MapPage> {
                 flightShuttleBuilder: _mapHeroFlight,
                 transitionOnUserGestures: false,
                 child: AnimatedContainer(
-                  duration: _isFullscreen
-                      ? Duration.zero
-                      : const Duration(milliseconds: 350),
+                  duration: const Duration(milliseconds: 350),
                   curve: Curves.easeInOut,
                   decoration: _isFullscreen
                       ? const BoxDecoration()
@@ -508,47 +426,35 @@ class _MapPageState extends ConsumerState<MapPage> {
                             ),
                           ],
                         ),
-                  child: GestureDetector(
-                    onTap: !_isOverlayInstance && !_isFullscreen
-                        ? () => _openFullscreen()
-                        : null,
-                    behavior: HitTestBehavior.opaque,
-                    child: ClipRRect(
-                      borderRadius: borderRadius,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final width = constraints.maxWidth;
-                          final height = constraints.maxHeight;
+                  child: ClipRRect(
+                    borderRadius: borderRadius,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final width = constraints.maxWidth;
+                        final height = constraints.maxHeight;
 
-                          return Stack(
-                            children: [
-                              MapWidget(
-                                key: const ValueKey('mapWidget'),
-                                cameraOptions: CameraOptions(
-                                  center: Point(
-                                    coordinates: (_currentMapCenter ??
-                                        _cityCoordinates[_selectedCity])!,
-                                  ),
-                                  zoom: _currentZoom,
+                        return Stack(
+                          children: [
+                            MapWidget(
+                              key: const ValueKey('mapWidget'),
+                              cameraOptions: CameraOptions(
+                                center: Point(
+                                  coordinates: (_currentMapCenter ??
+                                      _cityCoordinates[_selectedCity])!,
                                 ),
-                                onTapListener: (_) {
-                                  if (_isOverlayInstance || _isFullscreen) {
-                                    return;
-                                  }
-                                  _openFullscreen();
-                                },
-                                onMapCreated: (mapboxMap) {
-                                  _mapboxMap = mapboxMap;
-                                  final center = _currentMapCenter ??
-                                      _cityCoordinates[_selectedCity]!;
-                                  _animateCamera(center, zoom: _currentZoom);
-                                },
+                                zoom: _currentZoom,
                               ),
-                              ..._buildSpotMarkers(width, height),
-                            ],
-                          );
-                        },
-                      ),
+                              onMapCreated: (mapboxMap) {
+                                _mapboxMap = mapboxMap;
+                                final center = _currentMapCenter ??
+                                    _cityCoordinates[_selectedCity]!;
+                                _animateCamera(center, zoom: _currentZoom);
+                              },
+                            ),
+                            ..._buildSpotMarkers(width, height),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -577,14 +483,16 @@ class _MapPageState extends ConsumerState<MapPage> {
                 ),
               ),
             Positioned(
-              top: topPadding + 12,
-              left: 0,
-              right: 0,
+              top: _isFullscreen ? topPadding + 12 : 12,
+              left: _isFullscreen ? 0 : 16,
+              right: _isFullscreen ? 0 : 16,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: _isFullscreen ? 16 : 0,
+                    ),
                     child: Row(
                       children: [
                         _CitySelector(
@@ -602,7 +510,12 @@ class _MapPageState extends ConsumerState<MapPage> {
                             _animateCamera(_cityCoordinates[city]!);
                           },
                         ),
-                        const Spacer(),
+                        if (_isFullscreen) ...[
+                          const SizedBox(width: 12),
+                          Expanded(child: _buildFullscreenSearchBar(context)),
+                        ],
+                        if (!_isFullscreen) const Spacer(),
+                        if (_isFullscreen) const SizedBox(width: 12),
                         IconButtonCustom(
                           icon: _isFullscreen
                               ? Icons.fullscreen_exit
@@ -620,8 +533,6 @@ class _MapPageState extends ConsumerState<MapPage> {
                     ),
                   ),
                   if (_isFullscreen) ...[
-                    const SizedBox(height: 12),
-                    _buildFullscreenSearchBar(context),
                     const SizedBox(height: 12),
                     _buildTagBar(),
                   ],
@@ -747,75 +658,72 @@ class _MapPageState extends ConsumerState<MapPage> {
         ),
       );
 
-  Widget _buildFullscreenSearchBar(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          height: 48,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border: Border.all(
-              color: AppTheme.black,
-              width: AppTheme.borderMedium,
-            ),
+  Widget _buildFullscreenSearchBar(BuildContext context) => Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(
+            color: AppTheme.black,
+            width: AppTheme.borderMedium,
           ),
-          child: Row(
-            children: [
-              const SizedBox(width: 12),
-              const Icon(
-                Icons.search,
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 12),
+            const Icon(
+              Icons.search,
+              size: 20,
+              color: AppTheme.mediumGray,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                style: AppTheme.bodyMedium(context),
+                decoration: InputDecoration(
+                  hintText: 'Find your interest',
+                  hintStyle: AppTheme.bodySmall(context).copyWith(
+                    color: AppTheme.mediumGray,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.photo_camera,
                 size: 20,
                 color: AppTheme.mediumGray,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  style: AppTheme.bodyMedium(context),
-                  decoration: InputDecoration(
-                    hintText: 'Find your interest',
-                    hintStyle: AppTheme.bodySmall(context).copyWith(
-                      color: AppTheme.mediumGray,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+              onPressed: () async {
+                try {
+                  final picked = await picker.ImagePicker().pickImage(
+                    source: picker.ImageSource.gallery,
+                  );
+                  if (picked != null) {
+                    setState(() => _searchPickedImage = picked);
+                  }
+                } catch (_) {}
+              },
+            ),
+            if (_searchPickedImage != null) ...[
+              const SizedBox(width: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.file(
+                  File(_searchPickedImage!.path),
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.cover,
                 ),
               ),
-              IconButton(
-                icon: const Icon(
-                  Icons.photo_camera,
-                  size: 20,
-                  color: AppTheme.mediumGray,
-                ),
-                onPressed: () async {
-                  try {
-                    final picked = await picker.ImagePicker().pickImage(
-                      source: picker.ImageSource.gallery,
-                    );
-                    if (picked != null) {
-                      setState(() => _searchPickedImage = picked);
-                    }
-                  } catch (_) {}
-                },
-              ),
-              if (_searchPickedImage != null) ...[
-                const SizedBox(width: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.file(
-                    File(_searchPickedImage!.path),
-                    width: 36,
-                    height: 36,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ] else ...[
-                const SizedBox(width: 12),
-              ],
+              const SizedBox(width: 12),
+            ] else ...[
+              const SizedBox(width: 12),
             ],
-          ),
+          ],
         ),
       );
 

@@ -7,7 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' as picker;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
+import 'package:wanderlog/features/map/data/public_place_repository.dart';
+import 'package:wanderlog/features/map/data/sample_public_places.dart';
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
+import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 
 class Spot {
@@ -110,14 +114,16 @@ class MapPage extends ConsumerStatefulWidget {
 class _MapPageState extends ConsumerState<MapPage> {
   static const String _mapHeroTag = 'map-page-map-hero';
   static const double _nonFullscreenTopInset = 0.0;
+  static const double _collapsedMapZoom = 13.0;
+  static const int _spotsPerCityLimit = 10;
+  static const int _minCategoriesPerCity = 3;
+  static const String _fallbackCoverImage =
+      'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80';
   static const List<String> _cityOrder = [
+    'Chiang Mai',
     'Copenhagen',
-    'Berlin',
-    'Porto',
-    'Paris',
+    'Sapporo',
     'Tokyo',
-    'Barcelona',
-    'Amsterdam',
   ];
 
   static const List<String> _tagOptions = [
@@ -147,22 +153,20 @@ class _MapPageState extends ConsumerState<MapPage> {
   bool _hideMapChrome = false;
   bool _isLaunchingOverlay = false;
 
-  late final Map<String, List<Spot>> _spotsByCity;
+  Map<String, List<Spot>> _spotsByCity = const <String, List<Spot>>{};
+  bool _isLoadingSpots = false;
+  String? _loadingError;
 
   final Map<String, Position> _cityCoordinates = {
+    'Chiang Mai': Position(98.9853, 18.7883),
     'Copenhagen': Position(12.5683, 55.6761),
-    'Berlin': Position(13.4050, 52.5200),
-    'Porto': Position(-8.6291, 41.1579),
-    'Paris': Position(2.3522, 48.8566),
+    'Sapporo': Position(141.3545, 43.0621),
     'Tokyo': Position(139.6503, 35.6762),
-    'Barcelona': Position(2.1686, 41.3874),
-    'Amsterdam': Position(4.9041, 52.3676),
   };
 
   @override
   void initState() {
     super.initState();
-    _spotsByCity = _buildMockSpots();
     _isOverlayInstance = widget.onExitFullscreen != null;
     _isFullscreen = widget.startFullscreen;
     _selectedCity = widget.initialSnapshot?.selectedCity ?? _cityOrder.first;
@@ -190,6 +194,8 @@ class _MapPageState extends ConsumerState<MapPage> {
       viewportFraction: 0.85,
       initialPage: _currentCardIndex,
     );
+
+    _loadPublicPlaces();
   }
 
   @override
@@ -359,8 +365,8 @@ class _MapPageState extends ConsumerState<MapPage> {
   Position _cityPosition(String city) =>
       _cityCoordinates[city] ?? _cityCoordinates[_cityOrder.first]!;
 
-  List<Spot> _computeNearbySpots(Spot anchor) {
-    final spots = _filteredSpots;
+  List<Spot> _computeNearbySpots(Spot anchor, {List<Spot>? baseSpots}) {
+    final spots = baseSpots ?? _filteredSpots;
     if (spots.isEmpty) {
       return const [];
     }
@@ -455,6 +461,12 @@ class _MapPageState extends ConsumerState<MapPage> {
     }
   }
 
+  void _jumpToCollapsedViewport(Position center) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _mapKey.currentState?.jumpToPosition(center, zoom: _collapsedMapZoom);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
@@ -466,6 +478,9 @@ class _MapPageState extends ConsumerState<MapPage> {
     );
 
     final carouselSpots = _carouselSpots;
+    final bool hasAnySpots =
+        _spotsByCity.values.any((spots) => spots.isNotEmpty);
+    final bool showErrorOverlay = _loadingError != null && !hasAnySpots;
     final cityFallback =
         _cityCoordinates[_selectedCity] ?? _cityCoordinates[_cityOrder.first]!;
     const double controlsHorizontalPadding = 16.0;
@@ -637,6 +652,64 @@ class _MapPageState extends ConsumerState<MapPage> {
                   ),
                 ),
               ),
+            if (_isLoadingSpots && !hasAnySpots)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.white.withOpacity(0.92),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(AppTheme.black),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Fetching curated spots…',
+                        style: AppTheme.bodyLarge(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (showErrorOverlay)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.white.withOpacity(0.95),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Unable to load places',
+                        style: AppTheme.headlineMedium(context),
+                      ),
+                      if (_loadingError != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _loadingError!,
+                          style: AppTheme.bodyMedium(context).copyWith(
+                            color: AppTheme.mediumGray,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      PrimaryButton(
+                        text: 'Retry',
+                        onPressed: _loadPublicPlaces,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -800,442 +873,247 @@ class _MapPageState extends ConsumerState<MapPage> {
     );
   }
 
-  Map<String, List<Spot>> _buildMockSpots() => {
-        'Copenhagen': [
-          Spot(
-            id: 'cph-nyhavn',
-            name: 'Nyhavn Harbour',
-            city: 'Copenhagen',
-            category: 'Waterfront',
-            latitude: 55.6804,
-            longitude: 12.5870,
-            rating: 4.8,
-            ratingCount: 3287,
-            coverImage:
-                'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1451153378752-16ef2b36ad05?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Architecture', 'Food', 'History'],
-            aiSummary:
-                'Colorful 17th-century waterfront lined with ships, cafes, and lively outdoor terraces.',
-          ),
-          Spot(
-            id: 'cph-rosenborg',
-            name: 'Rosenborg Castle',
-            city: 'Copenhagen',
-            category: 'Museum',
-            latitude: 55.6857,
-            longitude: 12.5763,
-            rating: 4.7,
-            ratingCount: 1822,
-            coverImage:
-                'https://images.unsplash.com/photo-1511840636560-acee95b47a37?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1511840636560-acee95b47a37?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Museum', 'History', 'Architecture'],
-            aiSummary:
-                'Renaissance castle housing royal collections, crown jewels, and manicured palace gardens.',
-          ),
-          Spot(
-            id: 'cph-roundtower',
-            name: 'The Round Tower',
-            city: 'Copenhagen',
-            category: 'Landmark',
-            latitude: 55.6816,
-            longitude: 12.5732,
-            rating: 4.6,
-            ratingCount: 1395,
-            coverImage:
-                'https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1475264673458-81b48b834667?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Architecture', 'History'],
-            aiSummary:
-                '17th-century astronomical observatory with a spiraling ramp and sweeping city views.',
-          ),
-        ],
-        'Berlin': [
-          Spot(
-            id: 'berlin-brandenburg',
-            name: 'Brandenburg Gate',
-            city: 'Berlin',
-            category: 'Landmark',
-            latitude: 52.5163,
-            longitude: 13.3777,
-            rating: 4.7,
-            ratingCount: 5124,
-            coverImage:
-                'https://images.unsplash.com/photo-1562619421-e3f3a0c0c5c7?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1562619421-e3f3a0c0c5c7?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1604754742629-3bdb6df56a58?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1446160657592-4782fb76fb99?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Architecture', 'History'],
-            aiSummary:
-                'Iconic neoclassical gate symbolizing Berlin’s reunification with a grand city square.',
-          ),
-          Spot(
-            id: 'berlin-museum-island',
-            name: 'Museum Island',
-            city: 'Berlin',
-            category: 'Museum',
-            latitude: 52.5169,
-            longitude: 13.4010,
-            rating: 4.8,
-            ratingCount: 2984,
-            coverImage:
-                'https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1530023367847-a683933f4177?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1543780217-f600fcec90cd?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Museum', 'History', 'Architecture'],
-            aiSummary:
-                'UNESCO-listed ensemble of five world-class museums on the Spree River.',
-          ),
-          Spot(
-            id: 'berlin-coffee',
-            name: 'Kreuzberg Coffee Lab',
-            city: 'Berlin',
-            category: 'Coffee',
-            latitude: 52.4986,
-            longitude: 13.4034,
-            rating: 4.5,
-            ratingCount: 947,
-            coverImage:
-                'https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1529078155058-5d716f45d604?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1534040385115-33dcb3acba5e?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Coffee', 'Food'],
-            aiSummary:
-                'Third-wave coffee bar roasting beans on site with minimalist interiors and local pastry pairings.',
-          ),
-        ],
-        'Porto': [
-          Spot(
-            id: 'porto-livraria',
-            name: 'Livraria Lello',
-            city: 'Porto',
-            category: 'Bookstore',
-            latitude: 41.1472,
-            longitude: -8.6140,
-            rating: 4.7,
-            ratingCount: 2651,
-            coverImage:
-                'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['History', 'Architecture'],
-            aiSummary:
-                'Neo-Gothic bookstore famed for its sculpted staircase and literary inspirations.',
-          ),
-          Spot(
-            id: 'porto-bridge',
-            name: 'Dom Luís I Bridge',
-            city: 'Porto',
-            category: 'Landmark',
-            latitude: 41.1408,
-            longitude: -8.6110,
-            rating: 4.8,
-            ratingCount: 4122,
-            coverImage:
-                'https://images.unsplash.com/photo-1555448248-2571daf6344b?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1555448248-2571daf6344b?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1518860308377-3978c859c423?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1531254725343-18b640be11d9?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Architecture', 'History'],
-            aiSummary:
-                'Double-deck metal arch bridge connecting Porto and Vila Nova de Gaia over the Douro River.',
-          ),
-          Spot(
-            id: 'porto-clerigos',
-            name: 'Clérigos Tower',
-            city: 'Porto',
-            category: 'Landmark',
-            latitude: 41.1456,
-            longitude: -8.6148,
-            rating: 4.6,
-            ratingCount: 1788,
-            coverImage:
-                'https://images.unsplash.com/photo-1507048331197-7d4ac70811cf?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1507048331197-7d4ac70811cf?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1534219620024-7a4f61b06abb?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1528901166007-3784c7dd3653?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Architecture', 'History'],
-            aiSummary:
-                'Baroque bell tower offering panoramic views after a climb up its historic staircase.',
-          ),
-        ],
-        'Paris': [
-          Spot(
-            id: 'paris-louvre',
-            name: 'Louvre Museum',
-            city: 'Paris',
-            category: 'Museum',
-            latitude: 48.8606,
-            longitude: 2.3376,
-            rating: 4.8,
-            ratingCount: 6215,
-            coverImage:
-                'https://images.unsplash.com/photo-1523731407965-2430cd12f5e4?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1523731407965-2430cd12f5e4?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Museum', 'History', 'Architecture'],
-            aiSummary:
-                'World-renowned museum housing masterpieces like the Mona Lisa inside a glass pyramid entrance.',
-          ),
-          Spot(
-            id: 'paris-cafedeflore',
-            name: 'Café de Flore',
-            city: 'Paris',
-            category: 'Cafe',
-            latitude: 48.8553,
-            longitude: 2.3332,
-            rating: 4.5,
-            ratingCount: 2599,
-            coverImage:
-                'https://images.unsplash.com/photo-1543342386-1bb0e29017c4?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1543342386-1bb0e29017c4?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Food', 'Coffee', 'History'],
-            aiSummary:
-                'Historic Left Bank cafe famous for literary patrons, classic French fare, and polished service.',
-          ),
-          Spot(
-            id: 'paris-notredame',
-            name: 'Notre-Dame Cathedral',
-            city: 'Paris',
-            category: 'Landmark',
-            latitude: 48.8530,
-            longitude: 2.3499,
-            rating: 4.7,
-            ratingCount: 5412,
-            coverImage:
-                'https://images.unsplash.com/photo-1471623320832-752e2aa2d08b?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1471623320832-752e2aa2d08b?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['History', 'Architecture'],
-            aiSummary:
-                'Gothic cathedral celebrated for its stained glass, flying buttresses, and iconic twin towers.',
-          ),
-        ],
-        'Tokyo': [
-          Spot(
-            id: 'tokyo-sensoji',
-            name: 'Sensō-ji Temple',
-            city: 'Tokyo',
-            category: 'Temple',
-            latitude: 35.7148,
-            longitude: 139.7967,
-            rating: 4.8,
-            ratingCount: 4985,
-            coverImage:
-                'https://images.unsplash.com/photo-1581804928342-4e3405e39c91?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1581804928342-4e3405e39c91?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['History', 'Architecture', 'Culture'],
-            aiSummary:
-                'Tokyo’s oldest Buddhist temple with vibrant gates, incense rituals, and Nakamise shopping street.',
-          ),
-          Spot(
-            id: 'tokyo-teamlab',
-            name: 'teamLab Planets',
-            city: 'Tokyo',
-            category: 'Museum',
-            latitude: 35.6457,
-            longitude: 139.7847,
-            rating: 4.7,
-            ratingCount: 2674,
-            coverImage:
-                'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Museum', 'Nature'],
-            aiSummary:
-                'Immersive digital art experience where visitors walk through water and responsive light installations.',
-          ),
-          Spot(
-            id: 'tokyo-tsukiji',
-            name: 'Tsukiji Outer Market',
-            city: 'Tokyo',
-            category: 'Market',
-            latitude: 35.6655,
-            longitude: 139.7708,
-            rating: 4.6,
-            ratingCount: 3894,
-            coverImage:
-                'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Food', 'Culture'],
-            aiSummary:
-                'Bustling seafood market with street-side sushi, produce vendors, and kitchenware boutiques.',
-          ),
-        ],
-        'Barcelona': [
-          Spot(
-            id: 'barcelona-sagrada',
-            name: 'Sagrada Família',
-            city: 'Barcelona',
-            category: 'Landmark',
-            latitude: 41.4036,
-            longitude: 2.1744,
-            rating: 4.8,
-            ratingCount: 6376,
-            coverImage:
-                'https://images.unsplash.com/photo-1523475472560-d2df97ec485c?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1523475472560-d2df97ec485c?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Architecture', 'History'],
-            aiSummary:
-                'Gaudí’s unfinished basilica blending Gothic and Art Nouveau with soaring spires and organic forms.',
-          ),
-          Spot(
-            id: 'barcelona-parkguell',
-            name: 'Park Güell',
-            city: 'Barcelona',
-            category: 'Park',
-            latitude: 41.4145,
-            longitude: 2.1527,
-            rating: 4.7,
-            ratingCount: 4211,
-            coverImage:
-                'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1526481280695-3c469d3b0835?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Nature', 'Architecture'],
-            aiSummary:
-                'Whimsical park with mosaic benches, serpent fountains, and panoramic views of Barcelona.',
-          ),
-          Spot(
-            id: 'barcelona-boqueria',
-            name: 'La Boqueria Market',
-            city: 'Barcelona',
-            category: 'Market',
-            latitude: 41.3826,
-            longitude: 2.1722,
-            rating: 4.6,
-            ratingCount: 3524,
-            coverImage:
-                'https://images.unsplash.com/photo-1584305574647-0ada08d59c11?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1584305574647-0ada08d59c11?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1523475472560-d2df97ec485c?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Food', 'Culture'],
-            aiSummary:
-                'Historic covered market brimming with fresh seafood, Iberian delicacies, and tapas bars.',
-          ),
-        ],
-        'Amsterdam': [
-          Spot(
-            id: 'ams-rijksmuseum',
-            name: 'Rijksmuseum',
-            city: 'Amsterdam',
-            category: 'Museum',
-            latitude: 52.3600,
-            longitude: 4.8852,
-            rating: 4.8,
-            ratingCount: 4891,
-            coverImage:
-                'https://images.unsplash.com/photo-1504977402025-6b7a5bca8151?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1504977402025-6b7a5bca8151?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1529429617124-aee1e8fa5d14?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Museum', 'History', 'Architecture'],
-            aiSummary:
-                'Dutch national museum showcasing masterpieces by Rembrandt and Vermeer in a monumental building.',
-          ),
-          Spot(
-            id: 'ams-annefrank',
-            name: 'Anne Frank House',
-            city: 'Amsterdam',
-            category: 'Museum',
-            latitude: 52.3752,
-            longitude: 4.8836,
-            rating: 4.7,
-            ratingCount: 3722,
-            coverImage:
-                'https://images.unsplash.com/photo-1521540216272-a50305cd4421?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1521540216272-a50305cd4421?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1470137430626-983a37b8ea46?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['History', 'Museum'],
-            aiSummary:
-                'House and museum preserving the wartime hiding place of Anne Frank with poignant exhibits.',
-          ),
-          Spot(
-            id: 'ams-vondelpark',
-            name: 'Vondelpark',
-            city: 'Amsterdam',
-            category: 'Park',
-            latitude: 52.3584,
-            longitude: 4.8686,
-            rating: 4.7,
-            ratingCount: 4185,
-            coverImage:
-                'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80',
-            images: [
-              'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1455906876003-298dd8c44dd9?auto=format&fit=crop&w=1200&q=80',
-            ],
-            tags: const ['Nature', 'History'],
-            aiSummary:
-                'Expansive urban park with lakes, bike paths, open-air theatre, and shaded lawns popular with locals.',
-          ),
-        ],
-      };
+  Future<void> _loadPublicPlaces() async {
+    setState(() {
+      _isLoadingSpots = true;
+      _loadingError = null;
+    });
+
+    final repository = ref.read(publicPlaceRepositoryProvider);
+    final Map<String, List<Spot>> nextSpotsByCity = <String, List<Spot>>{};
+    String? firstError;
+
+    for (final city in _cityOrder) {
+      try {
+        final places = await repository.fetchPlacesByCity(
+          city: city,
+          limit: 200,
+          minRating: 4.0,
+        );
+        nextSpotsByCity[city] = _selectTopSpotsForCity(city, places);
+      } on PublicPlaceRepositoryException catch (error) {
+        firstError ??= error.message;
+        nextSpotsByCity[city] = _loadFallbackSpots(city);
+      } catch (error) {
+        firstError ??= error.toString();
+        nextSpotsByCity[city] = _loadFallbackSpots(city);
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final resolvedCity = _resolveCitySelection(nextSpotsByCity);
+    final resolvedSpot = _resolveSelectedSpot(
+      resolvedCity,
+      nextSpotsByCity,
+      _selectedSpot,
+    );
+    final nearby = resolvedSpot != null
+        ? _computeNearbySpots(
+            resolvedSpot,
+            baseSpots: nextSpotsByCity[resolvedCity],
+          )
+        : const <Spot>[];
+    final targetCenter = resolvedSpot != null
+        ? Position(resolvedSpot.longitude, resolvedSpot.latitude)
+        : _cityPosition(resolvedCity);
+
+    setState(() {
+      _spotsByCity = nextSpotsByCity;
+      _selectedCity = resolvedCity;
+      _selectedSpot = resolvedSpot;
+      _carouselSpots = nearby;
+      _currentCardIndex = 0;
+      _currentMapCenter = targetCenter;
+      _isLoadingSpots = false;
+      _loadingError = firstError;
+    });
+
+    final mapState = _mapKey.currentState;
+    if (mapState != null) {
+      await mapState.jumpToPosition(
+        targetCenter,
+        zoom: resolvedSpot != null
+            ? math.max(_currentZoom, 14.0)
+            : _collapsedMapZoom,
+      );
+    } else {
+      _jumpToCollapsedViewport(targetCenter);
+    }
+  }
+
+  // Provides curated sample spots so the UI stays functional offline.
+  List<Spot> _loadFallbackSpots(String city) {
+    final fallback = samplePublicPlacesByCity[city];
+    if (fallback == null || fallback.isEmpty) {
+      return const <Spot>[];
+    }
+    return _selectTopSpotsForCity(city, fallback);
+  }
+
+  String _resolveCitySelection(Map<String, List<Spot>> nextSpotsByCity) {
+    if ((nextSpotsByCity[_selectedCity] ?? const <Spot>[]).isNotEmpty) {
+      return _selectedCity;
+    }
+    for (final city in _cityOrder) {
+      if ((nextSpotsByCity[city] ?? const <Spot>[]).isNotEmpty) {
+        return city;
+      }
+    }
+    return _selectedCity;
+  }
+
+  Spot? _resolveSelectedSpot(
+    String city,
+    Map<String, List<Spot>> nextSpotsByCity,
+    Spot? currentSpot,
+  ) {
+    final citySpots = nextSpotsByCity[city] ?? const <Spot>[];
+    if (citySpots.isEmpty) {
+      return null;
+    }
+    if (currentSpot != null) {
+      for (final spot in citySpots) {
+        if (spot.id == currentSpot.id) {
+          return spot;
+        }
+      }
+    }
+    return citySpots.first;
+  }
+
+  List<Spot> _selectTopSpotsForCity(
+    String city,
+    List<PublicPlaceDto> places,
+  ) {
+    if (places.isEmpty) {
+      return const <Spot>[];
+    }
+
+    final List<Spot> candidates = [];
+    final Set<String> seenIds = {};
+
+    for (final place in places) {
+      if (seenIds.contains(place.placeId)) {
+        continue;
+      }
+      final spot = _mapPublicPlaceToSpot(city, place);
+      if (spot == null) {
+        continue;
+      }
+      seenIds.add(spot.id);
+      candidates.add(spot);
+    }
+
+    if (candidates.isEmpty) {
+      return const <Spot>[];
+    }
+
+    candidates.sort(_comparePlaces);
+
+    final List<Spot> selected = [];
+    final Set<String> selectedIds = {};
+    final Set<String> coveredCategories = {};
+    final int requiredCategoryCount =
+        _minCategoriesPerCity <= _spotsPerCityLimit
+            ? _minCategoriesPerCity
+            : _spotsPerCityLimit;
+
+    for (final spot in candidates) {
+      if (selected.length >= _spotsPerCityLimit) {
+        break;
+      }
+      final categoryKey = _normalizeCategory(spot.category);
+      final bool mustCoverCategory =
+          coveredCategories.length < requiredCategoryCount;
+      if (coveredCategories.contains(categoryKey) && mustCoverCategory) {
+        continue;
+      }
+      coveredCategories.add(categoryKey);
+      if (selectedIds.add(spot.id)) {
+        selected.add(spot);
+      }
+    }
+
+    if (selected.length < _spotsPerCityLimit) {
+      for (final spot in candidates) {
+        if (selected.length >= _spotsPerCityLimit) {
+          break;
+        }
+        if (selectedIds.add(spot.id)) {
+          selected.add(spot);
+        }
+      }
+    }
+
+    return selected;
+  }
+
+  int _comparePlaces(Spot a, Spot b) {
+    final ratingComparison = b.rating.compareTo(a.rating);
+    if (ratingComparison != 0) {
+      return ratingComparison;
+    }
+    final countComparison = b.ratingCount.compareTo(a.ratingCount);
+    if (countComparison != 0) {
+      return countComparison;
+    }
+    return a.name.compareTo(b.name);
+  }
+
+  Spot? _mapPublicPlaceToSpot(String fallbackCity, PublicPlaceDto place) {
+    final images = _dedupeImages([
+      if ((place.coverImage ?? '').isNotEmpty) place.coverImage!,
+      ...place.images,
+    ]);
+
+    if (place.latitude.isNaN || place.longitude.isNaN) {
+      return null;
+    }
+
+    final tags = place.aiTags.isNotEmpty
+        ? place.aiTags
+        : <String>[place.category ?? 'Hidden Gem'];
+
+    return Spot(
+      id: place.placeId,
+      name: place.name,
+      city: (place.city ?? '').isNotEmpty ? place.city! : fallbackCity,
+      category: (place.category ?? '').isNotEmpty
+          ? place.category!
+          : 'Point of Interest',
+      latitude: place.latitude,
+      longitude: place.longitude,
+      rating: place.rating ?? 4.0,
+      ratingCount: place.ratingCount ?? 0,
+      coverImage: images.isNotEmpty ? images.first : _fallbackCoverImage,
+      images: images.isNotEmpty ? images : <String>[_fallbackCoverImage],
+      tags: tags.take(4).toList(),
+      aiSummary: place.aiSummary ?? place.aiDescription,
+    );
+  }
+
+  List<String> _dedupeImages(List<String> rawImages) {
+    final Set<String> seen = {};
+    final List<String> results = [];
+    for (final image in rawImages) {
+      final normalized = image.trim();
+      if (normalized.isEmpty) {
+        continue;
+      }
+      if (seen.add(normalized)) {
+        results.add(normalized);
+      }
+    }
+    return results;
+  }
+
+  String _normalizeCategory(String category) {
+    final normalized = category.trim().toLowerCase();
+    return normalized.isEmpty ? 'poi' : normalized;
+  }
 }
 
 class _MapSurface extends StatelessWidget {
@@ -1267,9 +1145,9 @@ class _MapSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedContainer(
-      duration: animateTransitions && showChrome
-        ? const Duration(milliseconds: 350)
-        : Duration.zero,
+        duration: animateTransitions && showChrome
+            ? const Duration(milliseconds: 350)
+            : Duration.zero,
         curve: Curves.easeInOut,
         decoration: showChrome
             ? BoxDecoration(
@@ -1427,24 +1305,29 @@ class _BottomSpotCard extends StatelessWidget {
                           spacing: 6,
                           children: spot.tags
                               .take(2)
-                              .map((tag) => Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4,),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryYellow
-                                          .withOpacity(0.3),
-                                      borderRadius: BorderRadius.circular(
-                                          AppTheme.radiusSmall,),
-                                      border: Border.all(
-                                        color: AppTheme.black,
-                                        width: 0.5,
-                                      ),
+                              .map(
+                                (tag) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        AppTheme.primaryYellow.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusSmall,
                                     ),
-                                    child: Text(
-                                      tag,
-                                      style: AppTheme.labelSmall(context),
+                                    border: Border.all(
+                                      color: AppTheme.black,
+                                      width: 0.5,
                                     ),
-                                  ),)
+                                  ),
+                                  child: Text(
+                                    tag,
+                                    style: AppTheme.labelSmall(context),
+                                  ),
+                                ),
+                              )
                               .toList(),
                         ),
                         const SizedBox(height: 8),
@@ -1594,22 +1477,28 @@ class _SpotDetailModalState extends State<SpotDetailModal> {
                       runSpacing: 8,
                       children: widget.spot.tags
                           .take(4)
-                          .map((tag) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6,),
-                                decoration: BoxDecoration(
-                                  color:
-                                      AppTheme.primaryYellow.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusSmall,),
-                                  border: Border.all(
-                                    color: AppTheme.black,
-                                    width: AppTheme.borderMedium,
-                                  ),
+                          .map(
+                            (tag) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryYellow.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusSmall,
                                 ),
-                                child: Text(tag,
-                                    style: AppTheme.labelMedium(context),),
-                              ),)
+                                border: Border.all(
+                                  color: AppTheme.black,
+                                  width: AppTheme.borderMedium,
+                                ),
+                              ),
+                              child: Text(
+                                tag,
+                                style: AppTheme.labelMedium(context),
+                              ),
+                            ),
+                          )
                           .toList(),
                     ),
                     const SizedBox(height: 16),
@@ -1641,16 +1530,17 @@ class _SpotDetailModalState extends State<SpotDetailModal> {
                         ),
                         const SizedBox(width: 8),
                         ...List.generate(
-                            5,
-                            (index) => Icon(
-                                  index < widget.spot.rating.floor()
-                                      ? Icons.star
-                                      : (index < widget.spot.rating
-                                          ? Icons.star_half
-                                          : Icons.star_border),
-                                  color: AppTheme.primaryYellow,
-                                  size: 24,
-                                ),),
+                          5,
+                          (index) => Icon(
+                            index < widget.spot.rating.floor()
+                                ? Icons.star
+                                : (index < widget.spot.rating
+                                    ? Icons.star_half
+                                    : Icons.star_border),
+                            color: AppTheme.primaryYellow,
+                            size: 24,
+                          ),
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           '(${widget.spot.ratingCount})',

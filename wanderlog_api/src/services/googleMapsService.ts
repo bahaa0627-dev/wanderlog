@@ -2,7 +2,7 @@ import { Client, PlaceInputType } from '@googlemaps/google-maps-services-js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-const client = new Client({});
+const client = new Client({ timeout: 30000 }); // 增加超时到30秒
 
 interface SpotData {
   googlePlaceId: string;
@@ -40,6 +40,9 @@ class GoogleMapsService {
    */
   async getPlaceDetails(placeId: string): Promise<SpotData | null> {
     try {
+      console.log(`🔍 Fetching details for place ID: ${placeId}`);
+      console.log(`🔑 Using API key: ${this.apiKey.substring(0, 20)}...`);
+      
       const response = await client.placeDetails({
         params: {
           place_id: placeId,
@@ -48,6 +51,7 @@ class GoogleMapsService {
             'place_id',
             'name',
             'formatted_address',
+            'address_components',
             'geometry',
             'rating',
             'user_ratings_total',
@@ -59,13 +63,17 @@ class GoogleMapsService {
             'photos',
             'editorial_summary',
             'reviews'
-          ],
-          language: 'en'
+          ]
         }
       });
 
+      console.log(`✅ API Response Status: ${response.data.status}`);
+
       if (response.data.status !== 'OK' || !response.data.result) {
-        console.error('Place details error:', response.data.status);
+        console.error('❌ Place details error:', response.data.status);
+        if (response.data.error_message) {
+          console.error('Error message:', response.data.error_message);
+        }
         return null;
       }
 
@@ -117,8 +125,15 @@ class GoogleMapsService {
         website: place.website,
         phoneNumber: place.formatted_phone_number
       };
-    } catch (error) {
-      console.error('Error fetching place details:', error);
+    } catch (error: any) {
+      console.error('❌ Error fetching place details:', error.message);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
+      if (error.code) {
+        console.error('Error code:', error.code);
+      }
       return null;
     }
   }

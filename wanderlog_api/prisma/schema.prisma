@@ -86,3 +86,49 @@ model TripSpot {
 
   @@unique([tripId, spotId])
 }
+
+// 公共地点库 - Public Places Library
+model PublicPlace {
+  id            String   @id @default(cuid())
+  placeId       String   @unique // Google Place ID - 唯一标识符，全球唯一
+  name          String // 地点名称
+  latitude      Float // 纬度
+  longitude     Float // 经度
+  address       String? // 详细地址
+  city          String? // 所在城市
+  country       String? // 所在国家
+  category      String? // 分类：博物馆、咖啡馆、餐厅、景点等
+  coverImage    String? // 封面图URL
+  images        String? // JSON string: 其他图片URLs数组
+  
+  // Google Maps 标准数据
+  rating        Float? // 评分
+  ratingCount   Int? // 评分人数
+  priceLevel    Int? // 价格等级 0-4
+  openingHours  String? // JSON string: 营业时间
+  website       String? // 官网
+  phoneNumber   String? // 电话
+  
+  // AI 增强数据
+  aiTags        String? // JSON string: AI生成的风格标签 ["romantic", "cozy", "instagram-worthy"]
+  aiSummary     String? // AI生成的地点简介
+  aiDescription String? // AI生成的详细描述
+  
+  // 元数据
+  source        String   @default("google_maps") // 数据来源：google_maps_link, ai_image, ai_chat, manual
+  sourceDetails String? // JSON string: 来源详情（如Apify任务ID、AI模型名等）
+  isVerified    Boolean  @default(false) // 是否经过人工验证
+  lastSyncedAt  DateTime? // 最后同步Google数据的时间
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // 扩展字段 - 预留JSON存储自定义属性
+  customFields  String? // JSON string: 可扩展的自定义字段
+  
+  @@index([placeId])
+  @@index([city])
+  @@index([country])
+  @@index([category])
+  @@index([rating])
+  @@index([source])
+}

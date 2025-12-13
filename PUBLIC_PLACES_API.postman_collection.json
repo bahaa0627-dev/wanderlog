@@ -1,0 +1,286 @@
+{
+  "info": {
+    "name": "Wanderlog - Public Places Library API",
+    "description": "公共地点库 API 测试集合",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "查询地点",
+      "item": [
+        {
+          "name": "获取所有地点（分页）",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public-places?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "按城市筛选",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public-places?city=Copenhagen",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places"],
+              "query": [{ "key": "city", "value": "Copenhagen" }]
+            }
+          }
+        },
+        {
+          "name": "按分类筛选",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public-places?category=咖啡馆",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places"],
+              "query": [{ "key": "category", "value": "咖啡馆" }]
+            }
+          }
+        },
+        {
+          "name": "搜索地点",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public-places/search?q=咖啡",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places", "search"],
+              "query": [{ "key": "q", "value": "咖啡" }]
+            }
+          }
+        },
+        {
+          "name": "获取地点详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public-places/:placeId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places", ":placeId"],
+              "variable": [
+                {
+                  "key": "placeId",
+                  "value": "ChIJ...",
+                  "description": "Google Place ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "获取统计信息",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public-places/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places", "stats"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "导入地点",
+      "item": [
+        {
+          "name": "手动添加（通过 place_id）",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"placeId\": \"ChIJD7fiBh9u5kcRYJSMaMOCCwQ\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/public-places/add-by-place-id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places", "add-by-place-id"]
+            }
+          }
+        },
+        {
+          "name": "从 Google Maps 链接导入",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://www.google.com/maps/saved/...\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/public-places/import-from-link",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places", "import-from-link"]
+            }
+          }
+        },
+        {
+          "name": "从图片识别导入",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageUrl\": \"https://example.com/eiffel-tower.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/public-places/import-from-image",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places", "import-from-image"]
+            }
+          }
+        },
+        {
+          "name": "从对话导入",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"我想找哥本哈根的浪漫咖啡馆\",\n  \"city\": \"Copenhagen\",\n  \"country\": \"Denmark\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/public-places/import-from-chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places", "import-from-chat"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "管理地点",
+      "item": [
+        {
+          "name": "更新地点信息",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"新地点名称\",\n  \"category\": \"咖啡馆\",\n  \"aiTags\": [\"romantic\", \"cozy\", \"wifi\"],\n  \"aiSummary\": \"一家温馨的咖啡馆\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/public-places/:placeId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places", ":placeId"],
+              "variable": [
+                {
+                  "key": "placeId",
+                  "value": "ChIJ...",
+                  "description": "Google Place ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "删除地点",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public-places/:placeId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places", ":placeId"],
+              "variable": [
+                {
+                  "key": "placeId",
+                  "value": "ChIJ...",
+                  "description": "Google Place ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "同步 Google Maps 数据",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public-places/:placeId/sync",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places", ":placeId", "sync"],
+              "variable": [
+                {
+                  "key": "placeId",
+                  "value": "ChIJ...",
+                  "description": "Google Place ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "生成 AI 标签",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public-places/:placeId/generate-tags",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public-places", ":placeId", "generate-tags"],
+              "variable": [
+                {
+                  "key": "placeId",
+                  "value": "ChIJ...",
+                  "description": "Google Place ID"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' as picker;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 
 class Spot {
@@ -42,7 +43,11 @@ class Spot {
 class MapPageSnapshot {
   MapPageSnapshot({
     required this.selectedCity,
-    required this.selectedTags, required this.currentZoom, required this.carouselSpots, required this.currentCardIndex, this.selectedSpot,
+    required this.selectedTags,
+    required this.currentZoom,
+    required this.carouselSpots,
+    required this.currentCardIndex,
+    this.selectedSpot,
     this.currentCenter,
     this.searchImage,
   });
@@ -124,7 +129,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     'Culture',
   ];
 
-  MapboxMap? _mapboxMap;
+  final GlobalKey<MapboxSpotMapState> _mapKey = GlobalKey<MapboxSpotMapState>();
   late String _selectedCity;
   Spot? _selectedSpot;
   late bool _isFullscreen;
@@ -208,16 +213,7 @@ class _MapPageState extends ConsumerState<MapPage> {
       _currentZoom = zoom;
     }
 
-    final map = _mapboxMap;
-    if (map == null) return;
-
-    await map.flyTo(
-      CameraOptions(
-        center: Point(coordinates: newCenter),
-        zoom: zoom ?? _currentZoom,
-      ),
-      MapAnimationOptions(duration: 500),
-    );
+    _mapKey.currentState?.animateCamera(newCenter, zoom: zoom);
   }
 
   void _handleSpotTap(Spot spot) {
@@ -239,6 +235,8 @@ class _MapPageState extends ConsumerState<MapPage> {
       Position(spot.longitude, spot.latitude),
       zoom: math.max(_currentZoom, 14.0),
     );
+
+    // 共享组件会自动通过 didUpdateWidget 更新标记
   }
 
   void _jumpToPage(int index) {
@@ -424,32 +422,19 @@ class _MapPageState extends ConsumerState<MapPage> {
                         ),
                   child: ClipRRect(
                     borderRadius: borderRadius,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final width = constraints.maxWidth;
-                        final height = constraints.maxHeight;
-
-                        return Stack(
-                          children: [
-                            MapWidget(
-                              key: const ValueKey('mapWidget'),
-                              cameraOptions: CameraOptions(
-                                center: Point(
-                                  coordinates: (_currentMapCenter ??
-                                      _cityCoordinates[_selectedCity])!,
-                                ),
-                                zoom: _currentZoom,
-                              ),
-                              onMapCreated: (mapboxMap) {
-                                _mapboxMap = mapboxMap;
-                                final center = _currentMapCenter ??
-                                    _cityCoordinates[_selectedCity]!;
-                                _animateCamera(center, zoom: _currentZoom);
-                              },
-                            ),
-                            ..._buildSpotMarkers(width, height),
-                          ],
-                        );
+                    child: MapboxSpotMap(
+                      key: _mapKey,
+                      spots: _filteredSpots,
+                      initialCenter:
+                          _currentMapCenter ?? _cityCoordinates[_selectedCity]!,
+                      initialZoom: _currentZoom,
+                      selectedSpot: _selectedSpot,
+                      onSpotTap: _handleSpotTap,
+                      onCameraMove: (center, zoom) {
+                        setState(() {
+                          _currentMapCenter = center;
+                          _currentZoom = zoom;
+                        });
                       },
                     ),
                   ),
@@ -579,81 +564,6 @@ class _MapPageState extends ConsumerState<MapPage> {
     );
   }
 
-  List<Widget> _buildSpotMarkers(double width, double height) {
-    final mapCenter = _currentMapCenter ?? _cityCoordinates[_selectedCity]!;
-    final spots = _filteredSpots;
-
-    if (spots.isEmpty) {
-      return const [];
-    }
-
-    final num zoomFactor = math.pow(2, _currentZoom - 13);
-    final pixelsPerDegree = 7500.0 * zoomFactor.toDouble();
-
-    final markers = <Widget>[];
-    for (final spot in spots) {
-      final dx = (spot.longitude - mapCenter.lng) * pixelsPerDegree;
-      final dy = -(spot.latitude - mapCenter.lat) * pixelsPerDegree;
-      final left = width / 2 + dx;
-      final top = height / 2 + dy;
-
-      if (left < -140 ||
-          left > width + 140 ||
-          top < -140 ||
-          top > height + 140) {
-        continue;
-      }
-
-      final isSelected = _selectedSpot?.id == spot.id;
-      markers.add(
-        Positioned(
-          left: left - 60,
-          top: top - 28,
-          child: GestureDetector(
-            onTap: () => _handleSpotTap(spot),
-            child: _buildMarkerChip(spot, isSelected),
-          ),
-        ),
-      );
-    }
-
-    return markers;
-  }
-
-  Widget _buildMarkerChip(Spot spot, bool isSelected) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryYellow : Colors.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderMedium,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _getCategoryIcon(spot.category),
-              size: 16,
-              color: AppTheme.black,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              spot.name,
-              style: AppTheme.labelMedium(context),
-            ),
-          ],
-        ),
-      );
-
   Widget _buildFullscreenSearchBar(BuildContext context) => Container(
         height: 48,
         decoration: BoxDecoration(
@@ -778,6 +688,7 @@ class _MapPageState extends ConsumerState<MapPage> {
       _currentCardIndex = 0;
     });
     _jumpToPage(0);
+    // 共享组件会自动更新
   }
 
   String _tagEmoji(String tag) {
@@ -1248,33 +1159,6 @@ class _MapPageState extends ConsumerState<MapPage> {
       };
 }
 
-IconData _getCategoryIcon(String category) {
-  switch (category.toLowerCase()) {
-    case 'museum':
-      return Icons.museum;
-    case 'coffee':
-      return Icons.coffee;
-    case 'cafe':
-      return Icons.local_cafe;
-    case 'food':
-    case 'market':
-      return Icons.restaurant;
-    case 'temple':
-    case 'church':
-      return Icons.church;
-    case 'park':
-      return Icons.park;
-    case 'bookstore':
-      return Icons.menu_book;
-    case 'waterfront':
-      return Icons.sailing;
-    case 'landmark':
-      return Icons.place;
-    default:
-      return Icons.location_on;
-  }
-}
-
 class _CitySelector extends StatelessWidget {
   const _CitySelector({
     required this.selectedCity,
@@ -1397,23 +1281,27 @@ class _BottomSpotCard extends StatelessWidget {
                       children: [
                         Wrap(
                           spacing: 6,
-                          children: spot.tags.take(2).map((tag) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4,),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryYellow.withOpacity(0.3),
-                                borderRadius:
-                                    BorderRadius.circular(AppTheme.radiusSmall),
-                                border: Border.all(
-                                  color: AppTheme.black,
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Text(
-                                tag,
-                                style: AppTheme.labelSmall(context),
-                              ),
-                            ),).toList(),
+                          children: spot.tags
+                              .take(2)
+                              .map((tag) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryYellow
+                                          .withOpacity(0.3),
+                                      borderRadius: BorderRadius.circular(
+                                          AppTheme.radiusSmall),
+                                      border: Border.all(
+                                        color: AppTheme.black,
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      tag,
+                                      style: AppTheme.labelSmall(context),
+                                    ),
+                                  ))
+                              .toList(),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -1427,8 +1315,11 @@ class _BottomSpotCard extends StatelessWidget {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Icon(Icons.star,
-                                color: AppTheme.primaryYellow, size: 16,),
+                            const Icon(
+                              Icons.star,
+                              color: AppTheme.primaryYellow,
+                              size: 16,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               '${spot.rating}',
@@ -1501,16 +1392,16 @@ class _SpotDetailModalState extends State<SpotDetailModal> {
                     },
                     itemCount: widget.spot.images.length,
                     itemBuilder: (context, index) => Container(
-                        decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(24),
-                          ),
-                          image: DecorationImage(
-                            image: NetworkImage(widget.spot.images[index]),
-                            fit: BoxFit.cover,
-                          ),
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
+                        image: DecorationImage(
+                          image: NetworkImage(widget.spot.images[index]),
+                          fit: BoxFit.cover,
                         ),
                       ),
+                    ),
                   ),
                 ),
                 if (widget.spot.images.length > 1)
@@ -1557,21 +1448,25 @@ class _SpotDetailModalState extends State<SpotDetailModal> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: widget.spot.tags.take(4).map((tag) => Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6,),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow.withOpacity(0.3),
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusSmall),
-                            border: Border.all(
-                              color: AppTheme.black,
-                              width: AppTheme.borderMedium,
-                            ),
-                          ),
-                          child:
-                              Text(tag, style: AppTheme.labelMedium(context)),
-                        ),).toList(),
+                      children: widget.spot.tags
+                          .take(4)
+                          .map((tag) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppTheme.primaryYellow.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusSmall),
+                                  border: Border.all(
+                                    color: AppTheme.black,
+                                    width: AppTheme.borderMedium,
+                                  ),
+                                ),
+                                child: Text(tag,
+                                    style: AppTheme.labelMedium(context)),
+                              ))
+                          .toList(),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -1601,15 +1496,17 @@ class _SpotDetailModalState extends State<SpotDetailModal> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        ...List.generate(5, (index) => Icon(
-                            index < widget.spot.rating.floor()
-                                ? Icons.star
-                                : (index < widget.spot.rating
-                                    ? Icons.star_half
-                                    : Icons.star_border),
-                            color: AppTheme.primaryYellow,
-                            size: 24,
-                          ),),
+                        ...List.generate(
+                            5,
+                            (index) => Icon(
+                                  index < widget.spot.rating.floor()
+                                      ? Icons.star
+                                      : (index < widget.spot.rating
+                                          ? Icons.star_half
+                                          : Icons.star_border),
+                                  color: AppTheme.primaryYellow,
+                                  size: 24,
+                                )),
                         const SizedBox(width: 8),
                         Text(
                           '(${widget.spot.ratingCount})',
@@ -1629,7 +1526,8 @@ class _SpotDetailModalState extends State<SpotDetailModal> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                  '${widget.spot.name} added to wishlist!',),
+                                '${widget.spot.name} added to wishlist!',
+                              ),
                               backgroundColor: AppTheme.primaryYellow,
                               behavior: SnackBarBehavior.floating,
                             ),

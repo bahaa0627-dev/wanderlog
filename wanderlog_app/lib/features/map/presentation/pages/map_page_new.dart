@@ -144,6 +144,8 @@ class _MapPageState extends ConsumerState<MapPage> {
   picker.XFile? _searchPickedImage;
   List<Spot> _carouselSpots = const [];
   bool _hasRequestedExit = false;
+  bool _hideMapChrome = false;
+  bool _isLaunchingOverlay = false;
 
   late final Map<String, List<Spot>> _spotsByCity;
 
@@ -299,6 +301,12 @@ class _MapPageState extends ConsumerState<MapPage> {
       return;
     }
 
+    setState(() {
+      _hideMapChrome = true;
+      _isLaunchingOverlay = true;
+    });
+    await Future<void>.delayed(Duration.zero);
+
     final snapshotForRoute = () {
       final base = _createSnapshot();
       if (focusSpot == null) {
@@ -336,11 +344,16 @@ class _MapPageState extends ConsumerState<MapPage> {
 
     widget.onFullscreenChanged?.call(false);
 
-    if (result == null) {
-      return;
+    if (result != null) {
+      await _restoreFromSnapshot(result);
     }
 
-    await _restoreFromSnapshot(result);
+    if (mounted) {
+      setState(() {
+        _hideMapChrome = false;
+        _isLaunchingOverlay = false;
+      });
+    }
   }
 
   Position _cityPosition(String city) =>
@@ -446,8 +459,10 @@ class _MapPageState extends ConsumerState<MapPage> {
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final topPadding = mediaQuery.padding.top;
+    final bool isExpanded = _isFullscreen || _isLaunchingOverlay;
+    final bool showChrome = !(isExpanded || _hideMapChrome);
     final borderRadius = BorderRadius.circular(
-      _isFullscreen ? 0 : AppTheme.radiusMedium,
+      showChrome ? AppTheme.radiusMedium : 0,
     );
 
     final carouselSpots = _carouselSpots;
@@ -456,7 +471,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     const double controlsHorizontalPadding = 16.0;
     final mapSurface = _MapSurface(
       borderRadius: borderRadius,
-      isFullscreen: _isFullscreen,
+      showChrome: showChrome,
       animateTransitions: !widget.startFullscreen,
       mapKey: _mapKey,
       spots: _filteredSpots,
@@ -499,10 +514,10 @@ class _MapPageState extends ConsumerState<MapPage> {
                   ? Duration.zero
                   : const Duration(milliseconds: 350),
               curve: Curves.easeInOut,
-              top: _isFullscreen ? 0 : _nonFullscreenTopInset,
-              left: _isFullscreen ? 0 : 16,
-              right: _isFullscreen ? 0 : 16,
-              bottom: _isFullscreen ? 0 : 16,
+              top: isExpanded ? 0 : _nonFullscreenTopInset,
+              left: isExpanded ? 0 : 16,
+              right: isExpanded ? 0 : 16,
+              bottom: isExpanded ? 0 : 16,
               child: mapContent,
             ),
             if (_isFullscreen)
@@ -1226,7 +1241,7 @@ class _MapPageState extends ConsumerState<MapPage> {
 class _MapSurface extends StatelessWidget {
   const _MapSurface({
     required this.borderRadius,
-    required this.isFullscreen,
+    required this.showChrome,
     required this.animateTransitions,
     required this.mapKey,
     required this.spots,
@@ -1239,7 +1254,7 @@ class _MapSurface extends StatelessWidget {
   });
 
   final BorderRadius borderRadius;
-  final bool isFullscreen;
+  final bool showChrome;
   final bool animateTransitions;
   final GlobalKey<MapboxSpotMapState> mapKey;
   final List<Spot> spots;
@@ -1252,12 +1267,12 @@ class _MapSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedContainer(
-        duration:
-            animateTransitions ? const Duration(milliseconds: 350) : Duration.zero,
+      duration: animateTransitions && showChrome
+        ? const Duration(milliseconds: 350)
+        : Duration.zero,
         curve: Curves.easeInOut,
-        decoration: isFullscreen
-            ? const BoxDecoration()
-            : BoxDecoration(
+        decoration: showChrome
+            ? BoxDecoration(
                 color: Colors.white,
                 borderRadius: borderRadius,
                 border: Border.all(
@@ -1271,7 +1286,8 @@ class _MapSurface extends StatelessWidget {
                     offset: const Offset(0, 4),
                   ),
                 ],
-              ),
+              )
+            : const BoxDecoration(),
         child: ClipRRect(
           borderRadius: borderRadius,
           child: MapboxSpotMap(

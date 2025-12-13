@@ -1,0 +1,33 @@
+🌐 Using proxy: http://127.0.0.1:7890
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🗺️  Google Maps 列表导入工具
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 Google Maps URL: https://maps.app.goo.gl/Cd5DMwwW89C2jDbU9
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 开始导入地点...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🕷️ Starting Apify scraper for URL: https://maps.app.goo.gl/Cd5DMwwW89C2jDbU9
+🔑 Apify API Token: apify_api_XbmdrjhdbI...
+🎭 Apify Actor ID: tByXAQZA6aEfjFT0H
+✅ Apify run started, ID: c8NnJr5GLPu8Jl2K4
+⏳ Waiting for scraper to complete...
+Apify run status: RUNNING
+Apify run status: SUCCEEDED
+✅ Extracted 0 place IDs from Apify
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 导入结果
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ 成功导入: 0 个地点
+❌ 失败: 0 个地点
+
+❌ 错误详情:
+  1. No places found in the link
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✨ 导入完成！
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

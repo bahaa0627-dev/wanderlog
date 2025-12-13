@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import publicPlaceService from '../services/publicPlaceService';
 import apifyService from '../services/apifyService';
 import aiService from '../services/aiService';
+import googleMapsFavoritesService from '../services/googleMapsFavoritesService';
 
 class PublicPlaceController {
   /**
@@ -125,11 +126,11 @@ class PublicPlaceController {
   /**
    * 从 Google Maps 收藏链接导入地点
    * POST /api/public-places/import-from-link
-   * Body: { url: string }
+   * Body: { url: string, listName?: string, listDescription?: string, useApify?: boolean }
    */
   async importFromGoogleMapsLink(req: Request, res: Response): Promise<void> {
     try {
-      const { url } = req.body;
+      const { url, listName, listDescription, useApify } = req.body;
 
       if (!url) {
         return res.status(400).json({
@@ -138,15 +139,75 @@ class PublicPlaceController {
         });
       }
 
-      // 使用 Apify 提取并导入
-      const result = await apifyService.importFromGoogleMapsLink(url);
+      console.log(`📥 Importing from Google Maps link: ${url}`);
+      console.log(`🔧 Using Apify: ${useApify !== false ? 'YES' : 'NO'}`);
+
+      let result;
+
+      // 默认使用 Apify（除非明确设置 useApify: false）
+      if (useApify !== false) {
+        console.log('🕷️ Using Apify scraper...');
+        const apifyResult = await apifyService.importFromGoogleMapsLink(url);
+        
+        result = {
+          success: apifyResult.success,
+          failed: apifyResult.failed,
+          skipped: 0, // Apify 结果中没有 skipped，去重在 batchAddByPlaceIds 中处理
+          errors: apifyResult.errors,
+          placeIds: [] // Apify 不返回 placeIds
+        };
+      } else {
+        console.log('🔍 Using direct URL parser...');
+        result = await googleMapsFavoritesService.importFromLink(url, {
+          listName,
+          listDescription
+        });
+      }
 
       res.json({
         success: true,
         data: result,
-        message: `Successfully imported ${result.success} places`,
+        message: `Successfully imported ${result.success} new places. ${result.skipped || 0} places already existed and were skipped.`,
       });
     } catch (error: any) {
+      console.error('❌ Error importing from Google Maps link:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * 批量导入 Place IDs
+   * POST /api/public-places/import-by-place-ids
+   * Body: { placeIds: string[], sourceDetails?: any }
+   */
+  async importByPlaceIds(req: Request, res: Response): Promise<void> {
+    try {
+      const { placeIds, sourceDetails } = req.body;
+
+      if (!placeIds || !Array.isArray(placeIds) || placeIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'placeIds array is required and must not be empty',
+        });
+      }
+
+      console.log(`📥 Importing ${placeIds.length} place IDs...`);
+
+      const result = await googleMapsFavoritesService.importByPlaceIds(
+        placeIds,
+        sourceDetails
+      );
+
+      res.json({
+        success: true,
+        data: result,
+        message: `Successfully imported ${result.success} new places. ${result.skipped} places already existed and were skipped.`,
+      });
+    } catch (error: any) {
+      console.error('❌ Error importing place IDs:', error);
       res.status(500).json({
         success: false,
         error: error.message,

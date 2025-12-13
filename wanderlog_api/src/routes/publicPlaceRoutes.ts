@@ -18,8 +18,11 @@ router.get('/:placeId', publicPlaceController.getPlaceByPlaceId.bind(publicPlace
 // 手动添加地点（通过 place_id）
 router.post('/add-by-place-id', publicPlaceController.addByPlaceId.bind(publicPlaceController));
 
-// 从 Google Maps 链接导入
+// 从 Google Maps 链接导入（收藏夹/列表）
 router.post('/import-from-link', publicPlaceController.importFromGoogleMapsLink.bind(publicPlaceController));
+
+// 批量导入 Place IDs
+router.post('/import-by-place-ids', publicPlaceController.importByPlaceIds.bind(publicPlaceController));
 
 // 从图片识别并导入
 router.post('/import-from-image', publicPlaceController.importFromImage.bind(publicPlaceController));

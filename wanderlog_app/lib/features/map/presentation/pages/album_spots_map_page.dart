@@ -177,8 +177,7 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
     );
   }
 
-  Widget _buildAppBar() {
-    return Container(
+  Widget _buildAppBar() => Container(
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 12,
         left: 16,
@@ -226,10 +225,8 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
         ],
       ),
     );
-  }
 
-  Widget _buildBottomCards() {
-    return SizedBox(
+  Widget _buildBottomCards() => SizedBox(
       height: 260,
       child: PageView.builder(
         controller: _cardPageController,
@@ -261,7 +258,6 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
         },
       ),
     );
-  }
 
   // Mock 数据 - 实际项目中应从 API 或 provider 获取
   Map<String, List<Spot>> _buildMockSpots() => {
@@ -374,8 +370,7 @@ class _BottomSpotCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -409,7 +404,7 @@ class _BottomSpotCard extends StatelessWidget {
                   height: 135,
                   color: AppTheme.lightGray,
                   child: const Icon(Icons.place,
-                      size: 50, color: AppTheme.mediumGray),
+                      size: 50, color: AppTheme.mediumGray,),
                 ),
               ),
             ),
@@ -424,8 +419,7 @@ class _BottomSpotCard extends StatelessWidget {
                     // 标签
                     Wrap(
                       spacing: 6,
-                      children: spot.tags.take(2).map((tag) {
-                        return Container(
+                      children: spot.tags.take(2).map((tag) => Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
@@ -436,8 +430,7 @@ class _BottomSpotCard extends StatelessWidget {
                                 Border.all(color: AppTheme.black, width: 1.0),
                           ),
                           child: Text(tag, style: AppTheme.labelLarge(context)),
-                        );
-                      }).toList(),
+                        )).toList(),
                     ),
                     const SizedBox(height: 8),
                     // 地点名称（带分类图标）
@@ -466,7 +459,7 @@ class _BottomSpotCard extends StatelessWidget {
                     Row(
                       children: [
                         const Icon(Icons.star,
-                            color: AppTheme.primaryYellow, size: 16),
+                            color: AppTheme.primaryYellow, size: 16,),
                         const SizedBox(width: 4),
                         Text(
                           '${spot.rating}',
@@ -491,5 +484,4 @@ class _BottomSpotCard extends StatelessWidget {
         ),
       ),
     );
-  }
 }

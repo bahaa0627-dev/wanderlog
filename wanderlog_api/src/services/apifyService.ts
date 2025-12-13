@@ -3,7 +3,7 @@ import publicPlaceService from './publicPlaceService';
 
 interface ApifyConfig {
   apiToken: string;
-  actorId: string; // Apify Actor ID for Google Maps scraper
+  actorId: string;
 }
 
 class ApifyService {
@@ -13,7 +13,7 @@ class ApifyService {
   constructor() {
     this.config = {
       apiToken: process.env.APIFY_API_TOKEN || '',
-      actorId: process.env.APIFY_ACTOR_ID || 'compass/google-maps-scraper', // 默认使用这个 Actor
+      actorId: process.env.APIFY_ACTOR_ID || 'compass/google-maps-scraper',
     };
 
     if (!this.config.apiToken) {
@@ -22,53 +22,184 @@ class ApifyService {
   }
 
   /**
+   * 展开短链接为完整 URL
+   */
+  private async expandShortUrl(shortUrl: string): Promise<string> {
+    try {
+      console.log('🔗 Expanding short URL:', shortUrl);
+      
+      // 使用 axios 跟踪重定向，但不自动跟随
+      const response = await axios.get(shortUrl, {
+        maxRedirects: 0,
+        validateStatus: (status) => status >= 200 && status < 400,
+      });
+
+      // 如果是重定向，获取 Location header
+      const location = response.headers.location;
+      if (location) {
+        console.log('✅ Expanded URL:', location);
+        return location;
+      }
+
+      // 如果没有重定向，返回原 URL
+      return shortUrl;
+    } catch (error: any) {
+      // 对于 3xx 重定向，axios 会抛出错误，从 error.response 中获取
+      if (error.response && error.response.headers.location) {
+        const expandedUrl = error.response.headers.location;
+        console.log('✅ Expanded URL:', expandedUrl);
+        return expandedUrl;
+      }
+      
+      console.warn('⚠️  Could not expand URL, using original:', shortUrl);
+      return shortUrl;
+    }
+  }
+
+  /**
+   * 从 URL 中提取所有可能的 Place IDs
+   */
+  private extractPlaceIdsFromUrl(url: string): string[] {
+    const placeIds: string[] = [];
+    
+    // 方法 1: 提取 place_id 参数
+    const placeIdMatch = url.match(/place_id=([A-Za-z0-9_-]+)/);
+    if (placeIdMatch) {
+      placeIds.push(placeIdMatch[1]);
+    }
+
+    // 方法 2: 提取 data= 后的 CID 格式
+    const cidMatches = url.matchAll(/0x[0-9a-f]+:0x[0-9a-f]+/gi);
+    for (const match of cidMatches) {
+      // CID 需要转换，这里先记录
+      console.log('Found CID:', match[0]);
+    }
+
+    // 方法 3: 提取 ChIJ 开头的标准 Place ID
+    const chIJMatches = url.matchAll(/ChIJ[A-Za-z0-9_-]+/g);
+    for (const match of chIJMatches) {
+      placeIds.push(match[0]);
+    }
+
+    return placeIds;
+  }
+
+  /**
    * 从 Google Maps 收藏链接中提取地点
-   * 链接格式示例：https://www.google.com/maps/saved/xxx 或 https://maps.app.goo.gl/xxx
+   * 自动处理短链接和完整 URL
    */
   async extractPlacesFromLink(googleMapsUrl: string): Promise<string[]> {
     try {
-      console.log('Starting Apify scraper for URL:', googleMapsUrl);
+      console.log('🕷️ Starting place extraction for URL:', googleMapsUrl);
+      
+      // Step 1: 展开短链接
+      let expandedUrl = googleMapsUrl;
+      if (googleMapsUrl.includes('goo.gl') || googleMapsUrl.includes('maps.app.goo.gl')) {
+        expandedUrl = await this.expandShortUrl(googleMapsUrl);
+      }
 
+      // Step 2: 尝试从 URL 直接提取 Place IDs
+      const directPlaceIds = this.extractPlaceIdsFromUrl(expandedUrl);
+      if (directPlaceIds.length > 0) {
+        console.log(`✅ Found ${directPlaceIds.length} Place IDs directly from URL`);
+        return directPlaceIds;
+      }
+
+      // Step 3: 如果是列表/收藏夹 URL，使用 Apify 爬取
+      console.log('🕷️ Using Apify scraper for URL:', expandedUrl);
+      console.log('🔑 Apify API Token:', this.config.apiToken ? `${this.config.apiToken.substring(0, 20)}...` : 'NOT SET');
+      console.log('🎭 Apify Actor ID:', this.config.actorId);
+
+      if (!this.config.apiToken || this.config.apiToken === 'your_apify_api_token') {
+        throw new Error('Apify API token is not configured. Please set APIFY_API_TOKEN in .env file');
+      }
+
+      // 配置 scraper 输入 - 针对列表优化
+      const input = {
+        startUrls: [{ url: expandedUrl }],
+        maxCrawledPlaces: 100,
+        maxCrawledPlacesPerSearch: 100,
+        language: 'en',
+        // 爬取设置
+        deeperCityScrape: false,
+        scrapeDirectories: false,
+        scrapeReviewsPersonalData: false,
+        scrapePhotosFromBusinessPage: false,
+        scrapeReviewerPhotos: false,
+        scrapeQuestions: false,
+        // 导出格式
+        exportPlaceUrls: true,
+        includeBusinessStatus: true,
+      };
+      
+      console.log('📋 Scraper config:', JSON.stringify(input, null, 2));
+      
       // 启动 Apify Actor
       const runResponse = await axios.post(
-        `${this.baseUrl}/acts/${this.config.actorId}/runs`,
-        {
-          startUrls: [{ url: googleMapsUrl }],
-          maxCrawledPlaces: 100, // 最多爬取100个地点
-          language: 'zh-CN',
-          includeImages: true,
-          includeReviews: false, // 不需要详细评论，减少数据量
-        },
+        `${this.baseUrl}/acts/${this.config.actorId}/runs?token=${this.config.apiToken}`,
+        input,
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.config.apiToken}`,
-          },
-          params: {
-            token: this.config.apiToken,
           },
         }
       );
 
       const runId = runResponse.data.data.id;
-      console.log('Apify run started, ID:', runId);
-
+      console.log('✅ Apify run started, ID:', runId);
+      console.log('⏳ Waiting for scraper to complete...');
+      
       // 等待任务完成
       const results = await this.waitForRunCompletion(runId);
 
-      // 提取 place_id
+      console.log(`📦 Received ${results.length} items from Apify`);
+      if (results.length > 0) {
+        console.log('📋 Sample result keys:', Object.keys(results[0]));
+        console.log('📋 Sample result:', JSON.stringify(results[0], null, 2).substring(0, 500));
+      }
+
+      // 提取 place_id - 尝试多个可能的字段名和格式
       const placeIds: string[] = [];
       for (const item of results) {
-        if (item.placeId) {
-          placeIds.push(item.placeId);
+        let placeId = null;
+
+        // 尝试多种字段名
+        placeId = item.placeId || item.place_id || item.id;
+
+        // 如果有 URL，从中提取
+        if (!placeId && item.url) {
+          const extracted = this.extractPlaceIdsFromUrl(item.url);
+          if (extracted.length > 0) {
+            placeId = extracted[0];
+          }
+        }
+
+        // 如果有 CID，转换为 Place ID (简化处理，实际可能需要 API 查询)
+        if (!placeId && item.cid) {
+          console.log('⚠️  Found CID but need conversion:', item.cid);
+        }
+
+        if (placeId && typeof placeId === 'string') {
+          placeIds.push(placeId);
         }
       }
 
-      console.log(`Extracted ${placeIds.length} place IDs from Apify`);
-      return placeIds;
+      // 去重
+      const uniquePlaceIds = [...new Set(placeIds)];
+
+      console.log(`✅ Extracted ${uniquePlaceIds.length} unique place IDs from Apify`);
+      if (uniquePlaceIds.length > 0) {
+        console.log('📋 Sample Place IDs:', uniquePlaceIds.slice(0, 3));
+      }
+      
+      return uniquePlaceIds;
     } catch (error: any) {
-      console.error('Error in Apify extraction:', error.response?.data || error.message);
-      throw new Error('Failed to extract places from Google Maps link');
+      console.error('❌ Error in Apify extraction:', error.response?.data || error.message);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+      }
+      throw new Error(`Failed to extract places from Google Maps link: ${error.message}`);
     }
   }
 

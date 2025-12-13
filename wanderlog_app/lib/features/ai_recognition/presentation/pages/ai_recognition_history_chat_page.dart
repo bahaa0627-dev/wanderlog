@@ -810,7 +810,7 @@ class _AIRecognitionHistoryChatPageState
                 if (message.text != null && message.text!.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                        horizontal: 16, vertical: 12,),
                     constraints: const BoxConstraints(maxWidth: 280),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryYellow.withValues(alpha: 0.3),
@@ -1026,8 +1026,7 @@ class _AIRecognitionHistoryChatPageState
                   child: Image.file(
                     File(validImageUrls[index]),
                     fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
+                    errorBuilder: (context, error, stackTrace) => ColoredBox(
                         color: Colors.black,
                         child: const Center(
                           child: Column(
@@ -1049,8 +1048,7 @@ class _AIRecognitionHistoryChatPageState
                             ],
                           ),
                         ),
-                      );
-                    },
+                      ),
                   ),
                 ),
               ),
@@ -1114,15 +1112,13 @@ class _AIRecognitionHistoryChatPageState
                                   child: Image.file(
                                     File(image.path),
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
+                                    errorBuilder: (context, error, stackTrace) => ColoredBox(
                                         color: AppTheme.lightGray,
                                         child: const Icon(
                                           Icons.broken_image,
                                           color: AppTheme.mediumGray,
                                         ),
-                                      );
-                                    },
+                                      ),
                                   ),
                                 ),
                               ),
@@ -1200,12 +1196,12 @@ class _AIRecognitionHistoryChatPageState
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: const BorderSide(
-                              color: AppTheme.black, width: 1.5),
+                              color: AppTheme.black, width: 1.5,),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: const BorderSide(
-                              color: AppTheme.black, width: 1.5),
+                              color: AppTheme.black, width: 1.5,),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
@@ -1247,7 +1243,7 @@ class _AIRecognitionHistoryChatPageState
                           ),
                         ),
                         child: const Icon(Icons.add,
-                            color: AppTheme.black, size: 24),
+                            color: AppTheme.black, size: 24,),
                       ),
                     ),
                   if (!_isSendingMessage) const SizedBox(width: 8),

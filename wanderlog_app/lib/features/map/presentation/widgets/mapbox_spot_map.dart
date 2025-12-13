@@ -177,7 +177,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
 
     final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(offsetX + 5, 5, markerWidth, markerHeight),
+      const Rect.fromLTWH(offsetX + 5, 5, markerWidth, markerHeight),
       const Radius.circular(AppTheme.radiusLarge),
     );
 
@@ -204,7 +204,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     iconPainter.layout();
     iconPainter.paint(
       canvas,
-      Offset(
+      const Offset(
         offsetX + 10 + iconPadding,
         (markerHeight - iconSize) / 2 + 5,
       ),
@@ -235,7 +235,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
     // 画底部的小三角形（指向坐标点）
     final trianglePath = Path();
-    final centerX = offsetX + markerWidth / 2;
+    const centerX = offsetX + markerWidth / 2;
     trianglePath.moveTo(centerX, markerHeight + 5);
     trianglePath.lineTo(centerX - 10, markerHeight + 5);
     trianglePath.lineTo(centerX, markerHeight + 15);
@@ -320,8 +320,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return MapWidget(
+  Widget build(BuildContext context) => MapWidget(
       key: const ValueKey('shared-mapbox-widget'),
       cameraOptions: CameraOptions(
         center: Point(coordinates: _currentCenter ?? widget.initialCenter),
@@ -368,18 +367,17 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
         }
       },
     );
-  }
 }
 
 /// 标记点击监听器
 class _MarkerClickListener extends OnPointAnnotationClickListener {
-  final List<Spot> spots;
-  final void Function(Spot) onMarkerTap;
 
   _MarkerClickListener({
     required this.spots,
     required this.onMarkerTap,
   });
+  final List<Spot> spots;
+  final void Function(Spot) onMarkerTap;
 
   @override
   void onPointAnnotationClick(PointAnnotation annotation) {

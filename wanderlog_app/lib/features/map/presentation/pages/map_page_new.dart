@@ -1285,12 +1285,12 @@ class _BottomSpotCard extends StatelessWidget {
                               .take(2)
                               .map((tag) => Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
+                                        horizontal: 8, vertical: 4,),
                                     decoration: BoxDecoration(
                                       color: AppTheme.primaryYellow
                                           .withOpacity(0.3),
                                       borderRadius: BorderRadius.circular(
-                                          AppTheme.radiusSmall),
+                                          AppTheme.radiusSmall,),
                                       border: Border.all(
                                         color: AppTheme.black,
                                         width: 0.5,
@@ -1300,7 +1300,7 @@ class _BottomSpotCard extends StatelessWidget {
                                       tag,
                                       style: AppTheme.labelSmall(context),
                                     ),
-                                  ))
+                                  ),)
                               .toList(),
                         ),
                         const SizedBox(height: 8),
@@ -1452,20 +1452,20 @@ class _SpotDetailModalState extends State<SpotDetailModal> {
                           .take(4)
                           .map((tag) => Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
+                                    horizontal: 12, vertical: 6,),
                                 decoration: BoxDecoration(
                                   color:
                                       AppTheme.primaryYellow.withOpacity(0.3),
                                   borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusSmall),
+                                      AppTheme.radiusSmall,),
                                   border: Border.all(
                                     color: AppTheme.black,
                                     width: AppTheme.borderMedium,
                                   ),
                                 ),
                                 child: Text(tag,
-                                    style: AppTheme.labelMedium(context)),
-                              ))
+                                    style: AppTheme.labelMedium(context),),
+                              ),)
                           .toList(),
                     ),
                     const SizedBox(height: 16),
@@ -1506,7 +1506,7 @@ class _SpotDetailModalState extends State<SpotDetailModal> {
                                           : Icons.star_border),
                                   color: AppTheme.primaryYellow,
                                   size: 24,
-                                )),
+                                ),),
                         const SizedBox(width: 8),
                         Text(
                           '(${widget.spot.ratingCount})',

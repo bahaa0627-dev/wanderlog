@@ -1,8 +1,22 @@
 import { Client, PlaceInputType } from '@googlemaps/google-maps-services-js';
 import { PrismaClient } from '@prisma/client';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const prisma = new PrismaClient();
-const client = new Client({ timeout: 30000 }); // 增加超时到30秒
+
+// 配置代理
+const proxyUrl = process.env.https_proxy || process.env.http_proxy;
+const clientConfig: any = { timeout: 30000 };
+
+if (proxyUrl) {
+  console.log(`🌐 Using proxy: ${proxyUrl}`);
+  clientConfig.axiosInstance = require('axios').create({
+    httpsAgent: new HttpsProxyAgent(proxyUrl),
+    proxy: false // 禁用 axios 自己的 proxy 配置
+  });
+}
+
+const client = new Client(clientConfig);
 
 interface SpotData {
   googlePlaceId: string;

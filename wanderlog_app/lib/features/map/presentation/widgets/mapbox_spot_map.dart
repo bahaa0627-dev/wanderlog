@@ -39,6 +39,9 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   PointAnnotationManager? _pointAnnotationManager;
   Position? _currentCenter;
   double _currentZoom = 13.0;
+  final Map<String, Uint8List> _markerBitmapCache = {};
+  Position? _pendingJumpCenter;
+  double? _pendingJumpZoom;
 
   @override
   void initState() {
@@ -107,15 +110,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       }
 
       for (final spot in spots) {
-        // 为每个地点创建自定义图标
-        final Uint8List markerImage = await _createCustomMarkerBitmap(
-          spot.name,
-          spot.category,
-          widget.selectedSpot?.id == spot.id
-              ? AppTheme.primaryYellow
-              : Colors.white,
-          widget.selectedSpot?.id == spot.id,
-        );
+        final isSelected = widget.selectedSpot?.id == spot.id;
+        final markerImage = await _getMarkerBitmap(spot, isSelected: isSelected);
 
         // 创建标记配置
         final annotation = PointAnnotationOptions(
@@ -142,6 +138,26 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     } catch (e) {
       print('❌ [共享地图] 添加原生标记失败: $e');
     }
+  }
+
+  Future<Uint8List> _getMarkerBitmap(
+    Spot spot, {
+    required bool isSelected,
+  }) async {
+    final cacheKey = '${spot.id}_${isSelected ? 'selected' : 'default'}';
+    final cached = _markerBitmapCache[cacheKey];
+    if (cached != null) {
+      return cached;
+    }
+
+    final bitmap = await _createCustomMarkerBitmap(
+      spot.name,
+      spot.category,
+      isSelected ? AppTheme.primaryYellow : Colors.white,
+      isSelected,
+    );
+    _markerBitmapCache[cacheKey] = bitmap;
+    return bitmap;
   }
 
   /// 使用 Canvas 绘制自定义标记图标
@@ -303,7 +319,11 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   /// 移动相机到指定位置
   Future<void> animateCamera(Position center, {double? zoom}) async {
     final map = _mapboxMap;
-    if (map == null) return;
+    if (map == null) {
+      _pendingJumpCenter = center;
+      _pendingJumpZoom = zoom ?? _currentZoom;
+      return;
+    }
 
     await map.flyTo(
       CameraOptions(
@@ -321,7 +341,11 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
   Future<void> jumpToPosition(Position center, {double? zoom}) async {
     final map = _mapboxMap;
-    if (map == null) return;
+    if (map == null) {
+      _pendingJumpCenter = center;
+      _pendingJumpZoom = zoom ?? _currentZoom;
+      return;
+    }
 
     await map.setCamera(
       CameraOptions(
@@ -338,6 +362,17 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     });
   }
 
+  Future<void> _applyPendingCamera() async {
+    final center = _pendingJumpCenter;
+    if (center == null) {
+      return;
+    }
+    final zoom = _pendingJumpZoom;
+    _pendingJumpCenter = null;
+    _pendingJumpZoom = null;
+    await jumpToPosition(center, zoom: zoom);
+  }
+
   @override
   Widget build(BuildContext context) => MapWidget(
       key: const ValueKey('shared-mapbox-widget'),
@@ -352,12 +387,9 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
         _pointAnnotationManager =
             await mapboxMap.annotations.createPointAnnotationManager();
 
-        // 延迟启用手势，确保地图完全初始化
-        Future.delayed(const Duration(milliseconds: 500), () {
-          _enableMapGestures();
-          // 添加原生标记
-          _addNativeMarkers();
-        });
+        await _enableMapGestures();
+        await _addNativeMarkers();
+        await _applyPendingCamera();
 
         widget.onMapCreated?.call();
       },

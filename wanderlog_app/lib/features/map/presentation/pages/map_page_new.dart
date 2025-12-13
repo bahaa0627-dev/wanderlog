@@ -109,6 +109,7 @@ class MapPage extends ConsumerStatefulWidget {
 
 class _MapPageState extends ConsumerState<MapPage> {
   static const String _mapHeroTag = 'map-page-map-hero';
+  static const double _nonFullscreenTopInset = 0.0;
   static const List<String> _cityOrder = [
     'Copenhagen',
     'Berlin',
@@ -452,6 +453,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     final carouselSpots = _carouselSpots;
     final cityFallback =
         _cityCoordinates[_selectedCity] ?? _cityCoordinates[_cityOrder.first]!;
+    const double controlsHorizontalPadding = 16.0;
     final mapSurface = _MapSurface(
       borderRadius: borderRadius,
       isFullscreen: _isFullscreen,
@@ -497,10 +499,10 @@ class _MapPageState extends ConsumerState<MapPage> {
                   ? Duration.zero
                   : const Duration(milliseconds: 350),
               curve: Curves.easeInOut,
-              top: _isFullscreen ? 0 : 12,
+              top: _isFullscreen ? 0 : _nonFullscreenTopInset,
               left: _isFullscreen ? 0 : 16,
               right: _isFullscreen ? 0 : 16,
-              bottom: _isFullscreen ? 0 : 12,
+              bottom: _isFullscreen ? 0 : 16,
               child: mapContent,
             ),
             if (_isFullscreen)
@@ -534,7 +536,7 @@ class _MapPageState extends ConsumerState<MapPage> {
                 children: [
                   Padding(
                     padding: EdgeInsets.symmetric(
-                      horizontal: _isFullscreen ? 16 : 0,
+                      horizontal: controlsHorizontalPadding,
                     ),
                     child: Row(
                       children: [

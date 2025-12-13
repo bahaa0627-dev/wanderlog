@@ -421,7 +421,7 @@ class _BottomSpotCard extends StatelessWidget {
                       spacing: 6,
                       children: spot.tags.take(2).map((tag) => Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
+                              horizontal: 10, vertical: 5,),
                           decoration: BoxDecoration(
                             color: AppTheme.primaryYellow.withOpacity(0.3),
                             borderRadius:
@@ -430,7 +430,7 @@ class _BottomSpotCard extends StatelessWidget {
                                 Border.all(color: AppTheme.black, width: 1.0),
                           ),
                           child: Text(tag, style: AppTheme.labelLarge(context)),
-                        )).toList(),
+                        ),).toList(),
                     ),
                     const SizedBox(height: 8),
                     // 地点名称（带分类图标）

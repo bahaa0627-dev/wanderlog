@@ -1026,9 +1026,9 @@ class _AIRecognitionHistoryChatPageState
                   child: Image.file(
                     File(validImageUrls[index]),
                     fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => ColoredBox(
+                    errorBuilder: (context, error, stackTrace) => const ColoredBox(
                         color: Colors.black,
-                        child: const Center(
+                        child: Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -1112,9 +1112,9 @@ class _AIRecognitionHistoryChatPageState
                                   child: Image.file(
                                     File(image.path),
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => ColoredBox(
+                                    errorBuilder: (context, error, stackTrace) => const ColoredBox(
                                         color: AppTheme.lightGray,
-                                        child: const Icon(
+                                        child: Icon(
                                           Icons.broken_image,
                                           color: AppTheme.mediumGray,
                                         ),

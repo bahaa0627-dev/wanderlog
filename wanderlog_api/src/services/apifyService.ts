@@ -13,7 +13,7 @@ class ApifyService {
   constructor() {
     this.config = {
       apiToken: process.env.APIFY_API_TOKEN || '',
-      actorId: process.env.APIFY_ACTOR_ID || 'compass/google-maps-scraper',
+      actorId: process.env.APIFY_ACTOR_ID || 'nwua9Gu5YrADL7ZDj',
     };
 
     if (!this.config.apiToken) {
@@ -117,26 +117,36 @@ class ApifyService {
       // 配置 scraper 输入 - 针对列表优化
       const input = {
         startUrls: [{ url: expandedUrl }],
-        maxCrawledPlaces: 100,
-        maxCrawledPlacesPerSearch: 100,
+        maxCrawledPlaces: 200,
+        maxCrawledPlacesPerSearch: 200,
+        maxImages: 5,
+        maxReviews: 5,
         language: 'en',
         // 爬取设置
         deeperCityScrape: false,
-        scrapeDirectories: false,
+        scrapeDirectories: true, // 启用目录抓取以处理列表
         scrapeReviewsPersonalData: false,
-        scrapePhotosFromBusinessPage: false,
+        scrapePhotosFromBusinessPage: true, // 启用照片抓取
         scrapeReviewerPhotos: false,
         scrapeQuestions: false,
+        includeWebResults: true, // 包含网页结果
         // 导出格式
         exportPlaceUrls: true,
         includeBusinessStatus: true,
+        // 高级设置
+        proxyConfiguration: {
+          useApifyProxy: true,
+        },
       };
       
       console.log('📋 Scraper config:', JSON.stringify(input, null, 2));
       
+      // URL 编码 Actor ID（处理 user/actor-name 格式）
+      const encodedActorId = encodeURIComponent(this.config.actorId);
+      
       // 启动 Apify Actor
       const runResponse = await axios.post(
-        `${this.baseUrl}/acts/${this.config.actorId}/runs?token=${this.config.apiToken}`,
+        `${this.baseUrl}/acts/${encodedActorId}/runs?token=${this.config.apiToken}`,
         input,
         {
           headers: {

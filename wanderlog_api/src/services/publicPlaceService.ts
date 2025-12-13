@@ -169,16 +169,40 @@ class PublicPlaceService {
     country?: string;
     category?: string;
     source?: string;
+    name?: string;
+    minRating?: number;
+    maxRating?: number;
   }) {
     const page = options?.page || 1;
     const limit = options?.limit || 50;
     const skip = (page - 1) * limit;
 
     const where: any = {};
+    
+    // 基础筛选
     if (options?.city) where.city = options.city;
     if (options?.country) where.country = options.country;
     if (options?.category) where.category = options.category;
     if (options?.source) where.source = options.source;
+    
+    // 名称搜索（模糊匹配）
+    if (options?.name) {
+      where.name = {
+        contains: options.name,
+        mode: 'insensitive'
+      };
+    }
+    
+    // 评分区间筛选
+    if (options?.minRating !== undefined || options?.maxRating !== undefined) {
+      where.rating = {};
+      if (options.minRating !== undefined) {
+        where.rating.gte = options.minRating;
+      }
+      if (options.maxRating !== undefined) {
+        where.rating.lte = options.maxRating;
+      }
+    }
 
     const [places, total] = await Promise.all([
       prisma.publicPlace.findMany({

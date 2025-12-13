@@ -99,9 +99,15 @@ class GoogleMapsService {
       let country = '';
       
       for (const component of addressComponents) {
+        // 尝试多个可能的城市类型
         if (component.types.includes('locality')) {
           city = component.long_name;
+        } else if (!city && component.types.includes('administrative_area_level_2')) {
+          city = component.long_name;
+        } else if (!city && component.types.includes('administrative_area_level_1')) {
+          city = component.long_name;
         }
+        
         if (component.types.includes('country')) {
           country = component.long_name;
         }
@@ -122,8 +128,8 @@ class GoogleMapsService {
       return {
         googlePlaceId: place.place_id || placeId,
         name: place.name || '',
-        city: city || 'Copenhagen',
-        country: country || 'Denmark',
+        city: city || 'Unknown',
+        country: country || 'Unknown',
         latitude: place.geometry?.location?.lat || 0,
         longitude: place.geometry?.location?.lng || 0,
         address: place.formatted_address,
@@ -209,24 +215,27 @@ class GoogleMapsService {
   }
 
   /**
-   * 提取分类
+   * 提取分类（英文）
    */
   private extractCategory(types: string[]): string {
     const categoryMap: { [key: string]: string } = {
-      'museum': '博物馆',
-      'art_gallery': '艺术馆',
-      'cafe': '咖啡馆',
-      'restaurant': '餐厅',
-      'bar': '酒吧',
-      'church': '教堂',
-      'park': '公园',
-      'shopping_mall': '购物中心',
-      'store': '商店',
-      'bakery': '面包店',
-      'library': '图书馆',
-      'tourist_attraction': '景点',
-      'lodging': '住宿',
-      'night_club': '夜店'
+      'museum': 'museum',
+      'art_gallery': 'art_gallery',
+      'cafe': 'cafe',
+      'restaurant': 'restaurant',
+      'bar': 'bar',
+      'church': 'church',
+      'park': 'park',
+      'shopping_mall': 'shopping_mall',
+      'store': 'store',
+      'bakery': 'bakery',
+      'library': 'library',
+      'tourist_attraction': 'tourist_attraction',
+      'lodging': 'lodging',
+      'night_club': 'night_club',
+      'market': 'market',
+      'food': 'food',
+      'point_of_interest': 'point_of_interest'
     };
 
     for (const type of types) {
@@ -235,7 +244,8 @@ class GoogleMapsService {
       }
     }
 
-    return types[0] || '其他';
+    // 返回第一个类型，如果没有则返回 'other'
+    return types[0] || 'other';
   }
 
   /**

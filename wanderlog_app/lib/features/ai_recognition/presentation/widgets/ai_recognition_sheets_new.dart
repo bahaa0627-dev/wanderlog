@@ -842,9 +842,9 @@ class _SpotCardOverlayState extends State<SpotCardOverlay> {
                   Image.network(
                     widget.spot.coverImage,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => ColoredBox(
+                    errorBuilder: (context, error, stackTrace) => const ColoredBox(
                         color: AppTheme.lightGray,
-                        child: const Center(
+                        child: Center(
                           child: Icon(
                             Icons.image_not_supported,
                             size: 48,

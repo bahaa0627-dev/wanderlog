@@ -8,10 +8,20 @@ class PublicPlaceController {
   /**
    * 获取所有公共地点（支持分页和筛选）
    * GET /api/public-places
+   * Query params:
+   *   - page: 页码（默认 1）
+   *   - limit: 每页数量（默认 50）
+   *   - city: 城市筛选
+   *   - country: 国家筛选
+   *   - category: 分类筛选
+   *   - source: 来源筛选
+   *   - name: 名称搜索（模糊匹配）
+   *   - minRating: 最低评分
+   *   - maxRating: 最高评分
    */
   async getAllPlaces(req: Request, res: Response): Promise<void> {
     try {
-      const { page, limit, city, country, category, source } = req.query;
+      const { page, limit, city, country, category, source, name, minRating, maxRating } = req.query;
 
       const result = await publicPlaceService.getAllPlaces({
         page: page ? parseInt(page as string) : undefined,
@@ -20,6 +30,9 @@ class PublicPlaceController {
         country: country as string,
         category: category as string,
         source: source as string,
+        name: name as string,
+        minRating: minRating ? parseFloat(minRating as string) : undefined,
+        maxRating: maxRating ? parseFloat(maxRating as string) : undefined,
       });
 
       res.json({

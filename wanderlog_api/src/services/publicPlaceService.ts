@@ -169,7 +169,7 @@ class PublicPlaceService {
     country?: string;
     category?: string;
     source?: string;
-    name?: string;
+    search?: string;
     minRating?: number;
     maxRating?: number;
   }) {
@@ -184,22 +184,22 @@ class PublicPlaceService {
     if (options?.country) where.country = options.country;
     if (options?.category) where.category = options.category;
     if (options?.source) where.source = options.source;
-    
+
     // 名称搜索（模糊匹配）
-    if (options?.name) {
-      where.name = {
-        contains: options.name,
-        mode: 'insensitive'
-      };
+    if (options?.search) {
+      where.OR = [
+        { name: { contains: options.search } },
+        { address: { contains: options.search } }
+      ];
     }
-    
+
     // 评分区间筛选
     if (options?.minRating !== undefined || options?.maxRating !== undefined) {
       where.rating = {};
-      if (options.minRating !== undefined) {
+      if (options?.minRating !== undefined) {
         where.rating.gte = options.minRating;
       }
-      if (options.maxRating !== undefined) {
+      if (options?.maxRating !== undefined) {
         where.rating.lte = options.maxRating;
       }
     }

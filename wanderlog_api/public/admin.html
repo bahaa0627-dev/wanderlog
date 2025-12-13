@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公共地点管理后台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .filters {
+            padding: 24px;
+            background: #fafafa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 6px;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #666;
+            border: 1px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background: #f5f5f5;
+        }
+
+        .stats {
+            padding: 16px 24px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stats-info {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .stats-info strong {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .active-filters {
+            padding: 12px 24px;
+            background: #fff3cd;
+            border-bottom: 1px solid #ffc107;
+            display: none;
+        }
+
+        .active-filters.show {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: white;
+            border: 1px solid #ffc107;
+            border-radius: 16px;
+            font-size: 13px;
+            color: #856404;
+        }
+
+        .filter-tag button {
+            background: none;
+            border: none;
+            color: #856404;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .table-container {
+            padding: 24px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 12px;
+            background: #f5f5f5;
+            color: #666;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        td {
+            padding: 16px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+            color: #333;
+        }
+
+        tr:hover {
+            background: #fafafa;
+        }
+
+        .place-name {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .place-address {
+            color: #999;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-rating {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-category {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .badge-location {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .photo {
+            width: 60px;
+            height: 60px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: #f0f0f0;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .photo:hover {
+            transform: scale(1.05);
+        }
+
+        .photo-placeholder {
+            width: 60px;
+            height: 60px;
+            border-radius: 6px;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 24px;
+        }
+
+        .pagination {
+            padding: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: #f5f5f5;
+            border-color: #667eea;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination .page-select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .pagination .current-page {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .empty {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+        }
+
+        .rating-star {
+            color: #ffc107;
+            margin-right: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ 公共地点管理后台</h1>
+            <p>筛选、搜索和浏览数据库中的所有地点</p>
+        </div>
+
+        <div class="filters">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="search">🔍 搜索</label>
+                    <input type="text" id="search" placeholder="输入地点名称或地址...">
+                </div>
+                <div class="filter-group">
+                    <label for="country">🌍 国家 <small style="color: #999;">(优先)</small></label>
+                    <select id="country">
+                        <option value="">全部</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="city">🏙️ 城市 <small style="color: #999;">(联动)</small></label>
+                    <select id="city">
+                        <option value="">全部</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="category">🏷️ 分类 <small style="color: #999;">(联动)</small></label>
+                    <select id="category">
+                        <option value="">全部</option>
+                    </select>
+                </div>
+            </div>
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="minRating">⭐ 最低评分</label>
+                    <input type="number" id="minRating" min="0" max="5" step="0.1" placeholder="0.0">
+                </div>
+                <div class="filter-group">
+                    <label for="maxRating">⭐ 最高评分</label>
+                    <input type="number" id="maxRating" min="0" max="5" step="0.1" placeholder="5.0">
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button class="btn btn-primary" onclick="applyFilters()">应用筛选</button>
+                <button class="btn btn-secondary" onclick="clearFilters()">清除筛选</button>
+            </div>
+        </div>
+
+        <div class="active-filters" id="activeFilters"></div>
+
+        <div class="stats" id="stats">
+            <div class="stats-info">加载中...</div>
+        </div>
+
+        <div class="table-container">
+            <div id="loading" class="loading">加载中</div>
+            <div id="empty" class="empty" style="display: none;">暂无数据</div>
+            <table id="placesTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>照片</th>
+                        <th>地点信息</th>
+                        <th>城市</th>
+                        <th>国家</th>
+                        <th>评分</th>
+                        <th>分类</th>
+                    </tr>
+                </thead>
+                <tbody id="placesBody"></tbody>
+            </table>
+        </div>
+
+        <div class="pagination" id="pagination" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api/public-places';
+        let currentPage = 1;
+        let totalPages = 1;
+        let filters = {};
+        let allPlaces = []; // 缓存所有地点数据
+
+        // 初始化
+        async function init() {
+            await loadAllPlaces();
+            updateFilterOptions();
+            await loadPlaces();
+        }
+
+        // 加载所有地点数据（用于筛选器联动）
+        async function loadAllPlaces() {
+            try {
+                const response = await fetch(`${API_BASE}?limit=1000`);
+                const result = await response.json();
+                if (result.success && result.data) {
+                    allPlaces = result.data;
+                }
+            } catch (error) {
+                console.error('加载地点数据失败:', error);
+            }
+        }
+
+        // 更新筛选选项（根据当前筛选条件）
+        function updateFilterOptions() {
+            // 根据当前筛选条件过滤数据
+            let filteredPlaces = allPlaces;
+            
+            // 应用国家筛选
+            if (filters.country) {
+                filteredPlaces = filteredPlaces.filter(p => p.country === filters.country);
+            }
+            
+            // 应用城市筛选
+            if (filters.city) {
+                filteredPlaces = filteredPlaces.filter(p => p.city === filters.city);
+            }
+            
+            // 应用分类筛选
+            if (filters.category) {
+                filteredPlaces = filteredPlaces.filter(p => p.category === filters.category);
+            }
+
+            // 更新国家选项（如果没有选择国家）
+            if (!filters.country) {
+                const countries = [...new Set(
+                    allPlaces
+                        .filter(p => !filters.city || p.city === filters.city)
+                        .filter(p => !filters.category || p.category === filters.category)
+                        .map(p => p.country)
+                        .filter(Boolean)
+                )].sort();
+                
+                const countrySelect = document.getElementById('country');
+                const currentValue = countrySelect.value;
+                countrySelect.innerHTML = '<option value="">全部</option>';
+                countries.forEach(country => {
+                    const count = allPlaces
+                        .filter(p => p.country === country)
+                        .filter(p => !filters.city || p.city === filters.city)
+                        .filter(p => !filters.category || p.category === filters.category)
+                        .length;
+                    const option = document.createElement('option');
+                    option.value = country;
+                    option.textContent = `${country} (${count})`;
+                    option.selected = country === currentValue;
+                    countrySelect.appendChild(option);
+                });
+            }
+
+            // 更新城市选项（如果没有选择城市）
+            if (!filters.city) {
+                const cities = [...new Set(
+                    allPlaces
+                        .filter(p => !filters.country || p.country === filters.country)
+                        .filter(p => !filters.category || p.category === filters.category)
+                        .map(p => p.city)
+                        .filter(Boolean)
+                )].sort();
+                
+                const citySelect = document.getElementById('city');
+                const currentValue = citySelect.value;
+                citySelect.innerHTML = '<option value="">全部</option>';
+                cities.forEach(city => {
+                    const count = allPlaces
+                        .filter(p => p.city === city)
+                        .filter(p => !filters.country || p.country === filters.country)
+                        .filter(p => !filters.category || p.category === filters.category)
+                        .length;
+                    const option = document.createElement('option');
+                    option.value = city;
+                    option.textContent = `${city} (${count})`;
+                    option.selected = city === currentValue;
+                    citySelect.appendChild(option);
+                });
+            }
+
+            // 更新分类选项（如果没有选择分类）
+            if (!filters.category) {
+                const categories = [...new Set(
+                    allPlaces
+                        .filter(p => !filters.country || p.country === filters.country)
+                        .filter(p => !filters.city || p.city === filters.city)
+                        .map(p => p.category)
+                        .filter(Boolean)
+                )].sort();
+                
+                const categorySelect = document.getElementById('category');
+                const currentValue = categorySelect.value;
+                categorySelect.innerHTML = '<option value="">全部</option>';
+                categories.forEach(category => {
+                    const count = allPlaces
+                        .filter(p => p.category === category)
+                        .filter(p => !filters.country || p.country === filters.country)
+                        .filter(p => !filters.city || p.city === filters.city)
+                        .length;
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = `${category} (${count})`;
+                    option.selected = category === currentValue;
+                    categorySelect.appendChild(option);
+                });
+            }
+
+            // 更新评分范围提示
+            const ratings = filteredPlaces.map(p => p.rating).filter(Boolean);
+            if (ratings.length > 0) {
+                const minRatingInput = document.getElementById('minRating');
+                const maxRatingInput = document.getElementById('maxRating');
+                const minRating = Math.min(...ratings);
+                const maxRating = Math.max(...ratings);
+                minRatingInput.placeholder = `${minRating.toFixed(1)} - ${maxRating.toFixed(1)}`;
+                maxRatingInput.placeholder = `${minRating.toFixed(1)} - ${maxRating.toFixed(1)}`;
+            }
+        }
+
+        // 监听筛选器变化
+        function setupFilterListeners() {
+            document.getElementById('country').addEventListener('change', function() {
+                filters.country = this.value || undefined;
+                delete filters.city; // 清除城市筛选
+                delete filters.category; // 清除分类筛选
+                document.getElementById('city').value = '';
+                document.getElementById('category').value = '';
+                updateFilterOptions();
+            });
+
+            document.getElementById('city').addEventListener('change', function() {
+                filters.city = this.value || undefined;
+                delete filters.category; // 清除分类筛选
+                document.getElementById('category').value = '';
+                updateFilterOptions();
+            });
+
+            document.getElementById('category').addEventListener('change', function() {
+                filters.category = this.value || undefined;
+                updateFilterOptions();
+            });
+        }
+
+        // 加载地点列表
+        async function loadPlaces() {
+            try {
+                showLoading();
+
+                const params = new URLSearchParams({
+                    page: currentPage,
+                    limit: 50,
+                    ...filters
+                });
+
+                const response = await fetch(`${API_BASE}?${params}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    renderPlaces(result.data);
+                    renderPagination(result.pagination);
+                    renderStats(result.pagination);
+                    updateActiveFilters();
+                } else {
+                    showEmpty();
+                }
+            } catch (error) {
+                console.error('加载地点失败:', error);
+                showEmpty();
+            }
+        }
+
+        // 显示加载状态
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('empty').style.display = 'none';
+            document.getElementById('placesTable').style.display = 'none';
+            document.getElementById('pagination').style.display = 'none';
+        }
+
+        // 显示空状态
+        function showEmpty() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('empty').style.display = 'block';
+            document.getElementById('placesTable').style.display = 'none';
+            document.getElementById('pagination').style.display = 'none';
+        }
+
+        // 渲染地点列表
+        function renderPlaces(places) {
+            const tbody = document.getElementById('placesBody');
+            tbody.innerHTML = '';
+
+            if (places.length === 0) {
+                showEmpty();
+                return;
+            }
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('empty').style.display = 'none';
+            document.getElementById('placesTable').style.display = 'table';
+
+            places.forEach(place => {
+                const tr = document.createElement('tr');
+                
+                // 照片列 - 使用 coverImage 字段
+                let photoHtml = '';
+                if (place.coverImage) {
+                    photoHtml = `<img src="${place.coverImage}" class="photo" alt="${place.name}" onclick="window.open('${place.coverImage}', '_blank')" onerror="this.outerHTML='<div class=\\'photo-placeholder\\'>📷</div>'">`;
+                } else {
+                    photoHtml = '<div class="photo-placeholder">📷</div>';
+                }
+                
+                tr.innerHTML = `
+                    <td>${photoHtml}</td>
+                    <td>
+                        <div class="place-name">${place.name}</div>
+                        ${place.address ? `<div class="place-address">${place.address}</div>` : ''}
+                    </td>
+                    <td>${place.city || '-'}</td>
+                    <td>${place.country || '-'}</td>
+                    <td>
+                        ${place.rating 
+                            ? `<span class="badge badge-rating"><span class="rating-star">⭐</span>${place.rating.toFixed(1)} ${place.ratingCount ? `(${place.ratingCount})` : ''}</span>` 
+                            : '-'}
+                    </td>
+                    <td>
+                        ${place.category 
+                            ? `<span class="badge badge-category">${place.category}</span>` 
+                            : '-'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 渲染分页控件
+        function renderPagination(pagination) {
+            const container = document.getElementById('pagination');
+            container.innerHTML = '';
+            container.style.display = 'flex';
+
+            currentPage = pagination.page;
+            totalPages = pagination.pages;
+
+            // 首页按钮
+            const firstBtn = document.createElement('button');
+            firstBtn.textContent = '⏮️ 首页';
+            firstBtn.disabled = currentPage === 1;
+            firstBtn.onclick = () => goToPage(1);
+            container.appendChild(firstBtn);
+
+            // 上一页按钮
+            const prevBtn = document.createElement('button');
+            prevBtn.textContent = '◀️ 上一页';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.onclick = () => goToPage(currentPage - 1);
+            container.appendChild(prevBtn);
+
+            // 页码选择器
+            const pageSelect = document.createElement('select');
+            pageSelect.className = 'page-select';
+            for (let i = 1; i <= totalPages; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `第 ${i} 页`;
+                option.selected = i === currentPage;
+                pageSelect.appendChild(option);
+            }
+            pageSelect.onchange = (e) => goToPage(parseInt(e.target.value));
+            container.appendChild(pageSelect);
+
+            // 下一页按钮
+            const nextBtn = document.createElement('button');
+            nextBtn.textContent = '下一页 ▶️';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.onclick = () => goToPage(currentPage + 1);
+            container.appendChild(nextBtn);
+
+            // 末页按钮
+            const lastBtn = document.createElement('button');
+            lastBtn.textContent = '末页 ⏭️';
+            lastBtn.disabled = currentPage === totalPages;
+            lastBtn.onclick = () => goToPage(totalPages);
+            container.appendChild(lastBtn);
+        }
+
+        // 渲染统计信息
+        function renderStats(pagination) {
+            const stats = document.getElementById('stats');
+            stats.innerHTML = `
+                <div class="stats-info">
+                    共 <strong>${pagination.total}</strong> 个地点
+                </div>
+                <div class="stats-info">
+                    第 <strong>${pagination.page}</strong> / <strong>${pagination.pages}</strong> 页
+                </div>
+            `;
+        }
+
+        // 更新活跃筛选显示
+        function updateActiveFilters() {
+            const container = document.getElementById('activeFilters');
+            container.innerHTML = '';
+
+            const filterKeys = Object.keys(filters);
+            if (filterKeys.length === 0) {
+                container.classList.remove('show');
+                return;
+            }
+
+            container.classList.add('show');
+
+            const labels = {
+                search: '🔍 搜索',
+                country: '🌍 国家',
+                city: '🏙️ 城市',
+                category: '🏷️ 分类',
+                minRating: '⭐ 最低评分',
+                maxRating: '⭐ 最高评分'
+            };
+
+            filterKeys.forEach(key => {
+                const tag = document.createElement('div');
+                tag.className = 'filter-tag';
+                tag.innerHTML = `
+                    ${labels[key]}: <strong>${filters[key]}</strong>
+                    <button onclick="removeFilter('${key}')">×</button>
+                `;
+                container.appendChild(tag);
+            });
+        }
+
+        // 应用筛选
+        function applyFilters() {
+            // 收集筛选条件
+            const newFilters = {};
+
+            const search = document.getElementById('search').value.trim();
+            const country = document.getElementById('country').value;
+            const city = document.getElementById('city').value;
+            const category = document.getElementById('category').value;
+            const minRating = document.getElementById('minRating').value;
+            const maxRating = document.getElementById('maxRating').value;
+
+            if (search) newFilters.search = search;
+            if (country) newFilters.country = country;
+            if (city) newFilters.city = city;
+            if (category) newFilters.category = category;
+            if (minRating) newFilters.minRating = minRating;
+            if (maxRating) newFilters.maxRating = maxRating;
+
+            filters = newFilters;
+            currentPage = 1;
+            loadPlaces();
+        }
+
+        // 清除筛选
+        function clearFilters() {
+            filters = {};
+            currentPage = 1;
+
+            document.getElementById('search').value = '';
+            document.getElementById('country').value = '';
+            document.getElementById('city').value = '';
+            document.getElementById('category').value = '';
+            document.getElementById('minRating').value = '';
+            document.getElementById('maxRating').value = '';
+
+            updateFilterOptions();
+            loadPlaces();
+        }
+
+        // 移除单个筛选
+        function removeFilter(key) {
+            delete filters[key];
+            document.getElementById(key).value = '';
+            currentPage = 1;
+            
+            // 如果移除的是国家、城市或分类，需要更新筛选选项
+            if (['country', 'city', 'category'].includes(key)) {
+                updateFilterOptions();
+            }
+            
+            loadPlaces();
+        }
+
+        // 跳转页面
+        function goToPage(page) {
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            loadPlaces();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // 搜索框回车事件
+        document.getElementById('search').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                applyFilters();
+            }
+        });
+
+        // 页面加载完成后初始化
+        init();
+        setupFilterListeners();
+    </script>
+</body>
+</html>

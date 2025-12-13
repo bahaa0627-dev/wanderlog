@@ -114,7 +114,7 @@ class ApifyService {
         throw new Error('Apify API token is not configured. Please set APIFY_API_TOKEN in .env file');
       }
 
-      // 配置 scraper 输入 - 针对列表优化
+      // 配置 scraper 输入 - 只爬取收藏夹中的地点
       const input = {
         startUrls: [{ url: expandedUrl }],
         maxCrawledPlaces: 200,
@@ -122,14 +122,14 @@ class ApifyService {
         maxImages: 5,
         maxReviews: 5,
         language: 'en',
-        // 爬取设置
-        deeperCityScrape: false,
-        scrapeDirectories: true, // 启用目录抓取以处理列表
+        // 爬取设置 - 关键：只爬取列表中的地点，不要额外搜索
+        deeperCityScrape: false,          // 不要深度爬取城市
+        scrapeDirectories: false,         // 不要爬取目录（会添加附近的地点）
         scrapeReviewsPersonalData: false,
-        scrapePhotosFromBusinessPage: true, // 启用照片抓取
+        scrapePhotosFromBusinessPage: true,
         scrapeReviewerPhotos: false,
         scrapeQuestions: false,
-        includeWebResults: true, // 包含网页结果
+        includeWebResults: false,         // 不要包含网页搜索结果
         // 导出格式
         exportPlaceUrls: true,
         includeBusinessStatus: true,

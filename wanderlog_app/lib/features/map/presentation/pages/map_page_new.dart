@@ -133,6 +133,7 @@ class _MapPageState extends ConsumerState<MapPage> {
   late String _selectedCity;
   Spot? _selectedSpot;
   late bool _isFullscreen;
+  late final bool _isOverlayInstance;
   final TextEditingController _searchController = TextEditingController();
   late final PageController _cardPageController;
   int _currentCardIndex = 0;
@@ -141,6 +142,7 @@ class _MapPageState extends ConsumerState<MapPage> {
   final Set<String> _selectedTags = {};
   picker.XFile? _searchPickedImage;
   List<Spot> _carouselSpots = const [];
+  bool _hasRequestedExit = false;
 
   late final Map<String, List<Spot>> _spotsByCity;
 
@@ -158,6 +160,7 @@ class _MapPageState extends ConsumerState<MapPage> {
   void initState() {
     super.initState();
     _spotsByCity = _buildMockSpots();
+    _isOverlayInstance = widget.onExitFullscreen != null;
     _isFullscreen = widget.startFullscreen;
     _selectedCity = widget.initialSnapshot?.selectedCity ?? _cityOrder.first;
     _selectedSpot = widget.initialSnapshot?.selectedSpot;
@@ -270,6 +273,16 @@ class _MapPageState extends ConsumerState<MapPage> {
     if (!_isFullscreen) {
       return;
     }
+    if (_isOverlayInstance) {
+      if (_hasRequestedExit) {
+        return;
+      }
+      _hasRequestedExit = true;
+      final snapshot = _createSnapshot();
+      widget.onExitFullscreen?.call(snapshot);
+      return;
+    }
+
     setState(() {
       _isFullscreen = false;
       _selectedSpot = null;
@@ -281,38 +294,52 @@ class _MapPageState extends ConsumerState<MapPage> {
   }
 
   Future<void> _openFullscreen({Spot? focusSpot}) async {
-    // 直接在当前页面切换到全屏状态
-    final wasFullscreen = _isFullscreen;
-    List<Spot>? newCarousel;
-    if (focusSpot != null) {
-      newCarousel = _computeNearbySpots(focusSpot);
-    }
-    setState(() {
-      _isFullscreen = true;
-      if (focusSpot != null) {
-        _selectedSpot = focusSpot;
-        _carouselSpots = newCarousel ?? _carouselSpots;
-        _currentCardIndex = 0;
-      }
-    });
-    if (!wasFullscreen) {
-      widget.onFullscreenChanged?.call(true);
-    }
-    if (focusSpot != null) {
-      _jumpToPage(0);
-      _animateCamera(
-        Position(focusSpot.longitude, focusSpot.latitude),
-        zoom: math.max(_currentZoom, 14.0),
-      );
+    if (_isOverlayInstance) {
+      return;
     }
 
-    if (_carouselSpots.isNotEmpty &&
-        _currentCardIndex >= 0 &&
-        _currentCardIndex < _carouselSpots.length) {
-      _jumpToPage(_currentCardIndex);
-    } else {
-      _jumpToPage(0);
+    final snapshotForRoute = () {
+      final base = _createSnapshot();
+      if (focusSpot == null) {
+        return base;
+      }
+      final focusCenter = Position(focusSpot.longitude, focusSpot.latitude);
+      return base.copyWith(
+        selectedCity: focusSpot.city,
+        selectedSpot: focusSpot,
+        carouselSpots: _computeNearbySpots(focusSpot),
+        currentCardIndex: 0,
+        currentCenter: focusCenter,
+        currentZoom: math.max(_currentZoom, 14.0),
+      );
+    }();
+
+    widget.onFullscreenChanged?.call(true);
+
+    final result = await Navigator.of(context).push<MapPageSnapshot>(
+      PageRouteBuilder<MapPageSnapshot>(
+        transitionDuration: const Duration(milliseconds: 350),
+        reverseTransitionDuration: const Duration(milliseconds: 280),
+        pageBuilder: (routeContext, animation, secondaryAnimation) => MapPage(
+          startFullscreen: true,
+          initialSnapshot: snapshotForRoute,
+          initialSpotOverride: focusSpot,
+          onExitFullscreen: (exitSnapshot) {
+            Navigator.of(routeContext).pop(exitSnapshot);
+          },
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            child,
+      ),
+    );
+
+    widget.onFullscreenChanged?.call(false);
+
+    if (result == null) {
+      return;
     }
+
+    await _restoreFromSnapshot(result);
   }
 
   Position _cityPosition(String city) =>
@@ -366,6 +393,54 @@ class _MapPageState extends ConsumerState<MapPage> {
 
   double _degToRad(double value) => value * math.pi / 180;
 
+  void _handleCameraMove(Position center, double zoom) {
+    setState(() {
+      _currentMapCenter = center;
+      _currentZoom = zoom;
+    });
+  }
+
+  MapPageSnapshot _createSnapshot() => MapPageSnapshot(
+        selectedCity: _selectedCity,
+        selectedSpot: _selectedSpot,
+        selectedTags: Set<String>.from(_selectedTags),
+        currentCenter: _currentMapCenter,
+        currentZoom: _currentZoom,
+        searchImage: _searchPickedImage,
+        carouselSpots: List<Spot>.from(_carouselSpots),
+        currentCardIndex: _currentCardIndex,
+      );
+
+  Future<void> _restoreFromSnapshot(MapPageSnapshot snapshot) async {
+    setState(() {
+      _selectedCity = snapshot.selectedCity;
+      _selectedSpot = snapshot.selectedSpot;
+      _selectedTags
+        ..clear()
+        ..addAll(snapshot.selectedTags);
+      _currentMapCenter =
+          snapshot.currentCenter ?? _cityPosition(snapshot.selectedCity);
+      _currentZoom = snapshot.currentZoom;
+      _searchPickedImage = snapshot.searchImage;
+      _carouselSpots = List<Spot>.from(snapshot.carouselSpots);
+      _currentCardIndex = snapshot.currentCardIndex;
+    });
+
+    final targetCenter = _currentMapCenter ?? _cityPosition(_selectedCity);
+    final mapState = _mapKey.currentState;
+    if (mapState != null) {
+      await mapState.jumpToPosition(targetCenter, zoom: _currentZoom);
+    }
+
+    if (_carouselSpots.isNotEmpty &&
+        _currentCardIndex >= 0 &&
+        _currentCardIndex < _carouselSpots.length) {
+      _jumpToPage(_currentCardIndex);
+    } else {
+      _jumpToPage(0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
@@ -375,10 +450,39 @@ class _MapPageState extends ConsumerState<MapPage> {
     );
 
     final carouselSpots = _carouselSpots;
+    final cityFallback =
+        _cityCoordinates[_selectedCity] ?? _cityCoordinates[_cityOrder.first]!;
+    final mapSurface = _MapSurface(
+      borderRadius: borderRadius,
+      isFullscreen: _isFullscreen,
+      animateTransitions: !widget.startFullscreen,
+      mapKey: _mapKey,
+      spots: _filteredSpots,
+      fallbackCenter: cityFallback,
+      currentCenter: _currentMapCenter,
+      currentZoom: _currentZoom,
+      selectedSpot: _selectedSpot,
+      onSpotTap: _handleSpotTap,
+      onCameraMove: _handleCameraMove,
+    );
+
+    final Widget mapContent = widget.startFullscreen
+        ? mapSurface
+        : Hero(
+            tag: _mapHeroTag,
+            createRectTween: _mapHeroRectTween,
+            flightShuttleBuilder: _mapHeroFlight,
+            transitionOnUserGestures: false,
+            child: mapSurface,
+          );
 
     return WillPopScope(
       onWillPop: () async {
-        if (_isFullscreen) {
+        if (_isOverlayInstance && _isFullscreen && !_hasRequestedExit) {
+          _requestExitFullscreen();
+          return false;
+        }
+        if (!_isOverlayInstance && _isFullscreen) {
           _requestExitFullscreen();
           return false;
         }
@@ -389,57 +493,15 @@ class _MapPageState extends ConsumerState<MapPage> {
         body: Stack(
           children: [
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 350),
+              duration: widget.startFullscreen
+                  ? Duration.zero
+                  : const Duration(milliseconds: 350),
               curve: Curves.easeInOut,
               top: _isFullscreen ? 0 : 12,
               left: _isFullscreen ? 0 : 16,
               right: _isFullscreen ? 0 : 16,
               bottom: _isFullscreen ? 0 : 12,
-              child: Hero(
-                tag: _mapHeroTag,
-                createRectTween: _mapHeroRectTween,
-                flightShuttleBuilder: _mapHeroFlight,
-                transitionOnUserGestures: false,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 350),
-                  curve: Curves.easeInOut,
-                  decoration: _isFullscreen
-                      ? const BoxDecoration()
-                      : BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: borderRadius,
-                          border: Border.all(
-                            color: AppTheme.black,
-                            width: AppTheme.borderMedium,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.06),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                  child: ClipRRect(
-                    borderRadius: borderRadius,
-                    child: MapboxSpotMap(
-                      key: _mapKey,
-                      spots: _filteredSpots,
-                      initialCenter:
-                          _currentMapCenter ?? _cityCoordinates[_selectedCity]!,
-                      initialZoom: _currentZoom,
-                      selectedSpot: _selectedSpot,
-                      onSpotTap: _handleSpotTap,
-                      onCameraMove: (center, zoom) {
-                        setState(() {
-                          _currentMapCenter = center;
-                          _currentZoom = zoom;
-                        });
-                      },
-                    ),
-                  ),
-                ),
-              ),
+              child: mapContent,
             ),
             if (_isFullscreen)
               Positioned(
@@ -1157,6 +1219,70 @@ class _MapPageState extends ConsumerState<MapPage> {
           ),
         ],
       };
+}
+
+class _MapSurface extends StatelessWidget {
+  const _MapSurface({
+    required this.borderRadius,
+    required this.isFullscreen,
+    required this.animateTransitions,
+    required this.mapKey,
+    required this.spots,
+    required this.fallbackCenter,
+    required this.currentCenter,
+    required this.currentZoom,
+    required this.selectedSpot,
+    required this.onSpotTap,
+    required this.onCameraMove,
+  });
+
+  final BorderRadius borderRadius;
+  final bool isFullscreen;
+  final bool animateTransitions;
+  final GlobalKey<MapboxSpotMapState> mapKey;
+  final List<Spot> spots;
+  final Position fallbackCenter;
+  final Position? currentCenter;
+  final double currentZoom;
+  final Spot? selectedSpot;
+  final ValueChanged<Spot> onSpotTap;
+  final void Function(Position center, double zoom) onCameraMove;
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+        duration:
+            animateTransitions ? const Duration(milliseconds: 350) : Duration.zero,
+        curve: Curves.easeInOut,
+        decoration: isFullscreen
+            ? const BoxDecoration()
+            : BoxDecoration(
+                color: Colors.white,
+                borderRadius: borderRadius,
+                border: Border.all(
+                  color: AppTheme.black,
+                  width: AppTheme.borderMedium,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: MapboxSpotMap(
+            key: mapKey,
+            spots: spots,
+            initialCenter: currentCenter ?? fallbackCenter,
+            initialZoom: currentZoom,
+            selectedSpot: selectedSpot,
+            onSpotTap: onSpotTap,
+            onCameraMove: onCameraMove,
+          ),
+        ),
+      );
 }
 
 class _CitySelector extends StatelessWidget {

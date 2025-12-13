@@ -319,6 +319,25 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     });
   }
 
+  Future<void> jumpToPosition(Position center, {double? zoom}) async {
+    final map = _mapboxMap;
+    if (map == null) return;
+
+    await map.setCamera(
+      CameraOptions(
+        center: Point(coordinates: center),
+        zoom: zoom ?? _currentZoom,
+      ),
+    );
+
+    setState(() {
+      _currentCenter = center;
+      if (zoom != null) {
+        _currentZoom = zoom;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) => MapWidget(
       key: const ValueKey('shared-mapbox-widget'),

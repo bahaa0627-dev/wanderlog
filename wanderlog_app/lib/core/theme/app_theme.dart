@@ -3,9 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // 主题色 - 明亮黄色系列
-  static const Color primaryYellow = Color(0xFFFFF200); // 更新为更亮的黄色
+  static const Color primaryYellow = Color(0xFFFFF200); // 用于实心按钮、tab、标签等
+  static const Color borderYellow = Color(0xFFC7BD00); // 用于边框和文字按钮
   static const Color lightYellow = Color(0xFFFFF4D6);
-  static const Color darkYellow = Color(0xFFA29A00);
+  static const Color darkYellow = Color(0xFF8E8600);
   
   // 中性色
   static const Color black = Color(0xFF1A1A1A);
@@ -55,6 +56,13 @@ class AppTheme {
       offset: const Offset(0, 6),
     ),
   ];
+
+  // 兼容旧代码：用于 const Widget 里
+  static const Color textSecondary = mediumGray;
+  static const Color border = lightGray;
+  static const Color error = Color(0xFFEF5350); // 接近 red400
+  static TextStyle titleMedium(BuildContext context) => labelLarge(context);
+  
   
   // 字体样式
   static TextStyle displayLarge(BuildContext context) => GoogleFonts.nanumPenScript(
@@ -148,6 +156,17 @@ class AppTheme {
         fontSize: textLarge,
         fontWeight: FontWeight.bold,
         color: black,
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: borderYellow, // 文字按钮使用暗黄色
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: primaryYellow, // 实心按钮使用亮黄色
+        foregroundColor: black,
       ),
     ),
   );

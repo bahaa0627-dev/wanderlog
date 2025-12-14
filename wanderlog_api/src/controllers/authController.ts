@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
+import { GaxiosOptions } from 'gaxios';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import prisma from '../config/database';
 import { logger } from '../utils/logger';
 import { generateVerificationCode, generateToken } from '../utils/tokenGenerator';
@@ -13,6 +16,22 @@ import {
 const JWT_SECRET: string = process.env.JWT_SECRET || 'default_secret';
 const JWT_ACCESS_EXPIRY: string = process.env.JWT_ACCESS_EXPIRY || '15m';
 const JWT_REFRESH_EXPIRY: string = process.env.JWT_REFRESH_EXPIRY || '7d';
+
+// Configure proxy agent if needed
+let clientOptions: GaxiosOptions = {};
+if (process.env.HTTP_PROXY || process.env.http_proxy) {
+  const proxyUrl = process.env.HTTP_PROXY || process.env.http_proxy;
+  console.log(`[AUTH] Configuring Google OAuth2 client with proxy: ${proxyUrl}`);
+  const agent = new HttpsProxyAgent(proxyUrl);
+  clientOptions = { agent };
+}
+
+// Google OAuth2 Client with proxy support
+const googleClient = new OAuth2Client({
+  clientId: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  ...clientOptions,
+});
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -335,10 +354,11 @@ export const forgotPassword = async (req: Request, res: Response) => {
       where: { email },
     });
 
-    // Always return success to prevent email enumeration
+    // 如果用户不存在，返回错误（改进用户体验）
     if (!user) {
-      return res.json({ 
-        message: 'If the email exists, a reset code has been sent',
+      return res.status(404).json({ 
+        error: 'Email not found',
+        message: 'This email didn\'t sign up. Please check your email or create a new account.',
       });
     }
 
@@ -413,6 +433,17 @@ export const resetPassword = async (req: Request, res: Response) => {
       return res.status(400).json({ 
         message: 'Invalid or expired reset code' 
       });
+    }
+
+    // Check if new password is same as old password
+    if (user.password) {
+      const isSamePassword = await bcrypt.compare(newPassword, user.password);
+      if (isSamePassword) {
+        return res.status(400).json({ 
+          error: 'Same password',
+          message: 'New password must be different from your current password. Please choose a different password.',
+        });
+      }
     }
 
     // Hash new password
@@ -545,6 +576,120 @@ export const getLatestVerificationCode = async (req: Request, res: Response) => 
       expiresAt: token.expiresAt,
       createdAt: token.createdAt,
       message: '⚠️ Development mode only - Do not use in production',
+    });
+  } catch (error) {
+    logger.error('Error getting verification code:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Google 登录
+ */
+export const googleLogin = async (req: Request, res: Response) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({ message: 'ID token is required' });
+    }
+
+    // 验证 Google ID Token
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch (error) {
+      logger.error('Google token verification failed:', error);
+      return res.status(401).json({ message: 'Invalid Google token' });
+    }
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      return res.status(401).json({ message: 'Invalid token payload' });
+    }
+
+    const { email, name, picture, sub: googleId } = payload;
+
+    // 查找或创建用户
+    let user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (user) {
+      // 用户已存在，更新 Google ID 和信息（如果需要）
+      if (user.authProvider !== 'google' && !user.googleId) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            googleId,
+            authProvider: 'google',
+            isEmailVerified: true, // Google 账号邮箱已验证
+            avatarUrl: picture || user.avatarUrl,
+          },
+        });
+      }
+    } else {
+      // 创建新用户
+      user = await prisma.user.create({
+        data: {
+          email,
+          name: name || email.split('@')[0],
+          googleId,
+          authProvider: 'google',
+          isEmailVerified: true, // Google 账号邮箱已验证
+          avatarUrl: picture,
+          // Google 登录不需要密码
+          password: '',
+        },
+      });
+
+      // 发送欢迎邮件
+      try {
+        await sendWelcomeEmail(user.email, user.name || '');
+      } catch (emailError) {
+        logger.error('Failed to send welcome email:', emailError);
+        // 继续，不因邮件失败而中断登录
+      }
+    }
+
+    // 生成 JWT tokens
+    const accessToken = jwt.sign(
+      { id: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: JWT_ACCESS_EXPIRY }
+    );
+
+    const refreshToken = jwt.sign(
+      { id: user.id, email: user.email, type: 'refresh' },
+      JWT_SECRET,
+      { expiresIn: JWT_REFRESH_EXPIRY }
+    );
+
+    // 保存 refresh token
+    await prisma.refreshToken.create({
+      data: {
+        token: refreshToken,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 天
+      },
+    });
+
+    logger.info(`Google login successful for user: ${user.email}`);
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        isEmailVerified: user.isEmailVerified,
+        authProvider: user.authProvider,
+      },
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     logger.error('Get verification code error:', error);

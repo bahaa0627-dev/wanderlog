@@ -10,6 +10,7 @@ import {
   refreshToken,
   logout,
   getLatestVerificationCode,
+  googleLogin,
 } from '../controllers/authController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -18,6 +19,7 @@ const router = Router();
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
+router.post('/google', googleLogin);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post('/refresh-token', refreshToken);

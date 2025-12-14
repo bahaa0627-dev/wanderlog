@@ -250,7 +250,7 @@ class _Header extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              const Divider(color: AppTheme.border),
+              Divider(color: AppTheme.border),
               const SizedBox(height: 8),
               // Logout button
               ListTile(

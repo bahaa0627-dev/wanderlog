@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/shared/widgets/custom_toast.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -41,12 +42,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString()),
-              backgroundColor: Colors.red,
-            ),
-          );
+          CustomToast.showError(context, e.toString());
         }
       }
     }

@@ -51,5 +51,21 @@
 	<string>We need access to your camera to take photos for AI location recognition.</string>
 	<key>MBXAccessToken</key>
 	<string>pk.eyJ1IjoibW9yaWJhaGFhIiwiYSI6ImNtaXp0MzM5NjAxamgzZXB0dnI3MTl4dzIifQ.sHnu6-JSac2YGSwEhkK8ag</string>
+	<!-- Google Sign-In 配置 -->
+	<key>GIDClientID</key>
+	<string>791447495976-rd5pp61vq7t61hp8sn2i3421kq7b18qi.apps.googleusercontent.com</string>
+	<!-- URL Schemes 用于 Google 登录回调 -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- 反转的 Client ID 格式：com.googleusercontent.apps.[client-id] -->
+				<string>com.googleusercontent.apps.791447495976-rd5pp61vq7t61hp8sn2i3421kq7b18qi</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

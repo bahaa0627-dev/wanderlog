@@ -41,7 +41,7 @@ dependencies:
   # Alternative: flutter_map: ^7.0.2
   
   # Authentication
-  google_sign_in: ^6.2.1
+  google_sign_in: ^7.2.0
   firebase_auth: ^5.3.3
   firebase_core: ^3.8.1
   

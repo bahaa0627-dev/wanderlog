@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/shared/widgets/custom_toast.dart';
 
 class VerifyEmailPage extends ConsumerStatefulWidget {
   const VerifyEmailPage({super.key});
@@ -62,7 +63,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
 
     try {
       await ref.read(authProvider.notifier).resendVerification();
-      
+
       if (mounted) {
         _showSuccess('Verification code sent to your email');
         _startResendCountdown();
@@ -92,21 +93,11 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    CustomToast.showError(context, message);
   }
 
   void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-      ),
-    );
+    CustomToast.showSuccess(context, message);
   }
 
   @override
@@ -159,48 +150,50 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                   ),
                 ),
                 const SizedBox(height: 48),
-                
+
                 // 6位验证码输入框
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: List.generate(6, (index) => SizedBox(
-                      width: 50,
-                      child: TextField(
-                        controller: _codeControllers[index],
-                        focusNode: _focusNodes[index],
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        maxLength: 1,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: InputDecoration(
-                          counterText: '',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[100],
-                        ),
-                        onChanged: (value) {
-                          if (value.isNotEmpty && index < 5) {
-                            _focusNodes[index + 1].requestFocus();
-                          } else if (value.isEmpty && index > 0) {
-                            _focusNodes[index - 1].requestFocus();
-                          }
-                          
-                          // 自动验证
-                          if (index == 5 && value.isNotEmpty) {
-                            _onVerify();
-                          }
-                        },
-                      ),
-                    )),
+                  children: List.generate(
+                      6,
+                      (index) => SizedBox(
+                            width: 50,
+                            child: TextField(
+                              controller: _codeControllers[index],
+                              focusNode: _focusNodes[index],
+                              textAlign: TextAlign.center,
+                              keyboardType: TextInputType.number,
+                              maxLength: 1,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              decoration: InputDecoration(
+                                counterText: '',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey[100],
+                              ),
+                              onChanged: (value) {
+                                if (value.isNotEmpty && index < 5) {
+                                  _focusNodes[index + 1].requestFocus();
+                                } else if (value.isEmpty && index > 0) {
+                                  _focusNodes[index - 1].requestFocus();
+                                }
+
+                                // 自动验证
+                                if (index == 5 && value.isNotEmpty) {
+                                  _onVerify();
+                                }
+                              },
+                            ),
+                          )),
                 ),
-                
+
                 const SizedBox(height: 32),
-                
+
                 SizedBox(
                   width: double.infinity,
                   height: 48,
@@ -218,9 +211,9 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                         : const Text('Verify Email'),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -231,8 +224,8 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                     TextButton(
                       onPressed: _canResend ? _onResend : null,
                       child: Text(
-                        _canResend 
-                            ? 'Resend' 
+                        _canResend
+                            ? 'Resend'
                             : 'Resend in ${_resendCountdown}s',
                         style: TextStyle(
                           color: _canResend ? Colors.blue : Colors.grey,
@@ -240,13 +233,6 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                       ),
                     ),
                   ],
-                ),
-                
-                const SizedBox(height: 16),
-                
-                TextButton(
-                  onPressed: () => context.go('/login'),
-                  child: const Text('Back to Login'),
                 ),
               ],
             ),

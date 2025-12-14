@@ -130,6 +130,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
       rethrow;
     }
   }
+
+  Future<void> loginWithGoogle(String idToken) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final result = await _repository.loginWithGoogle(idToken);
+      state = AuthState(user: result.user, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
 }
 
 // Auth State Provider

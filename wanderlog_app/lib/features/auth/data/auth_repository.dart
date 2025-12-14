@@ -98,7 +98,7 @@ class AuthRepository {
   /// 重发验证码
   Future<void> resendVerification() async {
     try {
-      await _dio.post('/auth/resend-verification');
+      await _dio.post<void>('/auth/resend-verification');
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -107,7 +107,7 @@ class AuthRepository {
   /// 忘记密码
   Future<void> forgotPassword(String email) async {
     try {
-      await _dio.post(
+      await _dio.post<void>(
         '/auth/forgot-password',
         data: {'email': email},
       );
@@ -123,7 +123,7 @@ class AuthRepository {
     required String newPassword,
   }) async {
     try {
-      await _dio.post(
+      await _dio.post<void>(
         '/auth/reset-password',
         data: {
           'email': email,
@@ -131,6 +131,25 @@ class AuthRepository {
           'newPassword': newPassword,
         },
       );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// Google 登录
+  Future<AuthResult> loginWithGoogle(String idToken) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/auth/google',
+        data: {'idToken': idToken},
+      );
+
+      final token = response.data!['accessToken'] as String;
+      final user = User.fromJson(response.data!['user'] as Map<String, dynamic>);
+
+      await _saveToken(token);
+
+      return AuthResult(user: user, token: token);
     } on DioException catch (e) {
       throw _handleError(e);
     }

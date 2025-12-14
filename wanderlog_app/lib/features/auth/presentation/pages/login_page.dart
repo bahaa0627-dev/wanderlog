@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:wanderlog/features/auth/services/google_auth_service.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/shared/widgets/custom_toast.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -16,6 +17,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isGoogleLoading = false;
 
   @override
   void dispose() {
@@ -36,21 +38,67 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString()),
-              backgroundColor: Colors.red,
-            ),
-          );
+          CustomToast.showError(context, e.toString());
         }
       }
     }
   }
 
   Future<void> _onGoogleLogin() async {
-    final account = await GoogleAuthService.instance.signIn(context);
-    if (account != null && mounted) {
-      context.go('/home');
+    if (_isGoogleLoading) return; // 防止重复点击
+    
+    setState(() {
+      _isGoogleLoading = true;
+    });
+
+    try {
+      final googleUser = await GoogleAuthService.instance.signIn(context);
+      if (googleUser == null) {
+        // 用户取消登录或配置未完成
+        setState(() {
+          _isGoogleLoading = false;
+        });
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        setState(() {
+          _isGoogleLoading = false;
+        });
+        if (mounted) {
+          CustomToast.showError(context, 'Google 登录失败：无法获取 ID Token');
+        }
+        return;
+      }
+
+      // 使用 ID Token 调用后端 API
+      await ref.read(authProvider.notifier).loginWithGoogle(idToken);
+
+      // 登录成功
+      setState(() {
+        _isGoogleLoading = false;
+      });
+      
+      if (mounted) {
+        CustomToast.showSuccess(context, 'Google 登录成功');
+        // 延迟一下让用户看到成功提示
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          context.go('/home');
+        }
+      }
+    } catch (e) {
+      // 捕获所有异常，防止应用崩溃
+      setState(() {
+        _isGoogleLoading = false;
+      });
+      debugPrint('Google Login Error: $e');
+      if (mounted) {
+        CustomToast.showError(context, 'Google 登录失败：${e.toString()}');
+      }
     }
   }
 
@@ -174,9 +222,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           SizedBox(
                             width: double.infinity,
                             child: OutlinedButton.icon(
-                              icon: const Icon(Icons.account_circle_outlined),
-                              onPressed: _onGoogleLogin,
-                              label: const Text('Continue with Google'),
+                              icon: _isGoogleLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.account_circle_outlined),
+                              onPressed: _isGoogleLoading ? null : _onGoogleLogin,
+                              label: Text(_isGoogleLoading ? 'Google 登录中...' : 'Continue with Google'),
                             ),
                           ),
                         ],

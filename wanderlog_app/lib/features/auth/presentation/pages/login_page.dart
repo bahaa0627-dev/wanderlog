@@ -157,9 +157,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: () => context.go('/register'),
-                            child: const Text('Create account'),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              TextButton(
+                                onPressed: () => context.go('/register'),
+                                child: const Text('Create account'),
+                              ),
+                              TextButton(
+                                onPressed: () => context.go('/forgot-password'),
+                                child: const Text('Forgot password?'),
+                              ),
+                            ],
                           ),
                           const Divider(height: 32),
                           SizedBox(

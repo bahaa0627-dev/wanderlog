@@ -76,6 +76,66 @@ class AuthRepository {
     await clearToken();
   }
 
+  /// 验证邮箱
+  Future<AuthResult> verifyEmail(String code) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/auth/verify-email',
+        data: {'code': code},
+      );
+
+      final token = response.data!['token'] as String;
+      final user = User.fromJson(response.data!['user'] as Map<String, dynamic>);
+
+      await _saveToken(token);
+
+      return AuthResult(user: user, token: token);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 重发验证码
+  Future<void> resendVerification() async {
+    try {
+      await _dio.post('/auth/resend-verification');
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 忘记密码
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _dio.post(
+        '/auth/forgot-password',
+        data: {'email': email},
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 重置密码
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    try {
+      await _dio.post(
+        '/auth/reset-password',
+        data: {
+          'email': email,
+          'code': code,
+          'newPassword': newPassword,
+        },
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   String _handleError(DioException e) {
     if (e.response != null) {
       final message = e.response?.data['message'];

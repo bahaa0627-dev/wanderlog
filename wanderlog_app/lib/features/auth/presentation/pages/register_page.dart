@@ -36,7 +36,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               _nameController.text.isEmpty ? null : _nameController.text,
             );
         if (mounted) {
-          context.go('/home');
+          // 注册成功后跳转到邮箱验证页面
+          context.go('/verify-email');
         }
       } catch (e) {
         if (mounted) {

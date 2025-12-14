@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import 'package:wanderlog/features/auth/presentation/pages/login_page.dart';
 import 'package:wanderlog/features/auth/presentation/pages/register_page.dart';
+import 'package:wanderlog/features/auth/presentation/pages/verify_email_page.dart';
+import 'package:wanderlog/features/auth/presentation/pages/forgot_password_page.dart';
+import 'package:wanderlog/features/auth/presentation/pages/reset_password_page.dart';
 import 'package:wanderlog/features/trips/presentation/pages/home_page.dart';
 import 'package:wanderlog/features/trips/presentation/pages/trip_list_page.dart';
 import 'package:wanderlog/features/trips/presentation/pages/trip_detail_page.dart';
@@ -31,6 +34,24 @@ class AppRouter {
           path: '/register',
           name: 'register',
           builder: (context, state) => const RegisterPage(),
+        ),
+        GoRoute(
+          path: '/verify-email',
+          name: 'verify-email',
+          builder: (context, state) => const VerifyEmailPage(),
+        ),
+        GoRoute(
+          path: '/forgot-password',
+          name: 'forgot-password',
+          builder: (context, state) => const ForgotPasswordPage(),
+        ),
+        GoRoute(
+          path: '/reset-password',
+          name: 'reset-password',
+          builder: (context, state) {
+            final email = state.extra as String?;
+            return ResetPasswordPage(email: email);
+          },
         ),
         GoRoute(
           path: '/home',

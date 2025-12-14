@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
@@ -35,6 +37,10 @@ class MapboxSpotMap extends StatefulWidget {
 }
 
 class MapboxSpotMapState extends State<MapboxSpotMap> {
+  static const double _minZoomLevel = 3.0;
+  static const double _maxZoomLevel = 19.5;
+  static const double _scrollZoomSensitivity = 0.0025;
+
   MapboxMap? _mapboxMap;
   PointAnnotationManager? _pointAnnotationManager;
   Position? _currentCenter;
@@ -42,6 +48,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   final Map<String, Uint8List> _markerBitmapCache = {};
   Position? _pendingJumpCenter;
   double? _pendingJumpZoom;
+  double? _panZoomBaseZoom;
 
   @override
   void initState() {
@@ -373,51 +380,155 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     await jumpToPosition(center, zoom: zoom);
   }
 
-  @override
-  Widget build(BuildContext context) => MapWidget(
-      key: const ValueKey('shared-mapbox-widget'),
-      cameraOptions: CameraOptions(
-        center: Point(coordinates: _currentCenter ?? widget.initialCenter),
-        zoom: _currentZoom,
+  bool _isMouseLikeDevice(ui.PointerDeviceKind kind) =>
+      kind == ui.PointerDeviceKind.mouse ||
+      kind == ui.PointerDeviceKind.trackpad;
+
+  ScreenCoordinate? _anchorFromOffset(Offset? offset) => offset == null
+      ? null
+      : ScreenCoordinate(x: offset.dx, y: offset.dy);
+
+  void _setZoom(double zoom, {Offset? anchor}) {
+    final map = _mapboxMap;
+    if (map == null) {
+      return;
+    }
+
+    final clampedZoom = zoom.clamp(_minZoomLevel, _maxZoomLevel);
+    map.easeTo(
+      CameraOptions(
+        zoom: clampedZoom,
+        anchor: _anchorFromOffset(anchor),
       ),
-      onMapCreated: (mapboxMap) async {
-        _mapboxMap = mapboxMap;
-
-        // 初始化 PointAnnotationManager
-        _pointAnnotationManager =
-            await mapboxMap.annotations.createPointAnnotationManager();
-
-        await _enableMapGestures();
-        await _addNativeMarkers();
-        await _applyPendingCamera();
-
-        widget.onMapCreated?.call();
-      },
-      onCameraChangeListener: (cameraChangedEventData) async {
-        // 实时更新地图中心和缩放级别
-        final map = _mapboxMap;
-        if (map == null) return;
-
-        try {
-          final cameraState = await map.getCameraState();
-          final newCenter = cameraState.center;
-          final newZoom = cameraState.zoom;
-
-          if (newCenter.coordinates.lng != _currentCenter?.lng ||
-              newCenter.coordinates.lat != _currentCenter?.lat ||
-              newZoom != _currentZoom) {
-            setState(() {
-              _currentCenter = newCenter.coordinates;
-              _currentZoom = newZoom;
-            });
-
-            widget.onCameraMove?.call(newCenter.coordinates, newZoom);
-          }
-        } catch (e) {
-          // 忽略错误
-        }
-      },
+      MapAnimationOptions(duration: 0),
     );
+
+    setState(() {
+      _currentZoom = clampedZoom;
+    });
+  }
+
+  void _zoomBy(double delta, {Offset? anchor}) {
+    if (delta == 0) {
+      return;
+    }
+    final targetZoom = (_currentZoom + delta).clamp(
+      _minZoomLevel,
+      _maxZoomLevel,
+    );
+    if ((targetZoom - _currentZoom).abs() < 0.001) {
+      return;
+    }
+    _setZoom(targetZoom, anchor: anchor);
+  }
+
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (!_isMouseLikeDevice(event.kind)) {
+      return;
+    }
+
+    if (event is PointerScrollEvent) {
+      final dy = event.scrollDelta.dy;
+      final dx = event.scrollDelta.dx;
+      final dominantDelta = dy.abs() >= dx.abs() ? dy : dx;
+      if (dominantDelta == 0) {
+        return;
+      }
+      final zoomDelta = -dominantDelta * _scrollZoomSensitivity;
+      _zoomBy(zoomDelta, anchor: event.localPosition);
+    } else if (event is PointerScaleEvent) {
+      if (event.scale == 0) {
+        return;
+      }
+      final zoomDelta = math.log(event.scale) / math.ln2;
+      if (zoomDelta.abs() < 0.001) {
+        return;
+      }
+      _zoomBy(zoomDelta, anchor: event.localPosition);
+    }
+  }
+
+  void _handlePointerPanZoomStart(PointerPanZoomStartEvent event) {
+    if (!_isMouseLikeDevice(event.kind)) {
+      _panZoomBaseZoom = null;
+      return;
+    }
+    _panZoomBaseZoom = _currentZoom;
+  }
+
+  void _handlePointerPanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    final baseZoom = _panZoomBaseZoom;
+    if (baseZoom == null || !_isMouseLikeDevice(event.kind)) {
+      return;
+    }
+    final scale = event.scale;
+    if (scale <= 0) {
+      return;
+    }
+    final delta = math.log(scale) / math.ln2;
+    final targetZoom = (baseZoom + delta).clamp(
+      _minZoomLevel,
+      _maxZoomLevel,
+    );
+    _setZoom(targetZoom, anchor: event.localPosition);
+  }
+
+  void _handlePointerPanZoomEnd(PointerPanZoomEndEvent _) {
+    _panZoomBaseZoom = null;
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerSignal: _handlePointerSignal,
+        onPointerPanZoomStart: _handlePointerPanZoomStart,
+        onPointerPanZoomUpdate: _handlePointerPanZoomUpdate,
+        onPointerPanZoomEnd: _handlePointerPanZoomEnd,
+        child: MapWidget(
+          key: const ValueKey('shared-mapbox-widget'),
+          cameraOptions: CameraOptions(
+            center: Point(coordinates: _currentCenter ?? widget.initialCenter),
+            zoom: _currentZoom,
+          ),
+          onMapCreated: (mapboxMap) async {
+            _mapboxMap = mapboxMap;
+
+            // 初始化 PointAnnotationManager
+            _pointAnnotationManager =
+                await mapboxMap.annotations.createPointAnnotationManager();
+
+            await _enableMapGestures();
+            await _addNativeMarkers();
+            await _applyPendingCamera();
+
+            widget.onMapCreated?.call();
+          },
+          onCameraChangeListener: (cameraChangedEventData) async {
+            // 实时更新地图中心和缩放级别
+            final map = _mapboxMap;
+            if (map == null) return;
+
+            try {
+              final cameraState = await map.getCameraState();
+              final newCenter = cameraState.center;
+              final newZoom = cameraState.zoom;
+
+              if (newCenter.coordinates.lng != _currentCenter?.lng ||
+                  newCenter.coordinates.lat != _currentCenter?.lat ||
+                  newZoom != _currentZoom) {
+                setState(() {
+                  _currentCenter = newCenter.coordinates;
+                  _currentZoom = newZoom;
+                });
+
+                widget.onCameraMove?.call(newCenter.coordinates, newZoom);
+              }
+            } catch (e) {
+              // 忽略错误
+            }
+          },
+        ),
+      );
 }
 
 /// 标记点击监听器

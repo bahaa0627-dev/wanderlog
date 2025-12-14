@@ -13,12 +13,45 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  password  String
+  password  String?  // Google 登录用户可以为 null
   name      String?
   avatarUrl String?
+  
+  // 认证相关
+  authProvider    String    @default("email") // "email" | "google"
+  googleId        String?   @unique // Google OAuth ID
+  isEmailVerified Boolean   @default(false) // 邮箱是否已验证
+  emailVerifiedAt DateTime? // 邮箱验证时间
+  
+  // Token 管理
+  refreshToken    String?   // 刷新 Token
+  tokenVersion    Int       @default(0) // 用于撤销所有 Token (递增)
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  trips     Trip[]
+  
+  // 关系
+  trips              Trip[]
+  verificationTokens VerificationToken[]
+  
+  @@index([email])
+  @@index([googleId])
+}
+
+// 邮箱验证和密码重置 Token
+model VerificationToken {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token       String    @unique // 验证码（6位数字）或重置Token（UUID）
+  type        String    // "EMAIL_VERIFICATION" | "PASSWORD_RESET"
+  expiresAt   DateTime  // Token 过期时间
+  usedAt      DateTime? // 使用时间（null = 未使用）
+  createdAt   DateTime  @default(now())
+  
+  @@index([token])
+  @@index([userId, type])
+  @@index([expiresAt])
 }
 
 model Spot {

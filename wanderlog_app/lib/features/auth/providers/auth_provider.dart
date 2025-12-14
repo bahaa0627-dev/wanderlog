@@ -82,6 +82,54 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _repository.logout();
     state = AuthState();
   }
+
+  Future<void> verifyEmail(String code) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final result = await _repository.verifyEmail(code);
+      state = AuthState(user: result.user, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> resendVerification() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _repository.resendVerification();
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> forgotPassword(String email) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _repository.forgotPassword(email);
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> resetPassword(String email, String code, String newPassword) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _repository.resetPassword(
+        email: email,
+        code: code,
+        newPassword: newPassword,
+      );
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
 }
 
 // Auth State Provider

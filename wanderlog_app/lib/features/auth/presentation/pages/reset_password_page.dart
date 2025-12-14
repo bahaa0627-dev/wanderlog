@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 
 class ResetPasswordPage extends ConsumerStatefulWidget {
-  final String? email;
   
   const ResetPasswordPage({super.key, this.email});
+  final String? email;
 
   @override
   ConsumerState<ResetPasswordPage> createState() => _ResetPasswordPageState();
@@ -89,8 +89,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Scaffold(
       appBar: AppBar(
         title: const Text('Reset Password'),
       ),
@@ -276,5 +275,4 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
         ),
       ),
     );
-  }
 }

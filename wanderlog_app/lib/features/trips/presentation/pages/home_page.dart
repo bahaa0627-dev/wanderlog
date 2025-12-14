@@ -191,6 +191,112 @@ class _Header extends ConsumerWidget {
   const _Header({required this.ref});
   final WidgetRef ref;
 
+  void _showUserMenu(BuildContext context, WidgetRef ref) {
+    final authState = ref.read(authProvider);
+    final user = authState.user;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppTheme.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // User info
+              Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryYellow,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.black, width: 2),
+                    ),
+                    child: Center(
+                      child: Text(
+                        (user?.name?.isNotEmpty ?? false)
+                            ? user!.name![0].toUpperCase()
+                            : user?.email[0].toUpperCase() ?? 'U',
+                        style: AppTheme.headlineMedium(context),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (user?.name?.isNotEmpty ?? false)
+                          Text(
+                            user!.name!,
+                            style: AppTheme.titleMedium(context),
+                          ),
+                        Text(
+                          user?.email ?? '',
+                          style: AppTheme.bodyMedium(context).copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const Divider(color: AppTheme.border),
+              const SizedBox(height: 8),
+              // Logout button
+              ListTile(
+                leading: const Icon(Icons.logout, color: AppTheme.error),
+                title: Text(
+                  'Log out',
+                  style: AppTheme.titleMedium(context).copyWith(
+                    color: AppTheme.error,
+                  ),
+                ),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  // Show loading indicator
+                  showDialog<void>(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                  
+                  try {
+                    await ref.read(authProvider.notifier).logout();
+                    // Close loading indicator
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                      context.go('/login');
+                    }
+                  } catch (e) {
+                    // Close loading indicator
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Logout failed: $e')),
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
@@ -208,11 +314,7 @@ class _Header extends ConsumerWidget {
           if (isAuthenticated)
             IconButtonCustom(
               icon: Icons.account_circle,
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile coming soon')),
-                );
-              },
+              onPressed: () => _showUserMenu(context, ref),
             )
           else
             TextButtonCustom(

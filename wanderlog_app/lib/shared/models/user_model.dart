@@ -10,6 +10,7 @@ class User {
     required this.email,
     required this.createdAt, required this.updatedAt, this.name,
     this.avatarUrl,
+    this.isEmailVerified,
   });
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
@@ -17,6 +18,7 @@ class User {
   final String email;
   final String? name;
   final String? avatarUrl;
+  final bool? isEmailVerified;
   final DateTime createdAt;
   final DateTime updatedAt;
   Map<String, dynamic> toJson() => _$UserToJson(this);
@@ -26,6 +28,7 @@ class User {
     String? email,
     String? name,
     String? avatarUrl,
+    bool? isEmailVerified,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => User(
@@ -33,6 +36,7 @@ class User {
       email: email ?? this.email,
       name: name ?? this.name,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

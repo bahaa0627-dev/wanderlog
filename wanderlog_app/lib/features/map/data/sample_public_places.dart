@@ -14,12 +14,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Temple',
       coverImage:
           'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1491553895911-0055eca6402d?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.8,
       ratingCount: 12890,
-      aiTags: const ['Culture', 'Viewpoint', 'History'],
+      aiTags: ['Culture', 'Viewpoint', 'History'],
       aiSummary: 'Hilltop temple with gold chedi and sweeping city panoramas.',
     ),
     PublicPlaceDto(
@@ -33,12 +33,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Neighborhood',
       coverImage:
           'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.6,
       ratingCount: 4670,
-      aiTags: const ['Coffee', 'Shopping', 'Nightlife'],
+      aiTags: ['Coffee', 'Shopping', 'Nightlife'],
       aiSummary:
           'Creative district packed with cafes, boutiques, and rooftop bars.',
     ),
@@ -53,12 +53,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Market',
       coverImage:
           'https://images.unsplash.com/photo-1526483360412-f4dbaf036963?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1526483360412-f4dbaf036963?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.5,
       ratingCount: 3920,
-      aiTags: const ['Food', 'Souvenirs', 'Local'],
+      aiTags: ['Food', 'Souvenirs', 'Local'],
       aiSummary:
           'Bustling riverside market famous for northern Thai snacks and textiles.',
     ),
@@ -73,12 +73,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Nature Reserve',
       coverImage:
           'https://images.unsplash.com/photo-1456926631375-92c8ce872def?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1456926631375-92c8ce872def?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.9,
       ratingCount: 10220,
-      aiTags: const ['Wildlife', 'Sustainability', 'Day Trip'],
+      aiTags: ['Wildlife', 'Sustainability', 'Day Trip'],
       aiSummary:
           'Ethical sanctuary rescuing elephants with immersive volunteer programs.',
     ),
@@ -93,12 +93,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Market',
       coverImage:
           'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.4,
       ratingCount: 5180,
-      aiTags: const ['Night Market', 'Food', 'Shopping'],
+      aiTags: ['Night Market', 'Food', 'Shopping'],
       aiSummary:
           'Endless stalls selling crafts, street food, and souvenirs late into the night.',
     ),
@@ -115,12 +115,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Waterfront',
       coverImage:
           'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.8,
       ratingCount: 20870,
-      aiTags: const ['Harbour', 'Colorful', 'Food'],
+      aiTags: ['Harbour', 'Colorful', 'Food'],
       aiSummary:
           'Iconic 17th-century canal lined with tall ships, cafes, and pastel facades.',
     ),
@@ -135,12 +135,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Museum',
       coverImage:
           'https://images.unsplash.com/photo-1511840636560-acee95b47a37?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1511840636560-acee95b47a37?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.7,
       ratingCount: 11230,
-      aiTags: const ['History', 'Royal', 'Garden'],
+      aiTags: ['History', 'Royal', 'Garden'],
       aiSummary:
           'Renaissance castle housing crown jewels amid manicured rose gardens.',
     ),
@@ -155,12 +155,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Amusement Park',
       coverImage:
           'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.6,
       ratingCount: 25400,
-      aiTags: const ['Entertainment', 'Historic', 'Family'],
+      aiTags: ['Entertainment', 'Historic', 'Family'],
       aiSummary:
           'Fairytale amusement park with vintage rides, live music, and seasonal lights.',
     ),
@@ -175,12 +175,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Palace',
       coverImage:
           'https://images.unsplash.com/photo-1526403227010-77bee1ed50ff?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1526403227010-77bee1ed50ff?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.5,
       ratingCount: 6890,
-      aiTags: const ['Architecture', 'Politics', 'History'],
+      aiTags: ['Architecture', 'Politics', 'History'],
       aiSummary:
           'Seat of Danish Parliament with royal reception rooms and tower views.',
     ),
@@ -195,12 +195,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Market',
       coverImage:
           'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.7,
       ratingCount: 5210,
-      aiTags: const ['Food Hall', 'Coffee', 'Local'],
+      aiTags: ['Food Hall', 'Coffee', 'Local'],
       aiSummary:
           'Glass food hall mixing gourmet stalls, florists, and Nordic specialty shops.',
     ),
@@ -217,12 +217,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Park',
       coverImage:
           'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.5,
       ratingCount: 11320,
-      aiTags: const ['Festival', 'Scenic', 'Walks'],
+      aiTags: ['Festival', 'Scenic', 'Walks'],
       aiSummary:
           'Ribbon-like park hosting Sapporo Snow Festival, gardens, and food stalls.',
     ),
@@ -237,12 +237,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Museum',
       coverImage:
           'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.4,
       ratingCount: 7420,
-      aiTags: const ['Brewery', 'History', 'Tastings'],
+      aiTags: ['Brewery', 'History', 'Tastings'],
       aiSummary:
           'Brick brewery complex detailing Japan’s beer heritage with tasting halls.',
     ),
@@ -257,12 +257,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Viewpoint',
       coverImage:
           'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.6,
       ratingCount: 6120,
-      aiTags: const ['Night View', 'Cable Car', 'Nature'],
+      aiTags: ['Night View', 'Cable Car', 'Nature'],
       aiSummary:
           'Gondola ride to a summit observatory famed for sparkling city panoramas.',
     ),
@@ -277,12 +277,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Shopping',
       coverImage:
           'https://images.unsplash.com/photo-1500336624523-d727130c3328?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1500336624523-d727130c3328?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.3,
       ratingCount: 5210,
-      aiTags: const ['Arcade', 'Food', 'Souvenirs'],
+      aiTags: ['Arcade', 'Food', 'Souvenirs'],
       aiSummary:
           'Covered arcade stretching seven blocks with ramen, souvenirs, and arcades.',
     ),
@@ -297,12 +297,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Shrine',
       coverImage:
           'https://images.unsplash.com/photo-1503416997304-7f8bf166c121?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1503416997304-7f8bf166c121?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.7,
       ratingCount: 6680,
-      aiTags: const ['Culture', 'Cherry Blossoms', 'Nature'],
+      aiTags: ['Culture', 'Cherry Blossoms', 'Nature'],
       aiSummary:
           'Serene Shinto complex with towering cedars and seasonal matsuri events.',
     ),
@@ -319,12 +319,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Temple',
       coverImage:
           'https://images.unsplash.com/photo-1505062897336-3cf8fa626d6c?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1505062897336-3cf8fa626d6c?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.8,
       ratingCount: 45520,
-      aiTags: const ['Culture', 'Shopping', 'Landmark'],
+      aiTags: ['Culture', 'Shopping', 'Landmark'],
       aiSummary:
           'Tokyo’s oldest Buddhist temple with massive lantern gate and Nakamise stalls.',
     ),
@@ -339,12 +339,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Landmark',
       coverImage:
           'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.7,
       ratingCount: 52310,
-      aiTags: const ['Cityscape', 'Nightlife', 'Photo Spot'],
+      aiTags: ['Cityscape', 'Nightlife', 'Photo Spot'],
       aiSummary:
           'Legendary scramble intersection flanked by neon screens and rooftop views.',
     ),
@@ -359,12 +359,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Market',
       coverImage:
           'https://images.unsplash.com/photo-1498654896293-37aacf113fd9?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1498654896293-37aacf113fd9?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.6,
       ratingCount: 18760,
-      aiTags: const ['Seafood', 'Street Food', 'Culture'],
+      aiTags: ['Seafood', 'Street Food', 'Culture'],
       aiSummary:
           'Lively lanes of tuna vendors, tamago skewers, and kitchenware boutiques.',
     ),
@@ -379,12 +379,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Shrine',
       coverImage:
           'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.7,
       ratingCount: 23110,
-      aiTags: const ['Forest Walk', 'Culture', 'Calm'],
+      aiTags: ['Forest Walk', 'Culture', 'Calm'],
       aiSummary:
           'Wooded shrine oasis where towering torii gates lead to tranquil courtyards.',
     ),
@@ -399,12 +399,12 @@ const Map<String, List<PublicPlaceDto>> samplePublicPlacesByCity = {
       category: 'Art Installation',
       coverImage:
           'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80',
-      images: const [
+      images: [
         'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80',
       ],
       rating: 4.8,
       ratingCount: 16430,
-      aiTags: const ['Immersive', 'Digital Art', 'Interactive'],
+      aiTags: ['Immersive', 'Digital Art', 'Interactive'],
       aiSummary:
           'Immersive art museum where mirrored water rooms react to every step.',
     ),

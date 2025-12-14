@@ -74,7 +74,10 @@ export const register = async (req: Request, res: Response) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        avatarUrl: user.avatarUrl,
         isEmailVerified: false,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
       message: 'Please check your email to verify your account',
       ...(isDevelopment && { verificationCode }), // 仅在开发模式下返回验证码
@@ -102,6 +105,14 @@ export const login = async (req: Request, res: Response) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // Check if email is verified
+    if (!user.isEmailVerified) {
+      return res.status(403).json({ 
+        error: 'Email not verified',
+        message: 'Please verify your email address before logging in. Check your inbox for the verification code.'
+      });
     }
 
     // Generate access token
@@ -140,7 +151,10 @@ export const login = async (req: Request, res: Response) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        avatarUrl: user.avatarUrl,
         isEmailVerified: user.isEmailVerified,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
     });
   } catch (error) {
@@ -238,7 +252,10 @@ export const verifyEmail = async (req: Request, res: Response) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        avatarUrl: user.avatarUrl,
         isEmailVerified: true,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
     });
   } catch (error) {

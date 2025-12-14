@@ -565,7 +565,7 @@ class _MapPageState extends ConsumerState<MapPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: controlsHorizontalPadding,
                     ),
                     child: Row(
@@ -1016,7 +1016,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     final List<Spot> selected = [];
     final Set<String> selectedIds = {};
     final Set<String> coveredCategories = {};
-    final int requiredCategoryCount =
+    const int requiredCategoryCount =
         _minCategoriesPerCity <= _spotsPerCityLimit
             ? _minCategoriesPerCity
             : _spotsPerCityLimit;

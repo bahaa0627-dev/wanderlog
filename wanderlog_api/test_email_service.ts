@@ -5,8 +5,7 @@ import {
   sendWelcomeEmail,
   verifyEmailConfiguration,
 } from './src/services/emailService';
-import { generateVerificationCode, generateToken } from './src/utils/tokenGenerator';
-import { logger } from './src/utils/logger';
+import { generateVerificationCode } from './src/utils/tokenGenerator';
 
 // 加载环境变量
 dotenv.config();

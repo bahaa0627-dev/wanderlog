@@ -163,8 +163,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                 // 6位验证码输入框
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: List.generate(6, (index) {
-                    return SizedBox(
+                  children: List.generate(6, (index) => SizedBox(
                       width: 50,
                       child: TextField(
                         controller: _codeControllers[index],
@@ -197,8 +196,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                           }
                         },
                       ),
-                    );
-                  }),
+                    )),
                 ),
                 
                 const SizedBox(height: 32),

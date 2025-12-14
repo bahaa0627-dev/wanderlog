@@ -64,8 +64,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Scaffold(
       appBar: AppBar(
         title: const Text('Forgot Password'),
       ),
@@ -79,10 +78,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
         ),
       ),
     );
-  }
 
-  Widget _buildFormView() {
-    return Form(
+  Widget _buildFormView() => Form(
       key: _formKey,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -162,10 +159,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
         ],
       ),
     );
-  }
 
-  Widget _buildSuccessView() {
-    return Column(
+  Widget _buildSuccessView() => Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const Icon(
@@ -224,5 +219,4 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
         ),
       ],
     );
-  }
 }

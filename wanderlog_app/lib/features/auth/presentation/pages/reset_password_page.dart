@@ -78,12 +78,12 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
             errorMessage.contains('expired')) {
           setState(() => _hasCodeError = true);
           CustomToast.showError(
-              context, 'Invalid or expired verification code');
+              context, 'Invalid or expired verification code',);
         } else if (errorMessage.contains('Same password') ||
             errorMessage.contains('different from your current password')) {
           // Password is same as old password
           CustomToast.showError(context,
-              'New password must be different from your current password');
+              'New password must be different from your current password',);
         } else {
           setState(() => _hasCodeError = true);
           CustomToast.showError(context, errorMessage);
@@ -117,7 +117,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
       if (mounted) {
         setState(() => _lastResendTime = DateTime.now());
         CustomToast.showSuccess(
-            context, 'Verification code resent successfully');
+            context, 'Verification code resent successfully',);
       }
     } catch (e) {
       if (mounted) {
@@ -236,7 +236,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                         hintText: 'At least 6 characters',
                         hintStyle: TextStyle(color: Colors.grey[400]),
                         prefixIcon: const Icon(Icons.lock_outline,
-                            color: AppTheme.borderYellow),
+                            color: AppTheme.borderYellow,),
                         border: const OutlineInputBorder(
                           borderSide: BorderSide(color: AppTheme.borderYellow),
                         ),
@@ -245,7 +245,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                         ),
                         focusedBorder: const OutlineInputBorder(
                           borderSide: BorderSide(
-                              color: AppTheme.borderYellow, width: 2),
+                              color: AppTheme.borderYellow, width: 2,),
                         ),
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -255,7 +255,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                           ),
                           onPressed: () {
                             setState(
-                                () => _obscurePassword = !_obscurePassword);
+                                () => _obscurePassword = !_obscurePassword,);
                           },
                         ),
                       ),
@@ -280,7 +280,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                         hintText: 'Re-enter your password',
                         hintStyle: TextStyle(color: Colors.grey[400]),
                         prefixIcon: const Icon(Icons.lock_outline,
-                            color: AppTheme.borderYellow),
+                            color: AppTheme.borderYellow,),
                         border: const OutlineInputBorder(
                           borderSide: BorderSide(color: AppTheme.borderYellow),
                         ),
@@ -289,7 +289,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                         ),
                         focusedBorder: const OutlineInputBorder(
                           borderSide: BorderSide(
-                              color: AppTheme.borderYellow, width: 2),
+                              color: AppTheme.borderYellow, width: 2,),
                         ),
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -299,7 +299,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                           ),
                           onPressed: () {
                             setState(() => _obscureConfirmPassword =
-                                !_obscureConfirmPassword);
+                                !_obscureConfirmPassword,);
                           },
                         ),
                       ),

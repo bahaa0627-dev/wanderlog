@@ -2,12 +2,23 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import { bootstrap } from 'global-agent';
 
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
 
 // Load environment variables
 dotenv.config();
+
+// Enable global proxy agent if HTTP_PROXY or HTTPS_PROXY is set
+// This allows all HTTP/HTTPS requests (including google-auth-library) to use the proxy
+const proxyUrl = process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.http_proxy || process.env.https_proxy;
+if (proxyUrl) {
+  console.log(`🌐 Using proxy: ${proxyUrl}`);
+  bootstrap();
+} else {
+  console.log('ℹ️  No proxy configured');
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;

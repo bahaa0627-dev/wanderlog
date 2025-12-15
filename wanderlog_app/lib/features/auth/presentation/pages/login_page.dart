@@ -61,7 +61,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         return;
       }
 
-      final googleAuth = await googleUser.authentication;
+      final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
 
       if (idToken == null) {

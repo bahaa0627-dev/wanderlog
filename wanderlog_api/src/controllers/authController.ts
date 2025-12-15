@@ -2,8 +2,6 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
-import { GaxiosOptions } from 'gaxios';
-import { HttpsProxyAgent } from 'https-proxy-agent';
 import prisma from '../config/database';
 import { logger } from '../utils/logger';
 import { generateVerificationCode, generateToken } from '../utils/tokenGenerator';
@@ -17,20 +15,11 @@ const JWT_SECRET: string = process.env.JWT_SECRET || 'default_secret';
 const JWT_ACCESS_EXPIRY: string = process.env.JWT_ACCESS_EXPIRY || '15m';
 const JWT_REFRESH_EXPIRY: string = process.env.JWT_REFRESH_EXPIRY || '7d';
 
-// Configure proxy agent if needed
-let clientOptions: GaxiosOptions = {};
-if (process.env.HTTP_PROXY || process.env.http_proxy) {
-  const proxyUrl = process.env.HTTP_PROXY || process.env.http_proxy;
-  console.log(`[AUTH] Configuring Google OAuth2 client with proxy: ${proxyUrl}`);
-  const agent = new HttpsProxyAgent(proxyUrl);
-  clientOptions = { agent };
-}
-
-// Google OAuth2 Client with proxy support
+// Google OAuth2 Client
+// Proxy is handled globally by global-agent in index.ts
 const googleClient = new OAuth2Client({
   clientId: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  ...clientOptions,
 });
 
 export const register = async (req: Request, res: Response) => {

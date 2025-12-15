@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wanderlog/core/theme/app_theme.dart';
 
 class TagFilterBar extends StatelessWidget {
 
@@ -27,13 +28,12 @@ class TagFilterBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+        border: Border(
+          bottom: BorderSide(
+            color: AppTheme.black,
+            width: 2,
           ),
-        ],
+        ),
       ),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,

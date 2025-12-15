@@ -254,9 +254,10 @@ class SearchBox extends StatelessWidget {
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         border: Border.all(
-          color: AppTheme.lightGray,
-          width: AppTheme.borderThin,
+          color: AppTheme.black,
+          width: AppTheme.borderMedium,
         ),
+        boxShadow: AppTheme.searchBoxShadow,
       ),
       child: TextField(
         controller: controller,

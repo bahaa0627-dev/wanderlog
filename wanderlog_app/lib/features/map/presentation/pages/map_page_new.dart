@@ -1157,13 +1157,7 @@ class _MapSurface extends StatelessWidget {
                   color: AppTheme.black,
                   width: AppTheme.borderMedium,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                boxShadow: AppTheme.cardShadow,
               )
             : const BoxDecoration(),
         child: ClipRRect(
@@ -1270,13 +1264,7 @@ class _BottomSpotCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             border:
                 Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: AppTheme.cardShadow,
           ),
           child: SizedBox(
             width: 180,

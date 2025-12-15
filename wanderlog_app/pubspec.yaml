@@ -95,11 +95,17 @@ flutter:
     - .env.staging
     - .env.production
   
-  # Fonts (optional)
-  # fonts:
-  #   - family: CustomFont
-  #     fonts:
-  #       - asset: assets/fonts/CustomFont-Regular.ttf
+  # Fonts
+  fonts:
+    - family: ReemKufi
+      fonts:
+        - asset: assets/fonts/ReemKufi-Regular.ttf
+        - asset: assets/fonts/ReemKufi-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/ReemKufi-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/ReemKufi-Bold.ttf
+          weight: 700
 
 
 

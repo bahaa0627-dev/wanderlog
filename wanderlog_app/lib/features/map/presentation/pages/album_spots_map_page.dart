@@ -379,13 +379,7 @@ class _BottomSpotCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           border:
               Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

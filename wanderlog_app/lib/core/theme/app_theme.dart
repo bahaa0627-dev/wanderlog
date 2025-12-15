@@ -40,20 +40,31 @@ class AppTheme {
   static const double borderMedium = 1.0;
   static const double borderThin = 1.0;
   
-  // 阴影
+  // 阴影 - Neo Brutalism 风格
   static List<BoxShadow> cardShadow = [
-    BoxShadow(
-      color: black.withOpacity(0.1),
-      blurRadius: 8,
-      offset: const Offset(0, 4),
+    const BoxShadow(
+      color: Color(0xFF000000),
+      offset: Offset(2, 3),
+      blurRadius: 0,
+      spreadRadius: 0,
+    ),
+  ];
+  
+  static List<BoxShadow> searchBoxShadow = [
+    const BoxShadow(
+      color: Color(0xFF000000),
+      offset: Offset(1, 2),
+      blurRadius: 0,
+      spreadRadius: 0,
     ),
   ];
   
   static List<BoxShadow> strongShadow = [
-    BoxShadow(
-      color: black.withOpacity(0.2),
-      blurRadius: 12,
-      offset: const Offset(0, 6),
+    const BoxShadow(
+      color: Color(0xFF000000),
+      offset: Offset(3, 4),
+      blurRadius: 0,
+      spreadRadius: 0,
     ),
   ];
 
@@ -65,70 +76,80 @@ class AppTheme {
   
   
   // 字体样式
-  static TextStyle displayLarge(BuildContext context) => GoogleFonts.nanumPenScript(
+  static TextStyle displayLarge(BuildContext context) => const TextStyle(
+    fontFamily: 'ReemKufi',
     fontSize: textXLarge,
     fontWeight: FontWeight.bold,
     color: black,
     height: 1.2,
   );
   
-  static TextStyle displayMedium(BuildContext context) => GoogleFonts.nanumPenScript(
+  static TextStyle displayMedium(BuildContext context) => const TextStyle(
+    fontFamily: 'ReemKufi',
     fontSize: textLarge,
     fontWeight: FontWeight.bold,
     color: black,
     height: 1.3,
   );
   
-  static TextStyle headlineLarge(BuildContext context) => GoogleFonts.nanumPenScript(
+  static TextStyle headlineLarge(BuildContext context) => const TextStyle(
+    fontFamily: 'ReemKufi',
     fontSize: textLarge,
     fontWeight: FontWeight.w600,
     color: black,
     height: 1.3,
   );
   
-  static TextStyle headlineMedium(BuildContext context) => GoogleFonts.nanumPenScript(
+  static TextStyle headlineMedium(BuildContext context) => const TextStyle(
+    fontFamily: 'ReemKufi',
     fontSize: 20,
     fontWeight: FontWeight.w600,
     color: black,
     height: 1.3,
   );
   
-  static TextStyle bodyLarge(BuildContext context) => GoogleFonts.nanumPenScript(
+  static TextStyle bodyLarge(BuildContext context) => const TextStyle(
+    fontFamily: 'ReemKufi',
     fontSize: textMedium,
     fontWeight: FontWeight.normal,
     color: darkGray,
     height: 1.4,
   );
   
-  static TextStyle bodyMedium(BuildContext context) => GoogleFonts.nanumPenScript(
+  static TextStyle bodyMedium(BuildContext context) => const TextStyle(
+    fontFamily: 'ReemKufi',
     fontSize: textRegular,
     fontWeight: FontWeight.normal,
     color: darkGray,
     height: 1.4,
   );
   
-  static TextStyle bodySmall(BuildContext context) => GoogleFonts.nanumPenScript(
+  static TextStyle bodySmall(BuildContext context) => const TextStyle(
+    fontFamily: 'ReemKufi',
     fontSize: textSmall,
     fontWeight: FontWeight.normal,
     color: mediumGray,
     height: 1.4,
   );
   
-  static TextStyle labelLarge(BuildContext context) => GoogleFonts.nanumPenScript(
+  static TextStyle labelLarge(BuildContext context) => const TextStyle(
+    fontFamily: 'ReemKufi',
     fontSize: textRegular,
     fontWeight: FontWeight.w600,
     color: black,
     height: 1.2,
   );
   
-  static TextStyle labelMedium(BuildContext context) => GoogleFonts.nanumPenScript(
+  static TextStyle labelMedium(BuildContext context) => const TextStyle(
+    fontFamily: 'ReemKufi',
     fontSize: textSmall,
     fontWeight: FontWeight.w600,
     color: darkGray,
     height: 1.2,
   );
   
-  static TextStyle labelSmall(BuildContext context) => GoogleFonts.nanumPenScript(
+  static TextStyle labelSmall(BuildContext context) => const TextStyle(
+    fontFamily: 'ReemKufi',
     fontSize: textXSmall,
     fontWeight: FontWeight.normal,
     color: mediumGray,
@@ -152,7 +173,8 @@ class AppTheme {
       backgroundColor: white,
       elevation: 0,
       iconTheme: const IconThemeData(color: black),
-      titleTextStyle: GoogleFonts.nanumPenScript(
+      titleTextStyle: const TextStyle(
+        fontFamily: 'ReemKufi',
         fontSize: textLarge,
         fontWeight: FontWeight.bold,
         color: black,

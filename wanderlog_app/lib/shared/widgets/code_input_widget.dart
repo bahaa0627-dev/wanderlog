@@ -4,9 +4,7 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 
 class CodeInputWidget extends StatefulWidget {
   const CodeInputWidget({
-    super.key,
-    required this.length,
-    required this.onCompleted,
+    required this.length, required this.onCompleted, super.key,
     this.hasError = false,
   });
 
@@ -44,10 +42,10 @@ class _CodeInputWidgetState extends State<CodeInputWidget> {
 
   @override
   void dispose() {
-    for (var controller in _controllers) {
+    for (final controller in _controllers) {
       controller.dispose();
     }
-    for (var focusNode in _focusNodes) {
+    for (final focusNode in _focusNodes) {
       focusNode.dispose();
     }
     super.dispose();

@@ -825,13 +825,7 @@ class _SpotCardOverlayState extends State<SpotCardOverlay> {
                 color: AppTheme.black,
                 width: AppTheme.borderMedium,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              boxShadow: AppTheme.cardShadow,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2),

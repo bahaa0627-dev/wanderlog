@@ -34,7 +34,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
 
       if (mounted) {
         CustomToast.showSuccess(
-            context, 'Verification code sent to your email');
+            context, 'Verification code sent to your email',);
         // 直接跳转到重置密码页面
         await Future<void>.delayed(const Duration(milliseconds: 500));
         if (mounted) {
@@ -48,7 +48,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
         if (errorMessage.contains('Email not found') ||
             errorMessage.contains('didn\'t sign up')) {
           CustomToast.showError(context,
-              'This email didn\'t sign up. Please check your email or create a new account.');
+              'This email didn\'t sign up. Please check your email or create a new account.',);
         } else {
           CustomToast.showError(context, errorMessage);
         }

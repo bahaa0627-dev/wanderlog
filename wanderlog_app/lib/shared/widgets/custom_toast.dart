@@ -83,7 +83,7 @@ class _ToastWidgetState extends State<_ToastWidget>
     ).animate(CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOut,
-    ));
+    ),);
 
     _controller.forward();
 
@@ -145,13 +145,11 @@ class _ToastWidgetState extends State<_ToastWidget>
                 decoration: BoxDecoration(
                   color: _backgroundColor.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.black.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  border: Border.all(
+                    color: AppTheme.black,
+                    width: 2,
+                  ),
+                  boxShadow: AppTheme.cardShadow,
                 ),
                 child: Row(
                   children: [

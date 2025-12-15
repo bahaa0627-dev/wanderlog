@@ -189,7 +189,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                                 }
                               },
                             ),
-                          )),
+                          ),),
                 ),
 
                 const SizedBox(height: 32),

@@ -250,7 +250,7 @@ class _Header extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              Divider(color: AppTheme.border),
+              const Divider(color: AppTheme.border),
               const SizedBox(height: 8),
               // Logout button
               ListTile(
@@ -608,7 +608,7 @@ class _BottomNav extends StatelessWidget {
               onTap: () => onItemTapped(0),
             ),
             _NavItem(
-              label: 'MyLand',
+              label: 'Trips',
               active: selectedIndex == 1,
               onTap: () => onItemTapped(1),
             ),

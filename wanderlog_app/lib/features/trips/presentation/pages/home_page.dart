@@ -78,7 +78,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         // Already on home, do nothing
         break;
       case 1:
-        context.push('/trips');
+        context.push('/myland');
         break;
       case 2:
         // Profile page - placeholder
@@ -608,7 +608,7 @@ class _BottomNav extends StatelessWidget {
               onTap: () => onItemTapped(0),
             ),
             _NavItem(
-              label: 'Trips',
+              label: 'MyLand',
               active: selectedIndex == 1,
               onTap: () => onItemTapped(1),
             ),

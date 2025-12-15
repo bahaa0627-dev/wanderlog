@@ -10,6 +10,7 @@ import 'package:wanderlog/features/auth/presentation/pages/reset_password_page.d
 import 'package:wanderlog/features/trips/presentation/pages/home_page.dart';
 import 'package:wanderlog/features/trips/presentation/pages/trip_list_page.dart';
 import 'package:wanderlog/features/trips/presentation/pages/trip_detail_page.dart';
+import 'package:wanderlog/features/trips/presentation/pages/my_land_screen.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_view_page.dart';
 
 class AppRouter {
@@ -82,6 +83,12 @@ class AppRouter {
               final id = state.pathParameters['id']!;
               return _slideFromRight(TripDetailPage(tripId: id));
             },
+          ),
+          GoRoute(
+            path: '/myland',
+            name: 'myland',
+            pageBuilder: (context, state) =>
+                _slideFromRight(const MyLandScreen()),
           ),
         ],
         errorBuilder: (context, state) => Scaffold(

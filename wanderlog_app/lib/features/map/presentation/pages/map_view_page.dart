@@ -7,7 +7,6 @@ import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/features/map/presentation/widgets/tag_filter_bar.dart';
 
 class MapViewPage extends ConsumerStatefulWidget {
-
   const MapViewPage({super.key, this.city, this.fromMyLand = false});
   final String? city;
   final bool fromMyLand; // 标识是否从 MyLand 页面进入
@@ -24,7 +23,8 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
   @override
   Widget build(BuildContext context) {
     final spotsAsync = ref.watch(
-      spotsProvider(SpotFilters(city: widget.city, category: _selectedCategory)),
+      spotsProvider(
+          SpotFilters(city: widget.city, category: _selectedCategory)),
     );
 
     return Scaffold(
@@ -35,7 +35,7 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () {
-                  context.go('/myland');
+                  context.go('/myland?tab=spots&subtab=all');
                 },
               )
             : null,
@@ -99,8 +99,11 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline,
-                            size: 48, color: Colors.red,),
+                        const Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red,
+                        ),
                         const SizedBox(height: 16),
                         const Text('Error loading spots'),
                         const SizedBox(height: 8),
@@ -136,7 +139,8 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
     // TODO: Geocode city name to coordinates
     await _mapboxMap!.setCamera(
       CameraOptions(
-        center: Point(coordinates: Position(139.6917, 35.6895)), // Tokyo default
+        center:
+            Point(coordinates: Position(139.6917, 35.6895)), // Tokyo default
         zoom: 12.0,
       ),
     );
@@ -148,7 +152,10 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
     // Filter by selected tags
     final filteredSpots = _selectedTags.isEmpty
         ? spots
-        : spots.where((spot) => spot.tags.any((tag) => _selectedTags.contains(tag))).toList();
+        : spots
+            .where(
+                (spot) => spot.tags.any((tag) => _selectedTags.contains(tag)))
+            .toList();
 
     // TODO: Add point annotations for each spot
     // This requires setting up the annotations plugin
@@ -226,6 +233,3 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
     );
   }
 }
-
-
-

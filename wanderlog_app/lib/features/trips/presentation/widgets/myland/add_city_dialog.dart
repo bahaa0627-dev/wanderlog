@@ -21,6 +21,7 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
   final TextEditingController _cityController = TextEditingController();
   String? _selectedCity;
   bool _showError = false;
+  List<String> _matchingCities = [];
 
   @override
   void dispose() {
@@ -30,11 +31,15 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
 
   void _onCityInputChanged(String value) {
     final input = value.trim().toLowerCase();
-    
+    final matches = widget.availableCities
+        .where((city) => city.toLowerCase().contains(input))
+        .toList();
+
     if (input.isEmpty) {
       setState(() {
         _selectedCity = null;
         _showError = false;
+        _matchingCities = const [];
       });
       return;
     }
@@ -46,12 +51,13 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
     );
 
     setState(() {
+      _matchingCities = matches;
       if (matchingCity.isNotEmpty) {
         _selectedCity = matchingCity;
         _showError = false;
       } else {
         _selectedCity = null;
-        _showError = true;
+        _showError = matches.isEmpty;
       }
     });
   }
@@ -154,52 +160,73 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
                     ),
                   ),
                 ),
-                
-                // Go 按钮
                 const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: _selectedCity != null ? _handleGo : null,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _selectedCity != null
-                          ? AppTheme.primaryYellow
-                          : AppTheme.background,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppTheme.black,
-                        width: AppTheme.borderMedium,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'go',
-                          style: AppTheme.labelLarge(context).copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: _selectedCity != null
-                                ? AppTheme.black
-                                : AppTheme.black.withOpacity(0.4),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: _selectedCity != null
+                      ? GestureDetector(
+                          key: ValueKey(_selectedCity),
+                          onTap: _handleGo,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryYellow,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppTheme.black,
+                                width: AppTheme.borderMedium,
+                              ),
+                            ),
+                            child: Text(
+                              '>go',
+                              style: AppTheme.labelLarge(context).copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.black,
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward,
-                          size: 18,
-                          color: _selectedCity != null
-                              ? AppTheme.black
-                              : AppTheme.black.withOpacity(0.4),
-                        ),
-                      ],
-                    ),
-                  ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
               ],
             ),
+
+            if (_matchingCities.isNotEmpty && _selectedCity == null) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _matchingCities.take(6).map((city) {
+                  return GestureDetector(
+                    onTap: () {
+                      _cityController.text = city;
+                      _onCityInputChanged(city);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryYellow.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppTheme.black,
+                          width: AppTheme.borderThin,
+                        ),
+                      ),
+                      child: Text(
+                        city,
+                        style: AppTheme.labelSmall(context),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
 
             // 错误提示
             if (_showError) ...[

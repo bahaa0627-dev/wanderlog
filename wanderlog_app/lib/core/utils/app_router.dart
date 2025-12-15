@@ -93,8 +93,20 @@ class AppRouter {
           GoRoute(
             path: '/myland',
             name: 'myland',
-            pageBuilder: (context, state) =>
-                _slideFromRight(const MyLandScreen()),
+            pageBuilder: (context, state) {
+              final tabParam = state.uri.queryParameters['tab']?.toLowerCase();
+              final subTabParam = state.uri.queryParameters['subtab'];
+              final initialTabIndex =
+                  (tabParam == 'collections' || tabParam == '1') ? 1 : 0;
+              final initialSpotsSubTab =
+                  _resolveSpotsSubTab(subTabParam?.toLowerCase());
+              return _slideFromRight(
+                MyLandScreen(
+                  initialTabIndex: initialTabIndex,
+                  initialSpotsSubTab: initialSpotsSubTab,
+                ),
+              );
+            },
           ),
         ],
         errorBuilder: (context, state) => Scaffold(
@@ -135,6 +147,28 @@ class AppRouter {
       ),
     ),
   );
+
+  static int? _resolveSpotsSubTab(String? value) {
+    switch (value) {
+      case '0':
+      case 'all':
+        return 0;
+      case '1':
+      case 'mustgo':
+        return 1;
+      case '2':
+      case "today's plan":
+      case 'todays plan':
+      case 'todays-plan':
+      case 'today':
+        return 2;
+      case '3':
+      case 'visited':
+        return 3;
+      default:
+        return null;
+    }
+  }
 
   // Slide transition helper (right -> left for push, left -> right for pop)
   static CustomTransitionPage<void> _slideFromRight(Widget child) =>

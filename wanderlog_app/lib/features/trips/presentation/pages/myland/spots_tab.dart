@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/spot_card.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
+import 'package:wanderlog/features/trips/presentation/widgets/myland/add_city_dialog.dart';
 
 // 扩展 Spot 类以支持 MyLand 功能
 // TODO: 这些属性应该通过 TripSpot 来管理，而不是扩展 Spot
@@ -25,12 +27,21 @@ class SpotsTab extends ConsumerStatefulWidget {
 class _SpotsTabState extends ConsumerState<SpotsTab> {
   // 当前选中的子 tab (0: All, 1: MustGo, 2: Today's Plan, 3: Visited)
   int _selectedSubTab = 0;
-  
-  // 视图模式：true = 地图视图, false = 列表视图
-  bool _isMapView = false;
 
   // Mock 数据 - 后续替换为真实数据
   final List<Spot> _mockSpots = [];
+  
+  // 可用城市列表 - TODO: 从后端 API 获取
+  final List<String> _availableCities = [
+    'Copenhagen',
+    'Porto',
+    'Paris',
+    'Tokyo',
+    'Barcelona',
+    'Amsterdam',
+    'London',
+    'Berlin',
+  ];
 
   int get _allCount => _mockSpots.length;
   int get _mustGoCount => _mockSpots.where((s) => s.isMustGo ?? false).length;
@@ -43,25 +54,12 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     // 如果 Today's Plan 有数据，默认进入该 tab
     if (_todaysPlanCount > 0) {
       _selectedSubTab = 2;
-      _isMapView = true; // Today's Plan 默认地图视图
     }
   }
 
   void _onSubTabChanged(int index) {
     setState(() {
       _selectedSubTab = index;
-      // All 和 Visited 默认列表视图，MustGo 和 Today's Plan 默认地图视图
-      if (index == 0 || index == 3) {
-        _isMapView = false;
-      } else {
-        _isMapView = true;
-      }
-    });
-  }
-
-  void _toggleView() {
-    setState(() {
-      _isMapView = !_isMapView;
     });
   }
 
@@ -90,11 +88,23 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           // 自动跳转到 Visited tab
           setState(() {
             _selectedSubTab = 3;
-            _isMapView = false;
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Checked in to ${spot.name}')),
           );
+        },
+      ),
+    );
+  }
+
+  void _showAddCityDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AddCityDialog(
+        availableCities: _availableCities,
+        onCitySelected: (city) {
+          // 跳转到地图页，选中对应城市
+          context.push('/map?city=${city.toLowerCase()}&from=myland');
         },
       ),
     );
@@ -106,77 +116,49 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
     return Column(
       children: [
-        // 子 Tab 栏和视图切换按钮
+        // 子 Tab 栏
         Container(
           color: AppTheme.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            children: [
-              // 子 Tab 栏
-              Row(
-                children: [
-                  _SubTabChip(
-                    label: 'All',
-                    count: _allCount,
-                    isSelected: _selectedSubTab == 0,
-                    onTap: () => _onSubTabChanged(0),
-                  ),
-                  const SizedBox(width: 8),
-                  _SubTabChip(
-                    label: 'MustGo',
-                    count: _mustGoCount,
-                    isSelected: _selectedSubTab == 1,
-                    onTap: () => _onSubTabChanged(1),
-                  ),
-                  const SizedBox(width: 8),
-                  _SubTabChip(
-                    label: "Today's plan",
-                    count: _todaysPlanCount,
-                    isSelected: _selectedSubTab == 2,
-                    onTap: () => _onSubTabChanged(2),
-                  ),
-                  const SizedBox(width: 8),
-                  _SubTabChip(
-                    label: 'Visited',
-                    count: _visitedCount,
-                    isSelected: _selectedSubTab == 3,
-                    onTap: () => _onSubTabChanged(3),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 12),
-              
-              // 视图切换按钮
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  _ViewToggleButton(
-                    icon: Icons.view_list_rounded,
-                    isSelected: !_isMapView,
-                    onTap: () {
-                      if (_isMapView) _toggleView();
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  _ViewToggleButton(
-                    icon: Icons.map_outlined,
-                    isSelected: _isMapView,
-                    onTap: () {
-                      if (!_isMapView) _toggleView();
-                    },
-                  ),
-                ],
-              ),
-            ],
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _SubTabTextButton(
+                  label: 'All',
+                  count: _allCount,
+                  isSelected: _selectedSubTab == 0,
+                  onTap: () => _onSubTabChanged(0),
+                ),
+                const SizedBox(width: 24),
+                _SubTabTextButton(
+                  label: 'MustGo',
+                  count: _mustGoCount,
+                  isSelected: _selectedSubTab == 1,
+                  onTap: () => _onSubTabChanged(1),
+                ),
+                const SizedBox(width: 24),
+                _SubTabTextButton(
+                  label: "Today's plan",
+                  count: _todaysPlanCount,
+                  isSelected: _selectedSubTab == 2,
+                  onTap: () => _onSubTabChanged(2),
+                ),
+                const SizedBox(width: 24),
+                _SubTabTextButton(
+                  label: 'Visited',
+                  count: _visitedCount,
+                  isSelected: _selectedSubTab == 3,
+                  onTap: () => _onSubTabChanged(3),
+                ),
+              ],
+            ),
           ),
         ),
 
-        // 内容区域
+        // 内容区域 - 始终显示列表视图
         Expanded(
-          child: _isMapView
-              ? _buildMapView(filteredSpots)
-              : _buildListView(filteredSpots),
+          child: _buildListView(filteredSpots),
         ),
       ],
     );
@@ -202,100 +184,94 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     );
   }
 
-  Widget _buildMapView(List<Spot> spots) {
-    if (spots.isEmpty) {
-      return _buildEmptyState();
-    }
-
-    // TODO: 实现地图视图
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.map_outlined,
-            size: 80,
-            color: AppTheme.black,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Map View',
-            style: AppTheme.headlineMedium(context),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Coming soon',
-            style: AppTheme.bodyMedium(context).copyWith(
-              color: AppTheme.black.withOpacity(0.6),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEmptyState() {
-    String message;
-    String hint;
-
-    switch (_selectedSubTab) {
-      case 0:
-        message = 'No data';
-        hint = 'You can have your\nadd place on trip to mapping';
-        break;
-      case 1:
-        message = 'No Must-Go spots';
-        hint = 'Mark important spots as Must-Go';
-        break;
-      case 2:
-        message = 'No plans for today';
-        hint = 'Add spots to your today\'s plan';
-        break;
-      case 3:
-        message = 'No visited spots';
-        hint = 'Check in to spots as you visit them';
-        break;
-      default:
-        message = 'No data';
-        hint = '';
-    }
-
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.location_off_outlined,
-            size: 80,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w600,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 占位插画 - 使用简单的图标代替
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryYellow.withOpacity(0.2),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.black,
+                  width: AppTheme.borderMedium,
+                ),
+              ),
+              child: const Icon(
+                Icons.explore_outlined,
+                size: 60,
+                color: AppTheme.black,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            hint,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
+            const SizedBox(height: 32),
+            
+            // 文字提示
+            Text(
+              "You don't any plan\nadd one more city to explore ;)",
+              style: AppTheme.bodyLarge(context).copyWith(
+                color: AppTheme.black.withOpacity(0.6),
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 32),
+            
+            // Add Trip 按钮 - Neo-Brutalism 风格
+            GestureDetector(
+              onTap: _showAddCityDialog,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryYellow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.black,
+                    width: AppTheme.borderMedium,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: AppTheme.black,
+                      offset: Offset(2, 3),
+                      blurRadius: 0,
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add, size: 20, color: AppTheme.black),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Add Trip',
+                      style: AppTheme.labelLarge(context).copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// 子 Tab 芯片组件
-class _SubTabChip extends StatelessWidget {
-  const _SubTabChip({
+/// 子 Tab 文字按钮组件 - 底部黄色线样式
+class _SubTabTextButton extends StatelessWidget {
+  const _SubTabTextButton({
     required this.label,
     required this.count,
     required this.isSelected,
@@ -311,74 +287,27 @@ class _SubTabChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryYellow : AppTheme.white,
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderMedium,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: AppTheme.bodyLarge(context).copyWith(
+              color: isSelected ? AppTheme.black : AppTheme.black.withOpacity(0.4),
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+          if (count > 0) ...[
+            const SizedBox(width: 4),
             Text(
-              label,
-              style: AppTheme.labelMedium(context).copyWith(
-                color: AppTheme.black,
+              '($count)',
+              style: AppTheme.bodyMedium(context).copyWith(
+                color: isSelected ? AppTheme.black : AppTheme.black.withOpacity(0.4),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
-            if (count > 0) ...[
-              const SizedBox(width: 4),
-              Text(
-                '($count)',
-                style: AppTheme.labelMedium(context).copyWith(
-                  color: AppTheme.black,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 视图切换按钮
-class _ViewToggleButton extends StatelessWidget {
-  const _ViewToggleButton({
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryYellow : AppTheme.white,
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderMedium,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: AppTheme.black,
-        ),
+        ],
       ),
     );
   }

@@ -31,71 +31,41 @@ class _MyLandScreenState extends State<MyLandScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 顶部标题和 Tab 栏
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-              color: AppTheme.white,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 标题
-                  Text(
-                    'MyLand',
-                    style: AppTheme.headlineLarge(context).copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Tab 栏
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: AppTheme.black,
-                          width: AppTheme.borderMedium,
-                        ),
-                      ),
-                    ),
-                    child: TabBar(
-                      controller: _tabController,
-                      labelColor: AppTheme.black,
-                      unselectedLabelColor: AppTheme.black.withOpacity(0.4),
-                      labelStyle: AppTheme.bodyLarge(context).copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      unselectedLabelStyle: AppTheme.bodyLarge(context),
-                      indicator: const UnderlineTabIndicator(
-                        borderSide: BorderSide(
-                          color: AppTheme.primaryYellow,
-                          width: 3,
-                        ),
-                      ),
-                      tabs: const [
-                        Tab(text: 'Spots'),
-                        Tab(text: 'Collections'),
-                      ],
-                    ),
-                  ),
-                ],
+      body: Column(
+        children: [
+          // Tab 栏 - 移除标题，简化样式
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 60, 16, 0),
+            color: AppTheme.white,
+            child: TabBar(
+              controller: _tabController,
+              labelColor: AppTheme.black,
+              unselectedLabelColor: AppTheme.black.withOpacity(0.4),
+              labelStyle: AppTheme.headlineMedium(context).copyWith(
+                fontWeight: FontWeight.bold,
               ),
+              unselectedLabelStyle: AppTheme.headlineMedium(context),
+              indicator: const BoxDecoration(), // 移除黑线
+              indicatorPadding: EdgeInsets.zero,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              tabs: const [
+                Tab(text: 'Spots'),
+                Tab(text: 'Collections'),
+              ],
             ),
+          ),
 
-            // Tab 内容
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: const [
-                  SpotsTab(),
-                  CollectionsTab(),
-                ],
-              ),
+          // Tab 内容
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: const [
+                SpotsTab(),
+                CollectionsTab(),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

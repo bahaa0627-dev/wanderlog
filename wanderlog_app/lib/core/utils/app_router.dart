@@ -67,7 +67,13 @@ class AppRouter {
             name: 'map',
             pageBuilder: (context, state) {
               final city = state.uri.queryParameters['city'];
-              return _slideFromRight(MapViewPage(city: city));
+              final from = state.uri.queryParameters['from'];
+              return _slideFromRight(
+                MapViewPage(
+                  city: city,
+                  fromMyLand: from == 'myland',
+                ),
+              );
             },
           ),
           GoRoute(

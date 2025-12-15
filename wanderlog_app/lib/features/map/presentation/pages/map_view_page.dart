@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/features/trips/providers/spots_provider.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
@@ -7,8 +8,9 @@ import 'package:wanderlog/features/map/presentation/widgets/tag_filter_bar.dart'
 
 class MapViewPage extends ConsumerStatefulWidget {
 
-  const MapViewPage({super.key, this.city});
+  const MapViewPage({super.key, this.city, this.fromMyLand = false});
   final String? city;
+  final bool fromMyLand; // 标识是否从 MyLand 页面进入
 
   @override
   ConsumerState<MapViewPage> createState() => _MapViewPageState();
@@ -28,6 +30,15 @@ class _MapViewPageState extends ConsumerState<MapViewPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.city ?? 'Explore'),
+        // 如果从 MyLand 进入，显示返回按钮
+        leading: widget.fromMyLand
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  context.go('/myland');
+                },
+              )
+            : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),

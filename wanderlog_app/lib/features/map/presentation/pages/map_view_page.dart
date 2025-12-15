@@ -25,9 +25,7 @@ class MapViewPage extends StatelessWidget {
     return MapPage(
       startFullscreen: true,
       initialSnapshot: snapshot,
-      onBack: fromMyLand
-          ? () => context.go('/myland?tab=spots&subtab=all')
-          : null,
+      onBack: fromMyLand ? (city) => context.pop<String>(city) : null,
     );
   }
 }

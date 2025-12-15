@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -261,13 +263,39 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   }
 
   void _openFullMap() {
-    final query = Uri.encodeComponent(_selectedCityName);
-    context.push('/map?city=$query&from=myland');
+    _launchCityMapFlow(_selectedCityName);
   }
 
   void _navigateToCityMap(String city) {
-    final query = Uri.encodeComponent(city);
-    context.push('/map?city=$query&from=myland');
+    _launchCityMapFlow(city);
+  }
+
+  void _launchCityMapFlow(String city, {bool adoptReturnedCity = false}) {
+    unawaited(_pushMapAndHandleResult(
+      city,
+      adoptReturnedCity: adoptReturnedCity,
+    ));
+  }
+
+  Future<void> _pushMapAndHandleResult(
+    String city, {
+    required bool adoptReturnedCity,
+  }) async {
+    final resolvedCityName = city.trim().isEmpty ? _selectedCityName : city;
+    final query = Uri.encodeComponent(resolvedCityName);
+    final result =
+        await context.push<String>('/map?city=$query&from=myland');
+    if (!mounted) {
+      return;
+    }
+    final returnedCity = result?.trim();
+    if (returnedCity == null || returnedCity.isEmpty) {
+      return;
+    }
+    if (!adoptReturnedCity) {
+      return;
+    }
+    _selectCity(returnedCity);
   }
 
   void _persistCityState() {
@@ -405,7 +433,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       _isMapView = _defaultMapViewFor(_selectedSubTab);
       _activeTags.clear();
     });
+    _recordCityAddition(normalized);
     _notifyCityChanged();
+    _notifyCityOptionsChanged();
     _persistCityState();
   }
 

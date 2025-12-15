@@ -107,7 +107,7 @@ class MapPage extends ConsumerStatefulWidget {
   final Spot? initialSpotOverride;
   final ValueChanged<MapPageSnapshot>? onExitFullscreen;
   final ValueChanged<bool>? onFullscreenChanged;
-  final VoidCallback? onBack;
+  final ValueChanged<String>? onBack;
 
   @override
   ConsumerState<MapPage> createState() => _MapPageState();
@@ -312,6 +312,14 @@ class _MapPageState extends ConsumerState<MapPage> {
     });
     widget.onFullscreenChanged?.call(false);
     _jumpToPage(0);
+  }
+
+  void _handleBackPressed() {
+    if (widget.onBack != null) {
+      widget.onBack!(_selectedCity);
+      return;
+    }
+    Navigator.of(context).maybePop();
   }
 
   Future<void> _openFullscreen({Spot? focusSpot}) async {
@@ -530,6 +538,10 @@ class _MapPageState extends ConsumerState<MapPage> {
           _requestExitFullscreen();
           return false;
         }
+        if (widget.onBack != null) {
+          _handleBackPressed();
+          return false;
+        }
         return true;
       },
       child: Scaffold(
@@ -585,7 +597,7 @@ class _MapPageState extends ConsumerState<MapPage> {
                         if (widget.onBack != null) ...[
                           IconButtonCustom(
                             icon: Icons.arrow_back,
-                            onPressed: widget.onBack,
+                            onPressed: _handleBackPressed,
                             backgroundColor: Colors.white,
                           ),
                           const SizedBox(width: 12),

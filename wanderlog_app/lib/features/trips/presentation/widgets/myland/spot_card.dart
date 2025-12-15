@@ -15,8 +15,10 @@ class SpotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 是否已打卡（使用 spot 的扩展属性，后续需要在 model 中添加）
-    const bool isCheckedIn = false; // TODO: 从数据源获取
+    // 是否已打卡（临时用 tag 标记，后续替换为真实字段）
+    final bool isCheckedIn = spot.tags.any(
+      (tag) => tag.toLowerCase() == 'visited',
+    );
 
     return GestureDetector(
       onTap: () {

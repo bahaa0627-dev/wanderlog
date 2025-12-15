@@ -5,10 +5,16 @@ import 'package:logger/logger.dart';
 import 'package:wanderlog/core/constants/app_constants.dart';
 import 'package:wanderlog/core/storage/storage_service.dart';
 
+String _withTrailingSlash(String value) =>
+    value.endsWith('/') ? value : '$value/';
+
 final dioProvider = Provider<Dio>((ref) {
+  final rawBaseUrl =
+      dotenv.maybeGet('API_BASE_URL') ?? AppConstants.apiBaseUrl;
+  final normalizedBaseUrl = _withTrailingSlash(rawBaseUrl);
   final dio = Dio(
     BaseOptions(
-      baseUrl: dotenv.maybeGet('API_BASE_URL') ?? AppConstants.apiBaseUrl,
+      baseUrl: normalizedBaseUrl,
       connectTimeout: AppConstants.connectionTimeout,
       receiveTimeout: AppConstants.receiveTimeout,
       headers: {
@@ -24,6 +30,9 @@ final dioProvider = Provider<Dio>((ref) {
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
+        if (!options.path.startsWith('http') && options.path.startsWith('/')) {
+          options.path = options.path.substring(1);
+        }
         logger.d('Request: ${options.method} ${options.path}');
         
         // Add auth token if available

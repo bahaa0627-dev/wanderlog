@@ -85,7 +85,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (mounted) {
         CustomToast.showSuccess(context, 'Google 登录成功');
         // 延迟一下让用户看到成功提示
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future<void>.delayed(const Duration(milliseconds: 500));
         if (mounted) {
           context.go('/home');
         }

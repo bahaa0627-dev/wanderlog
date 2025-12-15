@@ -99,6 +99,7 @@ class MapPage extends ConsumerStatefulWidget {
     this.initialSpotOverride,
     this.onExitFullscreen,
     this.onFullscreenChanged,
+    this.onBack,
   });
 
   final bool startFullscreen;
@@ -106,6 +107,7 @@ class MapPage extends ConsumerStatefulWidget {
   final Spot? initialSpotOverride;
   final ValueChanged<MapPageSnapshot>? onExitFullscreen;
   final ValueChanged<bool>? onFullscreenChanged;
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<MapPage> createState() => _MapPageState();
@@ -120,10 +122,15 @@ class _MapPageState extends ConsumerState<MapPage> {
   static const String _fallbackCoverImage =
       'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80';
   static const List<String> _cityOrder = [
-    'Chiang Mai',
-    'Copenhagen',
-    'Sapporo',
     'Tokyo',
+    'Sapporo',
+    'Hakodate',
+    'Asahikawa',
+    'Otaru',
+    'Yamanashi',
+    'Paris',
+    'Copenhagen',
+    'Chiang Mai',
   ];
 
   static const List<String> _tagOptions = [
@@ -158,10 +165,15 @@ class _MapPageState extends ConsumerState<MapPage> {
   String? _loadingError;
 
   final Map<String, Position> _cityCoordinates = {
-    'Chiang Mai': Position(98.9853, 18.7883),
-    'Copenhagen': Position(12.5683, 55.6761),
-    'Sapporo': Position(141.3545, 43.0621),
     'Tokyo': Position(139.6503, 35.6762),
+    'Sapporo': Position(141.3545, 43.0621),
+    'Hakodate': Position(140.7288, 41.7687),
+    'Asahikawa': Position(142.3650, 43.7706),
+    'Otaru': Position(140.9930, 43.1907),
+    'Yamanashi': Position(138.5683, 35.6641),
+    'Paris': Position(2.3522, 48.8566),
+    'Copenhagen': Position(12.5683, 55.6761),
+    'Chiang Mai': Position(98.9853, 18.7883),
   };
 
   @override
@@ -570,6 +582,14 @@ class _MapPageState extends ConsumerState<MapPage> {
                     ),
                     child: Row(
                       children: [
+                        if (widget.onBack != null) ...[
+                          IconButtonCustom(
+                            icon: Icons.arrow_back,
+                            onPressed: widget.onBack,
+                            backgroundColor: Colors.white,
+                          ),
+                          const SizedBox(width: 12),
+                        ],
                         _CitySelector(
                           selectedCity: _selectedCity,
                           cities: _cities,

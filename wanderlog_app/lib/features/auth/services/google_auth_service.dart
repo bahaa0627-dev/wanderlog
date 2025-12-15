@@ -58,15 +58,10 @@ class GoogleAuthService {
       }
 
       // 确保有账户后才请求授权范围
-      if (account != null) {
-        await account.authorizationClient.authorizationForScopes(
-          const ['email', 'profile'],
-        );
-        return account;
-      } else {
-        _showMessage(context, 'Google 登录已取消');
-        return null;
-      }
+      await account.authorizationClient.authorizationForScopes(
+        const ['email', 'profile'],
+      );
+      return account;
     } on TimeoutException catch (e) {
       debugPrint('Google Sign-In Timeout: $e');
       _showMessage(

@@ -7,14 +7,65 @@ import 'package:wanderlog/features/trips/presentation/widgets/myland/spot_card.d
 import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/add_city_dialog.dart';
 
+class SpotsTabController {
+  _SpotsTabState? _state;
+  final List<String> _savedCityHistory = [];
+  final Map<String, String> _savedExtraCitySlugs = {};
+  String? _savedSelectedCitySlug;
+
+  void _attach(_SpotsTabState state) => _state = state;
+
+  void _detach(_SpotsTabState state) {
+    if (_state == state) {
+      _state = null;
+    }
+  }
+
+  void selectCity(String cityName) {
+    _state?._selectCity(cityName);
+  }
+
+  void showAddCityDialog() {
+    _state?._showAddCityDialog();
+  }
+
+  List<String> get cityOptionsNewestFirst =>
+      _state?._citiesInCreationOrder(newestFirst: true) ?? const [];
+
+  void _saveCityState({
+    required List<String> history,
+    required Map<String, String> extraSlugs,
+    required String selectedSlug,
+  }) {
+    _savedCityHistory
+      ..clear()
+      ..addAll(history);
+    _savedExtraCitySlugs
+      ..clear()
+      ..addAll(extraSlugs);
+    _savedSelectedCitySlug = selectedSlug;
+  }
+
+  List<String> get savedCityHistory => List.unmodifiable(_savedCityHistory);
+  Map<String, String> get savedExtraCitySlugs =>
+      Map.unmodifiable(_savedExtraCitySlugs);
+  String? get savedSelectedCitySlug => _savedSelectedCitySlug;
+}
+
 /// Spots Tab - 以地图为主的收藏概览，支持列表回退
 class SpotsTab extends ConsumerStatefulWidget {
   const SpotsTab({
     super.key,
     this.initialSubTab,
+    this.onCityChanged,
+    this.onCityOptionsChanged,
+    this.controller,
   });
 
   final int? initialSubTab;
+  final ValueChanged<String>? onCityChanged;
+  final ValueChanged<List<String>>? onCityOptionsChanged;
+  final SpotsTabController? controller;
 
   @override
   ConsumerState<SpotsTab> createState() => _SpotsTabState();
@@ -35,6 +86,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   final Set<String> _activeTags = {};
   final PageController _carouselController =
       PageController(viewportFraction: 0.78);
+  final List<String> _userCityHistory = [];
+  final Map<String, String> _extraCitySlugs = {};
 
   late int _selectedSubTab;
   late bool _isMapView;
@@ -50,9 +103,6 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       _entriesForCity.where((entry) => entry.isTodaysPlan).length;
   int get _visitedCount =>
       _entriesForCity.where((entry) => entry.isVisited).length;
-
-  List<String> get _availableCities =>
-      _entries.map((entry) => entry.city).toSet().toList()..sort();
 
   List<String> get _tagOptions {
     final tagSet = <String>{};
@@ -74,14 +124,19 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   }
 
   String get _selectedCityName {
-    if (_entries.isEmpty) {
-      return 'Your city';
+    for (final entry in _entries) {
+      if (entry.citySlug == _selectedCitySlug) {
+        return entry.city;
+      }
     }
-    final entry = _entries.firstWhere(
-      (element) => element.citySlug == _selectedCitySlug,
-      orElse: () => _entries.first,
-    );
-    return entry.city;
+    final manual = _extraCitySlugs[_selectedCitySlug];
+    if (manual != null && manual.isNotEmpty) {
+      return manual;
+    }
+    if (_entries.isNotEmpty) {
+      return _entries.first.city;
+    }
+    return 'Your city';
   }
 
   @override
@@ -91,11 +146,35 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     _isMapView = _defaultMapViewFor(_selectedSubTab);
     _selectedCitySlug =
         _entries.isNotEmpty ? _entries.first.citySlug : 'copenhagen';
+    widget.controller?._attach(this);
+    final controller = widget.controller;
+    if (controller != null) {
+      final savedHistory = controller.savedCityHistory;
+      if (savedHistory.isNotEmpty) {
+        _userCityHistory.addAll(savedHistory);
+      }
+      final savedSlugs = controller.savedExtraCitySlugs;
+      if (savedSlugs.isNotEmpty) {
+        _extraCitySlugs.addAll(savedSlugs);
+      }
+      final savedSlug = controller.savedSelectedCitySlug;
+      if (savedSlug != null && savedSlug.isNotEmpty) {
+        _selectedCitySlug = savedSlug;
+      }
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _notifyCityChanged();
+      _notifyCityOptionsChanged();
+    });
   }
 
   @override
   void didUpdateWidget(covariant SpotsTab oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?._detach(this);
+      widget.controller?._attach(this);
+    }
     final incoming = widget.initialSubTab;
     if (incoming != null && incoming != oldWidget.initialSubTab) {
       final normalized = _normalizeSubTab(incoming);
@@ -110,6 +189,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
   @override
   void dispose() {
+    _persistCityState();
+    widget.controller?._detach(this);
     _carouselController.dispose();
     super.dispose();
   }
@@ -162,31 +243,88 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     showDialog<void>(
       context: context,
       builder: (context) => AddCityDialog(
-        availableCities: _availableCities,
         onCitySelected: (city) {
-          if (_entries.isEmpty) {
-            setState(() {
-              _selectedCitySlug = city.toLowerCase().replaceAll(' ', '-');
-              _isMapView = _defaultMapViewFor(_selectedSubTab);
-            });
-            return;
-          }
-          final match = _entries.firstWhere(
-            (entry) => entry.city == city,
-            orElse: () => _entries.first,
-          );
+          final normalized = _normalizeCityName(city);
+          final slug = _ensureCitySlug(normalized);
           setState(() {
-            _selectedCitySlug = match.citySlug;
+            _selectedCitySlug = slug;
             _isMapView = _defaultMapViewFor(_selectedSubTab);
+            _activeTags.clear();
           });
+          _recordCityAddition(normalized);
+          _notifyCityChanged();
+          _notifyCityOptionsChanged();
+          _navigateToCityMap(normalized);
         },
       ),
     );
   }
 
   void _openFullMap() {
-    final query = _selectedCitySlug.replaceAll(' ', '%20');
+    final query = Uri.encodeComponent(_selectedCityName);
     context.push('/map?city=$query&from=myland');
+  }
+
+  void _navigateToCityMap(String city) {
+    final query = Uri.encodeComponent(city);
+    context.push('/map?city=$query&from=myland');
+  }
+
+  void _persistCityState() {
+    if (widget.controller == null) {
+      return;
+    }
+    widget.controller!._saveCityState(
+      history: _userCityHistory,
+      extraSlugs: _extraCitySlugs,
+      selectedSlug: _selectedCitySlug,
+    );
+  }
+
+  String _normalizeCityName(String city) => city.trim();
+
+  String _ensureCitySlug(String city) {
+    final normalized = _normalizeCityName(city);
+    if (normalized.isEmpty) {
+      return _selectedCitySlug;
+    }
+    final entry = _entryByCityName(normalized);
+    if (entry != null) {
+      return entry.citySlug;
+    }
+    final slug = _slugify(normalized);
+    _extraCitySlugs[slug] = normalized;
+    return slug;
+  }
+
+  _SpotEntry? _entryByCityName(String city) {
+    final target = city.toLowerCase();
+    for (final entry in _entries) {
+      if (entry.city.toLowerCase() == target) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  String _slugify(String city) {
+    final base = city.toLowerCase();
+    final slug = base
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    return slug.isEmpty ? base : slug;
+  }
+
+  void _recordCityAddition(String city) {
+    final normalized = city.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    _userCityHistory.removeWhere(
+      (existing) => existing.toLowerCase() == normalized.toLowerCase(),
+    );
+    _userCityHistory.insert(0, normalized);
+    _persistCityState();
   }
 
   List<_SpotEntry> _filteredEntries() {
@@ -243,6 +381,63 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     }
   }
 
+  void _notifyCityChanged() {
+    if (!mounted || widget.onCityChanged == null) {
+      return;
+    }
+    widget.onCityChanged!(_selectedCityName);
+  }
+
+  void _notifyCityOptionsChanged() {
+    if (!mounted || widget.onCityOptionsChanged == null) {
+      return;
+    }
+    widget.onCityOptionsChanged!(
+      _citiesInCreationOrder(newestFirst: true),
+    );
+  }
+
+  void _selectCity(String cityName) {
+    final normalized = _normalizeCityName(cityName);
+    final slug = _ensureCitySlug(normalized);
+    setState(() {
+      _selectedCitySlug = slug;
+      _isMapView = _defaultMapViewFor(_selectedSubTab);
+      _activeTags.clear();
+    });
+    _notifyCityChanged();
+    _persistCityState();
+  }
+
+  List<String> _citiesInCreationOrder({required bool newestFirst}) {
+    final seen = <String>{};
+    final ordered = <String>[];
+    final historySource =
+        newestFirst ? _userCityHistory : _userCityHistory.reversed;
+    for (final city in historySource) {
+      final normalized = city.trim();
+      if (normalized.isEmpty) {
+        continue;
+      }
+      final key = normalized.toLowerCase();
+      if (seen.add(key)) {
+        ordered.add(normalized);
+      }
+    }
+    final entrySource = newestFirst ? _entries.reversed : _entries;
+    for (final entry in entrySource) {
+      final normalized = entry.city.trim();
+      if (normalized.isEmpty) {
+        continue;
+      }
+      final key = normalized.toLowerCase();
+      if (seen.add(key)) {
+        ordered.add(entry.city);
+      }
+    }
+    return ordered;
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredEntries = _filteredEntries();
@@ -262,68 +457,27 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         Container(
           width: double.infinity,
           color: AppTheme.white,
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _currentTabLabel(),
-                          style: AppTheme.headlineMedium(context).copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${filteredEntries.length} spots · $_selectedCityName',
-                          style: AppTheme.bodyMedium(context).copyWith(
-                            color: AppTheme.black.withOpacity(0.55),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _ViewToggleButton(
-                    label: 'Map',
-                    icon: Icons.map,
-                    active: _isMapView,
-                    onTap: () => _toggleView(true),
-                  ),
-                  const SizedBox(width: 8),
-                  _ViewToggleButton(
-                    label: 'List',
-                    icon: Icons.view_agenda,
-                    active: !_isMapView,
-                    onTap: () => _toggleView(false),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 44,
-                child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: _tagOptions.isEmpty
+              ? const SizedBox.shrink()
+              : SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  children: [
-                    _QuickActionChip(
-                      icon: Icons.add_location_alt_outlined,
-                      label: 'Add city',
-                      onTap: _showAddCityDialog,
-                    ),
-                    _QuickActionChip(
-                      icon: Icons.fullscreen,
-                      label: 'Open map',
-                      onTap: _openFullMap,
-                    ),
-                  ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: _tagOptions
+                        .map(
+                          (tag) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _TagChip(
+                              label: tag,
+                              active: _activeTags.contains(tag),
+                              onTap: () => _toggleTag(tag),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
                 ),
-              ),
-            ],
-          ),
         ),
         Expanded(
           child: AnimatedSwitcher(
@@ -520,6 +674,47 @@ class _TabCounts {
   final int visited;
 }
 
+class _TagChip extends StatelessWidget {
+  const _TagChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayLabel = label.isEmpty
+        ? ''
+        : '${label[0].toUpperCase()}${label.length > 1 ? label.substring(1) : ''}';
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? AppTheme.primaryYellow : AppTheme.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppTheme.black,
+            width: AppTheme.borderThin,
+          ),
+          boxShadow: active ? AppTheme.cardShadow : null,
+        ),
+        child: Text(
+          displayLabel,
+          style: AppTheme.labelMedium(context).copyWith(
+            color: AppTheme.black,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SubTabBar extends StatelessWidget {
   const _SubTabBar({
     required this.selectedIndex,
@@ -533,8 +728,9 @@ class _SubTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
+        width: double.infinity,
         color: AppTheme.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -545,21 +741,21 @@ class _SubTabBar extends StatelessWidget {
                 isActive: selectedIndex == 0,
                 onTap: () => onChanged(0),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               _SubTabButton(
                 label: 'MustGo',
                 count: counts.mustGo,
                 isActive: selectedIndex == 1,
                 onTap: () => onChanged(1),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               _SubTabButton(
                 label: "Today's Plan",
                 count: counts.today,
                 isActive: selectedIndex == 2,
                 onTap: () => onChanged(2),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               _SubTabButton(
                 label: 'Visited',
                 count: counts.visited,
@@ -834,7 +1030,7 @@ class _EmptyState extends StatelessWidget {
                       const Icon(Icons.add, color: AppTheme.black),
                       const SizedBox(width: 8),
                       Text(
-                        'Add city',
+                        'Add trip',
                         style: AppTheme.labelLarge(context).copyWith(
                           color: AppTheme.black,
                         ),
@@ -844,41 +1040,6 @@ class _EmptyState extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      );
-}
-
-class _TagChip extends StatelessWidget {
-  const _TagChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? AppTheme.primaryYellow : AppTheme.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: AppTheme.black,
-              width: AppTheme.borderMedium,
-            ),
-            boxShadow: selected ? AppTheme.cardShadow : null,
-          ),
-          child: Text(
-            label,
-            style: AppTheme.labelSmall(context).copyWith(
-              color: AppTheme.black,
-            ),
           ),
         ),
       );
@@ -962,7 +1123,7 @@ class _MapPreview extends StatelessWidget {
                       padding: const EdgeInsets.only(right: 8),
                       child: _TagChip(
                         label: '#$tag',
-                        selected: isSelected,
+                        active: isSelected,
                         onTap: () => onToggleTag(tag),
                       ),
                     );

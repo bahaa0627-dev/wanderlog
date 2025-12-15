@@ -60,7 +60,9 @@ class AppRouter {
           GoRoute(
             path: '/home',
             name: 'home',
-            pageBuilder: (context, state) => _slideFromRight(const HomePage()),
+            pageBuilder: (context, state) => _noTransitionPage(
+              const HomePage(),
+            ),
           ),
           GoRoute(
             path: '/map',
@@ -100,7 +102,7 @@ class AppRouter {
                   (tabParam == 'collections' || tabParam == '1') ? 1 : 0;
               final initialSpotsSubTab =
                   _resolveSpotsSubTab(subTabParam?.toLowerCase());
-              return _slideFromRight(
+              return _noTransitionPage(
                 MyLandScreen(
                   initialTabIndex: initialTabIndex,
                   initialSpotsSubTab: initialSpotsSubTab,
@@ -192,4 +194,7 @@ class AppRouter {
           );
         },
       );
+
+  static NoTransitionPage<void> _noTransitionPage(Widget child) =>
+      NoTransitionPage<void>(child: child);
 }

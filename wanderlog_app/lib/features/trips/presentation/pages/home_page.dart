@@ -73,13 +73,16 @@ class _HomePageState extends ConsumerState<HomePage> {
   ];
 
   void _onNavItemTapped(int index) {
+    if (_selectedIndex == index) {
+      return;
+    }
     setState(() => _selectedIndex = index);
     switch (index) {
       case 0:
         // Already on home, do nothing
         break;
       case 1:
-        context.push('/myland');
+        context.go('/myland');
         break;
       case 2:
         // Profile page - placeholder

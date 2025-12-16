@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:json_annotation/json_annotation.dart';
 
 part 'spot_model.g.dart';
@@ -29,6 +31,7 @@ class Spot {
   final String? address;
   final String? category;
   final List<String> tags;
+  @JsonKey(fromJson: _openingHoursFromJson, toJson: _openingHoursToJson)
   final Map<String, dynamic>? openingHours;
   final List<String> images;
   final double? rating;
@@ -75,6 +78,28 @@ class Spot {
       updatedAt: updatedAt ?? this.updatedAt,
     );
 }
+
+Map<String, dynamic>? _openingHoursFromJson(dynamic value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is String && value.trim().isNotEmpty) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
+}
+
+Map<String, dynamic>? _openingHoursToJson(Map<String, dynamic>? value) => value;
 
 
 

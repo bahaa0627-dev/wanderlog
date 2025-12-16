@@ -72,6 +72,7 @@ class GoogleMapsService {
             'price_level',
             'types',
             'opening_hours',
+            'utc_offset_minutes',
             'website',
             'formatted_phone_number',
             'photos',
@@ -125,6 +126,16 @@ class GoogleMapsService {
       // 生成AI总结（基于评论）
       const aiSummary = this.generateAISummary(place.reviews || []);
 
+      const utcOffsetMinutes = place.utc_offset_minutes ?? place.utc_offset;
+      const openingHoursPayload = place.opening_hours
+        ? {
+            ...place.opening_hours,
+            ...(utcOffsetMinutes != null
+                ? { utc_offset_minutes: utcOffsetMinutes }
+                : {}),
+          }
+        : undefined;
+
       return {
         googlePlaceId: place.place_id || placeId,
         name: place.name || '',
@@ -134,7 +145,9 @@ class GoogleMapsService {
         longitude: place.geometry?.location?.lng || 0,
         address: place.formatted_address,
         description: place.editorial_summary?.overview,
-        openingHours: place.opening_hours ? JSON.stringify(place.opening_hours) : undefined,
+        openingHours: openingHoursPayload
+          ? JSON.stringify(openingHoursPayload)
+          : undefined,
         rating: place.rating,
         ratingCount: place.user_ratings_total,
         category,

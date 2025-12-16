@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
+import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/spot_card.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/add_city_dialog.dart';
@@ -241,6 +242,37 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     );
   }
 
+  void _handleToggleMustGo(Spot spot) {
+    final index = _indexForSpot(spot.id);
+    if (index == -1) {
+      return;
+    }
+    final entry = _entries[index];
+    final nextEntry = entry.copyWith(isMustGo: !entry.isMustGo);
+    setState(() {
+      _entries[index] = nextEntry;
+    });
+    if (!entry.isMustGo) {
+      CustomToast.showSuccess(context, 'added to MustGo');
+    }
+  }
+
+  void _handleQuickAddMustGo(Spot spot) {
+    final index = _indexForSpot(spot.id);
+    if (index == -1) {
+      return;
+    }
+    final entry = _entries[index];
+    if (entry.isMustGo) {
+      CustomToast.showInfo(context, '${spot.name} already in MustGo');
+      return;
+    }
+    setState(() {
+      _entries[index] = entry.copyWith(isMustGo: true);
+    });
+    CustomToast.showSuccess(context, 'added to MustGo');
+  }
+
   void _showAddCityDialog() {
     showDialog<void>(
       context: context,
@@ -334,6 +366,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     }
     return null;
   }
+
+  int _indexForSpot(String spotId) =>
+      _entries.indexWhere((entry) => entry.spot.id == spotId);
 
   String _slugify(String city) {
     final base = city.toLowerCase();
@@ -535,6 +570,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
                         key: const ValueKey('list-view'),
                         entries: filteredEntries,
                         onCheckIn: _handleCheckIn,
+                      onToggleMustGo: _handleToggleMustGo,
+                      onQuickAddMustGo: _handleQuickAddMustGo,
                       ),
           ),
         ),
@@ -967,19 +1004,74 @@ class _ListView extends StatelessWidget {
     super.key,
     required this.entries,
     required this.onCheckIn,
+    required this.onToggleMustGo,
+    required this.onQuickAddMustGo,
   });
 
   final List<_SpotEntry> entries;
   final void Function(Spot spot) onCheckIn;
+  final void Function(Spot spot) onToggleMustGo;
+  final void Function(Spot spot) onQuickAddMustGo;
 
   @override
   Widget build(BuildContext context) => ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
         itemCount: entries.length,
         separatorBuilder: (_, __) => const SizedBox(height: 16),
-        itemBuilder: (context, index) => SpotCard(
-          spot: entries[index].spot,
-          onCheckIn: () => onCheckIn(entries[index].spot),
+        itemBuilder: (context, index) {
+          final entry = entries[index];
+          return Dismissible(
+            key: ValueKey('spot-${entry.spot.id}'),
+            direction: DismissDirection.startToEnd,
+            confirmDismiss: (direction) async {
+              onQuickAddMustGo(entry.spot);
+              return false;
+            },
+            background: _SwipeBackground(isMustGo: entry.isMustGo),
+            child: SpotCard(
+              spot: entry.spot,
+              isMustGo: entry.isMustGo,
+              onCheckIn: () => onCheckIn(entry.spot),
+              onToggleMustGo: () => onToggleMustGo(entry.spot),
+            ),
+          );
+        },
+      );
+}
+
+class _SwipeBackground extends StatelessWidget {
+  const _SwipeBackground({required this.isMustGo});
+
+  final bool isMustGo;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        alignment: Alignment.centerLeft,
+        decoration: BoxDecoration(
+          color: AppTheme.primaryYellow.withOpacity(isMustGo ? 0.15 : 0.35),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(
+            color: AppTheme.black,
+            width: AppTheme.borderMedium,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.star,
+              color: AppTheme.black,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              isMustGo ? 'Already in MustGo' : 'Slide to MustGo',
+              style: AppTheme.labelMedium(context).copyWith(
+                color: AppTheme.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
       );
 }
@@ -1393,4 +1485,18 @@ class _SpotEntry {
   final bool isMustGo;
   final bool isTodaysPlan;
   final bool isVisited;
+
+  _SpotEntry copyWith({
+    bool? isMustGo,
+    bool? isTodaysPlan,
+    bool? isVisited,
+  }) =>
+      _SpotEntry(
+        city: city,
+        citySlug: citySlug,
+        spot: spot,
+        isMustGo: isMustGo ?? this.isMustGo,
+        isTodaysPlan: isTodaysPlan ?? this.isTodaysPlan,
+        isVisited: isVisited ?? this.isVisited,
+      );
 }

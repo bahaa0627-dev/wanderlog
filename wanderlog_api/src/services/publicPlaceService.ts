@@ -342,6 +342,39 @@ class PublicPlaceService {
   }
 
   /**
+   * 获取城市列表（去重，用于添加 trip）
+   */
+  async getCities(query?: string) {
+    /**
+     * 需要兼容无空格输入（如 "ChiangMai"）匹配含空格城市（如 "Chiang Mai"）。
+     * 先取较大的 distinct 列表，再在内存里做“去空格/连字符”匹配。
+     */
+    const places = await prisma.publicPlace.findMany({
+      select: { city: true },
+      distinct: ['city'],
+      orderBy: { city: 'asc' },
+      take: 200
+    });
+
+    const normalize = (value: string) =>
+      value
+        .toLowerCase()
+        .replace(/[\s-]+/g, ''); // 去掉空格/连字符，便于宽松匹配
+
+    const cities = places
+      .map(p => p.city)
+      .filter((city): city is string => city !== null && city.trim() !== '');
+
+    if (!query || !query.trim()) {
+      return cities;
+    }
+
+    const normalizedQuery = normalize(query.trim());
+
+    return cities.filter(city => normalize(city).includes(normalizedQuery));
+  }
+
+  /**
    * 获取统计信息
    */
   async getStats() {

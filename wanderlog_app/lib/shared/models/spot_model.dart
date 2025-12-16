@@ -9,11 +9,17 @@ class Spot {
 
   Spot({
     required this.id,
-    required this.googlePlaceId,
+    this.googlePlaceId,
     required this.name,
+    this.city,
+    this.country,
     required this.latitude,
     required this.longitude,
-    required this.tags, required this.images, required this.createdAt, required this.updatedAt, this.address,
+    required this.tags,
+    required this.images,
+    required this.createdAt,
+    required this.updatedAt,
+    this.address,
     this.category,
     this.openingHours,
     this.rating,
@@ -24,7 +30,9 @@ class Spot {
 
   factory Spot.fromJson(Map<String, dynamic> json) => _$SpotFromJson(json);
   final String id;
-  final String googlePlaceId;
+  final String? googlePlaceId;
+  final String? city;
+  final String? country;
   final String name;
   final double latitude;
   final double longitude;
@@ -45,6 +53,8 @@ class Spot {
   Spot copyWith({
     String? id,
     String? googlePlaceId,
+    String? city,
+    String? country,
     String? name,
     double? latitude,
     double? longitude,
@@ -62,6 +72,8 @@ class Spot {
   }) => Spot(
       id: id ?? this.id,
       googlePlaceId: googlePlaceId ?? this.googlePlaceId,
+      city: city ?? this.city,
+      country: country ?? this.country,
       name: name ?? this.name,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
@@ -100,6 +112,7 @@ Map<String, dynamic>? _openingHoursFromJson(dynamic value) {
 }
 
 Map<String, dynamic>? _openingHoursToJson(Map<String, dynamic>? value) => value;
+
 
 
 

@@ -124,3 +124,4 @@ curl -X PUT http://localhost:3000/api/trips/YOUR_TRIP_ID/spots \
 
 
 
+

@@ -24,6 +24,7 @@ class SpotCard extends StatelessWidget {
       (tag) => tag.toLowerCase() == 'visited',
     );
     final String? openingText = _openingInfoText();
+    final bool isClosingSoon = _isClosingSoon();
     final String? priceText = _priceInfoText();
     final String? tagsLine = _tagsLine();
 
@@ -110,7 +111,9 @@ class SpotCard extends StatelessWidget {
                             '🕒 $openingText',
                             style: AppTheme.labelSmall(context).copyWith(
                               fontWeight: FontWeight.w600,
-                              color: AppTheme.black,
+                              color: isClosingSoon 
+                                  ? const Color(0xFFE53E3E) // 红色警示
+                                  : AppTheme.black,
                             ),
                           ),
                         ),
@@ -316,6 +319,62 @@ class SpotCard extends StatelessWidget {
     return 'Hours unavailable';
   }
 
+  bool _isClosingSoon() {
+    final raw = spot.openingHours;
+    final utcOffsetMinutes = _extractUtcOffset(raw);
+    final List<Map<String, dynamic>>? periods = _parsePeriods(raw?['periods']);
+    if (periods == null) {
+      return false;
+    }
+
+    final DateTime now = _nowInPlace(utcOffsetMinutes);
+    DateTime? closingTime;
+
+    for (final period in periods) {
+      final openInfo = period['open'];
+      if (openInfo is! Map<String, dynamic>) {
+        continue;
+      }
+      final openDay = _normalizeGoogleDay(openInfo['day']);
+      final openTime = _buildDateTimeForGoogleDay(now, openDay, openInfo['time']);
+      if (openTime == null) {
+        continue;
+      }
+      final closeInfo = period['close'];
+      DateTime? closeTime;
+      if (closeInfo is Map<String, dynamic>) {
+        final closeDay = _normalizeGoogleDay(closeInfo['day']) ?? openDay;
+        closeTime = _buildDateTimeForGoogleDay(now, closeDay, closeInfo['time']);
+      }
+      closeTime ??= openTime.add(const Duration(hours: 24));
+      if (closeTime.isBefore(openTime)) {
+        closeTime = closeTime.add(const Duration(days: 7));
+      }
+
+      for (final offset in [-7, 0, 7]) {
+        final start = openTime.add(Duration(days: offset));
+        final end = closeTime.add(Duration(days: offset));
+
+        final bool started = !now.isBefore(start);
+        final bool notEnded = now.isBefore(end);
+        if (started && notEnded) {
+          closingTime = end;
+          break;
+        }
+      }
+      if (closingTime != null) {
+        break;
+      }
+    }
+
+    if (closingTime != null) {
+      final diff = closingTime.difference(now);
+      return diff > Duration.zero && diff <= const Duration(hours: 2);
+    }
+
+    return false;
+  }
+
   DateTime? _resolveClosingTime(List<Map<String, dynamic>> periods, DateTime now) {
     for (final rawPeriod in periods) {
       final open = rawPeriod['open'];
@@ -473,7 +532,7 @@ class SpotCard extends StatelessWidget {
       return 'in 1h';
     }
     final minutes = diff.inMinutes.clamp(1, 59);
-    return 'in ${minutes}m';
+    return 'in ${minutes}mins';
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>

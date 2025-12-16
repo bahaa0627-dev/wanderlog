@@ -9,6 +9,9 @@ import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/spot_card.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/add_city_dialog.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
+import 'package:wanderlog/shared/models/trip_model.dart';
 
 class SpotsTabController {
   _SpotsTabState? _state;
@@ -85,6 +88,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     'history',
   ];
 
+  // Start empty; real data comes from destinations fetched from server or user input.
   final List<_SpotEntry> _entries = _buildMockEntries();
   final Set<String> _activeTags = {};
   final PageController _carouselController =
@@ -147,8 +151,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     super.initState();
     _selectedSubTab = _normalizeSubTab(widget.initialSubTab ?? 0);
     _isMapView = _defaultMapViewFor(_selectedSubTab);
-    _selectedCitySlug =
-        _entries.isNotEmpty ? _entries.first.citySlug : 'copenhagen';
+    _selectedCitySlug = _entries.isNotEmpty ? _entries.first.citySlug : '';
     widget.controller?._attach(this);
     final controller = widget.controller;
     if (controller != null) {
@@ -165,6 +168,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         _selectedCitySlug = savedSlug;
       }
     }
+    unawaited(_loadDestinationsFromServer());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _notifyCityChanged();
       _notifyCityOptionsChanged();
@@ -286,6 +290,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             _activeTags.clear();
           });
           _recordCityAddition(normalized);
+          unawaited(_persistDestination(normalized));
           _notifyCityChanged();
           _notifyCityOptionsChanged();
           _navigateToCityMap(normalized);
@@ -388,6 +393,93 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     );
     _userCityHistory.insert(0, normalized);
     _persistCityState();
+  }
+
+  Future<void> _persistDestination(String city) async {
+    final normalized = city.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+    try {
+      await ref.read(tripActionsProvider).createTrip(
+            name: normalized,
+            city: normalized,
+          );
+    } catch (_) {
+      // Silently ignore; UI still switches city locally.
+    }
+  }
+
+  Future<void> _loadDestinationsFromServer() async {
+    try {
+      final repo = ref.read(tripRepositoryProvider);
+      final destinations = await repo.getMyTrips();
+      if (!mounted) return;
+      destinations.sort(
+        (a, b) => b.createdAt.compareTo(a.createdAt),
+      );
+
+      final entries = <_SpotEntry>[];
+
+      for (final destination in destinations) {
+        final city = destination.city?.trim();
+        if (city == null || city.isEmpty) continue;
+        final slug = _ensureCitySlug(city);
+        _extraCitySlugs[slug] = city;
+        _userCityHistory.removeWhere(
+          (existing) => existing.toLowerCase() == city.toLowerCase(),
+        );
+        _userCityHistory.insert(0, city);
+
+        // load spots for this destination
+        try {
+          final detail = await repo.getTripById(destination.id);
+          final tripSpots = detail.tripSpots ?? const <TripSpot>[];
+          for (final ts in tripSpots) {
+            final s = ts.spot;
+            if (s == null) continue;
+            final cityName = (s.city ?? 'Unknown').trim().isEmpty
+                ? 'Unknown'
+                : s.city!.trim();
+            final slug = _ensureCitySlug(cityName);
+            final entry = _SpotEntry(
+              city: cityName,
+              citySlug: slug,
+              spot: s,
+              isMustGo: ts.priority == SpotPriority.mustGo,
+              isTodaysPlan: ts.status == TripSpotStatus.todaysPlan,
+              isVisited: ts.status == TripSpotStatus.visited,
+            );
+            entries.add(entry);
+          }
+        } catch (_) {
+          // ignore detail fetch errors per destination
+        }
+      }
+
+      setState(() {
+        _entries
+          ..clear()
+          ..addAll(entries);
+
+        if (_userCityHistory.isNotEmpty) {
+          final currentCity = _selectedCityName.toLowerCase();
+          final hasCurrent = _citiesInCreationOrder(newestFirst: true).any(
+            (city) => city.toLowerCase() == currentCity,
+          );
+          if (!hasCurrent) {
+            final firstCity = _userCityHistory.first;
+            _selectedCitySlug = _ensureCitySlug(firstCity);
+          }
+        }
+      });
+
+      _notifyCityChanged();
+      _notifyCityOptionsChanged();
+      _persistCityState();
+    } catch (_) {
+      // Ignore errors; fallback to local state.
+    }
   }
 
   List<_SpotEntry> _filteredEntries() {
@@ -505,6 +597,13 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final hasDestinations = _citiesInCreationOrder(newestFirst: true).isNotEmpty;
+    if (!hasDestinations) {
+      return _NoDestinationState(
+        onAddDestination: _showAddCityDialog,
+      );
+    }
+
     final filteredEntries = _filteredEntries();
 
     return Column(
@@ -551,7 +650,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             switchOutCurve: Curves.easeInOut,
             child: filteredEntries.isEmpty
                 ? _EmptyState(
-                    onAddCity: _showAddCityDialog,
+                    onOpenMap: _openFullMap,
                     isMapView: _isMapView,
                   )
                 : _isMapView
@@ -579,152 +678,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     );
   }
 
-  static List<_SpotEntry> _buildMockEntries() => [
-        _SpotEntry(
-          city: 'Copenhagen',
-          citySlug: 'copenhagen',
-          isMustGo: true,
-          isTodaysPlan: true,
-          spot: Spot(
-            id: 'spot-nyhavn',
-            googlePlaceId: 'nyhavn',
-            name: 'Nyhavn Harbor',
-            latitude: 55.6796,
-            longitude: 12.5908,
-            address: 'Nyhavn, Copenhagen',
-            category: 'landmark',
-            tags: const ['Architecture', 'Harbor', 'History'],
-            images: const [
-              'https://images.unsplash.com/photo-1505733563568-6247e1ac6904?auto=format&fit=crop&w=1200&q=80'
-            ],
-            rating: 4.7,
-            priceLevel: 2,
-            website: 'https://nyhavn.com',
-            phoneNumber: '+45 1234 5678',
-            createdAt: DateTime(2024, 11, 24),
-            updatedAt: DateTime(2024, 11, 24),
-          ),
-        ),
-        _SpotEntry(
-          city: 'Copenhagen',
-          citySlug: 'copenhagen',
-          isMustGo: true,
-          spot: Spot(
-            id: 'spot-designmuseum',
-            googlePlaceId: 'designmuseum',
-            name: 'Designmuseum Danmark',
-            latitude: 55.6870,
-            longitude: 12.5937,
-            address: 'Bredgade 68, Copenhagen',
-            category: 'museum',
-            tags: const ['Design', 'Museum', 'Architecture'],
-            images: const [
-              'https://images.unsplash.com/photo-1500522144261-ea64433bbe27?auto=format&fit=crop&w=1200&q=80'
-            ],
-            rating: 4.6,
-            priceLevel: 3,
-            website: 'https://designmuseum.dk',
-            phoneNumber: '+45 3344 3360',
-            createdAt: DateTime(2024, 10, 18),
-            updatedAt: DateTime(2024, 12, 4),
-          ),
-        ),
-        _SpotEntry(
-          city: 'Copenhagen',
-          citySlug: 'copenhagen',
-          isTodaysPlan: true,
-          spot: Spot(
-            id: 'spot-juno',
-            googlePlaceId: 'juno',
-            name: 'Juno the Bakery',
-            latitude: 55.7024,
-            longitude: 12.5710,
-            address: 'Århusgade 48, Copenhagen',
-            category: 'bakery',
-            tags: const ['Food', 'Coffee', 'Bakery'],
-            images: const [
-              'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80'
-            ],
-            rating: 4.9,
-            priceLevel: 1,
-            website: 'https://junothebakery.dk',
-            phoneNumber: '+45 1122 3344',
-            createdAt: DateTime(2024, 12, 1),
-            updatedAt: DateTime(2024, 12, 2),
-          ),
-        ),
-        _SpotEntry(
-          city: 'Paris',
-          citySlug: 'paris',
-          isVisited: true,
-          spot: Spot(
-            id: 'spot-louvre',
-            googlePlaceId: 'louvre',
-            name: 'Louvre Museum',
-            latitude: 48.8606,
-            longitude: 2.3376,
-            address: 'Rue de Rivoli, Paris',
-            category: 'museum',
-            tags: const ['Museum', 'Art', 'History'],
-            images: const [
-              'https://images.unsplash.com/photo-1549893214-952c2053ce1e?auto=format&fit=crop&w=1200&q=80'
-            ],
-            rating: 4.8,
-            priceLevel: 3,
-            website: 'https://www.louvre.fr',
-            phoneNumber: '+33 1 40 20 50 50',
-            createdAt: DateTime(2024, 8, 9),
-            updatedAt: DateTime(2024, 9, 2),
-          ),
-        ),
-        _SpotEntry(
-          city: 'Paris',
-          citySlug: 'paris',
-          spot: Spot(
-            id: 'spot-holybelly',
-            googlePlaceId: 'holybelly',
-            name: 'Holybelly 5',
-            latitude: 48.8722,
-            longitude: 2.3596,
-            address: '5 Rue Lucien Sampaix, Paris',
-            category: 'restaurant',
-            tags: const ['Food', 'Brunch', 'Coffee'],
-            images: const [
-              'https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=1200&q=80'
-            ],
-            rating: 4.5,
-            priceLevel: 2,
-            website: 'https://holybellycafe.com',
-            phoneNumber: '+33 1 82 28 00 80',
-            createdAt: DateTime(2024, 7, 15),
-            updatedAt: DateTime(2024, 7, 21),
-          ),
-        ),
-        _SpotEntry(
-          city: 'Paris',
-          citySlug: 'paris',
-          isVisited: true,
-          spot: Spot(
-            id: 'spot-jardin',
-            googlePlaceId: 'jardin',
-            name: 'Jardin du Luxembourg',
-            latitude: 48.8462,
-            longitude: 2.3371,
-            address: 'Rue de Médicis, Paris',
-            category: 'park',
-            tags: const ['Park', 'Garden', 'Relax'],
-            images: const [
-              'https://images.unsplash.com/photo-1528901166007-3784c7dd3653?auto=format&fit=crop&w=1200&q=80'
-            ],
-            rating: 4.7,
-            priceLevel: 0,
-            website: 'https://www.senat.fr/visite/jardin/index.html',
-            phoneNumber: '+33 1 42 34 20 00',
-            createdAt: DateTime(2024, 6, 4),
-            updatedAt: DateTime(2024, 10, 11),
-          ),
-        ),
-      ];
+  static List<_SpotEntry> _buildMockEntries() => [];
 }
 
 class _TabCounts {
@@ -1078,11 +1032,11 @@ class _SwipeBackground extends StatelessWidget {
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState({
-    required this.onAddCity,
+    required this.onOpenMap,
     required this.isMapView,
   });
 
-  final VoidCallback onAddCity;
+  final VoidCallback onOpenMap;
   final bool isMapView;
 
   @override
@@ -1111,9 +1065,7 @@ class _EmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 28),
               Text(
-                isMapView
-                    ? 'No spots on the map yet'
-                    : 'You have no spots here yet',
+                'You have no spots here yet',
                 textAlign: TextAlign.center,
                 style: AppTheme.bodyLarge(context).copyWith(
                   color: AppTheme.black.withOpacity(0.65),
@@ -1122,7 +1074,7 @@ class _EmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Add another city to start planning your next adventure.',
+                'To find interesting spots',
                 textAlign: TextAlign.center,
                 style: AppTheme.bodyMedium(context).copyWith(
                   color: AppTheme.black.withOpacity(0.45),
@@ -1131,7 +1083,7 @@ class _EmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 28),
               GestureDetector(
-                onTap: onAddCity,
+                onTap: onOpenMap,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 28,
@@ -1152,7 +1104,94 @@ class _EmptyState extends StatelessWidget {
                       const Icon(Icons.add, color: AppTheme.black),
                       const SizedBox(width: 8),
                       Text(
-                        'Add trip',
+                        'Add spots',
+                        style: AppTheme.labelLarge(context).copyWith(
+                          color: AppTheme.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _NoDestinationState extends StatelessWidget {
+  const _NoDestinationState({
+    required this.onAddDestination,
+  });
+
+  final VoidCallback onAddDestination;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryYellow.withOpacity(0.25),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppTheme.black,
+                    width: AppTheme.borderMedium,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.explore_outlined,
+                  size: 64,
+                  color: AppTheme.black,
+                ),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                "It seems you don't have any plan",
+                textAlign: TextAlign.center,
+                style: AppTheme.bodyLarge(context).copyWith(
+                  color: AppTheme.black.withOpacity(0.65),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Add one more city to explore',
+                textAlign: TextAlign.center,
+                style: AppTheme.bodyMedium(context).copyWith(
+                  color: AppTheme.black.withOpacity(0.45),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 28),
+              GestureDetector(
+                onTap: onAddDestination,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryYellow,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    border: Border.all(
+                      color: AppTheme.black,
+                      width: AppTheme.borderMedium,
+                    ),
+                    boxShadow: AppTheme.cardShadow,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add, color: AppTheme.black),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Add destination',
                         style: AppTheme.labelLarge(context).copyWith(
                           color: AppTheme.black,
                         ),

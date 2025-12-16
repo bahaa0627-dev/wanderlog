@@ -8,6 +8,7 @@ import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 import 'package:wanderlog/features/map/presentation/pages/album_spots_map_page.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/widgets/ai_recognition_sheets_new.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/trips_bottom_nav.dart';
+import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -20,57 +21,29 @@ class _HomePageState extends ConsumerState<HomePage> {
   int _selectedIndex = 0;
   int _selectedTab = 0; // 0: Album, 1: Map
   bool _isMapFullscreen = false;
+  List<Map<String, dynamic>> _collections = [];
+  bool _isLoadingCollections = false;
 
-  static const _mockTrips = [
-    {
-      'city': 'copenhagen',
-      'count': 15,
-      'title': '3 day in copenhagen',
-      'tags': ['Landmark', 'Park'], // Top 2 categories by count
-      'image':
-          'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800', // 哥本哈根
-    },
-    {
-      'city': 'Porto',
-      'count': 10,
-      'title': 'Amazing Architectures in Porto',
-      'tags': ['architecture', 'Siza'],
-      'image':
-          'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800', // 波尔图
-    },
-    {
-      'city': 'Paris',
-      'count': 85,
-      'title': 'Romance & Art in Paris',
-      'tags': ['museum', 'cafe', 'fashion'],
-      'image':
-          'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800', // 巴黎
-    },
-    {
-      'city': 'Tokyo',
-      'count': 120,
-      'title': 'Tokyo Street Food Adventure',
-      'tags': ['food', 'culture', 'nightlife'],
-      'image':
-          'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800', // 东京
-    },
-    {
-      'city': 'Barcelona',
-      'count': 65,
-      'title': 'Gaudi & Beach Vibes',
-      'tags': ['architecture', 'beach', 'tapas'],
-      'image':
-          'https://images.unsplash.com/photo-1583422409516-2895a77efded?w=800', // 巴塞罗那
-    },
-    {
-      'city': 'Amsterdam',
-      'count': 42,
-      'title': 'Bikes & Canals',
-      'tags': ['canal', 'museum', 'cafe'],
-      'image':
-          'https://images.unsplash.com/photo-1534351590666-13e3e96b5017?w=800', // 阿姆斯特丹
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCollections();
+  }
+
+  Future<void> _loadCollections() async {
+    setState(() => _isLoadingCollections = true);
+    try {
+      final repo = ref.read(collectionRepositoryProvider);
+      final data = await repo.listCollections();
+      setState(() => _collections = data);
+    } catch (_) {
+      setState(() => _collections = []);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCollections = false);
+      }
+    }
+  }
 
   void _onNavItemTapped(int index) {
     if (_selectedIndex == index) {
@@ -143,39 +116,71 @@ class _HomePageState extends ConsumerState<HomePage> {
               ],
               Expanded(
                 child: _selectedTab == 0
-                    ? GridView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 3 / 4, // 3:4 竖向构图
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                        itemCount: _mockTrips.length,
-                        itemBuilder: (context, index) {
-                          final trip = _mockTrips[index];
-                          return _TripCard(
-                            city: trip['city'] as String,
-                            count: trip['count'] as int,
-                            title: trip['title'] as String,
-                            tags: (trip['tags'] as List<String>)
-                                .map((t) => '#$t')
-                                .toList(),
-                            imageUrl: trip['image'] as String,
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (context) => AlbumSpotsMapPage(
-                                    city: trip['city'] as String,
-                                    albumTitle: trip['title'] as String,
-                                  ),
-                                ),
+                    ? (_isLoadingCollections
+                        ? const Center(child: CircularProgressIndicator())
+                        : GridView.builder(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              childAspectRatio: 3 / 4,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                            ),
+                            itemCount: _collections.length,
+                            itemBuilder: (context, index) {
+                              final item = _collections[index];
+                              final spots = item['collectionSpots'] as List<dynamic>? ?? [];
+                              final firstSpot = spots.isNotEmpty ? spots.first['spot'] as Map<String, dynamic>? : null;
+                              final city = (firstSpot?['city'] as String?)?.isNotEmpty == true
+                                  ? firstSpot!['city'] as String
+                                  : 'Multi-city';
+                              final tags = (firstSpot?['tags'] as List<dynamic>? ?? [])
+                                  .take(3)
+                                  .map((e) => '#$e')
+                                  .toList();
+                              final image = item['coverImage'] as String? ??
+                                  (firstSpot?['coverImage'] as String? ??
+                                      'https://via.placeholder.com/400x600');
+                              final title = item['name'] as String? ?? 'Collection';
+                              final count = spots.length;
+                              return _TripCard(
+                                city: city,
+                                count: count,
+                                title: title,
+                                tags: tags,
+                                imageUrl: image,
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (context) => AlbumSpotsMapPage(
+                                        city: city,
+                                        albumTitle: title,
+                                        collectionId: item['id'] as String?,
+                                        description: item['description'] as String?,
+                                        coverImage: item['coverImage'] as String?,
+                                        people: (item['people'] as List<dynamic>? ?? [])
+                                            .map((p) => LinkItem(
+                                                  name: p['name'] as String? ?? '',
+                                                  link: p['link'] as String?,
+                                                  avatarUrl: p['avatarUrl'] as String?,
+                                                ))
+                                            .toList(),
+                                        works: (item['works'] as List<dynamic>? ?? [])
+                                            .map((w) => LinkItem(
+                                                  name: w['name'] as String? ?? '',
+                                                  link: w['link'] as String?,
+                                                  coverImage: w['coverImage'] as String?,
+                                                ))
+                                            .toList(),
+                                      ),
+                                    ),
+                                  );
+                                },
                               );
                             },
-                          );
-                        },
-                      )
+                          ))
                     : MapPage(
                         onFullscreenChanged: _handleMapFullscreenChanged,
                       ), // 显示地图页面

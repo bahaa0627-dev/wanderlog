@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/features/map/presentation/pages/album_spots_map_page.dart';
+import 'package:wanderlog/shared/models/spot_model.dart';
+import 'package:wanderlog/shared/widgets/ui_components.dart';
 
 /// Collections Tab - 显示用户收藏的合集
 /// 这些合集与 trip 的城市相关
@@ -12,58 +16,95 @@ class CollectionsTab extends ConsumerStatefulWidget {
 }
 
 class _CollectionsTabState extends ConsumerState<CollectionsTab> {
-  // Mock 数据 - 后续替换为真实数据
-  final List<Map<String, dynamic>> _mockCollections = [
-    {
-      'id': '1',
-      'name': '3 day in Copenhagen',
-      'city': 'Copenhagen',
-      'spotsCount': 15,
-      'image':
-          'https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800',
-      'tags': ['Landmark', 'Park', 'Architecture'],
-    },
-    {
-      'id': '2',
-      'name': 'Amazing Architectures in Porto',
-      'city': 'Porto',
-      'spotsCount': 10,
-      'image':
-          'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800',
-      'tags': ['Architecture', 'Siza', 'Museum'],
-    },
-    {
-      'id': '3',
-      'name': 'Romance & Art in Paris',
-      'city': 'Paris',
-      'spotsCount': 85,
-      'image':
-          'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800',
-      'tags': ['Museum', 'Cafe', 'Fashion'],
-    },
-  ];
+  final List<Map<String, dynamic>> _collections = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCollections();
+  }
+
+  Future<void> _loadCollections() async {
+    setState(() => _isLoading = true);
+    try {
+      final repo = ref.read(collectionRepositoryProvider);
+      final data = await repo.listCollections();
+      setState(() {
+        _collections
+          ..clear()
+          ..addAll(data);
+      });
+    } catch (_) {
+      setState(() => _collections.clear());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_mockCollections.isEmpty) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_collections.isEmpty) {
       return _buildEmptyState();
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _mockCollections.length,
+      itemCount: _collections.length,
       itemBuilder: (context, index) {
-        final collection = _mockCollections[index];
+        final collection = _collections[index];
+        final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
+        final firstSpot = spots.isNotEmpty
+            ? spots.first['spot'] as Map<String, dynamic>?
+            : null;
+        final city = (firstSpot?['city'] as String?)?.isNotEmpty == true
+            ? firstSpot!['city'] as String
+            : 'Multi-city';
+        final count = spots.length;
+        final tags = (firstSpot?['tags'] as List<dynamic>? ?? [])
+            .take(3)
+            .map((t) => t.toString())
+            .toList();
+        final cover = collection['coverImage'] as String? ??
+            (firstSpot?['coverImage'] as String? ??
+                'https://via.placeholder.com/400x600');
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: _CollectionCard(
-            name: collection['name'] as String,
-            city: collection['city'] as String,
-            spotsCount: collection['spotsCount'] as int,
-            image: collection['image'] as String,
-            tags: (collection['tags'] as List<dynamic>).cast<String>(),
+            name: collection['name'] as String? ?? 'Collection',
+            city: city,
+            spotsCount: count,
+            image: cover,
+            tags: tags,
             onTap: () {
-              // TODO: 导航到合集详情页
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AlbumSpotsMapPage(
+                    city: city,
+                    albumTitle: collection['name'] as String? ?? 'Collection',
+                    collectionId: collection['id'] as String?,
+                    description: collection['description'] as String?,
+                    coverImage: collection['coverImage'] as String?,
+                    people: (collection['people'] as List<dynamic>? ?? [])
+                        .map((p) => LinkItem(
+                              name: p['name'] as String? ?? '',
+                              link: p['link'] as String?,
+                              avatarUrl: p['avatarUrl'] as String?,
+                            ))
+                        .toList(),
+                    works: (collection['works'] as List<dynamic>? ?? [])
+                        .map((w) => LinkItem(
+                              name: w['name'] as String? ?? '',
+                              link: w['link'] as String?,
+                              coverImage: w['coverImage'] as String?,
+                            ))
+                        .toList(),
+                  ),
+                ),
+              );
             },
           ),
         );

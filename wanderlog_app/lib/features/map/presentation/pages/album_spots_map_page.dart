@@ -5,17 +5,29 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
+import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/shared/utils/destination_utils.dart';
 
 /// 相册地点地图页面 - 显示某个相册（城市）下的所有地点
 class AlbumSpotsMapPage extends ConsumerStatefulWidget {
   const AlbumSpotsMapPage({
     required this.city,
     required this.albumTitle,
+    this.collectionId,
+    this.description,
+    this.coverImage,
+    this.people = const [],
+    this.works = const [],
     super.key,
   });
 
   final String city; // 城市名称，如 "Copenhagen"
   final String albumTitle; // 相册标题，如 "3 day in copenhagen"
+  final String? collectionId;
+  final String? description;
+  final String? coverImage;
+  final List<LinkItem> people;
+  final List<LinkItem> works;
 
   @override
   ConsumerState<AlbumSpotsMapPage> createState() => _AlbumSpotsMapPageState();
@@ -28,6 +40,8 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
   int _currentCardIndex = 0;
   List<Spot> _citySpots = [];
   Spot? _selectedSpot;
+  bool _isFavorite = false;
+  bool _isFavLoading = false;
 
   @override
   void initState() {
@@ -95,6 +109,11 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
       _selectedSpot = _citySpots[0];
     }
   }
+
+  bool get _hasMeta =>
+      (widget.description?.isNotEmpty ?? false) ||
+      widget.people.isNotEmpty ||
+      widget.works.isNotEmpty;
 
   Position? _getCityCenter() {
     if (_citySpots.isEmpty) return null;
@@ -219,9 +238,75 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
                     color: AppTheme.mediumGray,
                   ),
                 ),
+                if (_hasMeta) const SizedBox(height: 6),
+                if (_hasMeta)
+                  Text(
+                    widget.description ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.bodyMedium(context).copyWith(
+                      color: AppTheme.black.withOpacity(0.65),
+                    ),
+                  ),
+                if (_hasMeta && (widget.people.isNotEmpty || widget.works.isNotEmpty))
+                  const SizedBox(height: 6),
+                if (_hasMeta)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      ...widget.people.map(
+                        (p) => _LinkChip(
+                          label: p.name,
+                          url: p.link,
+                          leading: p.avatarUrl != null
+                              ? CircleAvatar(
+                                  radius: 10,
+                                  backgroundImage: NetworkImage(p.avatarUrl!),
+                                )
+                              : const Icon(Icons.person, size: 16),
+                        ),
+                      ),
+                      ...widget.works.map(
+                        (w) => _LinkChip(
+                          label: w.name,
+                          url: w.link,
+                          leading: w.coverImage != null
+                              ? CircleAvatar(
+                                  radius: 10,
+                                  backgroundImage: NetworkImage(w.coverImage!),
+                                )
+                              : const Icon(Icons.bookmark_border, size: 16),
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
+          if (widget.collectionId != null)
+            Row(
+              children: [
+                IconButtonCustom(
+                  icon: _isFavorite ? Icons.favorite : Icons.favorite_border,
+                  onPressed: () {
+                    if (_isFavLoading) return;
+                    _toggleFavorite();
+                  },
+                  backgroundColor: Colors.white,
+                ),
+                const SizedBox(width: 8),
+                IconButtonCustom(
+                  icon: Icons.share,
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Share coming soon')),
+                    );
+                  },
+                  backgroundColor: Colors.white,
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -258,6 +343,49 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
         },
       ),
     );
+
+  Future<void> _toggleFavorite() async {
+    final collectionId = widget.collectionId;
+    if (collectionId == null) return;
+    final authed = await requireAuth(context, ref);
+    if (!authed) return;
+
+    setState(() => _isFavLoading = true);
+    try {
+      if (!_isFavorite) {
+        await _ensureDestinationsForCities();
+        await ref.read(collectionRepositoryProvider).favoriteCollection(collectionId);
+      } else {
+        await ref.read(collectionRepositoryProvider).unfavoriteCollection(collectionId);
+      }
+      if (mounted) {
+        setState(() => _isFavorite = !_isFavorite);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isFavLoading = false);
+      }
+    }
+  }
+
+  Future<void> _ensureDestinationsForCities() async {
+    final cities = _citySpots
+        .map((s) => s.city.trim())
+        .where((c) => c.isNotEmpty)
+        .toSet();
+    for (final city in cities) {
+      await ensureDestinationForCity(ref, city);
+    }
+  }
 
   // Mock 数据 - 实际项目中应从 API 或 provider 获取
   Map<String, List<Spot>> _buildMockSpots() => {
@@ -371,111 +499,178 @@ class _BottomSpotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border:
-              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 封面图
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppTheme.radiusMedium - 1),
-              ),
-              child: Image.network(
-                spot.coverImage,
-                height: 135,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            border:
+                Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppTheme.radiusMedium - 1),
+                ),
+                child: Image.network(
+                  spot.coverImage,
                   height: 135,
-                  color: AppTheme.lightGray,
-                  child: const Icon(Icons.place,
-                      size: 50, color: AppTheme.mediumGray,),
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 135,
+                    color: AppTheme.lightGray,
+                    child: const Icon(Icons.place,
+                        size: 50, color: AppTheme.mediumGray),
+                  ),
                 ),
               ),
-            ),
-            // 内容区
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // 标签
-                    Wrap(
-                      spacing: 6,
-                      children: spot.tags.take(2).map((tag) => Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5,),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow.withOpacity(0.3),
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusSmall),
-                            border:
-                                Border.all(color: AppTheme.black, width: 1.0),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Wrap(
+                        spacing: 6,
+                        children: spot.tags.take(2).map((tag) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryYellow.withOpacity(0.3),
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusSmall),
+                              border: Border.all(
+                                color: AppTheme.black,
+                                width: 1.0,
+                              ),
+                            ),
+                            child:
+                                Text(tag, style: AppTheme.labelLarge(context)),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            _getCategoryIconForSpot(spot.category),
+                            size: 20,
+                            color: AppTheme.black,
                           ),
-                          child: Text(tag, style: AppTheme.labelLarge(context)),
-                        ),).toList(),
-                    ),
-                    const SizedBox(height: 8),
-                    // 地点名称（带分类图标）
-                    Row(
-                      children: [
-                        Icon(
-                          _getCategoryIconForSpot(spot.category),
-                          size: 20,
-                          color: AppTheme.black,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            spot.name,
-                            style: AppTheme.bodyLarge(context).copyWith(
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              spot.name,
+                              style: AppTheme.bodyLarge(context).copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.star,
+                            color: AppTheme.primaryYellow,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${spot.rating}',
+                            style: AppTheme.bodyMedium(context).copyWith(
                               fontWeight: FontWeight.bold,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // 评分
-                    Row(
-                      children: [
-                        const Icon(Icons.star,
-                            color: AppTheme.primaryYellow, size: 16,),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${spot.rating}',
-                          style: AppTheme.bodyMedium(context).copyWith(
-                            fontWeight: FontWeight.bold,
+                          const SizedBox(width: 4),
+                          Text(
+                            '(${spot.ratingCount})',
+                            style: AppTheme.bodySmall(context).copyWith(
+                              color: AppTheme.mediumGray,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '(${spot.ratingCount})',
-                          style: AppTheme.bodySmall(context).copyWith(
-                            color: AppTheme.mediumGray,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class LinkItem {
+  const LinkItem({
+    required this.name,
+    this.link,
+    this.avatarUrl,
+    this.coverImage,
+  });
+  final String name;
+  final String? link;
+  final String? avatarUrl;
+  final String? coverImage;
+}
+
+class _LinkChip extends StatelessWidget {
+  const _LinkChip({
+    required this.label,
+    this.url,
+    this.leading,
+  });
+
+  final String label;
+  final String? url;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: url == null
+          ? null
+          : () async {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Open: $url')),
+              );
+            },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.black, width: AppTheme.borderThin),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (leading != null) ...[
+              leading!,
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: AppTheme.labelSmall(context).copyWith(
+                color: AppTheme.black,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
       ),
     );
+  }
 }

@@ -9,7 +9,7 @@ class TripRepository {
 
   Future<List<Trip>> getMyTrips() async {
     try {
-      final response = await _dio.get<List<dynamic>>('/trips');
+      final response = await _dio.get<List<dynamic>>('/destinations');
       final List<dynamic> data = response.data as List<dynamic>;
       return data.map((json) => Trip.fromJson(json as Map<String, dynamic>)).toList();
     } on DioException catch (e) {
@@ -19,7 +19,7 @@ class TripRepository {
 
   Future<Trip> getTripById(String id) async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>('/trips/$id');
+      final response = await _dio.get<Map<String, dynamic>>('/destinations/$id');
       return Trip.fromJson(response.data!);
     } on DioException catch (e) {
       throw _handleError(e);
@@ -34,7 +34,7 @@ class TripRepository {
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
-        '/trips',
+        '/destinations',
         data: {
           'name': name,
           'city': city,
@@ -56,6 +56,7 @@ class TripRepository {
     DateTime? visitDate,
     int? userRating,
     String? userNotes,
+    Map<String, dynamic>? spotPayload,
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -67,9 +68,10 @@ class TripRepository {
       if (visitDate != null) data['visitDate'] = visitDate.toIso8601String();
       if (userRating != null) data['userRating'] = userRating;
       if (userNotes != null) data['userNotes'] = userNotes;
+      if (spotPayload != null) data['spot'] = spotPayload;
 
       final response = await _dio.put<Map<String, dynamic>>(
-        '/trips/$tripId/spots',
+        '/destinations/$tripId/spots',
         data: data,
       );
       return TripSpot.fromJson(response.data!);
@@ -86,6 +88,7 @@ class TripRepository {
     return e.message ?? 'An error occurred';
   }
 }
+
 
 
 

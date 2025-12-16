@@ -13,6 +13,9 @@ import 'package:wanderlog/features/map/data/sample_public_places.dart';
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
+import 'package:wanderlog/shared/utils/destination_utils.dart';
 
 class Spot {
   Spot({
@@ -1394,18 +1397,21 @@ class _BottomSpotCard extends StatelessWidget {
       );
 }
 
-class SpotDetailModal extends StatefulWidget {
+class SpotDetailModal extends ConsumerStatefulWidget {
   const SpotDetailModal({required this.spot, super.key});
 
   final Spot spot;
 
   @override
-  State<SpotDetailModal> createState() => _SpotDetailModalState();
+  ConsumerState<SpotDetailModal> createState() => _SpotDetailModalState();
 }
 
-class _SpotDetailModalState extends State<SpotDetailModal> {
+class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
   final PageController _imagePageController = PageController();
   int _currentImageIndex = 0;
+  bool _isWishlist = false;
+  bool _isActionLoading = false;
+  String? _destinationId;
 
   @override
   void dispose() {
@@ -1574,21 +1580,58 @@ class _SpotDetailModalState extends State<SpotDetailModal> {
                     SizedBox(
                       width: double.infinity,
                       child: PrimaryButton(
-                        text: 'Add to Wishlist',
-                        onPressed: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '${widget.spot.name} added to wishlist!',
-                              ),
-                              backgroundColor: AppTheme.primaryYellow,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
+                        text: _isWishlist ? 'Added' : 'Add to Wishlist',
+                        onPressed: _isActionLoading
+                            ? null
+                            : () async {
+                                final success = await _handleAddWishlist();
+                                if (success && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${widget.spot.name} added to wishlist!',
+                                      ),
+                                      backgroundColor: AppTheme.primaryYellow,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              },
                       ),
                     ),
+                    if (_isWishlist) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isActionLoading
+                                  ? null
+                                  : () async {
+                                      await _handleAddStatus(
+                                        status: TripSpotStatus.wishlist,
+                                        priority: SpotPriority.mustGo,
+                                      );
+                                    },
+                              child: const Text('✓ MustGo'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isActionLoading
+                                  ? null
+                                  : () async {
+                                      await _handleAddStatus(
+                                        status: TripSpotStatus.todaysPlan,
+                                      );
+                                    },
+                              child: const Text('✓ add to plan'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1596,4 +1639,112 @@ class _SpotDetailModalState extends State<SpotDetailModal> {
           ],
         ),
       );
+
+  Future<bool> _handleAddWishlist() async {
+    setState(() => _isActionLoading = true);
+    try {
+      final authed = await requireAuth(context, ref);
+      if (!authed) return false;
+      final destId = await ensureDestinationForCity(ref, widget.spot.city);
+      if (destId == null) {
+        _showError('Failed to create destination');
+        return false;
+      }
+      _destinationId = destId;
+      await ref.read(tripRepositoryProvider).manageTripSpot(
+            tripId: destId,
+            spotId: widget.spot.id,
+            status: TripSpotStatus.wishlist,
+            spotPayload: _spotPayload(),
+          );
+      if (mounted) {
+        setState(() => _isWishlist = true);
+      }
+      return true;
+    } catch (e) {
+      _showError('Error: $e');
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() => _isActionLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleAddStatus({
+    required TripSpotStatus status,
+    SpotPriority? priority,
+  }) async {
+    setState(() => _isActionLoading = true);
+    try {
+      final authed = await requireAuth(context, ref);
+      if (!authed) return;
+      final destId =
+          _destinationId ?? await ensureDestinationForCity(ref, widget.spot.city);
+      if (destId == null) {
+        _showError('Failed to create destination');
+        return;
+      }
+      _destinationId = destId;
+      await ref.read(tripRepositoryProvider).manageTripSpot(
+            tripId: destId,
+            spotId: widget.spot.id,
+            status: status,
+            priority: priority,
+            spotPayload: _spotPayload(),
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              status == TripSpotStatus.todaysPlan
+                  ? 'Added to Today\'s Plan'
+                  : 'Added to MustGo',
+            ),
+            backgroundColor: AppTheme.primaryYellow,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      _showError('Error: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isActionLoading = false);
+      }
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  Map<String, dynamic> _spotPayload() => {
+        'name': widget.spot.name,
+        'city': widget.spot.city,
+        'country': widget.spot.city,
+        'latitude': widget.spot.latitude,
+        'longitude': widget.spot.longitude,
+        'address': null,
+        'description': widget.spot.aiSummary,
+        'openingHours': null,
+        'rating': widget.spot.rating,
+        'ratingCount': widget.spot.ratingCount,
+        'category': widget.spot.category,
+        'aiSummary': widget.spot.aiSummary,
+        'tags': widget.spot.tags.isNotEmpty ? widget.spot.tags : <String>[],
+        'coverImage': widget.spot.coverImage,
+        'images':
+            widget.spot.images.isNotEmpty ? widget.spot.images : <String>[],
+        'priceLevel': null,
+        'website': null,
+        'phoneNumber': null,
+        'source': 'app_wishlist',
+      };
 }

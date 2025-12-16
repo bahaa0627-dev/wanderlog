@@ -9,6 +9,9 @@ router.get('/', publicPlaceController.getAllPlaces.bind(publicPlaceController));
 // 获取统计信息
 router.get('/stats', publicPlaceController.getStats.bind(publicPlaceController));
 
+// 获取城市列表（用于添加 trip）
+router.get('/cities', publicPlaceController.getCities.bind(publicPlaceController));
+
 // 搜索地点
 router.get('/search', publicPlaceController.searchPlaces.bind(publicPlaceController));
 

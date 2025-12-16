@@ -33,6 +33,7 @@ model User {
   // 关系
   trips              Trip[]
   verificationTokens VerificationToken[]
+  userCollections    UserCollection[]
   
   @@index([email])
   @@index([googleId])
@@ -81,6 +82,7 @@ model Spot {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   tripSpots     TripSpot[]
+  collectionSpots CollectionSpot[]
 
   @@index([city])
   @@index([category])
@@ -118,6 +120,45 @@ model TripSpot {
   updatedAt  DateTime  @updatedAt
 
   @@unique([tripId, spotId])
+}
+
+model Collection {
+  id          String   @id @default(cuid())
+  name        String
+  coverImage  String
+  description String?
+  people      String?  // JSON string: [{ name, avatarUrl?, link? }]
+  works       String?  // JSON string: [{ name, coverImage?, link? }]
+  source      String?  // admin / cms creator info
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  collectionSpots CollectionSpot[]
+  userCollections UserCollection[]
+}
+
+model CollectionSpot {
+  id           String      @id @default(cuid())
+  collectionId String
+  collection   Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  spotId       String
+  spot         Spot        @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  city         String?
+  createdAt    DateTime    @default(now())
+
+  @@unique([collectionId, spotId])
+  @@index([city])
+}
+
+model UserCollection {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collectionId String
+  collection   Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+
+  @@unique([userId, collectionId])
 }
 
 // 公共地点库 - Public Places Library

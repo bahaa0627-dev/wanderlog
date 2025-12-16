@@ -96,6 +96,28 @@ class PublicPlaceController {
   }
 
   /**
+   * 获取城市列表（用于添加 trip）
+   * GET /api/public-places/cities?q=query
+   */
+  async getCities(req: Request, res: Response): Promise<void> {
+    try {
+      const { q } = req.query;
+
+      const cities = await publicPlaceService.getCities(q as string);
+
+      res.json({
+        success: true,
+        data: cities,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
    * 通过 Google Place ID 手动添加地点
    * POST /api/public-places/add-by-place-id
    * Body: { placeId: string }

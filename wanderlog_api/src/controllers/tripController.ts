@@ -78,7 +78,7 @@ export const getTripById = async (req: Request, res: Response) => {
 export const manageTripSpot = async (req: Request, res: Response) => {
   try {
     const { id } = req.params; // Trip ID
-    const { spotId, status, priority, visitDate, userRating, userNotes } = req.body;
+    const { spotId, status, priority, visitDate, userRating, userNotes, spot } = req.body;
     const userId = req.user.id;
 
     // Verify trip ownership
@@ -88,6 +88,38 @@ export const manageTripSpot = async (req: Request, res: Response) => {
 
     if (!trip || trip.userId !== userId) {
       return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    // Ensure spot exists (allow creating on the fly if payload provided)
+    const existingSpot = await prisma.spot.findUnique({ where: { id: spotId } });
+    if (!existingSpot) {
+      if (!spot || !spot.name || !spot.city || spot.latitude === undefined || spot.longitude === undefined) {
+        return res.status(400).json({ message: 'Spot not found and insufficient data to create' });
+      }
+      await prisma.spot.create({
+        data: {
+          id: spotId,
+          name: spot.name,
+          city: spot.city,
+          country: spot.country ?? 'Unknown',
+          latitude: spot.latitude,
+          longitude: spot.longitude,
+          address: spot.address,
+          description: spot.description,
+          openingHours: spot.openingHours,
+          rating: spot.rating,
+          ratingCount: spot.ratingCount,
+          category: spot.category,
+          aiSummary: spot.aiSummary,
+          tags: spot.tags != null ? JSON.stringify(spot.tags) : undefined,
+          coverImage: spot.coverImage,
+          images: spot.images != null ? JSON.stringify(spot.images) : undefined,
+          priceLevel: spot.priceLevel,
+          website: spot.website,
+          phoneNumber: spot.phoneNumber,
+          source: spot.source ?? 'user_import',
+        },
+      });
     }
 
     // Upsert TripSpot
@@ -114,12 +146,31 @@ export const manageTripSpot = async (req: Request, res: Response) => {
       },
     });
 
-    res.json(tripSpot);
+    // Load spot for payload
+    const dbSpot = await prisma.spot.findUnique({ where: { id: spotId } });
+    const normalizedSpot = dbSpot
+      ? {
+          ...dbSpot,
+          tags: dbSpot.tags ? JSON.parse(dbSpot.tags) : [],
+          images: dbSpot.images ? JSON.parse(dbSpot.images) : [],
+        }
+      : null;
+
+    const normalizedTripSpot = {
+      ...tripSpot,
+      userPhotos: tripSpot.userPhotos
+        ? JSON.parse(tripSpot.userPhotos as unknown as string)
+        : [],
+      spot: normalizedSpot,
+    };
+
+    res.json(normalizedTripSpot);
   } catch (error) {
     logger.error('Manage TripSpot error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 
 

@@ -34,7 +34,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               _passwordController.text,
             );
         if (mounted) {
-          context.go('/home');
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(true);
+          } else {
+            context.go('/home');
+          }
         }
       } catch (e) {
         if (mounted) {
@@ -84,10 +88,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       
       if (mounted) {
         CustomToast.showSuccess(context, 'Google 登录成功');
-        // 延迟一下让用户看到成功提示
-        await Future<void>.delayed(const Duration(milliseconds: 500));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
         if (mounted) {
-          context.go('/home');
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(true);
+          } else {
+            context.go('/home');
+          }
         }
       }
     } catch (e) {
@@ -111,7 +118,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/home'),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop(false);
+            } else {
+              context.go('/home');
+            }
+          },
         ),
         title: const Text('Login'),
       ),

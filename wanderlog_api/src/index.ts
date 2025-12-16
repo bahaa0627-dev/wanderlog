@@ -42,12 +42,16 @@ app.get('/health', (req, res) => {
 import authRoutes from './routes/authRoutes';
 import spotRoutes from './routes/spotRoutes';
 import tripRoutes from './routes/tripRoutes';
+import destinationRoutes from './routes/destinationRoutes';
 import publicPlaceRoutes from './routes/publicPlaceRoutes';
+import collectionRoutes from './routes/collectionRoutes';
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/spots', spotRoutes);
 app.use('/api/trips', tripRoutes);
+app.use('/api/destinations', destinationRoutes);
+app.use('/api/collections', collectionRoutes);
 app.use('/api/public-places', publicPlaceRoutes);
 // app.use('/api/trips', tripRoutes);
 // app.use('/api/spots', spotRoutes);

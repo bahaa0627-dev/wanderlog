@@ -239,6 +239,10 @@ class _CityBadge extends StatelessWidget {
       ),
     );
 
+    if (cities.isEmpty) {
+      return badge;
+    }
+
     return PopupMenuButton<String>(
       offset: const Offset(0, 24),
       elevation: 4,

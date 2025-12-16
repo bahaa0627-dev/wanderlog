@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/providers/dio_provider.dart';
@@ -25,7 +26,6 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
   List<String> _matchingCities = [];
   bool _isLoading = false;
   Timer? _debounce;
-  final Set<String> _cityCatalog = <String>{};
 
   @override
   void dispose() {
@@ -39,20 +39,26 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
     _debounce?.cancel();
 
     if (trimmed.isEmpty) {
-      setState(() {
-        _selectedCity = null;
-        _showError = false;
-        _matchingCities = const [];
-      });
+      if (mounted) {
+        setState(() {
+          _selectedCity = null;
+          _showError = false;
+          _matchingCities = const [];
+        });
+      }
       return;
     }
 
-    _debounce = Timer(const Duration(milliseconds: 250), () {
-      _fetchCities(trimmed);
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _fetchCities(trimmed);
+      }
     });
   }
 
   Future<void> _fetchCities(String query) async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
       _showError = false;
@@ -60,37 +66,33 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
     });
 
     try {
-      await _ensureCityCatalog();
       final dio = ref.read(dioProvider);
+      // 调用专门的城市列表接口，只返回城市名，不返回完整地点数据
       final response = await dio.get<Map<String, dynamic>>(
-        'public-places/search',
+        'public-places/cities',
         queryParameters: {'q': query},
+        options: Options(
+          receiveTimeout: const Duration(seconds: 5),
+        ),
       );
 
-      final results = response.data?['data'] as List<dynamic>? ?? const [];
+      if (!mounted) return;
+
+      final cities = (response.data?['data'] as List<dynamic>?)
+          ?.map((city) => city.toString())
+          .where((city) => city.isNotEmpty)
+          .toList() ?? [];
+
       final lowerQuery = query.toLowerCase();
-      final citySet = <String>{};
+      final matches = _rankedCityMatches(cities, lowerQuery);
 
-      for (final item in results) {
-        if (item is Map) {
-          final cityValue = item['city'];
-          final city = cityValue?.toString();
-          if (city != null && city.isNotEmpty) {
-            citySet.add(city);
-          }
-        }
-      }
-
-      _cityCatalog.addAll(citySet);
-      final allCities = {..._cityCatalog};
-      final sortedCities = allCities.toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-      final matches = _rankedCityMatches(sortedCities, lowerQuery);
-
+      // 检查是否有精确匹配
       final exactMatch = matches.firstWhere(
         (city) => city.toLowerCase() == lowerQuery,
         orElse: () => '',
       );
+
+      if (!mounted) return;
 
       setState(() {
         _matchingCities = matches;
@@ -99,6 +101,8 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
         _isLoading = false;
       });
     } catch (error) {
+      if (!mounted) return;
+      
       setState(() {
         _matchingCities = const [];
         _selectedCity = null;
@@ -117,29 +121,6 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
     widget.onCitySelected(city);
   }
 
-  Future<void> _ensureCityCatalog() async {
-    if (_cityCatalog.isNotEmpty) {
-      return;
-    }
-    try {
-      final dio = ref.read(dioProvider);
-      final response = await dio.get<Map<String, dynamic>>(
-        'public-places',
-        queryParameters: {'limit': 500, 'page': 1},
-      );
-      final data = response.data?['data'] as List<dynamic>? ?? const [];
-      for (final item in data) {
-        if (item is Map) {
-          final city = item['city']?.toString();
-          if (city != null && city.isNotEmpty) {
-            _cityCatalog.add(city);
-          }
-        }
-      }
-    } catch (_) {
-      // ignore catalog failures and rely on search results only
-    }
-  }
 
   List<String> _rankedCityMatches(List<String> cities, String lowerQuery) {
     if (lowerQuery.isEmpty) {
@@ -207,6 +188,8 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
             TextField(
               controller: _cityController,
               onChanged: _onCityInputChanged,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
                 hintText: 'Enter city name...',
                 hintStyle: AppTheme.bodyMedium(context).copyWith(
@@ -361,7 +344,7 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        "sorry, we don't have spots from this city yet",
+                        "Sorry, we don't have spots from this city yet",
                         style: AppTheme.labelMedium(context).copyWith(
                           color: Colors.red,
                         ),

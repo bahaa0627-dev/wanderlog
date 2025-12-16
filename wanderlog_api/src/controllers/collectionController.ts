@@ -236,8 +236,29 @@ class CollectionController {
   async list(req: Request, res: Response) {
     try {
       const includeAll = req.query.includeAll === 'true' || req.query.all === 'true';
+      const userId = (req as any).user?.id;
+
+      // 如果用户已登录且不是查看全部，则只返回用户收藏的合集
+      let whereClause: any = {};
+      if (!includeAll) {
+        if (userId) {
+          // 只返回用户收藏的已发布合集
+          whereClause = {
+            isPublished: true,
+            userCollections: {
+              some: {
+                userId: userId,
+              },
+            },
+          };
+        } else {
+          // 未登录用户只看到已发布的合集（但不包括收藏关系）
+          whereClause = { isPublished: true };
+        }
+      }
+
       const collections = await prisma.collection.findMany({
-        where: includeAll ? undefined : { isPublished: true },
+        where: includeAll ? undefined : whereClause,
         orderBy: { createdAt: 'desc' },
         include: {
           collectionSpots: {
@@ -384,6 +405,7 @@ class CollectionController {
   async getById(req: Request, res: Response) {
     try {
       const { id } = req.params;
+      const userId = (req as any).user?.id;
 
       const collection = await prisma.collection.findUnique({
         where: { id },
@@ -391,6 +413,12 @@ class CollectionController {
           collectionSpots: {
             include: { spot: true },
           },
+          userCollections: userId
+            ? {
+                where: { userId },
+                select: { id: true },
+              }
+            : false,
         },
       });
 
@@ -398,9 +426,13 @@ class CollectionController {
         return res.status(404).json({ success: false, message: 'Collection not found' });
       }
 
+      // 检查是否已收藏
+      const isFavorited = userId && collection.userCollections && (collection.userCollections as any[]).length > 0;
+
       // 规范化数据格式，与 list 方法保持一致
       const normalized = {
         ...collection,
+        isFavorited: !!isFavorited,
         people: collection.people ? JSON.parse(collection.people) : [],
         works: collection.works ? JSON.parse(collection.works) : [],
         collectionSpots: collection.collectionSpots.map((cs) => ({
@@ -414,6 +446,9 @@ class CollectionController {
             : null,
         })),
       };
+
+      // 移除 userCollections 字段，因为已经提取到 isFavorited
+      delete (normalized as any).userCollections;
 
       return res.json({ success: true, data: normalized });
     } catch (error: any) {

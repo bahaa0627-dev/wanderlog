@@ -81,9 +81,9 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
             spotsCount: count,
             image: cover,
             tags: tags,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
+            onTap: () async {
+              final result = await Navigator.of(context).push<bool>(
+                MaterialPageRoute<bool>(
                   builder: (_) => AlbumSpotsMapPage(
                     city: city,
                     albumTitle: collection['name'] as String? ?? 'Collection',
@@ -107,6 +107,10 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
                   ),
                 ),
               );
+              // 如果返回 true，表示需要刷新列表（取消收藏了）
+              if (result == true && mounted) {
+                _loadCollections();
+              }
             },
           ),
         );

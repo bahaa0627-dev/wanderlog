@@ -112,6 +112,15 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
         final collection = await repo.getCollection(widget.collectionId!);
         print('📦 获取到合集数据: ${collection.keys}');
         
+        // 加载收藏状态
+        final isFavorited = collection['isFavorited'] as bool? ?? false;
+        if (mounted) {
+          setState(() {
+            _isFavorite = isFavorited;
+          });
+        }
+        print('❤️ 收藏状态: $isFavorited');
+        
         final collectionSpots = collection['collectionSpots'] as List<dynamic>? ?? [];
         print('📍 合集中的地点数量: ${collectionSpots.length}');
         
@@ -458,6 +467,7 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
 
     setState(() => _isFavLoading = true);
     try {
+      final wasFavorited = _isFavorite;
       if (!_isFavorite) {
         await _ensureDestinationsForCities();
         await ref.read(collectionRepositoryProvider).favoriteCollection(collectionId);
@@ -466,6 +476,15 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
       }
       if (mounted) {
         setState(() => _isFavorite = !_isFavorite);
+        
+        // 如果取消收藏，返回上一页并刷新列表
+        if (wasFavorited && !_isFavorite) {
+          // 延迟一下，让用户看到按钮状态变化
+          await Future.delayed(const Duration(milliseconds: 300));
+          if (mounted) {
+            Navigator.of(context).pop(true); // 返回 true 表示需要刷新
+          }
+        }
       }
     } catch (e) {
       if (mounted) {

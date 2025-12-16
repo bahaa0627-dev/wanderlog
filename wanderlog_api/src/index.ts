@@ -28,8 +28,14 @@ app.use(helmet({
   contentSecurityPolicy: false, // 允许内联脚本用于管理后台
 }));
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' })); // 增加JSON body大小限制到50MB
+app.use(express.urlencoded({ extended: true, limit: '50mb' })); // 增加URL编码body大小限制
+
+// 简易请求日志，方便排查前端请求是否命中后端
+app.use((req, _res, next) => {
+  console.log(`➡️  ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // 静态文件服务 - 管理后台
 app.use('/admin', express.static('public'));

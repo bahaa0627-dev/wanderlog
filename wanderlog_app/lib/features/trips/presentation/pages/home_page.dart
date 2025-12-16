@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -448,20 +450,34 @@ class _TripCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // 背景图片
-                Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const ColoredBox(
-                    color: AppTheme.lightGray,
-                    child: Icon(
-                      Icons.image,
-                      size: 50,
-                      color: AppTheme.mediumGray,
-                    ),
-                  ),
-                ),
+                // 背景图片 - 支持 DataURL (base64) 和网络图片
+                imageUrl.startsWith('data:image/')
+                    ? Image.memory(
+                        _decodeBase64Image(imageUrl),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const ColoredBox(
+                          color: AppTheme.lightGray,
+                          child: Icon(
+                            Icons.image,
+                            size: 50,
+                            color: AppTheme.mediumGray,
+                          ),
+                        ),
+                      )
+                    : Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const ColoredBox(
+                          color: AppTheme.lightGray,
+                          child: Icon(
+                            Icons.image,
+                            size: 50,
+                            color: AppTheme.mediumGray,
+                          ),
+                        ),
+                      ),
 
                 // 底部黑色渐变蒙层
                 Positioned(
@@ -586,4 +602,14 @@ class _TripCard extends StatelessWidget {
           ),
         ),
       );
+  
+  // 解码 base64 图片
+  static Uint8List _decodeBase64Image(String dataUrl) {
+    try {
+      final base64String = dataUrl.split(',').last;
+      return base64Decode(base64String);
+    } catch (e) {
+      return Uint8List(0);
+    }
+  }
 }

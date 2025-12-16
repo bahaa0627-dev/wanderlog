@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
@@ -164,6 +166,16 @@ class _CollectionCard extends StatelessWidget {
   final List<String> tags;
   final VoidCallback onTap;
 
+  // 解码 base64 图片
+  static Uint8List _decodeBase64Image(String dataUrl) {
+    try {
+      final base64String = dataUrl.split(',').last;
+      return base64Decode(base64String);
+    } catch (e) {
+      return Uint8List(0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -183,22 +195,37 @@ class _CollectionCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2),
           child: Stack(
             children: [
-              // 背景图片
+              // 背景图片 - 支持 DataURL (base64) 和网络图片
               Positioned.fill(
-                child: Image.network(
-                  image,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: AppTheme.background,
-                    child: const Center(
-                      child: Icon(
-                        Icons.image_outlined,
-                        size: 40,
-                        color: Colors.grey,
+                child: image.startsWith('data:image/')
+                    ? Image.memory(
+                        _decodeBase64Image(image),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: AppTheme.background,
+                          child: const Center(
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 40,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Image.network(
+                        image,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: AppTheme.background,
+                          child: const Center(
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 40,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
               ),
 
               // 渐变遮罩

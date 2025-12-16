@@ -337,6 +337,197 @@
             color: #ffc107;
             margin-right: 4px;
         }
+
+        .nav-tabs {
+            display: flex;
+            gap: 12px;
+            padding: 16px 24px 0 24px;
+        }
+
+        .tab-btn {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            background: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            color: #444;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: #667eea;
+            color: #fff;
+            border-color: #667eea;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .form-card {
+            margin: 16px 24px;
+            padding: 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .form-group input, .form-group textarea {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .token-note {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .upload-hint {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .upload-preview {
+            margin-top: 8px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .upload-preview img {
+            width: 120px;
+            height: 160px; /* 3:4 portrait preview */
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            background: #f5f5f5;
+        }
+
+        .upload-preview .info {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .dropdown {
+            position: relative;
+        }
+
+        .dropdown-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+
+        .dropdown-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+
+        .dropdown-item:hover {
+            background: #f5f5f5;
+        }
+
+        .chip-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .chip {
+            background: #eef2ff;
+            color: #3743a6;
+            padding: 8px 10px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #dfe3ff;
+        }
+
+        .chip button {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: #999;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .section-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .list-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .tag-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .tag-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .tag-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+
+        .accordion {
+            margin-top: 8px;
+        }
+
+        .accordion details summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #444;
+        }
     </style>
 </head>
 <body>
@@ -346,6 +537,12 @@
             <p>筛选、搜索和浏览数据库中的所有地点</p>
         </div>
 
+        <div class="nav-tabs">
+            <button class="tab-btn active" id="tab-places" onclick="showSection('places')">地点库</button>
+            <button class="tab-btn" id="tab-collections" onclick="showSection('collections')">合集管理</button>
+        </div>
+
+        <div id="placesSection" class="section active">
         <div class="filters">
             <div class="filter-row">
                 <div class="filter-group">
@@ -412,32 +609,187 @@
         </div>
 
         <div class="pagination" id="pagination" style="display: none;"></div>
+        </div> <!-- placesSection -->
+
+        <div id="collectionsSection" class="section">
+            <div id="collectionFormHeader" style="display: none; margin-bottom: 16px;">
+                <button class="btn btn-secondary" onclick="cancelEdit()">← 返回列表</button>
+                <span id="editModeTitle" style="margin-left: 16px; font-weight: 600; color: #666;"></span>
+            </div>
+            <div class="form-card">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>管理员 JWT（用于创建合集）</label>
+                        <input id="adminToken" type="password" placeholder="Bearer token">
+                        <div class="token-note">需要先登录获取 token（/api/auth/login）</div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>合集名称 *</label>
+                        <input id="colName" type="text" placeholder="如：哥本哈根必去咖啡馆">
+                    </div>
+                    <div class="form-group">
+                        <label>描述</label>
+                        <input id="colDesc" type="text" placeholder="一句话描述">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>封面图上传 *（竖向 4:3，≤5MB）</label>
+                        <input id="colCoverFile" type="file" accept="image/*" onchange="handleCoverFile(this.files)">
+                        <div class="upload-hint">支持本地图片，自动转换为 DataURL。尺寸≤5MB，宽高约 3:4（竖向）。</div>
+                        <div class="upload-preview" id="coverPreview" style="display:none;">
+                            <img id="coverPreviewImg" alt="封面预览">
+                            <div class="info" id="coverPreviewInfo"></div>
+                        </div>
+                        <input id="colCover" type="hidden">
+                    </div>
+                </div>
+                <div class="form-card" style="margin:0; margin-top:8px;">
+                    <div class="section-title">地点选择（必填，至少 1 个，可添加多个）</div>
+                    <div class="form-row">
+                        <div class="form-group dropdown">
+                            <label>地点名称（输入字母进行模糊匹配搜索）</label>
+                            <input id="spotSearchInput" type="text" placeholder="输入地点名称、地址或城市进行搜索..." oninput="handleSpotSearch(this.value)">
+                            <div id="spotSearchDropdown" class="dropdown-list" style="display:none;"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>纬度</label>
+                            <input id="spotLat" type="number" step="0.000001" placeholder="如 55.6761">
+                        </div>
+                        <div class="form-group">
+                            <label>经度</label>
+                            <input id="spotLng" type="number" step="0.000001" placeholder="如 12.5683">
+                        </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-secondary" onclick="searchByLatLng()">按经纬度查找</button>
+                        </div>
+                    </div>
+                    <div id="selectedSpots" class="chip-list"></div>
+                </div>
+
+                <div class="form-card" style="margin:0; margin-top:8px;">
+                    <div class="section-title">人物（可选）</div>
+                    <div class="form-actions" style="margin-top:0;">
+                        <button class="btn btn-secondary" type="button" onclick="addPerson()">+ 添加人物</button>
+                    </div>
+                    <div id="peopleList"></div>
+                </div>
+
+                <div class="form-card" style="margin:0; margin-top:8px;">
+                    <div class="section-title">作品（可选）</div>
+                    <div class="form-actions" style="margin-top:0;">
+                        <button class="btn btn-secondary" type="button" onclick="addWork()">+ 添加作品</button>
+                    </div>
+                    <div id="worksList"></div>
+                </div>
+
+                <div class="form-actions">
+                    <button class="btn btn-primary" id="saveCollectionBtn" onclick="createCollection()">创建合集</button>
+                    <button class="btn btn-secondary" onclick="clearCollectionForm()">清空</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <div id="collectionsLoading" class="loading">加载中</div>
+                <div id="collectionsEmpty" class="empty" style="display:none;">暂无合集</div>
+                <table id="collectionsTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>封面</th>
+                            <th>名称</th>
+                            <th>地点数量</th>
+                            <th>状态</th>
+                            <th>描述</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="collectionsBody"></tbody>
+                </table>
+            </div>
+        </div> <!-- collectionsSection -->
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:3000/api/public-places';
+        // 使用相对路径，避免本地/代理环境下 localhost 解析异常导致请求卡住
+        const API_BASE = '/api/public-places';
+        const SPOT_API_BASE = '/api/spots';
+        const COLLECTION_API_BASE = '/api/collections';
+        const FETCH_TIMEOUT = 10000; // 10s 超时，避免请求长时间卡住
         let currentPage = 1;
         let totalPages = 1;
         let filters = {};
         let allPlaces = []; // 缓存所有地点数据
+        let collections = [];
+        let selectedSpots = [];
+        let spotSearchTimer = null;
+        let editingCollectionId = null;
+        let peopleListData = [];
+        let worksListData = [];
+
+        function fetchWithTimeout(url, options = {}, timeout = FETCH_TIMEOUT) {
+            return Promise.race([
+                fetch(url, options),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout))
+            ]);
+        }
 
         // 初始化
         async function init() {
-            await loadAllPlaces();
-            updateFilterOptions();
+            // 并行加载，不阻塞地点列表显示
+            loadAllPlaces().then(() => {
+                updateFilterOptions();
+            }).catch(err => {
+                console.error('加载筛选器数据失败，但不影响地点列表显示:', err);
+            });
+            
+            // 立即加载地点列表，不等待 loadAllPlaces
             await loadPlaces();
+            
+            // 加载合集（可选，不阻塞）
+            loadCollections().catch(err => {
+                console.error('加载合集失败:', err);
+            });
+        }
+
+        // 切换页签
+        async function showSection(section) {
+            document.getElementById('placesSection').classList.remove('active');
+            document.getElementById('collectionsSection').classList.remove('active');
+            document.getElementById('tab-places').classList.remove('active');
+            document.getElementById('tab-collections').classList.remove('active');
+
+            if (section === 'collections') {
+                document.getElementById('collectionsSection').classList.add('active');
+                document.getElementById('tab-collections').classList.add('active');
+                if (collections.length === 0) {
+                    await loadCollections();
+                }
+                // 如果不在编辑模式，显示列表
+                if (!editingCollectionId) {
+                    showCollectionsList();
+                }
+            } else {
+                document.getElementById('placesSection').classList.add('active');
+                document.getElementById('tab-places').classList.add('active');
+            }
         }
 
         // 加载所有地点数据（用于筛选器联动）
         async function loadAllPlaces() {
             try {
-                const response = await fetch(`${API_BASE}?limit=1000`);
+                // 增加超时时间到30秒，因为要加载1000条数据
+                const response = await fetchWithTimeout(`${API_BASE}?limit=1000`, {}, 30000);
                 const result = await response.json();
                 if (result.success && result.data) {
                     allPlaces = result.data;
                 }
             } catch (error) {
                 console.error('加载地点数据失败:', error);
+                // 不显示错误信息，因为不影响地点列表显示
             }
         }
 
@@ -589,7 +941,7 @@
                     ...filters
                 });
 
-                const response = await fetch(`${API_BASE}?${params}`);
+                const response = await fetchWithTimeout(`${API_BASE}?${params}`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -602,6 +954,7 @@
                 }
             } catch (error) {
                 console.error('加载地点失败:', error);
+                document.getElementById('loading').textContent = '加载失败，请检查 /api/public-places';
                 showEmpty();
             }
         }
@@ -839,6 +1192,670 @@
         // 页面加载完成后初始化
         init();
         setupFilterListeners();
+
+        // --- 合集相关 ---
+        async function loadCollections() {
+            try {
+                document.getElementById('collectionsLoading').style.display = 'block';
+                document.getElementById('collectionsLoading').textContent = '加载中...';
+                document.getElementById('collectionsEmpty').style.display = 'none';
+                document.getElementById('collectionsTable').style.display = 'none';
+
+                const headers = {};
+                const token = document.getElementById('adminToken').value.trim();
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                const res = await fetchWithTimeout(`${COLLECTION_API_BASE}?includeAll=true`, { headers });
+                const result = await res.json();
+                if (result.success && Array.isArray(result.data)) {
+                    collections = result.data;
+                    renderCollections();
+                } else {
+                    throw new Error(result.message || '加载失败');
+                }
+            } catch (e) {
+                console.error('加载合集失败:', e);
+                document.getElementById('collectionsLoading').style.display = 'block';
+                document.getElementById('collectionsLoading').textContent = `加载失败: ${e.message || '请检查后端 /api/collections 或是否已设置管理员 Token'}`;
+                document.getElementById('collectionsEmpty').style.display = 'none';
+                document.getElementById('collectionsTable').style.display = 'none';
+            }
+        }
+
+        function renderCollections() {
+            const body = document.getElementById('collectionsBody');
+            body.innerHTML = '';
+
+            if (collections.length === 0) {
+                document.getElementById('collectionsLoading').style.display = 'none';
+                document.getElementById('collectionsEmpty').style.display = 'block';
+                document.getElementById('collectionsTable').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('collectionsLoading').style.display = 'none';
+            document.getElementById('collectionsEmpty').style.display = 'none';
+            document.getElementById('collectionsTable').style.display = 'table';
+
+            collections.forEach(col => {
+                const tr = document.createElement('tr');
+                const count = Array.isArray(col.collectionSpots) ? col.collectionSpots.length : 0;
+                const statusTag = col.isPublished 
+                    ? '<span class="tag tag-success">已上线</span>'
+                    : '<span class="tag tag-warning">未上线</span>';
+                tr.innerHTML = `
+                    <td>${col.coverImage ? `<img src="${col.coverImage}" class="photo" alt="${col.name}" onerror="this.outerHTML='<div class=\\'photo-placeholder\\'>📷</div>'">` : '<div class="photo-placeholder">📷</div>'}</td>
+                    <td class="place-name">${col.name}</td>
+                    <td>${count}</td>
+                    <td>${statusTag}</td>
+                    <td>
+                        ${col.description || '-'}
+                        <div class="accordion">
+                            <details>
+                                <summary>地点列表（${count}）</summary>
+                                <ul style="padding-left:16px;">
+                                    ${(col.collectionSpots || []).map(cs => `<li>${cs.spot?.name || cs.spotId} - ${cs.spot?.city || ''} ${cs.spot?.address || ''}</li>`).join('')}
+                                </ul>
+                            </details>
+                            ${(col.people ? (() => { try { const arr = JSON.parse(col.people); return `<details><summary>人物</summary><ul style=\"padding-left:16px;\">${arr.map((p)=>`<li>${p.name || ''}${p.link?` - <a href='${p.link}' target='_blank'>链接</a>`:''}</li>`).join('')}</ul></details>`; } catch { return ''; } })() : '')}
+                            ${(col.works ? (() => { try { const arr = JSON.parse(col.works); return `<details><summary>作品</summary><ul style=\"padding-left:16px;\">${arr.map((w)=>`<li>${w.name || ''}${w.link?` - <a href='${w.link}' target='_blank'>链接</a>`:''}</li>`).join('')}</ul></details>`; } catch { return ''; } })() : '')}
+                        </div>
+                    </td>
+                    <td>${col.createdAt ? new Date(col.createdAt).toLocaleString() : '-'}</td>
+                    <td>
+                        <div class="list-actions">
+                            ${col.isPublished 
+                                ? `<button class="btn btn-secondary" onclick="unpublishCollection('${col.id}')">下线</button>`
+                                : `<button class="btn btn-primary" onclick="publishCollection('${col.id}')">上线</button>`}
+                            ${col.isPublished 
+                                ? `<button class="btn btn-secondary" disabled>已上线不可编辑</button>`
+                                : `<button class="btn btn-secondary" onclick="startEditCollection('${col.id}')">编辑</button>`}
+                        </div>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function clearCollectionForm() {
+            editingCollectionId = null;
+            document.getElementById('colName').value = '';
+            document.getElementById('colDesc').value = '';
+            clearCoverFile();
+            selectedSpots = [];
+            renderSelectedSpots();
+            peopleListData = [];
+            worksListData = [];
+            renderPeople();
+            renderWorks();
+            
+            // 隐藏编辑模式UI
+            document.getElementById('collectionFormHeader').style.display = 'none';
+            document.getElementById('saveCollectionBtn').textContent = '创建合集';
+            
+            // 显示列表
+            showCollectionsList();
+        }
+
+        async function createCollection() {
+            const token = document.getElementById('adminToken').value.trim();
+            const name = document.getElementById('colName').value.trim();
+            const description = document.getElementById('colDesc').value.trim();
+            const coverImage = document.getElementById('colCover').value.trim();
+
+            if (!token) return alert('请先填入管理员 JWT（/api/auth/login 获取）');
+            if (!name) return alert('名称必填');
+            if (!coverImage) return alert('请上传封面图');
+            if (selectedSpots.length === 0) return alert('请至少选择一个地点');
+
+            try {
+                const isEdit = !!editingCollectionId;
+                
+                const payload = { 
+                    name, 
+                    coverImage,
+                    description: description || undefined, 
+                    spotIds: selectedSpots.map(s => s.id),
+                    people: peopleListData.length > 0 ? peopleListData : undefined,
+                    works: worksListData.length > 0 ? worksListData : undefined,
+                };
+                
+                console.log('发送请求:', {
+                    url: isEdit ? `${COLLECTION_API_BASE}/${editingCollectionId}` : COLLECTION_API_BASE,
+                    method: isEdit ? 'PUT' : 'POST',
+                    payload: {
+                        ...payload,
+                        coverImage: payload.coverImage ? `${payload.coverImage.substring(0, 50)}...` : null,
+                    }
+                });
+                
+                const res = await fetch(isEdit ? `${COLLECTION_API_BASE}/${editingCollectionId}` : COLLECTION_API_BASE, {
+                    method: isEdit ? 'PUT' : 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                console.log('API响应:', result);
+                
+                if (!res.ok) {
+                    // HTTP错误状态码
+                    let errorMsg = '创建失败';
+                    if (result.message) {
+                        errorMsg = typeof result.message === 'string' ? result.message : JSON.stringify(result.message);
+                    } else if (result.error) {
+                        errorMsg = typeof result.error === 'string' ? result.error : JSON.stringify(result.error);
+                    } else {
+                        errorMsg = `HTTP ${res.status}: ${res.statusText}`;
+                    }
+                    console.error('创建合集失败:', result);
+                    alert(`创建失败: ${errorMsg}`);
+                    return;
+                }
+                
+                if (result.success) {
+                    alert(isEdit ? '保存成功' : '创建成功（默认未上线）');
+                    
+                    if (isEdit) {
+                        // 编辑模式：刷新数据并保持在编辑状态
+                        await loadCollections();
+                        const updatedCol = collections.find(c => c.id === editingCollectionId);
+                        if (updatedCol) {
+                            startEditCollection(editingCollectionId);
+                        }
+                    } else {
+                        // 创建模式：跳转到编辑页面
+                        const newCollectionId = result.data?.id;
+                        if (newCollectionId) {
+                            await loadCollections();
+                            startEditCollection(newCollectionId);
+                            showSection('collections');
+                        } else {
+                            clearCollectionForm();
+                            await loadCollections();
+                            showSection('collections');
+                        }
+                    }
+                } else {
+                    let errorMsg = '创建失败';
+                    if (result.message) {
+                        errorMsg = typeof result.message === 'string' ? result.message : JSON.stringify(result.message);
+                    } else if (result.error) {
+                        errorMsg = typeof result.error === 'string' ? result.error : JSON.stringify(result.error);
+                    }
+                    console.error('创建合集失败:', result);
+                    alert(`创建失败: ${errorMsg}`);
+                }
+            } catch (e) {
+                console.error('创建合集失败', e);
+                const errorMsg = e instanceof Error ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
+                alert(`创建失败: ${errorMsg}\n\n请打开浏览器控制台查看详细信息`);
+            }
+        }
+
+        async function publishCollection(id) {
+            const token = document.getElementById('adminToken').value.trim();
+            if (!token) return alert('请先填入管理员 JWT');
+            await fetch(`${COLLECTION_API_BASE}/${id}/publish`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            await loadCollections();
+        }
+
+        async function unpublishCollection(id) {
+            const token = document.getElementById('adminToken').value.trim();
+            if (!token) return alert('请先填入管理员 JWT');
+            await fetch(`${COLLECTION_API_BASE}/${id}/unpublish`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            await loadCollections();
+        }
+
+        function startEditCollection(id) {
+            const col = collections.find(c => c.id === id);
+            if (!col) {
+                alert('合集不存在，请刷新列表');
+                return;
+            }
+            if (col.isPublished) {
+                alert('已上线合集不可编辑，请先下线');
+                return;
+            }
+            
+            editingCollectionId = id;
+            
+            // 显示编辑模式UI
+            document.getElementById('collectionFormHeader').style.display = 'block';
+            document.getElementById('editModeTitle').textContent = `编辑合集: ${col.name}`;
+            document.getElementById('saveCollectionBtn').textContent = '保存修改';
+            
+            // 填充表单数据
+            document.getElementById('colName').value = col.name || '';
+            document.getElementById('colDesc').value = col.description || '';
+            
+            // 设置封面图
+            if (col.coverImage) {
+                document.getElementById('colCover').value = col.coverImage;
+                const preview = document.getElementById('coverPreview');
+                const imgEl = document.getElementById('coverPreviewImg');
+                imgEl.src = col.coverImage;
+                preview.style.display = 'flex';
+                document.getElementById('coverPreviewInfo').textContent = '已设置封面图';
+            } else {
+                clearCoverFile();
+            }
+            
+            // 设置地点
+            selectedSpots = (col.collectionSpots || []).map(cs => ({
+                id: cs.spotId,
+                name: cs.spot?.name || cs.spotId,
+                city: cs.spot?.city,
+                address: cs.spot?.address,
+            }));
+            renderSelectedSpots();
+
+            // 设置人物
+            try {
+                peopleListData = col.people ? JSON.parse(col.people) : [];
+            } catch { 
+                peopleListData = []; 
+            }
+            renderPeople();
+            
+            // 设置作品
+            try {
+                worksListData = col.works ? JSON.parse(col.works) : [];
+            } catch { 
+                worksListData = []; 
+            }
+            renderWorks();
+            
+            // 切换到合集管理页面，并隐藏列表
+            showSection('collections');
+            hideCollectionsList();
+            
+            // 滚动到表单顶部
+            document.getElementById('collectionsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        function cancelEdit() {
+            if (confirm('确定要取消编辑吗？未保存的修改将丢失。')) {
+                clearCollectionForm();
+            }
+        }
+        
+        function hideCollectionsList() {
+            const tableContainer = document.querySelector('#collectionsSection .table-container');
+            if (tableContainer) {
+                tableContainer.style.display = 'none';
+            }
+        }
+        
+        function showCollectionsList() {
+            const tableContainer = document.querySelector('#collectionsSection .table-container');
+            if (tableContainer) {
+                tableContainer.style.display = 'block';
+            }
+        }
+
+        // 地点搜索/选择 - 从公共地点库搜索，支持模糊匹配
+        function handleSpotSearch(value) {
+            const query = value.trim();
+            const dropdown = document.getElementById('spotSearchDropdown');
+            if (spotSearchTimer) clearTimeout(spotSearchTimer);
+            if (query.length < 1) {
+                dropdown.style.display = 'none';
+                dropdown.innerHTML = '';
+                return;
+            }
+            spotSearchTimer = setTimeout(async () => {
+                try {
+                    // 使用公共地点库API，支持模糊搜索
+                    const res = await fetch(`${API_BASE}?search=${encodeURIComponent(query)}&limit=20`);
+                    const data = await res.json();
+                    if (data.success && data.data) {
+                        // 模糊匹配：名称或地址包含查询字符串
+                        const queryLower = query.toLowerCase();
+                        const filtered = data.data.filter((s) => {
+                            const name = (s.name || '').toLowerCase();
+                            const address = (s.address || '').toLowerCase();
+                            const city = (s.city || '').toLowerCase();
+                            return name.includes(queryLower) || address.includes(queryLower) || city.includes(queryLower);
+                        });
+                        renderSpotDropdown(filtered, query);
+                    } else {
+                        dropdown.style.display = 'none';
+                    }
+                } catch (e) {
+                    console.error('搜索地点失败', e);
+                    dropdown.style.display = 'none';
+                }
+            }, 200);
+        }
+
+        async function searchByLatLng() {
+            const lat = parseFloat(document.getElementById('spotLat').value);
+            const lng = parseFloat(document.getElementById('spotLng').value);
+            if (Number.isNaN(lat) || Number.isNaN(lng)) {
+                return alert('请输入经纬度');
+            }
+            const dropdown = document.getElementById('spotSearchDropdown');
+            try {
+                // 使用公共地点库API，通过经纬度搜索
+                const res = await fetch(`${API_BASE}?lat=${lat}&lng=${lng}&radius=5000&limit=20`);
+                const data = await res.json();
+                if (data.success && data.data) {
+                    renderSpotDropdown(data.data, '');
+                } else {
+                    dropdown.style.display = 'none';
+                }
+            } catch (e) {
+                console.error('经纬度搜索失败', e);
+                dropdown.style.display = 'none';
+            }
+        }
+
+        function renderSpotDropdown(list, query) {
+            const dropdown = document.getElementById('spotSearchDropdown');
+            if (!list || list.length === 0) {
+                dropdown.style.display = 'none';
+                dropdown.innerHTML = '';
+                return;
+            }
+            dropdown.style.display = 'block';
+            dropdown.innerHTML = '';
+            list.forEach((s) => {
+                const item = document.createElement('div');
+                item.className = 'dropdown-item';
+                item.setAttribute('data-id', s.id || '');
+                item.setAttribute('data-name', s.name || '');
+                item.setAttribute('data-city', s.city || '');
+                item.setAttribute('data-address', s.address || '');
+                item.style.cursor = 'pointer';
+                item.innerHTML = `
+                    <div><strong>${s.name || ''}</strong></div>
+                    <div style="color:#666;font-size:12px;">${s.city || ''} ${s.address || ''}</div>
+                `;
+                item.addEventListener('click', () => {
+                    addSpot(s.id || '', s.name || '', s.city || '', s.address || '');
+                });
+                dropdown.appendChild(item);
+            });
+        }
+
+        async function addSpot(publicPlaceId, name, city, address) {
+            // 检查是否已添加（通过名称和城市判断，因为ID可能会变化）
+            if (selectedSpots.some(s => s.name === name && s.city === city)) {
+                alert('该地点已添加');
+                document.getElementById('spotSearchDropdown').style.display = 'none';
+                document.getElementById('spotSearchInput').value = '';
+                return;
+            }
+            
+            // 将publicPlace ID转换为spot ID
+            try {
+                const res = await fetch(`${SPOT_API_BASE}/from-public-place`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ publicPlaceId }),
+                });
+                
+                const result = await res.json();
+                
+                if (result.success && result.spot) {
+                    // 使用spot ID
+                    selectedSpots.push({ 
+                        id: result.spot.id, 
+                        name: result.spot.name || name, 
+                        city: result.spot.city || city, 
+                        address: result.spot.address || address 
+                    });
+                    renderSelectedSpots();
+                    document.getElementById('spotSearchDropdown').style.display = 'none';
+                    document.getElementById('spotSearchInput').value = '';
+                } else {
+                    throw new Error(result.message || '转换失败');
+                }
+            } catch (error) {
+                console.error('转换spot ID失败:', error);
+                alert(`添加地点失败: ${error.message || '请重试'}`);
+            }
+        }
+
+        function removeSpot(id) {
+            selectedSpots = selectedSpots.filter(s => s.id !== id);
+            renderSelectedSpots();
+        }
+
+        function renderSelectedSpots() {
+            const container = document.getElementById('selectedSpots');
+            container.innerHTML = '';
+            selectedSpots.forEach((s, index) => {
+                const chip = document.createElement('div');
+                chip.className = 'chip';
+                chip.innerHTML = `
+                    <span>${s.name || ''}</span>
+                    <span style="color:#777;font-size:12px;">${s.city || ''}</span>
+                    <button>×</button>
+                `;
+                chip.querySelector('button').addEventListener('click', () => {
+                    removeSpot(s.id);
+                });
+                container.appendChild(chip);
+            });
+        }
+
+        // 人物与作品
+        function renderPeople() {
+            const container = document.getElementById('peopleList');
+            container.innerHTML = peopleListData.map((p, idx) => `
+                <div class="form-card" style="margin:8px 0;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>姓名</label>
+                            <input type="text" value="${p.name || ''}" oninput="updatePerson(${idx}, 'name', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>链接</label>
+                            <input type="text" value="${p.link || ''}" oninput="updatePerson(${idx}, 'link', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>头像上传（≤5MB）</label>
+                            <input type="file" accept="image/*" onchange="handlePersonAvatar(${idx}, this.files)">
+                            ${p.avatarUrl ? `<div class="upload-preview" style="display:flex;"><img src="${p.avatarUrl}" alt="avatar"></div>` : ''}
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-secondary" type="button" onclick="removePerson(${idx})">删除人物</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderWorks() {
+            const container = document.getElementById('worksList');
+            container.innerHTML = worksListData.map((w, idx) => `
+                <div class="form-card" style="margin:8px 0;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>作品名</label>
+                            <input type="text" value="${w.name || ''}" oninput="updateWork(${idx}, 'name', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>链接</label>
+                            <input type="text" value="${w.link || ''}" oninput="updateWork(${idx}, 'link', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label>封面上传（≤5MB）</label>
+                            <input type="file" accept="image/*" onchange="handleWorkCover(${idx}, this.files)">
+                            ${w.coverImage ? `<div class="upload-preview" style="display:flex;"><img src="${w.coverImage}" alt="work"></div>` : ''}
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-secondary" type="button" onclick="removeWork(${idx})">删除作品</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function addPerson() {
+            peopleListData.push({ name: '', avatarUrl: '', link: '' });
+            renderPeople();
+        }
+
+        function addWork() {
+            worksListData.push({ name: '', coverImage: '', link: '' });
+            renderWorks();
+        }
+
+        function removePerson(idx) {
+            peopleListData.splice(idx, 1);
+            renderPeople();
+        }
+
+        function removeWork(idx) {
+            worksListData.splice(idx, 1);
+            renderWorks();
+        }
+
+        function updatePerson(idx, key, value) {
+            peopleListData[idx][key] = value;
+        }
+
+        function updateWork(idx, key, value) {
+            worksListData[idx][key] = value;
+        }
+
+        async function handlePersonAvatar(idx, files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            if (file.size > 5 * 1024 * 1024) {
+                alert('图片超过 5MB，无法选择');
+                return;
+            }
+            try {
+                const compressedDataUrl = await compressImage(file, 800, 800, 0.8);
+                peopleListData[idx].avatarUrl = compressedDataUrl;
+                renderPeople();
+            } catch (error) {
+                console.error('图片压缩失败:', error);
+                alert('图片处理失败，请重试');
+            }
+        }
+
+        async function handleWorkCover(idx, files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            if (file.size > 5 * 1024 * 1024) {
+                alert('图片超过 5MB，无法选择');
+                return;
+            }
+            try {
+                const compressedDataUrl = await compressImage(file, 800, 800, 0.8);
+                worksListData[idx].coverImage = compressedDataUrl;
+                renderWorks();
+            } catch (error) {
+                console.error('图片压缩失败:', error);
+                alert('图片处理失败，请重试');
+            }
+        }
+
+        // 压缩图片
+        function compressImage(file, maxWidth = 1200, maxHeight = 1600, quality = 0.8) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+
+                        // 计算新尺寸，保持宽高比
+                        if (width > maxWidth || height > maxHeight) {
+                            const ratio = Math.min(maxWidth / width, maxHeight / height);
+                            width = width * ratio;
+                            height = height * ratio;
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // 转换为DataURL，使用JPEG格式压缩
+                        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                        resolve(compressedDataUrl);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function handleCoverFile(files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+                alert('图片超过 5MB，无法选择');
+                clearCoverFile();
+                return;
+            }
+
+            try {
+                // 压缩图片
+                const compressedDataUrl = await compressImage(file, 1200, 1600, 0.8);
+                
+                const img = new Image();
+                img.onload = () => {
+                    const { width, height } = img;
+                    const ratio = width / height; // portrait expected ~ 3/4 = 0.75
+                    const isPortrait43 = ratio >= 0.7 && ratio <= 0.8;
+                    if (!isPortrait43) {
+                        alert('请使用竖向 4:3 图片（宽高比约 3:4）');
+                        clearCoverFile();
+                        return;
+                    }
+
+                    // 通过校验，设置预览和输入值
+                    document.getElementById('colCover').value = compressedDataUrl;
+                    const preview = document.getElementById('coverPreview');
+                    const imgEl = document.getElementById('coverPreviewImg');
+                    const infoEl = document.getElementById('coverPreviewInfo');
+                    imgEl.src = compressedDataUrl;
+                    preview.style.display = 'flex';
+                    const compressedSize = (compressedDataUrl.length * 3 / 4 / 1024 / 1024).toFixed(2);
+                    infoEl.textContent = `尺寸: ${width}x${height}, 压缩后大小: ${compressedSize}MB`;
+                };
+                img.onerror = () => {
+                    alert('图片读取失败，请重试');
+                    clearCoverFile();
+                };
+                img.src = compressedDataUrl;
+            } catch (error) {
+                console.error('图片压缩失败:', error);
+                alert('图片处理失败，请重试');
+                clearCoverFile();
+            }
+        }
+
+        function clearCoverFile() {
+            document.getElementById('colCoverFile').value = '';
+            document.getElementById('colCover').value = '';
+            document.getElementById('coverPreview').style.display = 'none';
+        }
+
+        // 处理封面文件上传（校验大小与纵向 4:3 比例）
     </script>
 </body>
 </html>

@@ -1,12 +1,16 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
-import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
+import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' hide Spot;
+import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
+import 'package:wanderlog/shared/models/spot_model.dart';
 
 /// 相册地点地图页面 - 显示某个相册（城市）下的所有地点
 class AlbumSpotsMapPage extends ConsumerStatefulWidget {
@@ -38,10 +42,32 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
   final PageController _cardPageController =
       PageController(viewportFraction: 0.85);
   int _currentCardIndex = 0;
-  List<Spot> _citySpots = [];
-  Spot? _selectedSpot;
+  List<map_page.Spot> _citySpots = [];
+  map_page.Spot? _selectedSpot;
   bool _isFavorite = false;
   bool _isFavLoading = false;
+  
+  // 将 shared/models/spot_model.dart 中的 Spot 转换为 map_page_new.dart 中的 Spot
+  map_page.Spot _convertSpot(Spot spot) {
+    // 确保 images 是 List<String>
+    final List<String> imageList = spot.images;
+    final String coverImg = imageList.isNotEmpty ? imageList.first : '';
+    
+    return map_page.Spot(
+      id: spot.id,
+      name: spot.name,
+      city: spot.city ?? 'Unknown',
+      category: spot.category ?? 'place',
+      latitude: spot.latitude,
+      longitude: spot.longitude,
+      rating: spot.rating ?? 0.0,
+      ratingCount: 0, // shared Spot 模型没有 ratingCount
+      coverImage: coverImg,
+      images: imageList,
+      tags: spot.tags,
+      aiSummary: null,
+    );
+  }
 
   @override
   void initState() {
@@ -77,8 +103,65 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
     }
   }
 
-  void _loadCitySpots() {
-    // 从 mock 数据中获取对应城市的地点（不区分大小写）
+  Future<void> _loadCitySpots() async {
+    // 如果有collectionId，从API获取真实数据
+    if (widget.collectionId != null) {
+      try {
+        print('🔍 开始加载合集数据，collectionId: ${widget.collectionId}');
+        final repo = ref.read(collectionRepositoryProvider);
+        final collection = await repo.getCollection(widget.collectionId!);
+        print('📦 获取到合集数据: ${collection.keys}');
+        
+        final collectionSpots = collection['collectionSpots'] as List<dynamic>? ?? [];
+        print('📍 合集中的地点数量: ${collectionSpots.length}');
+        
+        final List<map_page.Spot> spots = [];
+        for (int i = 0; i < collectionSpots.length; i++) {
+          final cs = collectionSpots[i];
+          print('🔎 处理第 ${i + 1} 个地点: ${cs.runtimeType}');
+          
+          final spotData = cs['spot'] as Map<String, dynamic>?;
+          if (spotData != null) {
+            print('✅ 找到 spot 数据: ${spotData.keys}');
+            try {
+              final spot = Spot.fromJson(spotData);
+              print('✅ Spot 解析成功: ${spot.name}');
+              spots.add(_convertSpot(spot));
+            } catch (e, stackTrace) {
+              print('⚠️ 解析spot失败: $e');
+              print('📋 Stack trace: $stackTrace');
+            }
+          } else {
+            print('⚠️ 第 ${i + 1} 个地点没有 spot 数据');
+          }
+        }
+        
+        print('✅ 成功转换了 ${spots.length} 个地点');
+        
+        if (mounted) {
+          setState(() {
+            _citySpots = spots;
+            if (spots.isNotEmpty) {
+              _selectedSpot = spots[0];
+              print('✅ 设置选中地点: ${_selectedSpot?.name}');
+            } else {
+              print('⚠️ 没有地点数据，spots 为空');
+            }
+          });
+        }
+        
+        print('✅ 从API加载了 ${spots.length} 个地点');
+        return;
+      } catch (e, stackTrace) {
+        print('❌ 加载合集数据失败: $e');
+        print('📋 Stack trace: $stackTrace');
+        // 如果API失败，继续使用mock数据作为fallback
+      }
+    } else {
+      print('⚠️ 没有 collectionId，使用 mock 数据');
+    }
+    
+    // Fallback: 从 mock 数据中获取对应城市的地点（不区分大小写）
     final allSpots = _buildMockSpots();
 
     print('🔍 尝试加载城市: ${widget.city}');
@@ -115,20 +198,46 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
       widget.people.isNotEmpty ||
       widget.works.isNotEmpty;
 
-  Position? _getCityCenter() {
-    if (_citySpots.isEmpty) return null;
+  // 城市坐标映射
+  static final Map<String, Position> _cityCoordinates = {
+    'Tokyo': Position(139.6503, 35.6762),
+    'Sapporo': Position(141.3545, 43.0621),
+    'Hakodate': Position(140.7288, 41.7687),
+    'Asahikawa': Position(142.3650, 43.7706),
+    'Otaru': Position(140.9930, 43.1907),
+    'Yamanashi': Position(138.5683, 35.6641),
+    'Paris': Position(2.3522, 48.8566),
+    'Copenhagen': Position(12.5683, 55.6761),
+    'Chiang Mai': Position(98.9853, 18.7883),
+  };
 
-    // 计算所有地点的中心
-    double totalLat = 0;
-    double totalLng = 0;
-    for (final spot in _citySpots) {
-      totalLat += spot.latitude;
-      totalLng += spot.longitude;
+  Position _getCityCenter() {
+    // 如果有 spots，计算中心点
+    if (_citySpots.isNotEmpty) {
+      double totalLat = 0;
+      double totalLng = 0;
+      for (final spot in _citySpots) {
+        totalLat += spot.latitude;
+        totalLng += spot.longitude;
+      }
+      return Position(
+        totalLng / _citySpots.length,
+        totalLat / _citySpots.length,
+      );
     }
-    return Position(
-      totalLng / _citySpots.length,
-      totalLat / _citySpots.length,
+    
+    // 否则使用城市坐标
+    final cityKey = _cityCoordinates.keys.firstWhere(
+      (key) => key.toLowerCase() == widget.city.toLowerCase(),
+      orElse: () => '',
     );
+    
+    if (cityKey.isNotEmpty) {
+      return _cityCoordinates[cityKey]!;
+    }
+    
+    // 默认返回 Copenhagen
+    return _cityCoordinates['Copenhagen']!;
   }
 
   @override
@@ -138,18 +247,15 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
     return Scaffold(
       body: Stack(
         children: [
-          // 全屏地图 - 使用共享组件
-          if (cityCenter != null && _citySpots.isNotEmpty)
-            MapboxSpotMap(
-              key: _mapKey,
-              spots: _citySpots,
-              initialCenter: cityCenter,
-              initialZoom: 13.0,
-              selectedSpot: _selectedSpot,
-              onSpotTap: _handleSpotTap,
-            )
-          else
-            const Center(child: Text('No spots found')),
+          // 全屏地图 - 使用共享组件（即使没有 spots 也显示地图）
+          MapboxSpotMap(
+            key: _mapKey,
+            spots: _citySpots,
+            initialCenter: cityCenter,
+            initialZoom: _citySpots.isNotEmpty ? 13.0 : 10.0,
+            selectedSpot: _selectedSpot,
+            onSpotTap: _handleSpotTap,
+          ),
 
           // 顶部导航栏
           Positioned(
@@ -172,7 +278,7 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
     );
   }
 
-  void _handleSpotTap(Spot spot) {
+  void _handleSpotTap(map_page.Spot spot) {
     final spotIndex = _citySpots.indexOf(spot);
     if (spotIndex == -1) return;
 
@@ -187,7 +293,7 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
     }
   }
 
-  void _showSpotDetail(Spot spot) {
+  void _showSpotDetail(map_page.Spot spot) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -379,8 +485,8 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
 
   Future<void> _ensureDestinationsForCities() async {
     final cities = _citySpots
-        .map((s) => s.city.trim())
-        .where((c) => c.isNotEmpty)
+        .map((map_page.Spot s) => s.city.trim())
+        .where((String c) => c.isNotEmpty)
         .toSet();
     for (final city in cities) {
       await ensureDestinationForCity(ref, city);
@@ -388,9 +494,9 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
   }
 
   // Mock 数据 - 实际项目中应从 API 或 provider 获取
-  Map<String, List<Spot>> _buildMockSpots() => {
+  Map<String, List<map_page.Spot>> _buildMockSpots() => {
         'Copenhagen': [
-          Spot(
+          map_page.Spot(
             id: 'cph-nyhavn',
             name: 'Nyhavn Harbour',
             city: 'Copenhagen',
@@ -408,7 +514,7 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
             aiSummary:
                 'Colorful 17th-century waterfront lined with ships, cafes, and lively outdoor terraces.',
           ),
-          Spot(
+          map_page.Spot(
             id: 'cph-rosenborg',
             name: 'Rosenborg Castle',
             city: 'Copenhagen',
@@ -426,7 +532,7 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
             aiSummary:
                 'Renaissance castle housing royal collections, crown jewels, and manicured palace gardens.',
           ),
-          Spot(
+          map_page.Spot(
             id: 'cph-roundtower',
             name: 'The Round Tower',
             city: 'Copenhagen',
@@ -455,7 +561,7 @@ class _BottomSpotCard extends StatelessWidget {
     required this.onTap,
   });
 
-  final Spot spot;
+  final map_page.Spot spot;
   final VoidCallback onTap;
 
   IconData _getCategoryIconForSpot(String category) {
@@ -497,6 +603,16 @@ class _BottomSpotCard extends StatelessWidget {
     }
   }
 
+  // 解码 base64 图片
+  static Uint8List _decodeBase64Image(String dataUrl) {
+    try {
+      final base64String = dataUrl.split(',').last;
+      return base64Decode(base64String);
+    } catch (e) {
+      return Uint8List(0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
@@ -516,18 +632,38 @@ class _BottomSpotCard extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(AppTheme.radiusMedium - 1),
                 ),
-                child: Image.network(
-                  spot.coverImage,
-                  height: 135,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    height: 135,
-                    color: AppTheme.lightGray,
-                    child: const Icon(Icons.place,
-                        size: 50, color: AppTheme.mediumGray),
-                  ),
-                ),
+                child: (spot.coverImage.isNotEmpty
+                    ? (spot.coverImage.startsWith('data:image/')
+                        ? Image.memory(
+                            _decodeBase64Image(spot.coverImage),
+                            height: 135,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              height: 135,
+                              color: AppTheme.lightGray,
+                              child: const Icon(Icons.place,
+                                  size: 50, color: AppTheme.mediumGray),
+                            ),
+                          )
+                        : Image.network(
+                            spot.coverImage,
+                            height: 135,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              height: 135,
+                              color: AppTheme.lightGray,
+                              child: const Icon(Icons.place,
+                                  size: 50, color: AppTheme.mediumGray),
+                            ),
+                          ))
+                    : Container(
+                        height: 135,
+                        color: AppTheme.lightGray,
+                        child: const Icon(Icons.place,
+                            size: 50, color: AppTheme.mediumGray),
+                      )),
               ),
               Expanded(
                 child: Padding(
@@ -562,7 +698,7 @@ class _BottomSpotCard extends StatelessWidget {
                       Row(
                         children: [
                           Icon(
-                            _getCategoryIconForSpot(spot.category),
+                            _getCategoryIconForSpot(spot.category ?? 'place'),
                             size: 20,
                             color: AppTheme.black,
                           ),
@@ -579,30 +715,25 @@ class _BottomSpotCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.star,
-                            color: AppTheme.primaryYellow,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${spot.rating}',
-                            style: AppTheme.bodyMedium(context).copyWith(
-                              fontWeight: FontWeight.bold,
+                      if (spot.rating != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              color: AppTheme.primaryYellow,
+                              size: 16,
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '(${spot.ratingCount})',
-                            style: AppTheme.bodySmall(context).copyWith(
-                              color: AppTheme.mediumGray,
+                            const SizedBox(width: 4),
+                            Text(
+                              '${spot.rating!.toStringAsFixed(1)}',
+                              style: AppTheme.bodyMedium(context).copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

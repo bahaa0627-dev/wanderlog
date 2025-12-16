@@ -176,6 +176,169 @@ export const getSpots = async (req: Request, res: Response) => {
 };
 
 /**
+ * 从publicPlace ID获取或创建对应的spot ID
+ * POST /api/spots/from-public-place
+ * Body: { publicPlaceId: string }
+ */
+export const getOrCreateSpotFromPublicPlace = async (req: Request, res: Response) => {
+  try {
+    const { publicPlaceId } = req.body;
+
+    if (!publicPlaceId) {
+      return res.status(400).json({ message: 'publicPlaceId is required' });
+    }
+
+    // 查找publicPlace
+    const publicPlace = await prisma.publicPlace.findUnique({
+      where: { id: publicPlaceId },
+    });
+
+    if (!publicPlace) {
+      return res.status(404).json({ message: 'PublicPlace not found' });
+    }
+
+    // 先尝试通过googlePlaceId查找已存在的spot
+    if (publicPlace.placeId) {
+      const existingSpot = await prisma.spot.findFirst({
+        where: { googlePlaceId: publicPlace.placeId },
+        select: { id: true, name: true, city: true, address: true },
+      });
+
+      if (existingSpot) {
+        return res.json({
+          success: true,
+          spot: existingSpot,
+        });
+      }
+    }
+
+    // 如果不存在，创建新的spot
+    const spotData: any = {
+      googlePlaceId: publicPlace.placeId || null,
+      name: publicPlace.name || 'Unnamed Place',
+      city: publicPlace.city || 'Unknown',
+      country: publicPlace.country || 'Unknown',
+      latitude: publicPlace.latitude,
+      longitude: publicPlace.longitude,
+      source: 'public_place_import',
+      lastSyncedAt: new Date(),
+    };
+
+    if (publicPlace.address) spotData.address = publicPlace.address;
+    if (publicPlace.category) spotData.category = publicPlace.category;
+    if (publicPlace.rating !== null && publicPlace.rating !== undefined) spotData.rating = publicPlace.rating;
+    if (publicPlace.ratingCount !== null && publicPlace.ratingCount !== undefined) spotData.ratingCount = publicPlace.ratingCount;
+    if (publicPlace.priceLevel !== null && publicPlace.priceLevel !== undefined) spotData.priceLevel = publicPlace.priceLevel;
+    if (publicPlace.coverImage) spotData.coverImage = publicPlace.coverImage;
+    if (publicPlace.images) spotData.images = publicPlace.images;
+    if (publicPlace.website) spotData.website = publicPlace.website;
+    if (publicPlace.phoneNumber) spotData.phoneNumber = publicPlace.phoneNumber;
+    if (publicPlace.openingHours) spotData.openingHours = publicPlace.openingHours;
+
+    const newSpot = await prisma.spot.create({
+      data: spotData,
+      select: { id: true, name: true, city: true, address: true },
+    });
+
+    return res.json({
+      success: true,
+      spot: newSpot,
+    });
+  } catch (error: any) {
+    logger.error('Get or create spot from publicPlace error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: error.message || 'Server error' 
+    });
+  }
+};
+
+/**
+ * 批量从publicPlace IDs获取或创建对应的spot IDs
+ * POST /api/spots/from-public-places
+ * Body: { publicPlaceIds: string[] }
+ */
+export const getOrCreateSpotsFromPublicPlaces = async (req: Request, res: Response) => {
+  try {
+    const { publicPlaceIds } = req.body;
+
+    if (!Array.isArray(publicPlaceIds) || publicPlaceIds.length === 0) {
+      return res.status(400).json({ message: 'publicPlaceIds array is required' });
+    }
+
+    const results = [];
+
+    for (const publicPlaceId of publicPlaceIds) {
+      try {
+        const publicPlace = await prisma.publicPlace.findUnique({
+          where: { id: publicPlaceId },
+        });
+
+        if (!publicPlace) {
+          results.push({ publicPlaceId, success: false, error: 'PublicPlace not found' });
+          continue;
+        }
+
+        // 先尝试通过googlePlaceId查找已存在的spot
+        let spot = null;
+        if (publicPlace.placeId) {
+          spot = await prisma.spot.findFirst({
+            where: { googlePlaceId: publicPlace.placeId },
+            select: { id: true, name: true, city: true, address: true },
+          });
+        }
+
+        // 如果不存在，创建新的spot
+        if (!spot) {
+          const spotData: any = {
+            googlePlaceId: publicPlace.placeId || null,
+            name: publicPlace.name || 'Unnamed Place',
+            city: publicPlace.city || 'Unknown',
+            country: publicPlace.country || 'Unknown',
+            latitude: publicPlace.latitude,
+            longitude: publicPlace.longitude,
+            source: 'public_place_import',
+            lastSyncedAt: new Date(),
+          };
+
+          if (publicPlace.address) spotData.address = publicPlace.address;
+          if (publicPlace.category) spotData.category = publicPlace.category;
+          if (publicPlace.rating !== null && publicPlace.rating !== undefined) spotData.rating = publicPlace.rating;
+          if (publicPlace.ratingCount !== null && publicPlace.ratingCount !== undefined) spotData.ratingCount = publicPlace.ratingCount;
+          if (publicPlace.priceLevel !== null && publicPlace.priceLevel !== undefined) spotData.priceLevel = publicPlace.priceLevel;
+          if (publicPlace.coverImage) spotData.coverImage = publicPlace.coverImage;
+          if (publicPlace.images) spotData.images = publicPlace.images;
+          if (publicPlace.website) spotData.website = publicPlace.website;
+          if (publicPlace.phoneNumber) spotData.phoneNumber = publicPlace.phoneNumber;
+          if (publicPlace.openingHours) spotData.openingHours = publicPlace.openingHours;
+
+          spot = await prisma.spot.create({
+            data: spotData,
+            select: { id: true, name: true, city: true, address: true },
+          });
+        }
+
+        results.push({ publicPlaceId, success: true, spot });
+      } catch (error: any) {
+        logger.error(`Error processing publicPlace ${publicPlaceId}:`, error);
+        results.push({ publicPlaceId, success: false, error: error.message });
+      }
+    }
+
+    return res.json({
+      success: true,
+      results,
+    });
+  } catch (error: any) {
+    logger.error('Get or create spots from publicPlaces error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: error.message || 'Server error' 
+    });
+  }
+};
+
+/**
  * 获取单个地点详情
  * GET /api/spots/:id
  */
@@ -298,6 +461,8 @@ export const syncSpotData = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+
 
 
 

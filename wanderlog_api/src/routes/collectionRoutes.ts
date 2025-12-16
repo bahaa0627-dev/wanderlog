@@ -6,6 +6,9 @@ const router = Router();
 
 // 管理后台/内部创建合集
 router.post('/', authenticateToken, collectionController.create.bind(collectionController));
+router.put('/:id', authenticateToken, collectionController.update.bind(collectionController));
+router.post('/:id/publish', authenticateToken, collectionController.publish.bind(collectionController));
+router.post('/:id/unpublish', authenticateToken, collectionController.unpublish.bind(collectionController));
 
 // 获取合集列表
 router.get('/', collectionController.list.bind(collectionController));

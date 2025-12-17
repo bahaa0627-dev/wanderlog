@@ -4,16 +4,39 @@ import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import prisma from '../config/database';
 import { logger } from '../utils/logger';
-import { generateVerificationCode, generateToken } from '../utils/tokenGenerator';
+import { generateVerificationCode } from '../utils/tokenGenerator';
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendWelcomeEmail,
 } from '../services/emailService';
 
-const JWT_SECRET: string = process.env.JWT_SECRET || 'default_secret';
-const JWT_ACCESS_EXPIRY: string = process.env.JWT_ACCESS_EXPIRY || '15m';
-const JWT_REFRESH_EXPIRY: string = process.env.JWT_REFRESH_EXPIRY || '7d';
+const JWT_SECRET: jwt.Secret = process.env.JWT_SECRET || 'default_secret';
+const JWT_ACCESS_EXPIRY: string | number = process.env.JWT_ACCESS_EXPIRY || '15m';
+const JWT_REFRESH_EXPIRY: string | number = process.env.JWT_REFRESH_EXPIRY || '7d';
+
+const signAccessToken = (payload: { id: string; email: string; verified?: boolean; version?: number }) =>
+  jwt.sign(
+    {
+      id: payload.id,
+      email: payload.email,
+      verified: payload.verified ?? false,
+      version: payload.version ?? 0,
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_ACCESS_EXPIRY as any },
+  );
+
+const signRefreshToken = (payload: { id: string; version?: number }) =>
+  jwt.sign(
+    {
+      id: payload.id,
+      version: payload.version ?? 0,
+      type: 'refresh',
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_REFRESH_EXPIRY as any },
+  );
 
 // Google OAuth2 Client
 // Proxy is handled globally by global-agent in index.ts
@@ -67,16 +90,17 @@ export const register = async (req: Request, res: Response) => {
     await sendVerificationEmail(email, verificationCode, name || undefined);
 
     // Generate temporary token (user can login but with limited access)
-    const token = jwt.sign(
-      { id: user.id, email: user.email, verified: false },
-      JWT_SECRET,
-      { expiresIn: JWT_ACCESS_EXPIRY as string }
-    );
+    const token = signAccessToken({
+      id: user.id,
+      email: user.email,
+      verified: false,
+      version: user.tokenVersion,
+    });
 
     // 开发模式：在响应中返回验证码（仅用于开发/测试）
     const isDevelopment = process.env.NODE_ENV !== 'production';
 
-    res.status(201).json({
+    return res.status(201).json({
       token,
       user: {
         id: user.id,
@@ -92,7 +116,7 @@ export const register = async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Register error:', error);
-    res.status(500).json({ message: 'Server error during registration' });
+    return res.status(500).json({ message: 'Server error during registration' });
   }
 };
 
@@ -124,27 +148,18 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // Generate access token
-    const token = jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email,
-        verified: user.isEmailVerified,
-        version: user.tokenVersion,
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_ACCESS_EXPIRY }
-    );
+    const token = signAccessToken({
+      id: user.id,
+      email: user.email,
+      verified: user.isEmailVerified,
+      version: user.tokenVersion,
+    });
 
     // Generate refresh token
-    const refreshToken = jwt.sign(
-      { 
-        id: user.id,
-        version: user.tokenVersion,
-        type: 'refresh',
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_REFRESH_EXPIRY }
-    );
+    const refreshToken = signRefreshToken({
+      id: user.id,
+      version: user.tokenVersion,
+    });
 
     // Save refresh token to database
     await prisma.user.update({
@@ -152,7 +167,7 @@ export const login = async (req: Request, res: Response) => {
       data: { refreshToken },
     });
 
-    res.json({
+    return res.json({
       token,
       refreshToken,
       user: {
@@ -167,7 +182,7 @@ export const login = async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Login error:', error);
-    res.status(500).json({ message: 'Server error during login' });
+    return res.status(500).json({ message: 'Server error during login' });
   }
 };
 
@@ -191,10 +206,10 @@ export const getMe = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json(user);
+    return res.json(user);
   } catch (error) {
     logger.error('Get Me error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -242,18 +257,14 @@ export const verifyEmail = async (req: Request, res: Response) => {
     await sendWelcomeEmail(user.email, user.name || undefined);
 
     // Generate new token with verified status
-    const newToken = jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email,
-        verified: true,
-        version: user.tokenVersion,
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_ACCESS_EXPIRY }
-    );
+    const newToken = signAccessToken({
+      id: user.id,
+      email: user.email,
+      verified: true,
+      version: user.tokenVersion,
+    });
 
-    res.json({ 
+    return res.json({ 
       message: 'Email verified successfully',
       token: newToken,
       user: {
@@ -268,7 +279,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Verify email error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -323,12 +334,12 @@ export const resendVerification = async (req: Request, res: Response) => {
     // Send email
     await sendVerificationEmail(user.email, verificationCode, user.name || undefined);
 
-    res.json({ 
+    return res.json({ 
       message: 'Verification code sent to your email',
     });
   } catch (error) {
     logger.error('Resend verification error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -383,12 +394,12 @@ export const forgotPassword = async (req: Request, res: Response) => {
     // Send email
     await sendPasswordResetEmail(email, resetCode, user.name || undefined);
 
-    res.json({ 
+    return res.json({ 
       message: 'If the email exists, a reset code has been sent',
     });
   } catch (error) {
     logger.error('Forgot password error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -455,12 +466,12 @@ export const resetPassword = async (req: Request, res: Response) => {
       data: { usedAt: new Date() },
     });
 
-    res.json({ 
+    return res.json({ 
       message: 'Password reset successfully. Please login with your new password.',
     });
   } catch (error) {
     logger.error('Reset password error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -469,14 +480,14 @@ export const resetPassword = async (req: Request, res: Response) => {
  */
 export const refreshToken = async (req: Request, res: Response) => {
   try {
-    const { refreshToken } = req.body;
+    const { refreshToken: incomingToken } = req.body;
 
-    if (!refreshToken) {
+    if (!incomingToken) {
       return res.status(401).json({ message: 'Refresh token required' });
     }
 
     // Verify refresh token
-    const decoded = jwt.verify(refreshToken, JWT_SECRET) as any;
+    const decoded = jwt.verify(incomingToken, JWT_SECRET) as any;
 
     if (decoded.type !== 'refresh') {
       return res.status(401).json({ message: 'Invalid token type' });
@@ -487,7 +498,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       where: { id: decoded.id },
     });
 
-    if (!user || user.refreshToken !== refreshToken) {
+    if (!user || user.refreshToken !== incomingToken) {
       return res.status(401).json({ message: 'Invalid refresh token' });
     }
 
@@ -496,23 +507,19 @@ export const refreshToken = async (req: Request, res: Response) => {
     }
 
     // Generate new access token
-    const newAccessToken = jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email,
-        verified: user.isEmailVerified,
-        version: user.tokenVersion,
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_ACCESS_EXPIRY }
-    );
+    const newAccessToken = signAccessToken({
+      id: user.id,
+      email: user.email,
+      verified: user.isEmailVerified,
+      version: user.tokenVersion,
+    });
 
-    res.json({ 
+    return res.json({ 
       token: newAccessToken,
     });
   } catch (error) {
     logger.error('Refresh token error:', error);
-    res.status(401).json({ message: 'Invalid or expired refresh token' });
+    return res.status(401).json({ message: 'Invalid or expired refresh token' });
   }
 };
 
@@ -529,10 +536,10 @@ export const logout = async (req: Request, res: Response) => {
       data: { refreshToken: null },
     });
 
-    res.json({ message: 'Logged out successfully' });
+    return res.json({ message: 'Logged out successfully' });
   } catch (error) {
     logger.error('Logout error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -560,7 +567,7 @@ export const getLatestVerificationCode = async (req: Request, res: Response) => 
       return res.status(404).json({ message: 'No verification code found' });
     }
 
-    res.json({
+    return res.json({
       code: token.token,
       expiresAt: token.expiresAt,
       createdAt: token.createdAt,
@@ -568,7 +575,7 @@ export const getLatestVerificationCode = async (req: Request, res: Response) => 
     });
   } catch (error) {
     logger.error('Error getting verification code:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -645,30 +652,26 @@ export const googleLogin = async (req: Request, res: Response) => {
     }
 
     // 生成 JWT tokens
-    const accessToken = jwt.sign(
-      { id: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: JWT_ACCESS_EXPIRY }
-    );
+    const accessToken = signAccessToken({
+      id: user.id,
+      email: user.email,
+      verified: user.isEmailVerified,
+      version: user.tokenVersion,
+    });
 
-    const refreshToken = jwt.sign(
-      { id: user.id, email: user.email, type: 'refresh' },
-      JWT_SECRET,
-      { expiresIn: JWT_REFRESH_EXPIRY }
-    );
+    const refreshToken = signRefreshToken({
+      id: user.id,
+      version: user.tokenVersion,
+    });
 
-    // 保存 refresh token
-    await prisma.refreshToken.create({
-      data: {
-        token: refreshToken,
-        userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 天
-      },
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken },
     });
 
     logger.info(`Google login successful for user: ${user.email}`);
 
-    res.json({
+    return res.json({
       user: {
         id: user.id,
         email: user.email,
@@ -682,7 +685,7 @@ export const googleLogin = async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Get verification code error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 

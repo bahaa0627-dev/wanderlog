@@ -41,7 +41,7 @@ app.use((req, _res, next) => {
 app.use('/admin', express.static('public'));
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
@@ -49,8 +49,8 @@ import authRoutes from './routes/authRoutes';
 import spotRoutes from './routes/spotRoutes';
 import tripRoutes from './routes/tripRoutes';
 import destinationRoutes from './routes/destinationRoutes';
-import publicPlaceRoutes from './routes/publicPlaceRoutes';
 import collectionRoutes from './routes/collectionRoutes';
+import publicPlaceRoutes from './routes/publicPlaceRoutes';
 
 // API Routes
 app.use('/api/auth', authRoutes);

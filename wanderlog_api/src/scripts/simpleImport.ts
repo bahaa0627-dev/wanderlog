@@ -141,7 +141,7 @@ async function getPlaceDetails(placeId: string): Promise<SpotData | null> {
 }
 
 async function checkDuplicate(name: string, address: string): Promise<boolean> {
-  const existing = await prisma.spot.findFirst({
+  const existing = await prisma.place.findFirst({
     where: {
       name: name,
       address: address,
@@ -177,7 +177,7 @@ async function main() {
       }
 
       // Import to database
-      await prisma.spot.create({
+      await prisma.place.create({
         data: {
           ...spotData,
           source: 'google_maps',
@@ -203,7 +203,7 @@ async function main() {
   console.log(`   ❌ Errors: ${errors}`);
 
   // Show what we have
-  const allSpots = await prisma.spot.findMany({
+  const allSpots = await prisma.place.findMany({
     orderBy: { rating: 'desc' }
   });
 

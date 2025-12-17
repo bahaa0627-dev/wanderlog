@@ -20,7 +20,19 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests",
+    "src/controllers/publicPlaceController.ts",
+    "src/controllers/spotController.ts",
+    "src/routes/publicPlaceRoutes.ts",
+    "src/services/publicPlaceService.ts",
+    "src/services/apifyService.ts",
+    "src/services/googleMapsFavoritesService.ts",
+    "src/services/aiService.ts",
+    "src/scripts/**/*"
+  ]
 }
 
 

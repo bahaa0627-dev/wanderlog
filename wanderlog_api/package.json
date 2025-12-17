@@ -4,7 +4,8 @@
   "description": "Wanderlog Backend API",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "env-cmd -f .env.local tsx src/index.ts",
+    "dev:watch": "env-cmd -f .env.local tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest",
@@ -25,7 +26,6 @@
   "license": "ISC",
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.4.2",
-    "@prisma/client": "^5.7.1",
     "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "cheerio": "^1.1.2",
@@ -46,6 +46,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@prisma/client": "^6.16.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
@@ -54,15 +55,13 @@
     "@types/node": "^20.10.5",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
+    "env-cmd": "^11.0.0",
     "eslint": "^8.55.0",
     "jest": "^29.7.0",
     "prettier": "^3.1.1",
-    "prisma": "^5.7.1",
+    "prisma": "^6.16.0",
     "ts-jest": "^29.1.1",
-    "tsx": "^4.7.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.3"
   }
 }
-
-
-

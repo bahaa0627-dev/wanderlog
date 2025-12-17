@@ -18,7 +18,7 @@ app.get('/health', (req, res) => {
 
 app.get('/api/spots', async (req, res) => {
   try {
-    const spots = await prisma.spot.findMany({
+    const spots = await prisma.place.findMany({
       orderBy: { rating: 'desc' },
       take: 30
     });
@@ -31,7 +31,7 @@ app.get('/api/spots', async (req, res) => {
 app.get('/api/spots/city-center/:city', async (req, res) => {
   try {
     const { city } = req.params;
-    const spots = await prisma.spot.findMany({
+    const spots = await prisma.place.findMany({
       where: {
         city: {
           equals: city,

@@ -107,12 +107,12 @@ const MOCK_SPOTS = [
 ];
 
 async function addMockData() {
-  console.log('🎨 Adding mock Copenhagen spots data...\n');
+  console.log('🎨 Adding mock Copenhagen places data...\n');
 
   for (const spot of MOCK_SPOTS) {
     try {
       // Check if already exists
-      const existing = await prisma.spot.findFirst({
+      const existing = await prisma.place.findFirst({
         where: { googlePlaceId: spot.googlePlaceId }
       });
 
@@ -121,7 +121,7 @@ async function addMockData() {
         continue;
       }
 
-      await prisma.spot.create({
+      await prisma.place.create({
         data: {
           ...spot,
           lastSyncedAt: new Date(),
@@ -134,15 +134,15 @@ async function addMockData() {
     }
   }
 
-  const total = await prisma.spot.count();
-  console.log(`\n✨ Done! Total spots in database: ${total}\n`);
+  const total = await prisma.place.count();
+  console.log(`\n✨ Done! Total places in database: ${total}\n`);
 
   // Show all spots
-  const allSpots = await prisma.spot.findMany({
+  const allSpots = await prisma.place.findMany({
     orderBy: { rating: 'desc' }
   });
 
-  console.log('All spots:');
+  console.log('All places:');
   allSpots.forEach((spot, i) => {
     console.log(`   ${i + 1}. ${spot.name} - ${spot.rating}⭐ (${spot.ratingCount} reviews)`);
     console.log(`      ${spot.category} | ${spot.city}`);

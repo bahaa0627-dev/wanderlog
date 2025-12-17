@@ -349,11 +349,12 @@ class PublicPlaceService {
      * 需要兼容无空格输入（如 "ChiangMai"）匹配含空格城市（如 "Chiang Mai"）。
      * 先取较大的 distinct 列表，再在内存里做“去空格/连字符”匹配。
      */
-    const places = await prisma.publicPlace.findMany({
+    // 注意：当前城市数据存储在 Place 表，而非 publicPlace
+    const places = await prisma.place.findMany({
       select: { city: true },
       distinct: ['city'],
       orderBy: { city: 'asc' },
-      take: 200
+      take: 200,
     });
 
     const normalize = (value: string) =>

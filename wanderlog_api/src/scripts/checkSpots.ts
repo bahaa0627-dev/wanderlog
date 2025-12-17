@@ -8,14 +8,14 @@ const prisma = new PrismaClient();
 
 async function checkSpots() {
   try {
-    // Get all spots
-    const allSpots = await prisma.spot.findMany({
+    // Get all places
+    const allSpots = await prisma.place.findMany({
       orderBy: {
         rating: 'desc'
       }
     });
 
-    console.log(`\n📊 Total spots in database: ${allSpots.length}\n`);
+    console.log(`\n📊 Total places in database: ${allSpots.length}\n`);
 
     // Group by city
     const byCity = allSpots.reduce((acc: any, spot) => {
@@ -41,7 +41,7 @@ async function checkSpots() {
     });
 
     // Show top 10 rated spots
-    console.log('\n⭐ Top 10 Rated Spots:');
+    console.log('\n⭐ Top 10 Rated Places:');
     allSpots
       .filter(s => s.rating)
       .slice(0, 10)

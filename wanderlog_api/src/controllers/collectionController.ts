@@ -1,6 +1,34 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 
+/**
+ * Safely parse JSON-like fields that may already be objects/arrays or invalid JSON strings.
+ * Falls back to the provided default value instead of throwing.
+ */
+const safeParseJson = <T>(value: any, fallback: T): T => {
+  if (value === null || value === undefined) return fallback;
+  if (Array.isArray(value)) return value as unknown as T;
+  if (typeof value === 'object') return value as T;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as T;
+    } catch (e) {
+      console.warn('Failed to parse JSON field, returning fallback:', e);
+      return fallback;
+    }
+  }
+  return fallback;
+};
+
+const normalizePlace = (place: any) =>
+  place
+    ? {
+        ...place,
+        tags: safeParseJson(place.tags, []),
+        images: safeParseJson(place.images, []),
+      }
+    : null;
+
 class CollectionController {
   /**
    * 创建合集（管理后台）
@@ -14,127 +42,12 @@ class CollectionController {
         return res.status(400).json({ success: false, message: 'name and coverImage are required' });
       }
 
-      const inputSpotIds: string[] = Array.isArray(spotIds) ? spotIds.filter(Boolean) : [];
+      const inputPlaceIds: string[] = Array.isArray(spotIds) ? spotIds.filter(Boolean) : [];
       const inputPlaceQueries: any[] = Array.isArray(placeQueries) ? placeQueries : [];
 
-      // Resolve placeQueries to spotIds (fuzzy by name, or nearby lat/lng)
-      const resolvedSpotIds: string[] = [];
+      const resolvedPlaceIds = new Set<string>(inputPlaceIds);
 
-      // First, try to resolve inputSpotIds (could be spot ids or publicPlace ids)
-      const unresolvedIds: string[] = [];
-      
-      for (const id of inputSpotIds) {
-        // Try as spot id first
-        const spot = await prisma.spot.findUnique({
-          where: { id },
-          select: { id: true },
-        });
-        if (spot) {
-          resolvedSpotIds.push(spot.id);
-          continue;
-        }
-
-        // Try as publicPlace id, then find or create corresponding spot
-        const publicPlace = await prisma.publicPlace.findUnique({
-          where: { id },
-        });
-        
-        if (publicPlace) {
-          // First, try to find existing spot by googlePlaceId
-          let spotByPlaceId = await prisma.spot.findFirst({
-            where: { googlePlaceId: publicPlace.placeId },
-            select: { id: true },
-          });
-          
-          if (spotByPlaceId) {
-            resolvedSpotIds.push(spotByPlaceId.id);
-            continue;
-          }
-          
-          // If no spot found, create one from publicPlace
-          try {
-            // Check if googlePlaceId already exists (might be from a different spot)
-            if (publicPlace.placeId) {
-              const existingSpotWithPlaceId = await prisma.spot.findFirst({
-                where: { googlePlaceId: publicPlace.placeId },
-                select: { id: true },
-              });
-              if (existingSpotWithPlaceId) {
-                console.log(`✅ Found existing spot ${existingSpotWithPlaceId.id} for placeId ${publicPlace.placeId}`);
-                resolvedSpotIds.push(existingSpotWithPlaceId.id);
-                continue;
-              }
-            }
-            
-            // Prepare spot data, ensuring all required fields are present
-            const spotData: any = {
-                googlePlaceId: publicPlace.placeId || null,
-                name: publicPlace.name || 'Unnamed Place',
-                city: publicPlace.city || 'Unknown',
-                country: publicPlace.country || 'Unknown',
-                latitude: publicPlace.latitude,
-                longitude: publicPlace.longitude,
-                source: 'public_place_import',
-                lastSyncedAt: new Date(),
-            };
-            
-            // Add optional fields only if they exist
-            if (publicPlace.address) spotData.address = publicPlace.address;
-            if (publicPlace.category) spotData.category = publicPlace.category;
-            if (publicPlace.rating !== null && publicPlace.rating !== undefined) spotData.rating = publicPlace.rating;
-            if (publicPlace.ratingCount !== null && publicPlace.ratingCount !== undefined) spotData.ratingCount = publicPlace.ratingCount;
-            if (publicPlace.priceLevel !== null && publicPlace.priceLevel !== undefined) spotData.priceLevel = publicPlace.priceLevel;
-            if (publicPlace.coverImage) spotData.coverImage = publicPlace.coverImage;
-            if (publicPlace.images) {
-                // images in publicPlace is already a JSON string, use it directly
-                spotData.images = publicPlace.images;
-            }
-            if (publicPlace.website) spotData.website = publicPlace.website;
-            if (publicPlace.phoneNumber) spotData.phoneNumber = publicPlace.phoneNumber;
-            if (publicPlace.openingHours) {
-                // openingHours in publicPlace is already a JSON string, use it directly
-                spotData.openingHours = publicPlace.openingHours;
-            }
-            
-            const newSpot = await prisma.spot.create({
-              data: spotData,
-              select: { id: true },
-            });
-            console.log(`✅ Created spot ${newSpot.id} from publicPlace ${id} (${publicPlace.name})`);
-            resolvedSpotIds.push(newSpot.id);
-            continue;
-          } catch (createError: any) {
-            console.error(`❌ Failed to create spot from publicPlace ${id} (${publicPlace.name}):`, {
-              error: createError.message,
-              code: createError.code,
-              meta: createError.meta,
-            });
-            unresolvedIds.push(id);
-          }
-        } else {
-          // Not a spot id and not a publicPlace id
-          unresolvedIds.push(id);
-        }
-      }
-      
-      // Log unresolved IDs for debugging
-      if (unresolvedIds.length > 0) {
-        console.error(`⚠️  Unresolved IDs (${unresolvedIds.length}):`, unresolvedIds);
-        // Try to get more info about these IDs
-        for (const id of unresolvedIds.slice(0, 3)) {
-          const testPublicPlace = await prisma.publicPlace.findUnique({
-            where: { id },
-            select: { id: true, name: true, placeId: true },
-          });
-          if (testPublicPlace) {
-            console.log(`  - ${id}: Found publicPlace "${testPublicPlace.name}" (placeId: ${testPublicPlace.placeId})`);
-          } else {
-            console.log(`  - ${id}: Not found in publicPlace table`);
-          }
-        }
-      }
-
-      // Resolve placeQueries
+      // Resolve placeQueries against Place table (by name or nearby lat/lng)
       for (const q of inputPlaceQueries) {
         if (!q) continue;
         const { name: qName, lat, lng } = q as { name?: string; lat?: number; lng?: number };
@@ -142,19 +55,19 @@ class CollectionController {
         let foundId: string | null = null;
 
         if (qName && typeof qName === 'string') {
-          const spot = await prisma.spot.findFirst({
+          const place = await prisma.place.findFirst({
             where: {
-              name: { contains: qName, mode: 'insensitive' },
+              name: { contains: qName },
             },
             orderBy: { rating: 'desc' },
             select: { id: true },
           });
-          if (spot) foundId = spot.id;
+          if (place) foundId = place.id;
         }
 
         if (!foundId && typeof lat === 'number' && typeof lng === 'number') {
           const delta = 0.01; // ~1km
-          const spot = await prisma.spot.findFirst({
+          const place = await prisma.place.findFirst({
             where: {
               latitude: { gte: lat - delta, lte: lat + delta },
               longitude: { gte: lng - delta, lte: lng + delta },
@@ -162,43 +75,33 @@ class CollectionController {
             orderBy: { rating: 'desc' },
             select: { id: true },
           });
-          if (spot) foundId = spot.id;
+          if (place) foundId = place.id;
         }
 
         if (foundId) {
-          resolvedSpotIds.push(foundId);
+          resolvedPlaceIds.add(foundId);
         }
       }
 
-      // dedupe
-      const uniqueSpotIds = Array.from(new Set(resolvedSpotIds));
+      const uniquePlaceIds = Array.from(resolvedPlaceIds);
 
-      if (uniqueSpotIds.length === 0) {
-        console.error('无法解析任何spotIds:', { 
-          inputSpotIds, 
-          inputPlaceQueries,
-          unresolvedIds 
-        });
-        const errorMsg = unresolvedIds.length > 0 
-          ? `无法找到有效的地点。以下ID无法解析: ${unresolvedIds.slice(0, 5).join(', ')}${unresolvedIds.length > 5 ? '...' : ''}。请确保选择的地点存在于系统中。`
-          : '无法找到有效的地点。请确保选择的地点存在于系统中，或者地点ID格式正确。';
-        return res.status(400).json({ 
-          success: false, 
-          message: errorMsg 
+      if (uniquePlaceIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: '无法找到有效的地点。请确认已选择的地点存在于系统中。',
         });
       }
 
-      const spots = await prisma.spot.findMany({
-        where: { id: { in: uniqueSpotIds } },
-        select: { id: true, city: true },
+      const places = await prisma.place.findMany({
+        where: { id: { in: uniquePlaceIds } },
+        select: { id: true, city: true, tags: true, images: true },
       });
 
-      const missing = uniqueSpotIds.filter(id => !spots.some(s => s.id === id));
+      const missing = uniquePlaceIds.filter((id) => !places.some((s) => s.id === id));
       if (missing.length > 0) {
-        console.error('部分spotIds无效:', missing);
-        return res.status(400).json({ 
-          success: false, 
-          message: `部分地点ID无效: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '...' : ''}。请刷新页面后重试。` 
+        return res.status(400).json({
+          success: false,
+          message: `部分地点ID无效: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '...' : ''}。请刷新页面后重试。`,
         });
       }
 
@@ -210,19 +113,39 @@ class CollectionController {
           people: people ? JSON.stringify(people) : undefined,
           works: works ? JSON.stringify(works) : undefined,
           collectionSpots: {
-            create: spots.map(s => ({
-              spotId: s.id,
-              city: s.city ?? undefined,
+            create: places.map((p) => ({
+              placeId: p.id,
+              city: p.city ?? undefined,
             })),
           },
           isPublished: false,
         },
         include: {
-          collectionSpots: true,
+          collectionSpots: {
+            include: {
+              place: true,
+            },
+          },
         },
       });
 
-      return res.status(201).json({ success: true, data: collection });
+      const normalized = {
+        ...collection,
+        people: collection.people ? JSON.parse(collection.people) : [],
+        works: collection.works ? JSON.parse(collection.works) : [],
+        collectionSpots: collection.collectionSpots.map((cs) => ({
+          ...cs,
+          place: cs.place
+            ? {
+                ...cs.place,
+                tags: cs.place.tags ? JSON.parse(cs.place.tags) : [],
+                images: cs.place.images ? JSON.parse(cs.place.images) : [],
+              }
+            : null,
+        })),
+      };
+
+      return res.status(201).json({ success: true, data: normalized });
     } catch (error: any) {
       console.error('创建合集错误:', error);
       const errorMessage = error?.message || (typeof error === 'string' ? error : 'Unknown error');
@@ -257,39 +180,42 @@ class CollectionController {
         }
       }
 
+      const includeConfig: any = {
+        collectionSpots: {
+          include: {
+            place: true,
+          },
+        },
+      };
+
+      if (userId) {
+        includeConfig.userCollections = {
+          where: { userId },
+          select: { id: true },
+        };
+      }
+
       const collections = await prisma.collection.findMany({
         where: includeAll ? undefined : whereClause,
         orderBy: { createdAt: 'desc' },
-        include: {
-          collectionSpots: {
-            include: {
-              spot: true,
-            },
-          },
-          userCollections: userId
-            ? {
-                where: { userId },
-                select: { id: true },
-              }
-            : false,
-        },
+        include: includeConfig,
       });
 
-      const normalized = collections.map((c) => ({
+      const normalized = (collections as any[]).map((c) => ({
         ...c,
-        isFavorited: !!(userId && (c as any).userCollections && (c as any).userCollections.length > 0),
-        people: c.people ? JSON.parse(c.people) : [],
-        works: c.works ? JSON.parse(c.works) : [],
-        collectionSpots: c.collectionSpots.map((cs) => ({
-          ...cs,
-          spot: cs.spot
-            ? {
-                ...cs.spot,
-                tags: cs.spot.tags ? JSON.parse(cs.spot.tags) : [],
-                images: cs.spot.images ? JSON.parse(cs.spot.images) : [],
-              }
-            : null,
-        })),
+        isFavorited: !!(userId && c.userCollections && c.userCollections.length > 0),
+        people: safeParseJson(c.people, []),
+        works: safeParseJson(c.works, []),
+        collectionSpots: (c.collectionSpots as any[]).map((cs: any) => {
+          const place = normalizePlace(cs.place);
+          return {
+            ...cs,
+            place,
+            // 兼容前端旧字段：把 place 映射为 spot/spotId，避免前端解析失败
+            spotId: cs.placeId,
+            spot: place,
+          };
+        }),
       }));
       // 移除 userCollections，避免返回多余字段
       normalized.forEach((item: any) => delete item.userCollections);
@@ -321,17 +247,17 @@ class CollectionController {
         return res.status(400).json({ success: false, message: 'Collection is published and cannot be edited. Please unpublish first.' });
       }
 
-      const inputSpotIds: string[] = Array.isArray(spotIds) ? spotIds.filter(Boolean) : [];
-      if (inputSpotIds.length === 0) {
+      const inputPlaceIds: string[] = Array.isArray(spotIds) ? spotIds.filter(Boolean) : [];
+      if (inputPlaceIds.length === 0) {
         return res.status(400).json({ success: false, message: 'spotIds is required and must contain at least one item' });
       }
 
-      const spots = await prisma.spot.findMany({
-        where: { id: { in: inputSpotIds } },
+      const places = await prisma.place.findMany({
+        where: { id: { in: inputPlaceIds } },
         select: { id: true, city: true },
       });
 
-      const missing = inputSpotIds.filter(id => !spots.some(s => s.id === id));
+      const missing = inputPlaceIds.filter(id => !places.some(s => s.id === id));
       if (missing.length > 0) {
         return res.status(400).json({ success: false, message: `Invalid spotIds: ${missing.join(',')}` });
       }
@@ -349,15 +275,17 @@ class CollectionController {
           works: normalizedWorks,
           collectionSpots: {
             deleteMany: {}, // remove old links
-            create: spots.map(s => ({
-              spotId: s.id,
-              city: s.city ?? undefined,
+            create: places.map((p) => ({
+              placeId: p.id,
+              city: p.city ?? undefined,
             })),
           },
         },
         include: {
           collectionSpots: {
-            include: { spot: true },
+            include: {
+              place: true,
+            },
           },
         },
       });
@@ -420,14 +348,18 @@ class CollectionController {
         where: { id },
         include: {
           collectionSpots: {
-            include: { spot: true },
+            include: {
+              place: true,
+            },
           },
-          userCollections: userId
+          ...(userId
             ? {
-                where: { userId },
-                select: { id: true },
+                userCollections: {
+                  where: { userId },
+                  select: { id: true },
+                },
               }
-            : false,
+            : {}),
         },
       });
 
@@ -436,24 +368,24 @@ class CollectionController {
       }
 
       // 检查是否已收藏
-      const isFavorited = userId && collection.userCollections && (collection.userCollections as any[]).length > 0;
+      const userCollections = (collection as any).userCollections || [];
+      const isFavorited = userId && userCollections.length > 0;
 
       // 规范化数据格式，与 list 方法保持一致
       const normalized = {
         ...collection,
         isFavorited: !!isFavorited,
-        people: collection.people ? JSON.parse(collection.people) : [],
-        works: collection.works ? JSON.parse(collection.works) : [],
-        collectionSpots: collection.collectionSpots.map((cs) => ({
-          ...cs,
-          spot: cs.spot
-            ? {
-                ...cs.spot,
-                tags: cs.spot.tags ? (typeof cs.spot.tags === 'string' ? JSON.parse(cs.spot.tags) : cs.spot.tags) : [],
-                images: cs.spot.images ? (typeof cs.spot.images === 'string' ? JSON.parse(cs.spot.images) : cs.spot.images) : [],
-              }
-            : null,
-        })),
+        people: safeParseJson(collection.people, []),
+        works: safeParseJson(collection.works, []),
+        collectionSpots: collection.collectionSpots.map((cs) => {
+          const place = normalizePlace(cs.place);
+          return {
+            ...cs,
+            place,
+            spotId: cs.placeId,
+            spot: place,
+          };
+        }),
       };
 
       // 移除 userCollections 字段，因为已经提取到 isFavorited

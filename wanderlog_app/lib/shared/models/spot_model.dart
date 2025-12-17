@@ -23,6 +23,7 @@ class Spot {
     this.category,
     this.openingHours,
     this.rating,
+    this.ratingCount,
     this.priceLevel,
     this.website,
     this.phoneNumber,
@@ -43,6 +44,7 @@ class Spot {
   final Map<String, dynamic>? openingHours;
   final List<String> images;
   final double? rating;
+  final int? ratingCount;
   final int? priceLevel;
   final String? website;
   final String? phoneNumber;
@@ -64,6 +66,7 @@ class Spot {
     Map<String, dynamic>? openingHours,
     List<String>? images,
     double? rating,
+    int? ratingCount,
     int? priceLevel,
     String? website,
     String? phoneNumber,
@@ -83,6 +86,7 @@ class Spot {
       openingHours: openingHours ?? this.openingHours,
       images: images ?? this.images,
       rating: rating ?? this.rating,
+      ratingCount: ratingCount ?? this.ratingCount,
       priceLevel: priceLevel ?? this.priceLevel,
       website: website ?? this.website,
       phoneNumber: phoneNumber ?? this.phoneNumber,

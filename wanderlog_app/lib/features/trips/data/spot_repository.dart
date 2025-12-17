@@ -15,9 +15,9 @@ class SpotRepository {
       if (city != null) queryParams['city'] = city;
       if (category != null) queryParams['category'] = category;
 
-      final response = await _getWithFallback<List<dynamic>>(
+      final response = await _getWithFallback<List<Spot>>(
         queryParams: queryParams,
-        decode: (data) => data
+        decode: (data) => (data as List<dynamic>)
             .map((json) => Spot.fromJson(json as Map<String, dynamic>))
             .toList(),
       );
@@ -30,9 +30,9 @@ class SpotRepository {
 
   Future<Spot> getSpotById(String id) async {
     try {
-      final response = await _getWithFallback<Map<String, dynamic>>(
+      final response = await _getWithFallback<Spot>(
         path: '/$id',
-        decode: (data) => Spot.fromJson(data),
+        decode: (data) => Spot.fromJson(data as Map<String, dynamic>),
       );
       return response;
     } on DioException catch (e) {
@@ -74,7 +74,7 @@ class SpotRepository {
   }) async {
     // try /places
     try {
-      final response = await _dio.get<T>(
+      final response = await _dio.get<dynamic>(
         '$_placesBase$path',
         queryParameters: queryParams,
       );
@@ -82,7 +82,7 @@ class SpotRepository {
     } on DioException catch (e) {
       // 如果 404/路由不存在，回退 /spots
       if (e.response?.statusCode == 404 || e.response?.statusCode == 501) {
-        final fallback = await _dio.get<T>(
+        final fallback = await _dio.get<dynamic>(
           '$_spotsBase$path',
           queryParameters: queryParams,
         );

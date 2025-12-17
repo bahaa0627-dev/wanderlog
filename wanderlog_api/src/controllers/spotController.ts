@@ -90,7 +90,7 @@ export const importSpot = async (req: Request, res: Response) => {
  * GET /api/spots
  * Query params: city, category, tags, search, lat, lng, radius, limit
  */
-export const getSpots = async (req: Request, res: Response) => {
+export const getPlaces = async (req: Request, res: Response) => {
   try {
     const { 
       city, 
@@ -157,7 +157,7 @@ export const getSpots = async (req: Request, res: Response) => {
       };
     }
 
-    spots = await prisma.spot.findMany({
+    spots = await prisma.place.findMany({
       where,
       take: parseInt(String(limit)),
       orderBy: {
@@ -342,18 +342,18 @@ export const getOrCreateSpotsFromPublicPlaces = async (req: Request, res: Respon
  * 获取单个地点详情
  * GET /api/spots/:id
  */
-export const getSpotById = async (req: Request, res: Response) => {
+export const getPlaceById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const spot = await prisma.spot.findUnique({
+    const spot = await prisma.place.findUnique({
       where: { id },
     });
     if (!spot) {
-      return res.status(404).json({ message: 'Spot not found' });
+      return res.status(404).json({ message: 'Place not found' });
     }
     res.json(spot);
   } catch (error) {
-    logger.error('Get Spot error:', error);
+    logger.error('Get Place error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -362,7 +362,7 @@ export const getSpotById = async (req: Request, res: Response) => {
  * 获取城市中心的默认地点（30个）
  * GET /api/spots/city-center/:city
  */
-export const getCityCenterSpots = async (req: Request, res: Response) => {
+export const getCityCenterPlaces = async (req: Request, res: Response) => {
   try {
     const { city } = req.params;
     
@@ -383,7 +383,7 @@ export const getCityCenterSpots = async (req: Request, res: Response) => {
     }
 
     // 获取该城市的top 30个地点
-    const spots = await prisma.spot.findMany({
+    const spots = await prisma.place.findMany({
       where: {
         city: {
           equals: city,

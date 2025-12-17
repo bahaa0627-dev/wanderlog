@@ -18,10 +18,10 @@ export const createTrip = async (req: Request, res: Response) => {
       },
     });
 
-    res.status(201).json(trip);
+    return res.status(201).json(trip);
   } catch (error) {
     logger.error('Create Trip error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -37,10 +37,10 @@ export const getMyTrips = async (req: Request, res: Response) => {
         },
       },
     });
-    res.json(trips);
+    return res.json(trips);
   } catch (error) {
     logger.error('Get Trips error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -54,7 +54,7 @@ export const getTripById = async (req: Request, res: Response) => {
       include: {
         tripSpots: {
           include: {
-            spot: true,
+            place: true,
           },
         },
       },
@@ -68,18 +68,23 @@ export const getTripById = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    res.json(trip);
+    return res.json(trip);
   } catch (error) {
     logger.error('Get Trip error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
 export const manageTripSpot = async (req: Request, res: Response) => {
   try {
     const { id } = req.params; // Trip ID
-    const { spotId, status, priority, visitDate, userRating, userNotes, spot } = req.body;
+    const { spotId, placeId, status, priority, visitDate, userRating, userNotes, spot } = req.body;
     const userId = req.user.id;
+    const targetPlaceId: string | undefined = placeId || spotId;
+
+    if (!targetPlaceId) {
+      return res.status(400).json({ message: 'placeId is required' });
+    }
 
     // Verify trip ownership
     const trip = await prisma.trip.findUnique({
@@ -90,15 +95,15 @@ export const manageTripSpot = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    // Ensure spot exists (allow creating on the fly if payload provided)
-    const existingSpot = await prisma.spot.findUnique({ where: { id: spotId } });
-    if (!existingSpot) {
+    // Ensure place exists (allow creating on the fly if payload provided)
+    const existingPlace = await prisma.place.findUnique({ where: { id: targetPlaceId } });
+    if (!existingPlace) {
       if (!spot || !spot.name || !spot.city || spot.latitude === undefined || spot.longitude === undefined) {
-        return res.status(400).json({ message: 'Spot not found and insufficient data to create' });
+        return res.status(400).json({ message: 'Place not found and insufficient data to create' });
       }
-      await prisma.spot.create({
+      await prisma.place.create({
         data: {
-          id: spotId,
+          id: targetPlaceId,
           name: spot.name,
           city: spot.city,
           country: spot.country ?? 'Unknown',
@@ -122,12 +127,12 @@ export const manageTripSpot = async (req: Request, res: Response) => {
       });
     }
 
-    // Upsert TripSpot
+    // Upsert TripSpot (placeId)
     const tripSpot = await prisma.tripSpot.upsert({
       where: {
-        tripId_spotId: {
+        tripId_placeId: {
           tripId: id,
-          spotId,
+          placeId: targetPlaceId,
         },
       },
       update: {
@@ -139,20 +144,20 @@ export const manageTripSpot = async (req: Request, res: Response) => {
       },
       create: {
         tripId: id,
-        spotId,
+        placeId: targetPlaceId,
         status: status || 'WISHLIST',
         priority: priority || 'OPTIONAL',
         visitDate: visitDate ? new Date(visitDate) : null,
       },
     });
 
-    // Load spot for payload
-    const dbSpot = await prisma.spot.findUnique({ where: { id: spotId } });
-    const normalizedSpot = dbSpot
+    // Load place for payload
+    const dbPlace = await prisma.place.findUnique({ where: { id: targetPlaceId } });
+    const normalizedPlace = dbPlace
       ? {
-          ...dbSpot,
-          tags: dbSpot.tags ? JSON.parse(dbSpot.tags) : [],
-          images: dbSpot.images ? JSON.parse(dbSpot.images) : [],
+          ...dbPlace,
+          tags: dbPlace.tags ? JSON.parse(dbPlace.tags) : [],
+          images: dbPlace.images ? JSON.parse(dbPlace.images) : [],
         }
       : null;
 
@@ -161,13 +166,13 @@ export const manageTripSpot = async (req: Request, res: Response) => {
       userPhotos: tripSpot.userPhotos
         ? JSON.parse(tripSpot.userPhotos as unknown as string)
         : [],
-      spot: normalizedSpot,
+      place: normalizedPlace,
     };
 
-    res.json(normalizedTripSpot);
+    return res.json(normalizedTripSpot);
   } catch (error) {
     logger.error('Manage TripSpot error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 

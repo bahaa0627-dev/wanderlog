@@ -1,4 +1,4 @@
-import { Client, PlaceInputType } from '@googlemaps/google-maps-services-js';
+import { Client, AddressType, GeocodingAddressComponentType } from '@googlemaps/google-maps-services-js';
 import { PrismaClient } from '@prisma/client';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
@@ -18,7 +18,7 @@ if (proxyUrl) {
 
 const client = new Client(clientConfig);
 
-interface SpotData {
+interface PlaceData {
   googlePlaceId: string;
   name: string;
   city: string;
@@ -37,6 +37,7 @@ interface SpotData {
   priceLevel?: number;
   website?: string;
   phoneNumber?: string;
+  aiSummary?: string;
 }
 
 class GoogleMapsService {
@@ -52,7 +53,7 @@ class GoogleMapsService {
   /**
    * 从Google Place ID获取详细信息
    */
-  async getPlaceDetails(placeId: string): Promise<SpotData | null> {
+  async getPlaceDetails(placeId: string): Promise<PlaceData | null> {
     try {
       console.log(`🔍 Fetching details for place ID: ${placeId}`);
       console.log(`🔑 Using API key: ${this.apiKey.substring(0, 20)}...`);
@@ -101,15 +102,15 @@ class GoogleMapsService {
       
       for (const component of addressComponents) {
         // 尝试多个可能的城市类型
-        if (component.types.includes('locality')) {
+        if (component.types.includes('locality' as AddressType)) {
           city = component.long_name;
-        } else if (!city && component.types.includes('administrative_area_level_2')) {
+        } else if (!city && component.types.includes('administrative_area_level_2' as GeocodingAddressComponentType)) {
           city = component.long_name;
-        } else if (!city && component.types.includes('administrative_area_level_1')) {
+        } else if (!city && component.types.includes('administrative_area_level_1' as GeocodingAddressComponentType)) {
           city = component.long_name;
         }
         
-        if (component.types.includes('country')) {
+        if (component.types.includes('country' as AddressType)) {
           country = component.long_name;
         }
       }
@@ -126,7 +127,7 @@ class GoogleMapsService {
       // 生成AI总结（基于评论）
       const aiSummary = this.generateAISummary(place.reviews || []);
 
-      const utcOffsetMinutes = place.utc_offset_minutes ?? place.utc_offset;
+      const utcOffsetMinutes = (place as any).utc_offset_minutes ?? (place as any).utc_offset;
       const openingHoursPayload = place.opening_hours
         ? {
             ...place.opening_hours,
@@ -156,7 +157,8 @@ class GoogleMapsService {
         images: images ? JSON.stringify(images) : undefined,
         priceLevel: place.price_level,
         website: place.website,
-        phoneNumber: place.formatted_phone_number
+        phoneNumber: place.formatted_phone_number,
+        aiSummary,
       };
     } catch (error: any) {
       console.error('❌ Error fetching place details:', error.message);
@@ -332,10 +334,10 @@ class GoogleMapsService {
     const keywords: { [key: string]: number } = {};
     const commonWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'is', 'was', 'are', 'were']);
 
-    topReviews.forEach(review => {
+    topReviews.forEach((review) => {
       const words = (review.text || '').toLowerCase().split(/\s+/);
-      words.forEach(word => {
-        word = word.replace(/[^\w]/g, '');
+      words.forEach((rawWord: string) => {
+        const word = rawWord.replace(/[^\w]/g, '');
         if (word.length > 3 && !commonWords.has(word)) {
           keywords[word] = (keywords[word] || 0) + 1;
         }
@@ -359,19 +361,12 @@ class GoogleMapsService {
    * 检查地点是否已存在（去重）
    */
   async checkDuplicate(name: string, address: string): Promise<boolean> {
-    const existing = await prisma.spot.findFirst({
+    const existing = await prisma.place.findFirst({
       where: {
-        name: {
-          equals: name,
-          mode: 'insensitive'
-        },
-        address: {
-          equals: address,
-          mode: 'insensitive'
-        }
-      }
+        name: { equals: name },
+        address: { equals: address },
+      },
     });
-
     return existing !== null;
   }
 
@@ -385,33 +380,31 @@ class GoogleMapsService {
 
     for (const placeId of placeIds) {
       try {
-        const spotData = await this.getPlaceDetails(placeId);
+        const placeData = await this.getPlaceDetails(placeId);
         
-        if (!spotData) {
+        if (!placeData) {
           errors++;
           continue;
         }
 
         // 检查是否重复
-        const isDuplicate = await this.checkDuplicate(spotData.name, spotData.address || '');
-        
+        const isDuplicate = await this.checkDuplicate(placeData.name, placeData.address || '');
         if (isDuplicate) {
-          console.log(`Skipping duplicate: ${spotData.name}`);
+          console.log(`Skipping duplicate: ${placeData.name}`);
           skipped++;
           continue;
         }
 
-        // 创建新地点
-        await prisma.spot.create({
+        await prisma.place.create({
           data: {
-            ...spotData,
+            ...placeData,
             source: 'google_maps',
-            lastSyncedAt: new Date()
-          }
+            lastSyncedAt: new Date(),
+          },
         });
 
         imported++;
-        console.log(`Imported: ${spotData.name}`);
+        console.log(`Imported: ${placeData.name}`);
       } catch (error) {
         console.error(`Error importing place ${placeId}:`, error);
         errors++;

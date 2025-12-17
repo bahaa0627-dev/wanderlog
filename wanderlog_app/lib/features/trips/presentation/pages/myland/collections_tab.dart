@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/map/presentation/pages/album_spots_map_page.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
@@ -31,6 +32,7 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(collectionRepositoryProvider);
+      // Myland 只显示当前用户收藏的合集（默认 includeAll=false）
       final data = await repo.listCollections();
       setState(() {
         _collections
@@ -82,12 +84,13 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
             image: cover,
             tags: tags,
             onTap: () async {
-              final result = await Navigator.of(context).push<bool>(
-                MaterialPageRoute<bool>(
+              final result = await Navigator.of(context).push<dynamic>(
+                MaterialPageRoute<dynamic>(
                   builder: (_) => AlbumSpotsMapPage(
                     city: city,
                     albumTitle: collection['name'] as String? ?? 'Collection',
                     collectionId: collection['id'] as String?,
+                    initialIsFavorited: collection['isFavorited'] as bool?,
                     description: collection['description'] as String?,
                     coverImage: collection['coverImage'] as String?,
                     people: (collection['people'] as List<dynamic>? ?? [])
@@ -107,8 +110,23 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
                   ),
                 ),
               );
-              // 如果返回 true，表示需要刷新列表（取消收藏了）
-              if (result == true && mounted) {
+              bool needRefresh = false;
+              bool? latestFav;
+              if (result is Map) {
+                needRefresh = result['shouldRefresh'] == true;
+                latestFav = result['isFavorited'] as bool?;
+              } else if (result is bool) {
+                needRefresh = result;
+              }
+
+              if (latestFav != null && mounted) {
+                setState(() {
+                  _collections[index]['isFavorited'] = latestFav;
+                });
+              }
+
+              // 如果返回 true，表示需要刷新列表（取消或重新收藏了）
+              if (needRefresh && mounted) {
                 _loadCollections();
               }
             },
@@ -130,21 +148,16 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No collections yet',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Create a trip to start collecting spots',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
+            'To find more collections',
+            style: AppTheme.headlineMedium(context).copyWith(
+              color: AppTheme.darkGray,
             ),
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          PrimaryButton(
+            text: 'To explore',
+            onPressed: () => context.go('/home'),
           ),
         ],
       ),

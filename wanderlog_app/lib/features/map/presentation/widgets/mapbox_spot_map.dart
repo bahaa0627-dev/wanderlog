@@ -75,9 +75,11 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final selectionChanged =
         oldWidget.selectedSpot?.id != widget.selectedSpot?.id;
 
-    // 为避免重复/错位，列表或选中变化都重建（带代次防抖）
-    if (hasNewSpots || selectionChanged) {
+    // 仅列表变化时重建；选中变化时只替换前后两个标记，避免闪动
+    if (hasNewSpots) {
       _addNativeMarkers();
+    } else if (selectionChanged) {
+      _refreshSelectedMarker();
     }
   }
 
@@ -195,7 +197,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       ),
       image: markerImage,
       iconAnchor: IconAnchor.BOTTOM,
-      iconSize: isSelected ? 2.2 : 1.9,
+      // 略微放大以增大可点击区域
+      iconSize: isSelected ? 2.4 : 2.1,
     );
 
     return manager.create(annotation);
@@ -306,17 +309,17 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     canvas.drawRRect(rrect, bgPaint);
     canvas.drawRRect(rrect, borderPaint);
 
-    // 获取分类图标
-    final categoryIcon = _getCategoryIcon(category);
+    // 获取分类 Emoji
+    final categoryEmoji = _getCategoryEmoji(category);
 
-    // 绘制图标
+    // 绘制 Emoji 图标
     final iconPainter = TextPainter(
       text: TextSpan(
-        text: String.fromCharCode(categoryIcon.codePoint),
-        style: TextStyle(
+        text: categoryEmoji,
+        style: const TextStyle(
           color: AppTheme.black,
           fontSize: iconSize,
-          fontFamily: categoryIcon.fontFamily,
+          fontFamily: 'ReemKufi',
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -338,6 +341,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
           color: AppTheme.black,
           fontSize: 17,
           fontWeight: FontWeight.bold,
+          fontFamily: 'ReemKufi',
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -372,51 +376,48 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     return byteData!.buffer.asUint8List();
   }
 
-  /// 获取分类图标
-  IconData _getCategoryIcon(String category) {
+  /// 获取分类 Emoji
+  String _getCategoryEmoji(String category) {
     switch (category.toLowerCase()) {
       case 'restaurant':
-        return Icons.restaurant;
+        return '🍽️';
       case 'museum':
-        return Icons.museum;
+        return '🏛️';
       case 'park':
-        return Icons.park;
+        return '🌳';
       case 'landmark':
-        return Icons.location_city;
+        return '📍';
       case 'cafe':
-        return Icons.local_cafe;
-      case 'bakery':
-        return Icons.bakery_dining;
-      case 'shopping':
-        return Icons.shopping_bag;
-      case 'church':
-        return Icons.church;
-      case 'theater':
-        return Icons.theater_comedy;
-      case 'waterfront':
-        return Icons.water;
-      case 'library':
-        return Icons.local_library;
-      case 'architecture':
-        return Icons.apartment;
-      case 'neighborhood':
-        return Icons.location_on;
-      case 'bar':
-        return Icons.local_bar;
-      case 'zoo':
-        return Icons.pets;
-      case 'aquarium':
-        return Icons.water;
-      case 'bookstore':
-        return Icons.book;
-      case 'market':
-        return Icons.storefront;
-      case 'temple':
-        return Icons.temple_buddhist;
       case 'coffee':
-        return Icons.local_cafe;
+        return '☕️';
+      case 'bakery':
+        return '🥐';
+      case 'shopping':
+        return '🛍️';
+      case 'church':
+        return '⛪️';
+      case 'theater':
+        return '🎭';
+      case 'waterfront':
+        return '🌊';
+      case 'library':
+      case 'bookstore':
+        return '📚';
+      case 'architecture':
+        return '🏛️';
+      case 'neighborhood':
+        return '📌';
+      case 'bar':
+        return '🍸';
+      case 'zoo':
+      case 'aquarium':
+        return '🐾';
+      case 'market':
+        return '🛒';
+      case 'temple':
+        return '🛕';
       default:
-        return Icons.place;
+        return '📍';
     }
   }
 

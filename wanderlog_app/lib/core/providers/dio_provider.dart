@@ -37,8 +37,11 @@ final dioProvider = Provider<Dio>((ref) {
         
         // Add auth token if available
         final token = await StorageService.instance.getSecure('auth_token');
-        if (token != null) {
+        if (token != null && token.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $token';
+          logger.d('Auth attached');
+        } else {
+          logger.w('Auth token missing');
         }
         
         return handler.next(options);

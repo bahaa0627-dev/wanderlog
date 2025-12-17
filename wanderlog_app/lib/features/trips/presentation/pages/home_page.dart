@@ -26,6 +26,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   List<Map<String, dynamic>> _collections = [];
   bool _isLoadingCollections = false;
 
+  bool _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) return value == 'true' || value == '1';
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -36,7 +43,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     setState(() => _isLoadingCollections = true);
     try {
       final repo = ref.read(collectionRepositoryProvider);
-      final data = await repo.listCollections();
+      // 首页展示全部合集，需要 includeAll = true
+      final data = await repo.listCollections(includeAll: true);
       setState(() => _collections = data);
     } catch (_) {
       setState(() => _collections = []);
@@ -153,13 +161,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 title: title,
                                 tags: tags,
                                 imageUrl: image,
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
+                                onTap: () async {
+                                  final result = await Navigator.of(context).push<dynamic>(
+                                    MaterialPageRoute<dynamic>(
                                       builder: (context) => AlbumSpotsMapPage(
                                         city: city,
                                         albumTitle: title,
                                         collectionId: item['id'] as String?,
+                                        initialIsFavorited: _asBool(item['isFavorited']),
                                         description: item['description'] as String?,
                                         coverImage: item['coverImage'] as String?,
                                         people: (item['people'] as List<dynamic>? ?? [])
@@ -179,6 +188,26 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       ),
                                     ),
                                   );
+
+                                  bool needRefresh = false;
+                                  bool? latestFav;
+                                  if (result is Map) {
+                                    needRefresh = result['shouldRefresh'] == true;
+                                    latestFav = result['isFavorited'] as bool?;
+                                  } else if (result is bool) {
+                                    needRefresh = result;
+                                  }
+
+                                  // 乐观更新当前卡片的收藏状态，避免后台状态延迟
+                                  if (latestFav != null && mounted) {
+                                    setState(() {
+                                      _collections[index]['isFavorited'] = latestFav;
+                                    });
+                                  }
+
+                                  if (needRefresh && mounted) {
+                                    _loadCollections();
+                                  }
                                 },
                               );
                             },

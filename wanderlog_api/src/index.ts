@@ -55,6 +55,8 @@ import collectionRoutes from './routes/collectionRoutes';
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/spots', spotRoutes);
+// 兼容新路由，前端已优先 /places，暂时共存
+app.use('/api/places', spotRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/destinations', destinationRoutes);
 app.use('/api/collections', collectionRoutes);

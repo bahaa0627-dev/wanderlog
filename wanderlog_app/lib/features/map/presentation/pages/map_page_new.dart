@@ -1125,7 +1125,7 @@ class _MapPageState extends ConsumerState<MapPage> {
       ratingCount: place.ratingCount ?? 0,
       coverImage: images.isNotEmpty ? images.first : _fallbackCoverImage,
       images: images.isNotEmpty ? images : <String>[_fallbackCoverImage],
-      tags: tags.take(4).toList(),
+      tags: tags,
       aiSummary: place.aiSummary ?? place.aiDescription,
     );
   }
@@ -1414,15 +1414,25 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
   String? _destinationId;
 
   List<String> _effectiveTags() {
-    final List<String> tags = widget.spot.tags
-        .map((e) => e.toString().trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+    final List<String> result = [];
+    final Set<String> seen = {};
+
     final category = widget.spot.category.trim();
-    if (category.isNotEmpty && !tags.contains(category)) {
-      tags.add(category);
+    if (category.isNotEmpty) {
+      result.add(category);
+      seen.add(category.toLowerCase());
     }
-    return tags;
+
+    for (final raw in widget.spot.tags) {
+      final tag = raw.toString().trim();
+      if (tag.isEmpty) continue;
+      final key = tag.toLowerCase();
+      if (seen.add(key)) {
+        result.add(tag);
+      }
+    }
+
+    return result;
   }
 
   @override
@@ -1514,7 +1524,6 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                       spacing: 8,
                       runSpacing: 8,
                       children: _effectiveTags()
-                          .take(4)
                           .map(
                             (tag) => Container(
                               padding: const EdgeInsets.symmetric(

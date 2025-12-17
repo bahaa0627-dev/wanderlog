@@ -266,11 +266,18 @@ class CollectionController {
               spot: true,
             },
           },
+          userCollections: userId
+            ? {
+                where: { userId },
+                select: { id: true },
+              }
+            : false,
         },
       });
 
       const normalized = collections.map((c) => ({
         ...c,
+        isFavorited: !!(userId && (c as any).userCollections && (c as any).userCollections.length > 0),
         people: c.people ? JSON.parse(c.people) : [],
         works: c.works ? JSON.parse(c.works) : [],
         collectionSpots: c.collectionSpots.map((cs) => ({
@@ -284,6 +291,8 @@ class CollectionController {
             : null,
         })),
       }));
+      // 移除 userCollections，避免返回多余字段
+      normalized.forEach((item: any) => delete item.userCollections);
 
       return res.json({ success: true, data: normalized });
     } catch (error: any) {
@@ -473,7 +482,7 @@ class CollectionController {
         },
       });
 
-      return res.json({ success: true });
+      return res.json({ isFavorited: true });
     } catch (error: any) {
       return res.status(500).json({ success: false, message: error.message });
     }
@@ -491,10 +500,10 @@ class CollectionController {
         where: { userId_collectionId: { userId, collectionId: id } },
       });
 
-      return res.json({ success: true });
+      return res.json({ isFavorited: false });
     } catch (error: any) {
       if (error.code === 'P2025') {
-        return res.json({ success: true });
+        return res.json({ isFavorited: false });
       }
       return res.status(500).json({ success: false, message: error.message });
     }

@@ -29,6 +29,29 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   });
 };
 
+/**
+ * Optional auth: if Authorization is present, verify and set req.user; otherwise continue.
+ * This lets public endpoints still获取用户上下文（比如收藏状态）而不强制登录。
+ */
+export const authenticateTokenIfPresent = (req: Request, _res: Response, next: NextFunction) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return next();
+  }
+
+  const secret = process.env.JWT_SECRET || 'default_secret';
+
+  jwt.verify(token, secret, (err: any, user: any) => {
+    if (!err) {
+      req.user = user;
+    }
+    // 无论校验成功与否，都继续，不阻断请求（失败只是不带用户信息）
+    return next();
+  });
+};
+
 
 
 

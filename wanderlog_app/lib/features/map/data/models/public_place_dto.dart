@@ -110,8 +110,22 @@ List<String> _parseStringList(dynamic value) {
         return results;
       }
     } catch (_) {
-      // Fall through to adding the raw string below.
+      // Fall through to manual splitting below.
     }
+
+    // 尝试使用分隔符拆分字符串，例如 "Architecture, BIG"
+    final parts = value.split(RegExp(r'[、，,;；/]+'));
+    for (final part in parts) {
+      final parsed = part.trim();
+      if (parsed.isNotEmpty) {
+        results.add(parsed);
+      }
+    }
+    if (results.isNotEmpty) {
+      return results;
+    }
+
+    // 无法拆分则返回原始字符串
     results.add(value);
   }
 

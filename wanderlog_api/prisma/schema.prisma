@@ -13,92 +13,92 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  password  String?  // Google 登录用户可以为 null
+  password  String?
   name      String?
   avatarUrl String?
-  
-  // 认证相关
-  authProvider    String    @default("email") // "email" | "google"
-  googleId        String?   @unique // Google OAuth ID
-  isEmailVerified Boolean   @default(false) // 邮箱是否已验证
-  emailVerifiedAt DateTime? // 邮箱验证时间
-  
-  // Token 管理
-  refreshToken    String?   // 刷新 Token
-  tokenVersion    Int       @default(0) // 用于撤销所有 Token (递增)
-  
+  authProvider    String    @default("email")
+  googleId        String?   @unique
+  isEmailVerified Boolean   @default(false)
+  emailVerifiedAt DateTime?
+  refreshToken    String?
+  tokenVersion    Int       @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  // 关系
   trips              Trip[]
   verificationTokens VerificationToken[]
   userCollections    UserCollection[]
-  
+
   @@index([email])
   @@index([googleId])
 }
 
-// 邮箱验证和密码重置 Token
 model VerificationToken {
   id          String    @id @default(cuid())
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token       String    @unique // 验证码（6位数字）或重置Token（UUID）
-  type        String    // "EMAIL_VERIFICATION" | "PASSWORD_RESET"
-  expiresAt   DateTime  // Token 过期时间
-  usedAt      DateTime? // 使用时间（null = 未使用）
+  token       String    @unique
+  type        String
+  expiresAt   DateTime
+  usedAt      DateTime?
   createdAt   DateTime  @default(now())
-  
+
   @@index([token])
   @@index([userId, type])
   @@index([expiresAt])
 }
 
-model Spot {
-  id            String     @id @default(cuid())
-  googlePlaceId String?    @unique
+// 单一地点表 Place（合并原 Spot 与 PublicPlace）
+model Place {
+  id            String   @id @default(cuid())
   name          String
-  city          String     // 所在城市
-  country       String     @default("Denmark") // 所在国家
-  latitude      Float      // 纬度
-  longitude     Float      // 经度
-  address       String?    // 详细地址
-  description   String?    // 基本介绍
-  openingHours  String?    // JSON string: 营业时间
-  rating        Float?     // 当前评分
-  ratingCount   Int?       // 评分人数
-  category      String?    // 客观属性分类：博物馆、咖啡馆、餐厅等
-  aiSummary     String?    // AI介绍：根据最高10条评价总结的一句话
-  tags          String?    // JSON string: 标签组 ["cozy", "wifi", "romantic"]
-  coverImage    String?    // 封面图URL
-  images        String?    // JSON string: 其他图片URLs
-  priceLevel    Int?       // 0-4 价格等级
+  city          String?
+  country       String?
+  latitude      Float
+  longitude     Float
+  address       String?
+  description   String?
+  openingHours  String?
+  rating        Float?
+  ratingCount   Int?
+  category      String?
+  aiSummary     String?
+  aiDescription String?
+  tags          String?   // JSON string
+  aiTags        String?   // JSON string
+  coverImage    String?
+  images        String?   // JSON string
+  priceLevel    Int?
   website       String?
   phoneNumber   String?
-  source        String     @default("google_maps") // 数据来源：google_maps, user_import
-  isVerified    Boolean    @default(false) // 是否经过人工验证
-  lastSyncedAt  DateTime?  // 最后同步时间（每周日22:00更新）
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  tripSpots     TripSpot[]
+  googlePlaceId String?   @unique
+  placeId       String?   // 兼容旧 publicPlace 的 placeId；可与 googlePlaceId 复用
+  source        String?   @default("google_maps")
+  sourceDetails String?
+  isVerified    Boolean   @default(false)
+  lastSyncedAt  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  customFields  String?
+
+  tripSpots       TripSpot[]
   collectionSpots CollectionSpot[]
 
   @@index([city])
   @@index([category])
   @@index([rating])
+  @@index([source])
 }
 
 model Trip {
   id         String     @id @default(cuid())
   userId     String
   user       User       @relation(fields: [userId], references: [id])
-  name       String     // e.g., "Tokyo Trip"
-  city       String?    // e.g., "Tokyo"
+  name       String
+  city       String?
   startDate  DateTime?
   endDate    DateTime?
   coverImage String?
-  status     String     @default("PLANNING") // PLANNING, ACTIVE, COMPLETED
+  status     String     @default("PLANNING")
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   tripSpots  TripSpot[]
@@ -108,18 +108,18 @@ model TripSpot {
   id         String    @id @default(cuid())
   tripId     String
   trip       Trip      @relation(fields: [tripId], references: [id])
-  spotId     String
-  spot       Spot      @relation(fields: [spotId], references: [id])
-  status     String    @default("WISHLIST") // WISHLIST, TODAYS_PLAN, VISITED
-  priority   String    @default("OPTIONAL") // MUST_GO, OPTIONAL
-  visitDate  DateTime? // Planned or actual visit date
-  userRating Int?      // 1-5
+  placeId    String
+  place      Place     @relation(fields: [placeId], references: [id])
+  status     String    @default("WISHLIST")
+  priority   String    @default("OPTIONAL")
+  visitDate  DateTime?
+  userRating Int?
   userNotes  String?
-  userPhotos String?   // JSON string: URLs of user uploaded photos
+  userPhotos String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  @@unique([tripId, spotId])
+  @@unique([tripId, placeId])
 }
 
 model Collection {
@@ -127,9 +127,9 @@ model Collection {
   name        String
   coverImage  String
   description String?
-  people      String?  // JSON string: [{ name, avatarUrl?, link? }]
-  works       String?  // JSON string: [{ name, coverImage?, link? }]
-  source      String?  // admin / cms creator info
+  people      String?
+  works       String?
+  source      String?
   isPublished Boolean  @default(false)
   publishedAt DateTime?
   createdAt   DateTime @default(now())
@@ -143,12 +143,12 @@ model CollectionSpot {
   id           String      @id @default(cuid())
   collectionId String
   collection   Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  spotId       String
-  spot         Spot        @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  placeId      String
+  place        Place       @relation(fields: [placeId], references: [id], onDelete: Cascade)
   city         String?
   createdAt    DateTime    @default(now())
 
-  @@unique([collectionId, spotId])
+  @@unique([collectionId, placeId])
   @@index([city])
 }
 
@@ -161,50 +161,4 @@ model UserCollection {
   createdAt    DateTime    @default(now())
 
   @@unique([userId, collectionId])
-}
-
-// 公共地点库 - Public Places Library
-model PublicPlace {
-  id            String   @id @default(cuid())
-  placeId       String   @unique // Google Place ID - 唯一标识符，全球唯一
-  name          String // 地点名称
-  latitude      Float // 纬度
-  longitude     Float // 经度
-  address       String? // 详细地址
-  city          String? // 所在城市
-  country       String? // 所在国家
-  category      String? // 分类：博物馆、咖啡馆、餐厅、景点等
-  coverImage    String? // 封面图URL
-  images        String? // JSON string: 其他图片URLs数组
-  
-  // Google Maps 标准数据
-  rating        Float? // 评分
-  ratingCount   Int? // 评分人数
-  priceLevel    Int? // 价格等级 0-4
-  openingHours  String? // JSON string: 营业时间
-  website       String? // 官网
-  phoneNumber   String? // 电话
-  
-  // AI 增强数据
-  aiTags        String? // JSON string: AI生成的风格标签 ["romantic", "cozy", "instagram-worthy"]
-  aiSummary     String? // AI生成的地点简介
-  aiDescription String? // AI生成的详细描述
-  
-  // 元数据
-  source        String   @default("google_maps") // 数据来源：google_maps_link, ai_image, ai_chat, manual
-  sourceDetails String? // JSON string: 来源详情（如Apify任务ID、AI模型名等）
-  isVerified    Boolean  @default(false) // 是否经过人工验证
-  lastSyncedAt  DateTime? // 最后同步Google数据的时间
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // 扩展字段 - 预留JSON存储自定义属性
-  customFields  String? // JSON string: 可扩展的自定义字段
-  
-  @@index([placeId])
-  @@index([city])
-  @@index([country])
-  @@index([category])
-  @@index([rating])
-  @@index([source])
 }

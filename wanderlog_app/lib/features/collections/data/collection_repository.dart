@@ -4,14 +4,20 @@ class CollectionRepository {
   CollectionRepository(this._dio);
   final Dio _dio;
 
-  Future<List<Map<String, dynamic>>> listCollections() async {
-    final response = await _dio.get<Map<String, dynamic>>('/collections');
+  Future<List<Map<String, dynamic>>> listCollections({bool includeAll = false}) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/collections',
+      queryParameters: {'includeAll': includeAll},
+    );
     final data = response.data?['data'] as List<dynamic>? ?? [];
     return data.cast<Map<String, dynamic>>();
   }
 
   Future<Map<String, dynamic>> getCollection(String id) async {
-    final response = await _dio.get<Map<String, dynamic>>('/collections/$id');
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/collections/$id',
+      queryParameters: {'includeAll': true},
+    );
     return response.data?['data'] as Map<String, dynamic>;
   }
 

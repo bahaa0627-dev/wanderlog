@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' hide Spot;
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
@@ -13,6 +14,9 @@ import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
+import 'package:wanderlog/shared/widgets/custom_toast.dart';
+import 'package:wanderlog/features/trips/providers/spots_provider.dart';
+import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 
 /// 相册地点地图页面 - 显示某个相册（城市）下的所有地点
 class AlbumSpotsMapPage extends ConsumerStatefulWidget {
@@ -20,6 +24,7 @@ class AlbumSpotsMapPage extends ConsumerStatefulWidget {
     required this.city,
     required this.albumTitle,
     this.collectionId,
+    this.initialIsFavorited,
     this.description,
     this.coverImage,
     this.people = const [],
@@ -30,6 +35,7 @@ class AlbumSpotsMapPage extends ConsumerStatefulWidget {
   final String city; // 城市名称，如 "Copenhagen"
   final String albumTitle; // 相册标题，如 "3 day in copenhagen"
   final String? collectionId;
+  final bool? initialIsFavorited;
   final String? description;
   final String? coverImage;
   final List<LinkItem> people;
@@ -49,8 +55,26 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
   bool _isFavorite = false;
   bool _isFavLoading = false;
   bool _isDescExpanded = false;
+  bool _shouldRefreshCollections = false;
   bool _skipNextRecenter = false;
-  
+
+  bool? _extractIsFavorited(dynamic collection) {
+    if (collection is Map<String, dynamic>) {
+      if (collection.containsKey('isFavorited')) {
+        final value = collection['isFavorited'];
+        if (value != null) return _asBool(value);
+      }
+    }
+    return null;
+  }
+
+  bool _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) return value == 'true' || value == '1';
+    return false;
+  }
+
   double _effectiveLatThreshold(BuildContext context) {
     final mapState = _mapKey.currentState;
     if (mapState == null || mapState.currentCenter == null) return 0.006;
@@ -123,9 +147,54 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
     );
   }
 
+  /// 解析 AI tags，兼容 List、JSON 字符串、逗号/顿号分隔字符串
+  List<String>? _extractAiTags(dynamic rawAiTags) {
+    if (rawAiTags == null) return null;
+
+    final List<String> tags = [];
+
+    void addTag(dynamic value) {
+      final tag = value.toString().trim();
+      if (tag.isNotEmpty) tags.add(tag);
+    }
+
+    if (rawAiTags is List) {
+      for (final item in rawAiTags) {
+        addTag(item);
+      }
+      return tags.isEmpty ? null : tags;
+    }
+
+    if (rawAiTags is String && rawAiTags.trim().isNotEmpty) {
+      final raw = rawAiTags.trim();
+      // 先尝试 JSON array
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          for (final item in decoded) {
+            addTag(item);
+          }
+          if (tags.isNotEmpty) return tags;
+        }
+      } catch (_) {
+        // ignore and fallback to split
+      }
+
+      // 逗号/顿号/分号/斜杠分隔
+      final parts = raw.split(RegExp(r'[、，,;；/]+'));
+      for (final part in parts) {
+        addTag(part);
+      }
+      return tags.isEmpty ? null : tags;
+    }
+
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
+    _isFavorite = _asBool(widget.initialIsFavorited);
     _loadCitySpots();
 
     // 监听卡片滑动，同步更新地图中心
@@ -168,12 +237,14 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
       try {
         print('🔍 开始加载合集数据，collectionId: ${widget.collectionId}');
         final repo = ref.read(collectionRepositoryProvider);
+        final spotRepo = ref.read(spotRepositoryProvider);
+        final publicPlaceRepo = ref.read(publicPlaceRepositoryProvider);
         final collection = await repo.getCollection(widget.collectionId!);
         print('📦 获取到合集数据: ${collection.keys}');
         
         // 加载收藏状态
-        final isFavorited = collection['isFavorited'] as bool? ?? false;
-        if (mounted) {
+        final isFavorited = _extractIsFavorited(collection);
+        if (mounted && isFavorited != null) {
           setState(() {
             _isFavorite = isFavorited;
           });
@@ -182,55 +253,91 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
         
         final collectionSpots = collection['collectionSpots'] as List<dynamic>? ?? [];
         print('📍 合集中的地点数量: ${collectionSpots.length}');
-        
-        final List<map_page.Spot> spots = [];
-        for (int i = 0; i < collectionSpots.length; i++) {
-          final cs = collectionSpots[i];
-          print('🔎 处理第 ${i + 1} 个地点: ${cs.runtimeType}');
-          
+
+        final List<map_page.Spot?> results =
+            List<map_page.Spot?>.filled(collectionSpots.length, null);
+        final Map<String, map_page.Spot> cache = {};
+
+        Future<map_page.Spot?> fetchSpot(int index) async {
+          final cs = collectionSpots[index];
+          print('🔎 处理第 ${index + 1} 个地点: ${cs.runtimeType}');
+
+          final spotId = cs['spotId'] as String?;
           final spotData = cs['spot'] as Map<String, dynamic>?;
-          if (spotData != null) {
-            print('✅ 找到 spot 数据: ${spotData.keys}');
+          if (spotId == null || spotId.isEmpty) {
+            print('⚠️ 第 ${index + 1} 个地点缺少 spotId');
+            return null;
+          }
+
+          if (cache.containsKey(spotId)) {
+            return cache[spotId];
+          }
+
+          map_page.Spot? converted;
+
+          // 优先从 Spot 服务获取最新详情，并用 public-place 补全标签/分类/评分人数
+          try {
+            final spot = await spotRepo.getSpotById(spotId);
+            // 优先用 Spot 内的 googlePlaceId，若无则用合集内嵌的 placeId 兜底
+            final placeIdCandidate = (spot.googlePlaceId != null &&
+                    spot.googlePlaceId!.isNotEmpty)
+                ? spot.googlePlaceId
+                : (spotData?['googlePlaceId'] as String?);
+            final place = (placeIdCandidate != null &&
+                    placeIdCandidate.isNotEmpty)
+                ? await publicPlaceRepo.getPlaceById(placeIdCandidate)
+                : null;
+
+            final tags = (place?.aiTags.isNotEmpty ?? false)
+                ? place!.aiTags
+                : spot.tags;
+            final categoryOverride =
+                (place?.category ?? spot.category ?? '').trim().isNotEmpty
+                    ? (place?.category ?? spot.category)
+                    : null;
+            final ratingOverride = place?.rating ?? spot.rating ?? 0.0;
+            final ratingCountOverride =
+                place?.ratingCount ?? spot.ratingCount ?? 0;
+
+            converted = _convertSpot(
+              spot,
+              tagsOverride: tags,
+              categoryOverride: categoryOverride,
+              ratingOverride: ratingOverride,
+              ratingCountOverride: ratingCountOverride,
+            );
+            print('✅ Spot 服务获取成功: ${spot.name}');
+          } catch (e, stackTrace) {
+            print('⚠️ 拉取 spot 详情失败 ($spotId): $e');
+            print('📋 Stack trace: $stackTrace');
+          }
+
+          // 兜底：使用合集返回的嵌套 spot 数据
+          if (converted == null && spotData != null) {
             try {
               final spot = Spot.fromJson(spotData);
-              print('✅ Spot 解析成功: ${spot.name}');
-              // aiTags / ai_tags 兜底，category 覆盖
-              final rawAiTags = spotData['aiTags'] ?? spotData['ai_tags'];
-              List<String>? aiTags;
-              if (rawAiTags is List) {
-                aiTags = rawAiTags.map((e) => e.toString()).toList();
-              } else if (rawAiTags is String && rawAiTags.trim().isNotEmpty) {
-                try {
-                  final decoded = jsonDecode(rawAiTags);
-                  if (decoded is List) {
-                    aiTags = decoded.map((e) => e.toString()).toList();
-                  }
-                } catch (_) {}
-              }
-
-              final categoryOverride =
-                  (spotData['category'] as String?)?.trim();
-
-              final ratingCount =
-                  spotData['ratingCount'] ?? spotData['rating_count'];
-              final ratingValue =
-                  (spotData['rating'] as num?)?.toDouble();
-              spots.add(_convertSpot(
-                spot,
-                ratingCountOverride:
-                    ratingCount is num ? ratingCount.toInt() : null,
-                ratingOverride: ratingValue,
-                tagsOverride: aiTags,
-                categoryOverride: categoryOverride,
-              ));
+              converted = _convertSpot(spot);
+              print('ℹ️ 使用合集内嵌 spot 兜底: ${spot.name}');
             } catch (e, stackTrace) {
-              print('⚠️ 解析spot失败: $e');
+              print('⚠️ 兜底解析 spot 失败 ($spotId): $e');
               print('📋 Stack trace: $stackTrace');
             }
-          } else {
-            print('⚠️ 第 ${i + 1} 个地点没有 spot 数据');
           }
+
+          if (converted != null) {
+            cache[spotId] = converted;
+          } else {
+            print('⚠️ 无法获取地点 ($spotId)，已跳过');
+          }
+          return converted;
         }
+
+        await Future.wait([
+          for (int i = 0; i < collectionSpots.length; i++)
+            fetchSpot(i).then((spot) => results[i] = spot),
+        ]);
+
+        final spots = results.whereType<map_page.Spot>().toList();
         
         print('✅ 成功转换了 ${spots.length} 个地点');
         
@@ -340,48 +447,54 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
   Widget build(BuildContext context) {
     final cityCenter = _getCityCenter();
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // 全屏地图 - 使用共享组件（即使没有 spots 也显示地图）
-          MapboxSpotMap(
-            key: _mapKey,
-            spots: _citySpots,
-            initialCenter: cityCenter,
-            initialZoom: _citySpots.isNotEmpty ? 13.0 : 10.0,
-            selectedSpot: _selectedSpot,
-            onSpotTap: _handleSpotTap,
-            cameraPadding: MbxEdgeInsets(
-              top: 300,
-              bottom: 220,
-              left: 24,
-              right: 24,
+    return WillPopScope(
+      onWillPop: () async {
+        _handleBack();
+        return false;
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            // 全屏地图 - 使用共享组件（即使没有 spots 也显示地图）
+            MapboxSpotMap(
+              key: _mapKey,
+              spots: _citySpots,
+              initialCenter: cityCenter,
+              initialZoom: _citySpots.isNotEmpty ? 13.0 : 10.0,
+              selectedSpot: _selectedSpot,
+              onSpotTap: _handleSpotTap,
+              cameraPadding: MbxEdgeInsets(
+                top: 300,
+                bottom: 220,
+                left: 24,
+                right: 24,
+              ),
             ),
-          ),
 
-          // 顶部导航栏 + 描述
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildAppBar(),
-                if (_hasMeta) _buildDescription(),
-              ],
-            ),
-          ),
-
-          // 底部地点卡片滑动列表
-          if (_citySpots.isNotEmpty)
+            // 顶部导航栏 + 描述
             Positioned(
-              bottom: 40,
+              top: 0,
               left: 0,
               right: 0,
-              child: _buildBottomCards(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildAppBar(),
+                  if (_hasMeta) _buildDescription(),
+                ],
+              ),
             ),
-        ],
+
+            // 底部地点卡片滑动列表
+            if (_citySpots.isNotEmpty)
+              Positioned(
+                bottom: 40,
+                left: 0,
+                right: 0,
+                child: _buildBottomCards(),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -411,6 +524,13 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
     );
   }
 
+  void _handleBack() {
+    Navigator.of(context).pop({
+      'shouldRefresh': _shouldRefreshCollections,
+      'isFavorited': _isFavorite,
+    });
+  }
+
   Widget _buildAppBar() {
     final paddingTop = MediaQuery.of(context).padding.top;
     return Container(
@@ -434,7 +554,7 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
         children: [
           IconButtonCustom(
             icon: Icons.arrow_back,
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: _handleBack,
             backgroundColor: Colors.white,
           ),
           const SizedBox(width: 12),
@@ -453,7 +573,8 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
                 if (_isFavLoading) return;
                 _toggleFavorite();
               },
-              backgroundColor: Colors.white,
+              backgroundColor:
+                  _isFavorite ? AppTheme.primaryYellow : Colors.white,
             ),
           const SizedBox(width: 8),
           IconButtonCustom(
@@ -584,53 +705,41 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
   Future<void> _toggleFavorite() async {
     final collectionId = widget.collectionId;
     if (collectionId == null) return;
-    final authed = await requireAuth(context, ref);
-    if (!authed) return;
+
+    final isLoggedIn = ref.read(authProvider).isAuthenticated;
+    // 未登录先跳转登录，返回详情页后再点一次收藏
+    if (!isLoggedIn) {
+      final loggedIn = await requireAuth(context, ref);
+      if (!loggedIn) return;
+      return;
+    }
 
     setState(() => _isFavLoading = true);
+    final repo = ref.read(collectionRepositoryProvider);
     try {
-      final wasFavorited = _isFavorite;
-      if (!_isFavorite) {
-        await _ensureDestinationsForCities();
-        await ref.read(collectionRepositoryProvider).favoriteCollection(collectionId);
+      if (_isFavorite) {
+        await repo.unfavoriteCollection(collectionId);
+        if (mounted) {
+          _shouldRefreshCollections = true;
+          setState(() => _isFavorite = false);
+          CustomToast.showInfo(context, '取消收藏');
+        }
       } else {
-        await ref.read(collectionRepositoryProvider).unfavoriteCollection(collectionId);
-      }
-      if (mounted) {
-        setState(() => _isFavorite = !_isFavorite);
-        
-        // 如果取消收藏，返回上一页并刷新列表
-        if (wasFavorited && !_isFavorite) {
-          // 延迟一下，让用户看到按钮状态变化
-          await Future.delayed(const Duration(milliseconds: 300));
-          if (mounted) {
-            Navigator.of(context).pop(true); // 返回 true 表示需要刷新
-          }
+        await repo.favoriteCollection(collectionId);
+        if (mounted) {
+          _shouldRefreshCollections = true;
+          setState(() => _isFavorite = true);
+          CustomToast.showSuccess(context, '收藏成功');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        CustomToast.showError(context, '操作失败，请重试');
       }
     } finally {
       if (mounted) {
         setState(() => _isFavLoading = false);
       }
-    }
-  }
-
-  Future<void> _ensureDestinationsForCities() async {
-    final cities = _citySpots
-        .map((map_page.Spot s) => s.city.trim())
-        .where((String c) => c.isNotEmpty)
-        .toSet();
-    for (final city in cities) {
-      await ensureDestinationForCity(ref, city);
     }
   }
 
@@ -796,34 +905,6 @@ class _BottomSpotCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: spot.tags.take(2).map((tag) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusSmall),
-                              border: Border.all(
-                                color: Colors.white70,
-                                width: 1.0,
-                              ),
-                            ),
-                            child: Text(
-                              tag,
-                              style: AppTheme.labelLarge(context).copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
                       const Spacer(),
                       Text(
                         spot.name,

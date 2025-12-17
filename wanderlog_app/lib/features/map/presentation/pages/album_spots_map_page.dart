@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -40,31 +42,83 @@ class AlbumSpotsMapPage extends ConsumerStatefulWidget {
 class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
   final GlobalKey<MapboxSpotMapState> _mapKey = GlobalKey<MapboxSpotMapState>();
   final PageController _cardPageController =
-      PageController(viewportFraction: 0.85);
+      PageController(viewportFraction: 0.55);
   int _currentCardIndex = 0;
   List<map_page.Spot> _citySpots = [];
   map_page.Spot? _selectedSpot;
   bool _isFavorite = false;
   bool _isFavLoading = false;
+  bool _isDescExpanded = false;
+  bool _skipNextRecenter = false;
   
+  double _effectiveLatThreshold(BuildContext context) {
+    final mapState = _mapKey.currentState;
+    if (mapState == null || mapState.currentCenter == null) return 0.006;
+
+    final centerLat = mapState.currentCenter!.lat;
+    final zoom = mapState.currentZoom;
+
+    // meters per pixel at current latitude & zoom
+    final metersPerPixel =
+        156543.03392 * (math.cos(centerLat * math.pi / 180)) / (math.pow(2, zoom));
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    final halfCorePixels = screenHeight * 0.22; // 44% 高度的中间区域
+    final meters = metersPerPixel * halfCorePixels;
+    // 1 deg lat ≈ 111111 m
+    return meters / 111111.0;
+  }
+
+  double _effectiveLngThreshold(BuildContext context) {
+    final mapState = _mapKey.currentState;
+    if (mapState == null || mapState.currentCenter == null) return 0.008;
+
+    final centerLat = mapState.currentCenter!.lat;
+    final zoom = mapState.currentZoom;
+
+    final metersPerPixel =
+        156543.03392 * (math.cos(centerLat * math.pi / 180)) / (math.pow(2, zoom));
+    final screenWidth = MediaQuery.of(context).size.width;
+    final halfCorePixels = screenWidth * 0.20; // 40% 宽度的中间区域
+    final meters = metersPerPixel * halfCorePixels;
+    // 1 deg lng ≈ 111111 m * cos(lat)
+    final denom = 111111.0 * math.cos(centerLat * math.pi / 180);
+    if (denom == 0) return 0.01;
+    return meters / denom;
+  }
+
   // 将 shared/models/spot_model.dart 中的 Spot 转换为 map_page_new.dart 中的 Spot
-  map_page.Spot _convertSpot(Spot spot) {
-    // 确保 images 是 List<String>
+  map_page.Spot _convertSpot(
+    Spot spot, {
+    int? ratingCountOverride,
+    double? ratingOverride,
+    List<String>? tagsOverride,
+    String? categoryOverride,
+  }) {
+    // 确保 images / tags 是 List<String>
     final List<String> imageList = spot.images;
     final String coverImg = imageList.isNotEmpty ? imageList.first : '';
+    final List<String> tagList = (tagsOverride ?? spot.tags)
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final String category = (categoryOverride ?? spot.category ?? 'place').trim();
+    if (category.isNotEmpty && !tagList.contains(category)) {
+      tagList.add(category);
+    }
     
     return map_page.Spot(
       id: spot.id,
       name: spot.name,
       city: spot.city ?? 'Unknown',
-      category: spot.category ?? 'place',
+      category: category.isNotEmpty ? category : 'place',
       latitude: spot.latitude,
       longitude: spot.longitude,
-      rating: spot.rating ?? 0.0,
-      ratingCount: 0, // shared Spot 模型没有 ratingCount
+      rating: ratingOverride ?? spot.rating ?? 0.0,
+      ratingCount: ratingCountOverride ?? 0,
       coverImage: coverImg,
       images: imageList,
-      tags: spot.tags,
+      tags: tagList,
       aiSummary: null,
     );
   }
@@ -96,10 +150,15 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
         _selectedSpot = spot;
       });
 
-      // 移动地图到新选中的地点
-      _mapKey.currentState?.animateCamera(
-        Position(spot.longitude, spot.latitude),
-      );
+      if (_skipNextRecenter) {
+        _skipNextRecenter = false;
+        return;
+      }
+
+      final target = Position(spot.longitude, spot.latitude);
+      if (!_isTargetNearCenter(target)) {
+        _mapKey.currentState?.animateCamera(target);
+      }
     }
   }
 
@@ -135,7 +194,35 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
             try {
               final spot = Spot.fromJson(spotData);
               print('✅ Spot 解析成功: ${spot.name}');
-              spots.add(_convertSpot(spot));
+              // aiTags / ai_tags 兜底，category 覆盖
+              final rawAiTags = spotData['aiTags'] ?? spotData['ai_tags'];
+              List<String>? aiTags;
+              if (rawAiTags is List) {
+                aiTags = rawAiTags.map((e) => e.toString()).toList();
+              } else if (rawAiTags is String && rawAiTags.trim().isNotEmpty) {
+                try {
+                  final decoded = jsonDecode(rawAiTags);
+                  if (decoded is List) {
+                    aiTags = decoded.map((e) => e.toString()).toList();
+                  }
+                } catch (_) {}
+              }
+
+              final categoryOverride =
+                  (spotData['category'] as String?)?.trim();
+
+              final ratingCount =
+                  spotData['ratingCount'] ?? spotData['rating_count'];
+              final ratingValue =
+                  (spotData['rating'] as num?)?.toDouble();
+              spots.add(_convertSpot(
+                spot,
+                ratingCountOverride:
+                    ratingCount is num ? ratingCount.toInt() : null,
+                ratingOverride: ratingValue,
+                tagsOverride: aiTags,
+                categoryOverride: categoryOverride,
+              ));
             } catch (e, stackTrace) {
               print('⚠️ 解析spot失败: $e');
               print('📋 Stack trace: $stackTrace');
@@ -264,14 +351,26 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
             initialZoom: _citySpots.isNotEmpty ? 13.0 : 10.0,
             selectedSpot: _selectedSpot,
             onSpotTap: _handleSpotTap,
+            cameraPadding: MbxEdgeInsets(
+              top: 300,
+              bottom: 220,
+              left: 24,
+              right: 24,
+            ),
           ),
 
-          // 顶部导航栏
+          // 顶部导航栏 + 描述
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: _buildAppBar(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildAppBar(),
+                if (_hasMeta) _buildDescription(),
+              ],
+            ),
           ),
 
           // 底部地点卡片滑动列表
@@ -292,6 +391,7 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
     if (spotIndex == -1) return;
 
     setState(() => _selectedSpot = spot);
+    _skipNextRecenter = true; // marker点选后，联动卡片但不移动相机
 
     if (spotIndex != _currentCardIndex) {
       _cardPageController.animateToPage(
@@ -311,22 +411,24 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
     );
   }
 
-  Widget _buildAppBar() => Container(
+  Widget _buildAppBar() {
+    final paddingTop = MediaQuery.of(context).padding.top;
+    return Container(
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 12,
+        top: paddingTop + 10,
         left: 16,
         right: 16,
-        bottom: 12,
+        bottom: 10,
       ),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.white.withOpacity(0.95),
-            Colors.white.withOpacity(0.0),
-          ],
-        ),
+        color: Colors.white.withOpacity(0.95),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -337,127 +439,147 @@ class _AlbumSpotsMapPageState extends ConsumerState<AlbumSpotsMapPage> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  widget.albumTitle,
-                  style: AppTheme.headlineMedium(context),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  '${_citySpots.length} spots in ${widget.city}',
-                  style: AppTheme.labelMedium(context).copyWith(
-                    color: AppTheme.mediumGray,
-                  ),
-                ),
-                if (_hasMeta) const SizedBox(height: 6),
-                if (_hasMeta)
-                  Text(
-                    widget.description ?? '',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.bodyMedium(context).copyWith(
-                      color: AppTheme.black.withOpacity(0.65),
-                    ),
-                  ),
-                if (_hasMeta && (widget.people.isNotEmpty || widget.works.isNotEmpty))
-                  const SizedBox(height: 6),
-                if (_hasMeta)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      ...widget.people.map(
-                        (p) => _LinkChip(
-                          label: p.name,
-                          url: p.link,
-                          leading: p.avatarUrl != null
-                              ? CircleAvatar(
-                                  radius: 10,
-                                  backgroundImage: NetworkImage(p.avatarUrl!),
-                                )
-                              : const Icon(Icons.person, size: 16),
-                        ),
-                      ),
-                      ...widget.works.map(
-                        (w) => _LinkChip(
-                          label: w.name,
-                          url: w.link,
-                          leading: w.coverImage != null
-                              ? CircleAvatar(
-                                  radius: 10,
-                                  backgroundImage: NetworkImage(w.coverImage!),
-                                )
-                              : const Icon(Icons.bookmark_border, size: 16),
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
+            child: Text(
+              widget.albumTitle,
+              style: AppTheme.headlineMedium(context),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (widget.collectionId != null)
-            Row(
-              children: [
-                IconButtonCustom(
-                  icon: _isFavorite ? Icons.favorite : Icons.favorite_border,
-                  onPressed: () {
-                    if (_isFavLoading) return;
-                    _toggleFavorite();
-                  },
-                  backgroundColor: Colors.white,
+            IconButtonCustom(
+              icon: _isFavorite ? Icons.favorite : Icons.favorite_border,
+              onPressed: () {
+                if (_isFavLoading) return;
+                _toggleFavorite();
+              },
+              backgroundColor: Colors.white,
+            ),
+          const SizedBox(width: 8),
+          IconButtonCustom(
+            icon: Icons.share,
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Share coming soon')),
+              );
+            },
+            backgroundColor: Colors.white,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescription() {
+    final desc = widget.description ?? '';
+    final hasExtra = desc.length > 0;
+    if (!hasExtra) return const SizedBox.shrink();
+
+    final text = Text(
+      desc,
+      maxLines: _isDescExpanded ? null : 2,
+      overflow: _isDescExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+      style: AppTheme.bodyMedium(context).copyWith(
+        color: AppTheme.black.withOpacity(0.75),
+      ),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.94),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: text,
+          ),
+          if (desc.length > 80)
+            TextButton(
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const ui.Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () =>
+                  setState(() => _isDescExpanded = !_isDescExpanded),
+              child: Text(
+                _isDescExpanded ? '收起' : '展开',
+                style: AppTheme.labelMedium(context).copyWith(
+                  color: AppTheme.primaryYellow,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(width: 8),
-                IconButtonCustom(
-                  icon: Icons.share,
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Share coming soon')),
-                    );
-                  },
-                  backgroundColor: Colors.white,
-                ),
-              ],
+              ),
             ),
         ],
       ),
     );
+  }
 
-  Widget _buildBottomCards() => SizedBox(
-      height: 260,
+  bool _isTargetNearCenter(Position target) {
+    final currentCenter = _mapKey.currentState?.currentCenter;
+    if (currentCenter == null || !mounted) return false;
+
+    final latThreshold = _effectiveLatThreshold(context);
+    final lngThreshold = _effectiveLngThreshold(context);
+    final latDiff = (target.lat - currentCenter.lat).abs();
+    final lngDiff = (target.lng - currentCenter.lng).abs();
+    return latDiff <= latThreshold && lngDiff <= lngThreshold;
+  }
+
+  Widget _buildBottomCards() {
+    const double cardHeight = 270; // 更矮的高度
+    const double cardWidth = cardHeight * 3 / 4; // 竖向 4:3 封面比例
+
+    return SizedBox(
+      height: cardHeight + 20,
       child: PageView.builder(
         controller: _cardPageController,
+        padEnds: true,
         itemCount: _citySpots.length,
         itemBuilder: (context, index) {
           final spot = _citySpots[index];
           final isCenter = index == _currentCardIndex;
 
           return AnimatedScale(
-            scale: isCenter ? 1.0 : 0.92,
-            duration: const Duration(milliseconds: 250),
-            child: _BottomSpotCard(
-              spot: spot,
-              onTap: () {
-                // 如果点击的是当前居中的卡片，打开详情
-                // 如果点击的是其他卡片，只跳转到该卡片
-                if (index == _currentCardIndex) {
-                  _showSpotDetail(spot);
-                } else {
-                  _cardPageController.animateToPage(
-                    index,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  );
-                }
-              },
+            scale: isCenter ? 1.0 : 0.9,
+            duration: const Duration(milliseconds: 220),
+            child: Center(
+              child: SizedBox(
+                height: cardHeight,
+                width: cardWidth,
+                child: _BottomSpotCard(
+                  spot: spot,
+                  onTap: () {
+                    if (index == _currentCardIndex) {
+                      _showSpotDetail(spot);
+                    } else {
+                      _cardPageController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    }
+                  },
+                ),
+              ),
             ),
           );
         },
       ),
     );
+  }
 
   Future<void> _toggleFavorite() async {
     final collectionId = widget.collectionId;
@@ -583,6 +705,12 @@ class _BottomSpotCard extends StatelessWidget {
   final map_page.Spot spot;
   final VoidCallback onTap;
 
+  List<String> _effectiveTags() {
+    if (spot.tags.isNotEmpty) return spot.tags;
+    if (spot.category.trim().isNotEmpty) return [spot.category];
+    return const [];
+  }
+
   IconData _getCategoryIconForSpot(String category) {
     switch (category.toLowerCase()) {
       case 'restaurant':
@@ -636,7 +764,7 @@ class _BottomSpotCard extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
+          margin: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -644,123 +772,152 @@ class _BottomSpotCard extends StatelessWidget {
                 Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
             boxShadow: AppTheme.cardShadow,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(AppTheme.radiusMedium - 1),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildCover(),
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black54,
+                        Colors.black38,
+                        Colors.black87,
+                      ],
+                    ),
+                  ),
                 ),
-                child: (spot.coverImage.isNotEmpty
-                    ? (spot.coverImage.startsWith('data:image/')
-                        ? Image.memory(
-                            _decodeBase64Image(spot.coverImage),
-                            height: 135,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              height: 135,
-                              color: AppTheme.lightGray,
-                              child: const Icon(Icons.place,
-                                  size: 50, color: AppTheme.mediumGray),
-                            ),
-                          )
-                        : Image.network(
-                            spot.coverImage,
-                            height: 135,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              height: 135,
-                              color: AppTheme.lightGray,
-                              child: const Icon(Icons.place,
-                                  size: 50, color: AppTheme.mediumGray),
-                            ),
-                          ))
-                    : Container(
-                        height: 135,
-                        color: AppTheme.lightGray,
-                        child: const Icon(Icons.place,
-                            size: 50, color: AppTheme.mediumGray),
-                      )),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
+                Padding(
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Wrap(
-                        spacing: 6,
+                        spacing: 8,
+                        runSpacing: 6,
                         children: spot.tags.take(2).map((tag) {
                           return Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
-                              vertical: 5,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryYellow.withOpacity(0.3),
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusSmall),
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusSmall),
                               border: Border.all(
-                                color: AppTheme.black,
+                                color: Colors.white70,
                                 width: 1.0,
                               ),
                             ),
-                            child:
-                                Text(tag, style: AppTheme.labelLarge(context)),
+                            child: Text(
+                              tag,
+                              style: AppTheme.labelLarge(context).copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(
-                            _getCategoryIconForSpot(spot.category ?? 'place'),
-                            size: 20,
-                            color: AppTheme.black,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              spot.name,
-                              style: AppTheme.bodyLarge(context).copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (spot.rating != null) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              color: AppTheme.primaryYellow,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${spot.rating!.toStringAsFixed(1)}',
-                              style: AppTheme.bodyMedium(context).copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                      const Spacer(),
+                      Text(
+                        spot.name,
+                        style: AppTheme.bodyLarge(context).copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          height: 1.2,
                         ),
-                      ],
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      _RatingRow(
+                        rating: spot.rating,
+                        ratingCount: spot.ratingCount,
+                      ),
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
+
+  Widget _buildCover() {
+    final placeholder = Container(
+      color: AppTheme.lightGray,
+      child: const Icon(
+        Icons.place,
+        size: 52,
+        color: AppTheme.mediumGray,
+      ),
+    );
+
+    if (spot.coverImage.isEmpty) return placeholder;
+    if (spot.coverImage.startsWith('data:image/')) {
+      final data = _decodeBase64Image(spot.coverImage);
+      if (data.isEmpty) return placeholder;
+      return Image.memory(
+        data,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => placeholder,
+      );
+    }
+
+    return Image.network(
+      spot.coverImage,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => placeholder,
+    );
+  }
+}
+
+class _RatingRow extends StatelessWidget {
+  const _RatingRow({
+    required this.rating,
+    required this.ratingCount,
+  });
+
+  final double rating;
+  final int ratingCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasRating = rating > 0;
+    return Row(
+      children: [
+        Icon(
+          Icons.star,
+          color: hasRating ? AppTheme.primaryYellow : Colors.white70,
+          size: 18,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          hasRating ? rating.toStringAsFixed(1) : '暂无评分',
+          style: AppTheme.bodyMedium(context).copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (ratingCount > 0) ...[
+          const SizedBox(width: 8),
+          Text(
+            '($ratingCount)',
+            style: AppTheme.labelMedium(context).copyWith(
+              color: Colors.white70,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class LinkItem {

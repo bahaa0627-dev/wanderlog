@@ -434,11 +434,17 @@ class _TripCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) {
+    const double cardRadius = AppTheme.radiusLarge;
+    final double innerRadius = cardRadius - AppTheme.borderThick;
+
+    return RepaintBoundary(
+      child: GestureDetector(
         onTap: onTap,
         child: Container(
+          clipBehavior: Clip.hardEdge,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+            borderRadius: BorderRadius.circular(cardRadius),
             border: Border.all(
               color: AppTheme.black,
               width: AppTheme.borderThick,
@@ -446,7 +452,7 @@ class _TripCard extends StatelessWidget {
             boxShadow: AppTheme.cardShadow,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge - 2),
+            borderRadius: BorderRadius.circular(innerRadius),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -455,6 +461,8 @@ class _TripCard extends StatelessWidget {
                     ? Image.memory(
                         _decodeBase64Image(imageUrl),
                         fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.low,
                         errorBuilder: (context, error, stackTrace) =>
                             const ColoredBox(
                           color: AppTheme.lightGray,
@@ -468,6 +476,8 @@ class _TripCard extends StatelessWidget {
                     : Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.low,
                         errorBuilder: (context, error, stackTrace) =>
                             const ColoredBox(
                           color: AppTheme.lightGray,
@@ -601,7 +611,9 @@ class _TripCard extends StatelessWidget {
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
   
   // 解码 base64 图片
   static Uint8List _decodeBase64Image(String dataUrl) {

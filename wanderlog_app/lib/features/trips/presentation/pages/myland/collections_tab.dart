@@ -182,179 +182,189 @@ class _CollectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: AppTheme.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderMedium,
-          ),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2),
-          child: Stack(
-            children: [
-              // 背景图片 - 支持 DataURL (base64) 和网络图片
-              Positioned.fill(
-                child: image.startsWith('data:image/')
-                    ? Image.memory(
-                        _decodeBase64Image(image),
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: AppTheme.background,
-                          child: const Center(
-                            child: Icon(
-                              Icons.image_outlined,
-                              size: 40,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                      )
-                    : Image.network(
-                        image,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: AppTheme.background,
-                          child: const Center(
-                            child: Icon(
-                              Icons.image_outlined,
-                              size: 40,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                      ),
-              ),
+    const double cardRadius = AppTheme.radiusMedium;
+    final double innerRadius = cardRadius - AppTheme.borderMedium;
 
-              // 渐变遮罩
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
-                      ],
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          clipBehavior: Clip.hardEdge,
+          height: 200,
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(cardRadius),
+            border: Border.all(
+              color: AppTheme.black,
+              width: AppTheme.borderMedium,
+            ),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(innerRadius),
+            child: Stack(
+              children: [
+                // 背景图片 - 支持 DataURL (base64) 和网络图片
+                Positioned.fill(
+                  child: image.startsWith('data:image/')
+                      ? Image.memory(
+                          _decodeBase64Image(image),
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true, // 避免重建时闪烁
+                          filterQuality: FilterQuality.low,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: AppTheme.background,
+                            child: const Center(
+                              child: Icon(
+                                Icons.image_outlined,
+                                size: 40,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Image.network(
+                          image,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true, // 避免重建时闪烁
+                          filterQuality: FilterQuality.low,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: AppTheme.background,
+                            child: const Center(
+                              child: Icon(
+                                Icons.image_outlined,
+                                size: 40,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
+
+                // 渐变遮罩
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              // 内容
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 城市标签和数量
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: AppTheme.black,
-                              width: AppTheme.borderThin,
+                // 内容
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 城市标签和数量
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
                             ),
-                          ),
-                          child: Text(
-                            city.toLowerCase(),
-                            style: AppTheme.labelSmall(context).copyWith(
-                              color: AppTheme.black,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: AppTheme.black,
-                              width: AppTheme.borderThin,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                spotsCount.toString(),
-                                style: AppTheme.labelSmall(context).copyWith(
-                                  color: AppTheme.black,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(
-                                Icons.location_on,
-                                size: 12,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryYellow.withOpacity(0.9),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
                                 color: AppTheme.black,
+                                width: AppTheme.borderThin,
                               ),
-                            ],
+                            ),
+                            child: Text(
+                              city.toLowerCase(),
+                              style: AppTheme.labelSmall(context).copyWith(
+                                color: AppTheme.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-
-                    const Spacer(),
-
-                    // 标题和标签
-                    Text(
-                      name,
-                      style: AppTheme.headlineMedium(context).copyWith(
-                        color: AppTheme.white,
-                        fontWeight: FontWeight.bold,
-                        shadows: [
-                          const Shadow(
-                            color: Colors.black,
-                            blurRadius: 4,
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryYellow.withOpacity(0.9),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: AppTheme.black,
+                                width: AppTheme.borderThin,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  spotsCount.toString(),
+                                  style: AppTheme.labelSmall(context).copyWith(
+                                    color: AppTheme.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.location_on,
+                                  size: 12,
+                                  color: AppTheme.black,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: tags.take(3).map((tag) {
-                        return Text(
-                          '#$tag',
-                          style: AppTheme.labelSmall(context).copyWith(
-                            color: AppTheme.white.withOpacity(0.9),
-                            shadows: [
-                              const Shadow(
-                                color: Colors.black,
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
+
+                      const Spacer(),
+
+                      // 标题和标签
+                      Text(
+                        name,
+                        style: AppTheme.headlineMedium(context).copyWith(
+                          color: AppTheme.white,
+                          fontWeight: FontWeight.bold,
+                          shadows: [
+                            const Shadow(
+                              color: Colors.black,
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: tags.take(3).map((tag) {
+                          return Text(
+                            '#$tag',
+                            style: AppTheme.labelSmall(context).copyWith(
+                              color: AppTheme.white.withOpacity(0.9),
+                              shadows: [
+                                const Shadow(
+                                  color: Colors.black,
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

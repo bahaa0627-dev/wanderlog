@@ -1413,6 +1413,18 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
   bool _isActionLoading = false;
   String? _destinationId;
 
+  List<String> _effectiveTags() {
+    final List<String> tags = widget.spot.tags
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final category = widget.spot.category.trim();
+    if (category.isNotEmpty && !tags.contains(category)) {
+      tags.add(category);
+    }
+    return tags;
+  }
+
   @override
   void dispose() {
     _imagePageController.dispose();
@@ -1501,7 +1513,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: widget.spot.tags
+                      children: _effectiveTags()
                           .take(4)
                           .map(
                             (tag) => Container(

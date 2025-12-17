@@ -21,6 +21,7 @@ class MapboxSpotMap extends StatefulWidget {
     this.selectedSpot,
     this.onMapCreated,
     this.onCameraMove,
+    this.cameraPadding,
     super.key,
   });
 
@@ -31,6 +32,7 @@ class MapboxSpotMap extends StatefulWidget {
   final void Function(Spot) onSpotTap;
   final VoidCallback? onMapCreated;
   final void Function(Position center, double zoom)? onCameraMove;
+  final MbxEdgeInsets? cameraPadding;
 
   @override
   State<MapboxSpotMap> createState() => MapboxSpotMapState();
@@ -46,9 +48,17 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   Position? _currentCenter;
   double _currentZoom = 13.0;
   final Map<String, Uint8List> _markerBitmapCache = {};
+  final Map<String, PointAnnotation> _annotationsBySpotId = {};
+  final Map<String, Spot> _spotByAnnotationId = {};
   Position? _pendingJumpCenter;
   double? _pendingJumpZoom;
   double? _panZoomBaseZoom;
+  String? _lastSelectedSpotId;
+  bool _markerClickListenerAttached = false;
+  int _markerGeneration = 0;
+
+  Position? get currentCenter => _currentCenter;
+  double get currentZoom => _currentZoom;
 
   @override
   void initState() {
@@ -61,9 +71,12 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   void didUpdateWidget(MapboxSpotMap oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 如果 spots 或 selectedSpot 变化，更新标记
-    if (oldWidget.spots != widget.spots ||
-        oldWidget.selectedSpot?.id != widget.selectedSpot?.id) {
+    final hasNewSpots = !identical(oldWidget.spots, widget.spots);
+    final selectionChanged =
+        oldWidget.selectedSpot?.id != widget.selectedSpot?.id;
+
+    // 为避免重复/错位，列表或选中变化都重建（带代次防抖）
+    if (hasNewSpots || selectionChanged) {
       _addNativeMarkers();
     }
   }
@@ -98,6 +111,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
   /// 添加原生标记
   Future<void> _addNativeMarkers() async {
+    final int generation = ++_markerGeneration;
+
     final manager = _pointAnnotationManager;
     if (manager == null) {
       print('❌ [共享地图] PointAnnotationManager 未初始化');
@@ -109,6 +124,13 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
       // 清除旧标记
       await manager.deleteAll();
+      _annotationsBySpotId.clear();
+      _spotByAnnotationId.clear();
+
+      if (generation != _markerGeneration) {
+        // 有新的任务开始，放弃本次
+        return;
+      }
 
       final spots = widget.spots;
       if (spots.isEmpty) {
@@ -116,35 +138,110 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
         return;
       }
 
-      for (final spot in spots) {
-        final isSelected = widget.selectedSpot?.id == spot.id;
-        final markerImage = await _getMarkerBitmap(spot, isSelected: isSelected);
+      final selectedId = widget.selectedSpot?.id;
 
-        // 创建标记配置
-        final annotation = PointAnnotationOptions(
-          geometry: Point(
-            coordinates: Position(spot.longitude, spot.latitude),
-          ),
-          image: markerImage,
-          iconAnchor: IconAnchor.BOTTOM,
-          iconSize: 2.0, // 设置图标缩放比例，1.0 为原始大小
-        );
+      // 先添加未选中的标记
+      for (final spot in spots.where((s) => s.id != selectedId)) {
+        final annotation = await _createAnnotation(spot, isSelected: false);
+        if (generation != _markerGeneration) return;
+        _annotationsBySpotId[spot.id] = annotation;
+        _spotByAnnotationId[annotation.id] = spot;
+      }
 
-        await manager.create(annotation);
+      // 再添加选中标记，确保在最上层
+      if (selectedId != null) {
+        final selectedSpot =
+            spots.firstWhere((s) => s.id == selectedId, orElse: () => spots[0]);
+        final selectedAnnotation =
+            await _createAnnotation(selectedSpot, isSelected: true);
+        if (generation != _markerGeneration) return;
+        _annotationsBySpotId[selectedSpot.id] = selectedAnnotation;
+        _spotByAnnotationId[selectedAnnotation.id] = selectedSpot;
       }
 
       print('✅ [共享地图] 已添加 ${spots.length} 个原生标记');
 
       // 设置点击监听
-      manager.addOnPointAnnotationClickListener(
-        _MarkerClickListener(
-          spots: spots,
-          onMarkerTap: widget.onSpotTap,
-        ),
-      );
+      if (!_markerClickListenerAttached) {
+        manager.addOnPointAnnotationClickListener(
+          _MarkerClickListener(
+            onMarkerTap: widget.onSpotTap,
+            annotationSpotResolver: (annotationId) =>
+                _spotByAnnotationId[annotationId],
+          ),
+        );
+        _markerClickListenerAttached = true;
+      }
+
+      _lastSelectedSpotId = selectedId;
     } catch (e) {
       print('❌ [共享地图] 添加原生标记失败: $e');
     }
+  }
+
+  Future<PointAnnotation> _createAnnotation(
+    Spot spot, {
+    required bool isSelected,
+  }) async {
+    final manager = _pointAnnotationManager!;
+    final markerImage = await _getMarkerBitmap(
+      spot,
+      isSelected: isSelected,
+    );
+
+    final annotation = PointAnnotationOptions(
+      geometry: Point(
+        coordinates: Position(spot.longitude, spot.latitude),
+      ),
+      image: markerImage,
+      iconAnchor: IconAnchor.BOTTOM,
+      iconSize: isSelected ? 2.2 : 1.9,
+    );
+
+    return manager.create(annotation);
+  }
+
+  Future<void> _refreshSelectedMarker() async {
+    final manager = _pointAnnotationManager;
+    if (manager == null) return;
+    final newSelectedId = widget.selectedSpot?.id;
+
+    if (newSelectedId == null) return;
+    if (_annotationsBySpotId.isEmpty) {
+      await _addNativeMarkers();
+      return;
+    }
+
+    // 还原旧的选中标记
+    if (_lastSelectedSpotId != null &&
+        _annotationsBySpotId.containsKey(_lastSelectedSpotId)) {
+      final previousSpot = widget.spots.firstWhere(
+        (s) => s.id == _lastSelectedSpotId,
+        orElse: () => widget.spots.first,
+      );
+      final oldAnnotation = _annotationsBySpotId[_lastSelectedSpotId]!;
+      await manager.delete(oldAnnotation);
+      final restored =
+          await _createAnnotation(previousSpot, isSelected: false);
+      _annotationsBySpotId[_lastSelectedSpotId!] = restored;
+      _spotByAnnotationId.remove(oldAnnotation.id);
+      _spotByAnnotationId[restored.id] = previousSpot;
+    }
+
+    // 提升新的选中标记
+    final newSpot = widget.spots
+        .firstWhere((s) => s.id == newSelectedId, orElse: () => widget.spots[0]);
+    final existing = _annotationsBySpotId[newSelectedId];
+    if (existing != null) {
+      await manager.delete(existing);
+      _spotByAnnotationId.remove(existing.id);
+    }
+    final selectedAnnotation =
+        await _createAnnotation(newSpot, isSelected: true);
+    _annotationsBySpotId[newSelectedId] = selectedAnnotation;
+    _spotByAnnotationId[selectedAnnotation.id] = newSpot;
+
+    _lastSelectedSpotId = newSelectedId;
   }
 
   Future<Uint8List> _getMarkerBitmap(
@@ -332,12 +429,13 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       return;
     }
 
-    await map.flyTo(
+    await map.easeTo(
       CameraOptions(
         center: Point(coordinates: center),
         zoom: zoom ?? _currentZoom,
+        padding: widget.cameraPadding,
       ),
-      MapAnimationOptions(duration: 500),
+      MapAnimationOptions(duration: 100),
     );
 
     setState(() {
@@ -358,6 +456,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       CameraOptions(
         center: Point(coordinates: center),
         zoom: zoom ?? _currentZoom,
+        padding: widget.cameraPadding,
       ),
     );
 
@@ -489,6 +588,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
           cameraOptions: CameraOptions(
             center: Point(coordinates: _currentCenter ?? widget.initialCenter),
             zoom: _currentZoom,
+            padding: widget.cameraPadding,
           ),
           onMapCreated: (mapboxMap) async {
             _mapboxMap = mapboxMap;
@@ -535,23 +635,17 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 class _MarkerClickListener extends OnPointAnnotationClickListener {
 
   _MarkerClickListener({
-    required this.spots,
     required this.onMarkerTap,
+    required this.annotationSpotResolver,
   });
-  final List<Spot> spots;
   final void Function(Spot) onMarkerTap;
+  final Spot? Function(String annotationId) annotationSpotResolver;
 
   @override
   void onPointAnnotationClick(PointAnnotation annotation) {
-    // 通过坐标找到对应的 spot
-    final clickedCoords = annotation.geometry.coordinates;
-
-    for (final spot in spots) {
-      if ((spot.longitude - clickedCoords.lng).abs() < 0.0001 &&
-          (spot.latitude - clickedCoords.lat).abs() < 0.0001) {
-        onMarkerTap(spot);
-        break;
-      }
+    final spot = annotationSpotResolver(annotation.id);
+    if (spot != null) {
+      onMarkerTap(spot);
     }
   }
 }

@@ -135,7 +135,9 @@ class _MyLandScreenState extends State<MyLandScreen> {
                     onCityChanged: _handleCityChanged,
                     onCityOptionsChanged: _handleCityOptionsChanged,
                   ),
-                  const CollectionsTab(),
+                  CollectionsTab(
+                    selectedCity: _currentTripCity,
+                  ),
                 ],
               ),
             ),

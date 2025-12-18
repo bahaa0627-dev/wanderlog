@@ -12,20 +12,35 @@ import 'package:wanderlog/shared/widgets/ui_components.dart';
 /// Collections Tab - 显示用户收藏的合集
 /// 这些合集与 trip 的城市相关
 class CollectionsTab extends ConsumerStatefulWidget {
-  const CollectionsTab({super.key});
+  const CollectionsTab({
+    super.key,
+    this.selectedCity,
+  });
+
+  /// 当前选中的城市，用于筛选合集
+  final String? selectedCity;
 
   @override
   ConsumerState<CollectionsTab> createState() => _CollectionsTabState();
 }
 
 class _CollectionsTabState extends ConsumerState<CollectionsTab> {
-  final List<Map<String, dynamic>> _collections = [];
+  final List<Map<String, dynamic>> _allCollections = [];
+  List<Map<String, dynamic>> _filteredCollections = [];
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _loadCollections();
+  }
+
+  @override
+  void didUpdateWidget(covariant CollectionsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedCity != widget.selectedCity) {
+      _filterCollections();
+    }
   }
 
   Future<void> _loadCollections() async {
@@ -35,15 +50,40 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
       // Myland 只显示当前用户收藏的合集（默认 includeAll=false）
       final data = await repo.listCollections();
       setState(() {
-        _collections
+        _allCollections
           ..clear()
           ..addAll(data);
+        _filterCollections();
       });
     } catch (_) {
-      setState(() => _collections.clear());
+      setState(() {
+        _allCollections.clear();
+        _filteredCollections = [];
+      });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// 根据选中的城市筛选合集
+  void _filterCollections() {
+    final city = widget.selectedCity?.toLowerCase().trim();
+    if (city == null || city.isEmpty) {
+      // 没有选择城市时显示所有收藏的合集
+      _filteredCollections = List.from(_allCollections);
+    } else {
+      // 筛选包含当前城市地点的合集
+      _filteredCollections = _allCollections.where((collection) {
+        final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
+        // 检查合集中是否有任何地点属于当前城市
+        return spots.any((cs) {
+          final spot = cs['spot'] as Map<String, dynamic>?;
+          final spotCity = (spot?['city'] as String?)?.toLowerCase().trim();
+          return spotCity == city;
+        });
+      }).toList();
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -51,15 +91,15 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_collections.isEmpty) {
+    if (_filteredCollections.isEmpty) {
       return _buildEmptyState();
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _collections.length,
+      itemCount: _filteredCollections.length,
       itemBuilder: (context, index) {
-        final collection = _collections[index];
+        final collection = _filteredCollections[index];
         final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
         final firstSpot = spots.isNotEmpty
             ? spots.first['spot'] as Map<String, dynamic>?
@@ -121,7 +161,13 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
 
               if (latestFav != null && mounted) {
                 setState(() {
-                  _collections[index]['isFavorited'] = latestFav;
+                  _filteredCollections[index]['isFavorited'] = latestFav;
+                  // 同步更新 _allCollections 中对应的记录
+                  final collectionId = _filteredCollections[index]['id'];
+                  final allIndex = _allCollections.indexWhere((c) => c['id'] == collectionId);
+                  if (allIndex != -1) {
+                    _allCollections[allIndex]['isFavorited'] = latestFav;
+                  }
                 });
               }
 

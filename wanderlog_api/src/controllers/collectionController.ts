@@ -165,9 +165,8 @@ class CollectionController {
       let whereClause: any = {};
       if (!includeAll) {
         if (userId) {
-          // 只返回用户收藏的已发布合集
+          // 返回用户收藏的合集（无论是否发布，用户收藏了就应该能在 MyLand 看到）
           whereClause = {
-            isPublished: true,
             userCollections: {
               some: {
                 userId: userId,

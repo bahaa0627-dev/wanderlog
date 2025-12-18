@@ -13,9 +13,11 @@ import 'package:wanderlog/features/map/data/sample_public_places.dart';
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
+import 'package:wanderlog/shared/widgets/custom_toast.dart';
 
 class Spot {
   Spot({
@@ -1413,6 +1415,12 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
   bool _isActionLoading = false;
   String? _destinationId;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadWishlistStatus();
+  }
+
   List<String> _effectiveTags() {
     final List<String> result = [];
     final Set<String> seen = {};
@@ -1605,17 +1613,22 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                         onPressed: _isActionLoading
                             ? null
                             : () async {
-                                final success = await _handleAddWishlist();
-                                if (success && context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '${widget.spot.name} added to wishlist!',
-                                      ),
-                                      backgroundColor: AppTheme.primaryYellow,
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
+                                if (_isWishlist) {
+                                  final ok = await _handleRemoveWishlist();
+                                  if (ok && context.mounted) {
+                                    CustomToast.showSuccess(
+                                      context,
+                                      'Removed from wishlist',
+                                    );
+                                  }
+                                } else {
+                                  final success = await _handleAddWishlist();
+                                  if (success && context.mounted) {
+                                    CustomToast.showSuccess(
+                                      context,
+                                      'added to wishlist',
+                                    );
+                                  }
                                 }
                               },
                       ),
@@ -1678,8 +1691,41 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
             status: TripSpotStatus.wishlist,
             spotPayload: _spotPayload(),
           );
+      ref.invalidate(tripsProvider);
       if (mounted) {
         setState(() => _isWishlist = true);
+      }
+      return true;
+    } catch (e) {
+      _showError('Error: $e');
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() => _isActionLoading = false);
+      }
+    }
+  }
+
+  Future<bool> _handleRemoveWishlist() async {
+    setState(() => _isActionLoading = true);
+    try {
+      final authed = await requireAuth(context, ref);
+      if (!authed) return false;
+
+      final destId = _destinationId ?? await ensureDestinationForCity(ref, widget.spot.city);
+      if (destId == null) {
+        _showError('Failed to load destination');
+        return false;
+      }
+
+      await ref.read(tripRepositoryProvider).manageTripSpot(
+            tripId: destId,
+            spotId: widget.spot.id,
+            remove: true,
+          );
+      ref.invalidate(tripsProvider);
+      if (mounted) {
+        setState(() => _isWishlist = false);
       }
       return true;
     } catch (e) {
@@ -1715,16 +1761,11 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
             spotPayload: _spotPayload(),
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              status == TripSpotStatus.todaysPlan
-                  ? 'Added to Today\'s Plan'
-                  : 'Added to MustGo',
-            ),
-            backgroundColor: AppTheme.primaryYellow,
-            behavior: SnackBarBehavior.floating,
-          ),
+        CustomToast.showSuccess(
+          context,
+          status == TripSpotStatus.todaysPlan
+              ? 'Added to Today\'s Plan'
+              : 'Added to MustGo',
         );
       }
     } catch (e) {
@@ -1736,14 +1777,62 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
     }
   }
 
+  Future<void> _loadWishlistStatus() async {
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) return;
+    try {
+      // 如果已有 destinationId，先查一次
+      if (_destinationId != null) {
+        final trip = await ref.read(tripRepositoryProvider).getTripById(_destinationId!);
+        final exists = trip.tripSpots
+                ?.any((ts) => ts.spotId == widget.spot.id && ts.status == TripSpotStatus.wishlist) ??
+            false;
+        if (exists && mounted) {
+          setState(() => _isWishlist = true);
+          return;
+        }
+      }
+
+      // 遍历所有 trips，查找包含该 spot 的 wishlist
+      final repo = ref.read(tripRepositoryProvider);
+      final trips = await repo.getMyTrips();
+      for (final t in trips) {
+        try {
+          final detail = await repo.getTripById(t.id);
+          final hit = detail.tripSpots
+                  ?.any((ts) => ts.spotId == widget.spot.id && ts.status == TripSpotStatus.wishlist) ??
+              false;
+          if (hit) {
+            _destinationId = detail.id;
+            if (mounted) setState(() => _isWishlist = true);
+            return;
+          }
+        } catch (_) {
+          // ignore this trip
+        }
+      }
+
+      // 最后再按城市兜底创建/获取 destination
+      final city = widget.spot.city.trim();
+      if (city.isEmpty) return;
+      final destId = await ensureDestinationForCity(ref, city);
+      if (destId == null) return;
+      _destinationId = destId;
+      final trip = await ref.read(tripRepositoryProvider).getTripById(destId);
+      final exists = trip.tripSpots
+              ?.any((ts) => ts.spotId == widget.spot.id && ts.status == TripSpotStatus.wishlist) ??
+          false;
+      if (exists && mounted) {
+        setState(() => _isWishlist = true);
+      }
+    } catch (_) {
+      // ignore preload errors
+    }
+  }
+
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    CustomToast.showError(context, message);
   }
 
   Map<String, dynamic> _spotPayload() => {

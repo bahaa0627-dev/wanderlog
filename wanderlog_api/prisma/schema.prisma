@@ -117,7 +117,7 @@ model TripSpot {
   userNotes  String?
   userPhotos String?
   createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  updatedAt  DateTime  @default(now())
 
   @@unique([tripId, placeId])
 }

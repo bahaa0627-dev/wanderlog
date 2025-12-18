@@ -183,7 +183,13 @@ export const getPlaceById = async (req: Request, res: Response) => {
     if (!place) {
       return res.status(404).json({ message: 'Place not found' });
     }
-    return res.json(place);
+    // 解析 JSON 字段，前端期望数组而不是字符串
+    const normalizedPlace = {
+      ...place,
+      tags: place.tags ? JSON.parse(place.tags) : [],
+      images: place.images ? JSON.parse(place.images) : [],
+    };
+    return res.json(normalizedPlace);
   } catch (error) {
     logger.error('Get Place error:', error);
     return res.status(500).json({ message: 'Server error' });

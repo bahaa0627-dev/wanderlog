@@ -48,7 +48,7 @@ class TripRepository {
     }
   }
 
-  Future<TripSpot> manageTripSpot({
+  Future<TripSpot?> manageTripSpot({
     required String tripId,
     required String spotId,
     TripSpotStatus? status,
@@ -57,14 +57,18 @@ class TripRepository {
     int? userRating,
     String? userNotes,
     Map<String, dynamic>? spotPayload,
+    bool remove = false,
   }) async {
     try {
       final Map<String, dynamic> data = {
         'spotId': spotId,
       };
 
+      if (remove) {
+        data['remove'] = true;
+      }
       if (status != null) data['status'] = status.name.toUpperCase();
-      if (priority != null) data['priority'] = priority.name.toUpperCase();
+      if (priority != null) data['priority'] = _priorityToServer(priority);
       if (visitDate != null) data['visitDate'] = visitDate.toIso8601String();
       if (userRating != null) data['userRating'] = userRating;
       if (userNotes != null) data['userNotes'] = userNotes;
@@ -74,9 +78,19 @@ class TripRepository {
         '/destinations/$tripId/spots',
         data: data,
       );
+      if (remove) return null;
       return TripSpot.fromJson(response.data!);
     } on DioException catch (e) {
       throw _handleError(e);
+    }
+  }
+
+  String _priorityToServer(SpotPriority priority) {
+    switch (priority) {
+      case SpotPriority.mustGo:
+        return 'MUST_GO';
+      case SpotPriority.optional:
+        return 'OPTIONAL';
     }
   }
 

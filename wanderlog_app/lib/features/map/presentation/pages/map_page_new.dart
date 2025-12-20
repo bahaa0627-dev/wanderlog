@@ -18,6 +18,7 @@ import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
+import 'package:wanderlog/shared/widgets/save_spot_button.dart';
 
 class Spot {
   Spot({
@@ -1412,6 +1413,8 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
   final PageController _imagePageController = PageController();
   int _currentImageIndex = 0;
   bool _isWishlist = false;
+  bool _isMustGo = false;
+  bool _isTodaysPlan = false;
   bool _isActionLoading = false;
   String? _destinationId;
 
@@ -1606,66 +1609,32 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: PrimaryButton(
-                        text: _isWishlist ? 'Added' : 'Add to Wishlist',
-                        onPressed: _isActionLoading
-                            ? null
-                            : () async {
-                                if (_isWishlist) {
-                                  final ok = await _handleRemoveWishlist();
-                                  if (ok && context.mounted) {
-                                    CustomToast.showSuccess(
-                                      context,
-                                      'Removed from wishlist',
-                                    );
-                                  }
-                                } else {
-                                  final success = await _handleAddWishlist();
-                                  if (success && context.mounted) {
-                                    CustomToast.showSuccess(
-                                      context,
-                                      'added to wishlist',
-                                    );
-                                  }
-                                }
-                              },
-                      ),
+                    SaveSpotButton(
+                      isSaved: _isWishlist,
+                      isMustGo: _isMustGo,
+                      isTodaysPlan: _isTodaysPlan,
+                      isLoading: _isActionLoading,
+                      onSave: () async {
+                        final success = await _handleAddWishlist();
+                        if (success && context.mounted) {
+                          CustomToast.showSuccess(context, 'Added to wishlist');
+                        }
+                        return success;
+                      },
+                      onUnsave: () async {
+                        final ok = await _handleRemoveWishlist();
+                        if (ok && context.mounted) {
+                          CustomToast.showSuccess(context, 'Removed from wishlist');
+                        }
+                        return ok;
+                      },
+                      onToggleMustGo: (isChecked) async {
+                        return await _handleToggleMustGo(isChecked);
+                      },
+                      onToggleTodaysPlan: (isChecked) async {
+                        return await _handleToggleTodaysPlan(isChecked);
+                      },
                     ),
-                    if (_isWishlist) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _isActionLoading
-                                  ? null
-                                  : () async {
-                                      await _handleAddStatus(
-                                        status: TripSpotStatus.wishlist,
-                                        priority: SpotPriority.mustGo,
-                                      );
-                                    },
-                              child: const Text('✓ MustGo'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _isActionLoading
-                                  ? null
-                                  : () async {
-                                      await _handleAddStatus(
-                                        status: TripSpotStatus.todaysPlan,
-                                      );
-                                    },
-                              child: const Text('✓ add to plan'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -1725,7 +1694,11 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
           );
       ref.invalidate(tripsProvider);
       if (mounted) {
-        setState(() => _isWishlist = false);
+        setState(() {
+          _isWishlist = false;
+          _isMustGo = false;
+          _isTodaysPlan = false;
+        });
       }
       return true;
     } catch (e) {
@@ -1777,34 +1750,125 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
     }
   }
 
+  Future<bool> _handleToggleMustGo(bool isChecked) async {
+    setState(() => _isActionLoading = true);
+    try {
+      final authed = await requireAuth(context, ref);
+      if (!authed) return false;
+      
+      final destId = _destinationId ?? await ensureDestinationForCity(ref, widget.spot.city);
+      if (destId == null) {
+        _showError('Failed to create destination');
+        return false;
+      }
+      _destinationId = destId;
+      
+      await ref.read(tripRepositoryProvider).manageTripSpot(
+        tripId: destId,
+        spotId: widget.spot.id,
+        status: TripSpotStatus.wishlist,
+        priority: isChecked ? SpotPriority.mustGo : SpotPriority.optional,
+        spotPayload: _spotPayload(),
+      );
+      
+      ref.invalidate(tripsProvider);
+      if (mounted) {
+        setState(() => _isMustGo = isChecked);
+        CustomToast.showSuccess(
+          context,
+          isChecked ? 'Added to MustGo' : 'Removed from MustGo',
+        );
+      }
+      return true;
+    } catch (e) {
+      _showError('Error: $e');
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() => _isActionLoading = false);
+      }
+    }
+  }
+
+  Future<bool> _handleToggleTodaysPlan(bool isChecked) async {
+    setState(() => _isActionLoading = true);
+    try {
+      final authed = await requireAuth(context, ref);
+      if (!authed) return false;
+      
+      final destId = _destinationId ?? await ensureDestinationForCity(ref, widget.spot.city);
+      if (destId == null) {
+        _showError('Failed to create destination');
+        return false;
+      }
+      _destinationId = destId;
+      
+      await ref.read(tripRepositoryProvider).manageTripSpot(
+        tripId: destId,
+        spotId: widget.spot.id,
+        status: isChecked ? TripSpotStatus.todaysPlan : TripSpotStatus.wishlist,
+        spotPayload: _spotPayload(),
+      );
+      
+      ref.invalidate(tripsProvider);
+      if (mounted) {
+        setState(() => _isTodaysPlan = isChecked);
+        CustomToast.showSuccess(
+          context,
+          isChecked ? "Added to Today's Plan" : "Removed from Today's Plan",
+        );
+      }
+      return true;
+    } catch (e) {
+      _showError('Error: $e');
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() => _isActionLoading = false);
+      }
+    }
+  }
+
   Future<void> _loadWishlistStatus() async {
     final auth = ref.read(authProvider);
     if (!auth.isAuthenticated) return;
     try {
+      void updateFromTripSpot(TripSpot ts) {
+        if (!mounted) return;
+        setState(() {
+          _isWishlist = true;
+          _isMustGo = ts.priority == SpotPriority.mustGo;
+          _isTodaysPlan = ts.status == TripSpotStatus.todaysPlan;
+        });
+      }
+
       // 如果已有 destinationId，先查一次
       if (_destinationId != null) {
         final trip = await ref.read(tripRepositoryProvider).getTripById(_destinationId!);
-        final exists = trip.tripSpots
-                ?.any((ts) => ts.spotId == widget.spot.id && ts.status == TripSpotStatus.wishlist) ??
-            false;
-        if (exists && mounted) {
-          setState(() => _isWishlist = true);
+        final tripSpot = trip.tripSpots?.firstWhere(
+          (ts) => ts.spotId == widget.spot.id,
+          orElse: () => throw StateError('not found'),
+        );
+        if (tripSpot != null) {
+          _destinationId = trip.id;
+          updateFromTripSpot(tripSpot);
           return;
         }
       }
 
-      // 遍历所有 trips，查找包含该 spot 的 wishlist
+      // 遍历所有 trips，查找包含该 spot 的记录
       final repo = ref.read(tripRepositoryProvider);
       final trips = await repo.getMyTrips();
       for (final t in trips) {
         try {
           final detail = await repo.getTripById(t.id);
-          final hit = detail.tripSpots
-                  ?.any((ts) => ts.spotId == widget.spot.id && ts.status == TripSpotStatus.wishlist) ??
-              false;
-          if (hit) {
+          final tripSpot = detail.tripSpots?.firstWhere(
+            (ts) => ts.spotId == widget.spot.id,
+            orElse: () => throw StateError('not found'),
+          );
+          if (tripSpot != null) {
             _destinationId = detail.id;
-            if (mounted) setState(() => _isWishlist = true);
+            updateFromTripSpot(tripSpot);
             return;
           }
         } catch (_) {
@@ -1819,11 +1883,12 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       if (destId == null) return;
       _destinationId = destId;
       final trip = await ref.read(tripRepositoryProvider).getTripById(destId);
-      final exists = trip.tripSpots
-              ?.any((ts) => ts.spotId == widget.spot.id && ts.status == TripSpotStatus.wishlist) ??
-          false;
-      if (exists && mounted) {
-        setState(() => _isWishlist = true);
+      final tripSpot = trip.tripSpots?.firstWhere(
+        (ts) => ts.spotId == widget.spot.id,
+        orElse: () => throw StateError('not found'),
+      );
+      if (tripSpot != null && mounted) {
+        updateFromTripSpot(tripSpot);
       }
     } catch (_) {
       // ignore preload errors

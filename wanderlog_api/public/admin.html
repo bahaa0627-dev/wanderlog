@@ -174,7 +174,173 @@
 
         .table-container {
             padding: 24px;
+            position: relative;
             overflow-x: auto;
+            overflow-y: visible;
+            max-width: 100%;
+        }
+        
+        .places-table-wrapper {
+            position: relative;
+            overflow-x: auto;
+            overflow-y: visible;
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        #placesTable {
+            width: 100%;
+            min-width: 1800px;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+        }
+        
+        #placesTable th,
+        #placesTable td {
+            border: 1px solid #e0e0e0;
+            border-left: none;
+            border-top: none;
+            padding: 10px;
+            background: #fff;
+            box-sizing: border-box;
+        }
+        
+        #placesTable th:first-child,
+        #placesTable td:first-child {
+            border-left: none;
+        }
+        
+        #placesTable thead tr:first-child th {
+            border-top: none;
+        }
+        
+        #placesTable th {
+            white-space: nowrap;
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        
+        #placesTable td {
+            vertical-align: top;
+        }
+        
+        /* 冻结第一列：照片 */
+        #placesTable th:first-child,
+        #placesTable td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 3;
+            background: #fff;
+            width: 80px;
+            min-width: 80px;
+            max-width: 80px;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+        }
+        
+        #placesTable th:first-child {
+            z-index: 4;
+            background: #f8f9fa;
+        }
+        
+        /* 冻结第二列：地点信息 */
+        #placesTable th:nth-child(2),
+        #placesTable td:nth-child(2) {
+            position: sticky;
+            left: 80px;
+            z-index: 3;
+            background: #fff;
+            width: 180px;
+            min-width: 180px;
+            max-width: 180px;
+            box-shadow: 4px 0 6px rgba(0,0,0,0.08);
+        }
+        
+        #placesTable th:nth-child(2) {
+            z-index: 4;
+            background: #f8f9fa;
+        }
+        
+        /* 冻结最后一列：操作 */
+        #placesTable th:last-child,
+        #placesTable td:last-child {
+            position: sticky;
+            right: 0;
+            z-index: 3;
+            background: #fff;
+            width: 110px;
+            min-width: 110px;
+            max-width: 110px;
+            box-shadow: -4px 0 6px rgba(0,0,0,0.08);
+        }
+        
+        #placesTable th:last-child {
+            z-index: 4;
+            background: #f8f9fa;
+        }
+        
+        /* 鼠标悬停行高亮 */
+        #placesTable tbody tr:hover td {
+            background: #f0f4ff;
+        }
+        
+        #placesTable tbody tr:hover td:first-child,
+        #placesTable tbody tr:hover td:nth-child(2),
+        #placesTable tbody tr:hover td:last-child {
+            background: #f0f4ff;
+        }
+        
+        #placesTable td.wrap-cell {
+            white-space: normal;
+            word-break: break-word;
+            max-width: 180px;
+        }
+        
+        #placesTable td.nowrap-cell {
+            white-space: nowrap;
+        }
+        
+        .opening-hours-list {
+            font-size: 11px;
+            color: #666;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        
+        .opening-hours-list li {
+            margin-bottom: 2px;
+        }
+        
+        .tag-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            max-width: 150px;
+        }
+        
+        .action-btns {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+            border: none;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
         }
 
         table {
@@ -414,6 +580,72 @@
             color: #888;
         }
 
+        .login-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            align-items: end;
+            margin-top: 8px;
+        }
+
+        .login-status {
+            font-size: 13px;
+            color: #666;
+            margin-top: 6px;
+        }
+
+        .login-status.success {
+            color: #2e7d32;
+            font-weight: 600;
+        }
+
+        /* 顶部登录入口 */
+        .top-actions {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .collections-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding: 0 24px 12px 24px;
+        }
+
+        /* 弹窗 */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            width: 360px;
+            max-width: 90vw;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.16);
+        }
+
+        .modal h3 {
+            margin-bottom: 12px;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
         .upload-hint {
             font-size: 12px;
             color: #666;
@@ -444,6 +676,10 @@
             position: relative;
         }
 
+        .dropdown {
+            position: relative;
+        }
+        
         .dropdown-list {
             position: absolute;
             top: 100%;
@@ -452,10 +688,10 @@
             background: #fff;
             border: 1px solid #ddd;
             border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            max-height: 220px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 300px;
             overflow-y: auto;
-            z-index: 10;
+            z-index: 1000;
         }
 
         .dropdown-item {
@@ -533,13 +769,16 @@
 <body>
     <div class="container">
         <div class="header">
+            <div class="top-actions">
+                <button id="loginButton" class="btn btn-secondary">管理员登录</button>
+            </div>
             <h1>🗺️ 公共地点管理后台</h1>
             <p>筛选、搜索和浏览数据库中的所有地点</p>
         </div>
 
         <div class="nav-tabs">
             <button class="tab-btn active" id="tab-places" onclick="showSection('places')">地点库</button>
-            <button class="tab-btn" id="tab-collections" onclick="showSection('collections')">合集管理</button>
+            <button class="tab-btn" id="tab-collections" onclick="showSection('collections')">合集库</button>
         </div>
 
         <div id="placesSection" class="section active">
@@ -577,10 +816,20 @@
                     <label for="maxRating">⭐ 最高评分</label>
                     <input type="number" id="maxRating" min="0" max="5" step="0.1" placeholder="5.0">
                 </div>
+                <div class="filter-group" style="flex: 2;">
+                    <label for="tagFilter">🏷️ 标签 <small style="color: #999;">(可输入或选择)</small></label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="tagFilter" list="tagSuggestions" placeholder="输入或选择标签..." style="flex: 1;">
+                        <datalist id="tagSuggestions"></datalist>
+                    </div>
+                </div>
             </div>
-            <div class="filter-actions">
+            <div class="filter-actions" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
                 <button class="btn btn-primary" onclick="applyFilters()">应用筛选</button>
                 <button class="btn btn-secondary" onclick="clearFilters()">清除筛选</button>
+                </div>
+                <button class="btn btn-primary" onclick="openAddPlaceModal()">+ 新增地点</button>
             </div>
         </div>
 
@@ -593,6 +842,7 @@
         <div class="table-container">
             <div id="loading" class="loading">加载中</div>
             <div id="empty" class="empty" style="display: none;">暂无数据</div>
+            <div class="places-table-wrapper">
             <table id="placesTable" style="display: none;">
                 <thead>
                     <tr>
@@ -600,30 +850,37 @@
                         <th>地点信息</th>
                         <th>城市</th>
                         <th>国家</th>
+                        <th>坐标</th>
                         <th>评分</th>
                         <th>分类</th>
+                        <th>描述/摘要</th>
+                        <th>营业时间</th>
+                        <th>价格等级</th>
+                        <th>联系方式</th>
+                        <th>标签</th>
+                        <th>来源</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
                     </tr>
                 </thead>
                 <tbody id="placesBody"></tbody>
             </table>
+            </div><!-- places-table-wrapper -->
         </div>
 
         <div class="pagination" id="pagination" style="display: none;"></div>
         </div> <!-- placesSection -->
 
         <div id="collectionsSection" class="section">
-            <div id="collectionFormHeader" style="display: none; margin-bottom: 16px;">
-                <button class="btn btn-secondary" onclick="cancelEdit()">← 返回列表</button>
-                <span id="editModeTitle" style="margin-left: 16px; font-weight: 600; color: #666;"></span>
+            <div class="collections-actions">
+                <button class="btn btn-primary" type="button" onclick="startCreateCollection()">创建合集</button>
             </div>
-            <div class="form-card">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>管理员 JWT（用于创建合集）</label>
-                        <input id="adminToken" type="password" placeholder="Bearer token">
-                        <div class="token-note">需要先登录获取 token（/api/auth/login）</div>
-                    </div>
+            <div id="collectionFormContainer" class="form-card" style="display:none;">
+                <div id="collectionFormHeader" style="display: none; margin-bottom: 16px;">
+                    <button class="btn btn-secondary" onclick="cancelEdit()">← 返回列表</button>
+                    <span id="editModeTitle" style="margin-left: 16px; font-weight: 600; color: #666;"></span>
                 </div>
+                        <input id="adminToken" type="hidden">
                 <div class="form-row">
                     <div class="form-group">
                         <label>合集名称 *</label>
@@ -692,7 +949,7 @@
                 </div>
             </div>
 
-            <div class="table-container">
+            <div id="collectionsListContainer" class="table-container">
                 <div id="collectionsLoading" class="loading">加载中</div>
                 <div id="collectionsEmpty" class="empty" style="display:none;">暂无合集</div>
                 <table id="collectionsTable" style="display:none;">
@@ -713,6 +970,147 @@
         </div> <!-- collectionsSection -->
     </div>
 
+    <!-- 管理员登录弹窗 -->
+    <div class="modal-backdrop" id="loginModal">
+        <div class="modal">
+            <h3>管理员登录</h3>
+            <div class="form-group">
+                <label>管理员邮箱</label>
+                <input id="adminEmail" type="email" placeholder="admin@example.com" value="blcubahaa0627@gmail.com">
+            </div>
+            <div class="form-group">
+                <label>管理员密码</label>
+                <input id="adminPassword" type="password" placeholder="••••••••" value="dxr920627">
+            </div>
+            <div class="login-status" id="loginStatusModal">未登录</div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" type="button" onclick="adminLogin(true)">登录</button>
+                <button class="btn btn-secondary" type="button" onclick="closeLoginModal()">取消</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 地点编辑/新增弹窗 -->
+    <div class="modal-backdrop" id="placeModal" style="display:none;">
+        <div class="modal" style="width:700px;max-width:95vw;max-height:90vh;overflow-y:auto;">
+            <h3 id="placeModalTitle">编辑地点</h3>
+            <input type="hidden" id="editPlaceId">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>地点名称 *</label>
+                    <input id="placeName" type="text" placeholder="如：东京塔">
+                </div>
+                <div class="form-group">
+                    <label>分类</label>
+                    <input id="placeCategory" type="text" placeholder="如：Landmark, Restaurant">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>城市</label>
+                    <input id="placeCity" type="text" placeholder="如：Tokyo">
+                </div>
+                <div class="form-group">
+                    <label>国家</label>
+                    <input id="placeCountry" type="text" placeholder="如：Japan">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>纬度 *</label>
+                    <input id="placeLat" type="number" step="0.000001" placeholder="如：35.6586">
+                </div>
+                <div class="form-group">
+                    <label>经度 *</label>
+                    <input id="placeLng" type="number" step="0.000001" placeholder="如：139.7454">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>地址</label>
+                <input id="placeAddress" type="text" placeholder="详细地址" style="width:100%;">
+            </div>
+            
+            <div class="form-group">
+                <label>描述</label>
+                <textarea id="placeDescription" rows="3" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="地点描述..."></textarea>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>评分 (0-5)</label>
+                    <input id="placeRating" type="number" step="0.1" min="0" max="5" placeholder="4.5">
+                </div>
+                <div class="form-group">
+                    <label>评分数量</label>
+                    <input id="placeRatingCount" type="number" placeholder="1000">
+                </div>
+                <div class="form-group">
+                    <label>价格等级 (0-4)</label>
+                    <input id="placePriceLevel" type="number" min="0" max="4" placeholder="2">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>网站</label>
+                    <input id="placeWebsite" type="url" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label>电话</label>
+                    <input id="placePhone" type="text" placeholder="+81-3-1234-5678">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>营业时间（每行一天，如：Monday: 9:00 AM – 5:00 PM）</label>
+                <textarea id="placeOpeningHours" rows="4" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Monday: 9:00 AM – 5:00 PM&#10;Tuesday: 9:00 AM – 5:00 PM&#10;..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>标签（用逗号分隔，如：Culture, Shopping, Landmark）</label>
+                <input id="placeTags" type="text" placeholder="Culture, Shopping, Landmark" style="width:100%;">
+            </div>
+            
+            <div class="form-card" style="margin:8px 0;">
+                <div class="section-title">图片管理</div>
+                <div class="form-group">
+                    <label>封面图 URL</label>
+                    <input id="placeCoverImage" type="text" placeholder="https://..." style="width:100%;">
+                    <div id="coverImagePreview" style="margin-top:8px;"></div>
+                </div>
+                <div class="form-group">
+                    <label>上传新图片</label>
+                    <input id="placeImageUpload" type="file" accept="image/*" onchange="handlePlaceImageUpload(this.files)">
+                    <div class="upload-hint">支持本地图片上传，自动转换为 DataURL</div>
+                </div>
+                <div class="form-group">
+                    <label>图片列表（点击设为封面）</label>
+                    <div id="placeImagesList" class="chip-list" style="margin-top:8px;"></div>
+                </div>
+                
+                <div class="section-title" style="margin-top:16px;">剧照（可选）</div>
+                <div class="form-group">
+                    <label>上传剧照</label>
+                    <input id="placeStillUpload" type="file" accept="image/*" onchange="handlePlaceStillUpload(this.files)">
+                    <div class="upload-hint">与该地点相关的影视剧照，非必填</div>
+                </div>
+                <div class="form-group">
+                    <label>剧照列表</label>
+                    <div id="placeStillsList" class="chip-list" style="margin-top:8px;"></div>
+                </div>
+            </div>
+            
+            <div class="modal-actions" style="margin-top:16px;">
+                <button class="btn btn-primary" onclick="savePlaceData()">保存</button>
+                <button class="btn btn-secondary" onclick="closePlaceModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // 使用相对路径，避免本地/代理环境下 localhost 解析异常导致请求卡住
         const API_BASE = '/api/public-places';
@@ -730,6 +1128,137 @@
         let peopleListData = [];
         let worksListData = [];
 
+        // --- 管理员登录 ---
+        function setLoginStatus(text, success = false) {
+            const el = document.getElementById('loginStatus');
+            if (!el) return;
+            el.textContent = text;
+            el.classList.toggle('success', success);
+        }
+
+        let adminEmail = '';
+
+        function updateTopActions() {
+            const btn = document.getElementById('loginButton');
+            if (!btn) return;
+            const token = getStoredToken();
+            const email = adminEmail || localStorage.getItem('adminEmail');
+            if (token) {
+                btn.textContent = email || '已登录';
+                btn.onclick = handleLogoutConfirm;
+            } else {
+                btn.textContent = '管理员登录';
+                btn.onclick = openLoginModal;
+            }
+        }
+
+        function setAdminToken(token) {
+            const input = document.getElementById('adminToken');
+            if (input) input.value = token;
+            if (token) {
+                localStorage.setItem('adminToken', token);
+                setLoginStatus('已登录（token 已保存）', true);
+                const modalStatus = document.getElementById('loginStatusModal');
+                if (modalStatus) modalStatus.textContent = '已登录（token 已保存）';
+            } else {
+                localStorage.removeItem('adminToken');
+                setLoginStatus('未登录', false);
+                const modalStatus = document.getElementById('loginStatusModal');
+                if (modalStatus) modalStatus.textContent = '未登录';
+            }
+            updateTopActions();
+        }
+
+        function loadStoredToken() {
+            const saved = localStorage.getItem('adminToken');
+            const savedEmail = localStorage.getItem('adminEmail');
+            if (savedEmail) adminEmail = savedEmail;
+            if (saved) {
+                setAdminToken(saved);
+            } else {
+                setLoginStatus('未登录');
+                updateTopActions();
+            }
+        }
+
+        async function adminLogin(closeOnSuccess = false) {
+            const email = document.getElementById('adminEmail').value.trim();
+            const password = document.getElementById('adminPassword').value.trim();
+            if (!email || !password) {
+                alert('请输入管理员邮箱和密码');
+                return;
+            }
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data?.message || '登录失败');
+                }
+                if (!data?.token) {
+                    throw new Error('未获取到 token');
+                }
+                adminEmail = data?.user?.email || email;
+                localStorage.setItem('adminEmail', adminEmail);
+                setAdminToken(data.token);
+                updateTopActions();
+                alert('管理员登录成功');
+                if (closeOnSuccess) closeLoginModal();
+            } catch (err) {
+                console.error('管理员登录失败:', err);
+                alert(`登录失败：${err.message || err}`);
+            }
+        }
+
+        function clearAdminToken() {
+            setAdminToken('');
+            const emailInput = document.getElementById('adminEmail');
+            const pwdInput = document.getElementById('adminPassword');
+            if (emailInput) emailInput.value = '';
+            if (pwdInput) pwdInput.value = '';
+            adminEmail = '';
+            localStorage.removeItem('adminEmail');
+            updateTopActions();
+        }
+
+        function openLoginModal() {
+            const modal = document.getElementById('loginModal');
+            if (modal) modal.style.display = 'flex';
+            // 同步状态文本
+            const status = localStorage.getItem('adminToken') ? '已登录（token 已保存）' : '未登录';
+            const statusEl = document.getElementById('loginStatusModal');
+            if (statusEl) statusEl.textContent = status;
+        }
+
+        function closeLoginModal() {
+            const modal = document.getElementById('loginModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function getStoredToken() {
+            return localStorage.getItem('adminToken') || '';
+        }
+
+        function getTokenOrAlert() {
+            const token = getStoredToken();
+            if (!token) {
+                alert('请先点击右上角“管理员登录”输入邮箱和密码');
+                openLoginModal();
+                throw new Error('not_logged_in');
+            }
+            return token;
+        }
+
+        function handleLogoutConfirm() {
+            if (confirm('确定要退出管理员登录吗？')) {
+                clearAdminToken();
+                alert('已退出登录');
+            }
+        }
+
         function fetchWithTimeout(url, options = {}, timeout = FETCH_TIMEOUT) {
             return Promise.race([
                 fetch(url, options),
@@ -739,6 +1268,8 @@
 
         // 初始化
         async function init() {
+            loadStoredToken();
+
             // 并行加载，不阻塞地点列表显示
             loadAllPlaces().then(() => {
                 updateFilterOptions();
@@ -811,6 +1342,25 @@
             // 应用分类筛选
             if (filters.category) {
                 filteredPlaces = filteredPlaces.filter(p => p.category === filters.category);
+            }
+            
+            // 更新标签选项
+            const allTags = new Set();
+            allPlaces.forEach(p => {
+                const tagsData = p.aiTags || p.tags;
+                if (tagsData) {
+                    try {
+                        const tags = typeof tagsData === 'string' ? JSON.parse(tagsData) : tagsData;
+                        if (Array.isArray(tags)) {
+                            tags.forEach(t => allTags.add(t));
+                        }
+                    } catch {}
+                }
+            });
+            
+            const tagDatalist = document.getElementById('tagSuggestions');
+            if (tagDatalist) {
+                tagDatalist.innerHTML = [...allTags].sort().map(t => `<option value="${t}">`).join('');
             }
 
             // 更新国家选项（如果没有选择国家）
@@ -1000,27 +1550,161 @@
                     photoHtml = '<div class="photo-placeholder">📷</div>';
                 }
                 
+                // 解析营业时间 JSON 字段
+                let openingHoursHtml = '-';
+                if (place.openingHours) {
+                    try {
+                        const hours = typeof place.openingHours === 'string' ? JSON.parse(place.openingHours) : place.openingHours;
+                        if (hours && hours.weekday_text && Array.isArray(hours.weekday_text)) {
+                            // Google Maps 格式的营业时间
+                            openingHoursHtml = '<ul class="opening-hours-list">' + 
+                                hours.weekday_text.slice(0, 7).map(t => `<li>${t}</li>`).join('') + 
+                                '</ul>';
+                        } else if (Array.isArray(hours)) {
+                            openingHoursHtml = '<ul class="opening-hours-list">' + 
+                                hours.slice(0, 7).map(t => `<li>${t}</li>`).join('') + 
+                                '</ul>';
+                        } else if (typeof hours === 'string') {
+                            openingHoursHtml = `<span style="font-size:11px;">${hours}</span>`;
+                        }
+                    } catch { openingHoursHtml = '-'; }
+                }
+                
+                // 解析标签
+                let tagsHtml = '-';
+                const tagsData = place.aiTags || place.tags;
+                if (tagsData) {
+                    try {
+                        const tagArr = typeof tagsData === 'string' ? JSON.parse(tagsData) : tagsData;
+                        if (Array.isArray(tagArr) && tagArr.length > 0) {
+                            tagsHtml = '<div class="tag-container">' + 
+                                tagArr.map(t => `<span class="tag tag-info">${t}</span>`).join('') + 
+                                '</div>';
+                        }
+                    } catch { tagsHtml = '-'; }
+                }
+                
+                // 价格等级
+                let priceLevel = '-';
+                if (place.priceLevel !== null && place.priceLevel !== undefined && place.priceLevel > 0) {
+                    priceLevel = '💰'.repeat(place.priceLevel);
+                } else if (place.priceLevel === 0) {
+                    priceLevel = '免费';
+                }
+                
+                // 联系方式
+                let contact = '';
+                if (place.website) {
+                    contact += `<a href="${place.website}" target="_blank" style="color:#667eea;font-size:12px;">🌐 网站</a><br>`;
+                }
+                if (place.phoneNumber) {
+                    contact += `<span style="font-size:12px;">📞 ${place.phoneNumber}</span>`;
+                }
+                if (!contact) contact = '-';
+                
+                // 描述/摘要 - 支持折行展示
+                let description = '-';
+                const descText = place.aiSummary || place.description || '';
+                if (descText) {
+                    description = descText.length > 100 ? descText.substring(0, 100) + '...' : descText;
+                }
+                
+                // 来源
+                let source = place.source || '-';
+                const sourceLabels = {
+                    'google_maps': 'Google Maps',
+                    'google_maps_link': 'Google链接',
+                    'ai_image': 'AI图片',
+                    'ai_chat': 'AI对话',
+                    'manual': '手动添加',
+                    'app_wishlist': '应用'
+                };
+                source = sourceLabels[source] || source;
+                
+                // 创建时间
+                const createdAt = place.createdAt ? new Date(place.createdAt).toLocaleDateString('zh-CN') : '-';
+                
+                // 转义 place 数据用于 onclick
+                const placeId = place.id;
+                
                 tr.innerHTML = `
-                    <td>${photoHtml}</td>
-                    <td>
-                        <div class="place-name">${place.name}</div>
+                    <td class="nowrap-cell">${photoHtml}</td>
+                    <td class="wrap-cell">
+                        <div class="place-name">${place.name || ''}</div>
                         ${place.address ? `<div class="place-address">${place.address}</div>` : ''}
+                        ${place.googlePlaceId ? `<div style="font-size:10px;color:#999;">ID: ${place.googlePlaceId.substring(0, 20)}...</div>` : ''}
                     </td>
-                    <td>${place.city || '-'}</td>
-                    <td>${place.country || '-'}</td>
-                    <td>
+                    <td class="nowrap-cell">${place.city || '-'}</td>
+                    <td class="nowrap-cell">${place.country || '-'}</td>
+                    <td class="nowrap-cell" style="font-size:11px;color:#666;">
+                        ${place.latitude ? place.latitude.toFixed(4) : '-'}, 
+                        ${place.longitude ? place.longitude.toFixed(4) : '-'}
+                    </td>
+                    <td class="nowrap-cell">
                         ${place.rating 
                             ? `<span class="badge badge-rating"><span class="rating-star">⭐</span>${place.rating.toFixed(1)} ${place.ratingCount ? `(${place.ratingCount})` : ''}</span>` 
                             : '-'}
                     </td>
-                    <td>
+                    <td class="nowrap-cell">
                         ${place.category 
                             ? `<span class="badge badge-category">${place.category}</span>` 
                             : '-'}
                     </td>
+                    <td class="wrap-cell" style="font-size:12px;color:#666;">${description}</td>
+                    <td class="wrap-cell" style="max-width:200px;">${openingHoursHtml}</td>
+                    <td class="nowrap-cell">${priceLevel}</td>
+                    <td class="wrap-cell" style="font-size:12px;">${contact}</td>
+                    <td class="wrap-cell">${tagsHtml}</td>
+                    <td class="nowrap-cell"><span class="badge badge-location">${source}</span></td>
+                    <td class="nowrap-cell" style="font-size:11px;color:#999;">${createdAt}</td>
+                    <td class="nowrap-cell">
+                        <div class="action-btns">
+                            <button class="btn btn-sm btn-secondary" onclick="openEditPlaceModal('${placeId}')">编辑</button>
+                            <button class="btn btn-sm btn-danger" data-id="${placeId}" data-name="${(place.name || '').replace(/"/g, '&quot;')}">删除</button>
+                        </div>
+                    </td>
                 `;
                 tbody.appendChild(tr);
+                
+                // 绑定删除按钮事件
+                const deleteBtn = tr.querySelector('.btn-danger');
+                if (deleteBtn) {
+                    deleteBtn.onclick = function() {
+                        deletePlace(this.dataset.id, this.dataset.name);
+                    };
+                }
             });
+        }
+        
+        // 删除地点
+        async function deletePlace(id, name) {
+            if (!confirm(`确定要删除地点 "${name}" 吗？此操作不可撤销！`)) {
+                return;
+            }
+            
+            try {
+                const token = getTokenOrAlert();
+                const res = await fetch(`${API_BASE}/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const result = await res.json();
+                
+                if (res.ok && result.success) {
+                    alert('删除成功');
+                    await loadPlaces();
+                } else {
+                    throw new Error(result.message || result.error || '删除失败');
+                }
+            } catch (e) {
+                console.error('删除地点失败:', e);
+                if (e.message !== 'not_logged_in') {
+                    alert(`删除失败: ${e.message}`);
+                }
+            }
         }
 
         // 渲染分页控件
@@ -1131,8 +1815,10 @@
             const category = document.getElementById('category').value;
             const minRating = document.getElementById('minRating').value;
             const maxRating = document.getElementById('maxRating').value;
+            const tagFilter = document.getElementById('tagFilter').value.trim();
 
             if (search) newFilters.search = search;
+            if (tagFilter) newFilters.tag = tagFilter;
             if (country) newFilters.country = country;
             if (city) newFilters.city = city;
             if (category) newFilters.category = category;
@@ -1155,6 +1841,7 @@
             document.getElementById('category').value = '';
             document.getElementById('minRating').value = '';
             document.getElementById('maxRating').value = '';
+            document.getElementById('tagFilter').value = '';
 
             updateFilterOptions();
             loadPlaces();
@@ -1196,19 +1883,26 @@
         // --- 合集相关 ---
         async function loadCollections() {
             try {
+                const listContainer = document.getElementById('collectionsListContainer');
+                if (listContainer) listContainer.style.display = 'block';
                 document.getElementById('collectionsLoading').style.display = 'block';
                 document.getElementById('collectionsLoading').textContent = '加载中...';
                 document.getElementById('collectionsEmpty').style.display = 'none';
                 document.getElementById('collectionsTable').style.display = 'none';
 
                 const headers = {};
-                const token = document.getElementById('adminToken').value.trim();
+                const token = getStoredToken();
                 if (token) headers['Authorization'] = `Bearer ${token}`;
+                else {
+                    document.getElementById('collectionsLoading').textContent = '请先登录管理员后查看合集';
+                    return;
+                }
                 const res = await fetchWithTimeout(`${COLLECTION_API_BASE}?includeAll=true`, { headers });
                 const result = await res.json();
                 if (result.success && Array.isArray(result.data)) {
                     collections = result.data;
                     renderCollections();
+                    showCollectionsList();
                 } else {
                     throw new Error(result.message || '加载失败');
                 }
@@ -1277,37 +1971,54 @@
         }
 
         function clearCollectionForm() {
-            editingCollectionId = null;
-            document.getElementById('colName').value = '';
-            document.getElementById('colDesc').value = '';
-            clearCoverFile();
-            selectedSpots = [];
-            renderSelectedSpots();
-            peopleListData = [];
-            worksListData = [];
-            renderPeople();
-            renderWorks();
-            
-            // 隐藏编辑模式UI
-            document.getElementById('collectionFormHeader').style.display = 'none';
-            document.getElementById('saveCollectionBtn').textContent = '创建合集';
-            
-            // 显示列表
-            showCollectionsList();
+            backToCollectionsList();
+        }
+
+        // 创建模式
+        function startCreateCollection() {
+            clearCollectionForm();
+            editingCollectionId = null; // 确保是创建模式
+            document.getElementById('collectionFormHeader').style.display = 'block';
+            document.getElementById('editModeTitle').textContent = '创建合集';
+            document.getElementById('saveCollectionBtn').textContent = '保存';
+            showCollectionForm(true);
+            showCollectionsList(false);
+            // 隐藏顶部 tab 栏和创建按钮
+            document.querySelector('.nav-tabs').style.display = 'none';
+            document.querySelector('.collections-actions').style.display = 'none';
+        }
+
+        function showCollectionForm(show) {
+            const container = document.getElementById('collectionFormContainer');
+            if (!container) return;
+            container.style.display = show ? 'block' : 'none';
+        }
+
+        function showCollectionsList(show = true) {
+            const listContainer = document.getElementById('collectionsListContainer');
+            if (listContainer) {
+                listContainer.style.display = show ? 'block' : 'none';
+            }
+            if (show) {
+                document.getElementById('collectionsLoading').style.display = 'none';
+                document.getElementById('collectionsEmpty').style.display = 'none';
+                document.getElementById('collectionsTable').style.display = 'table';
+                showCollectionForm(false);
+            }
         }
 
         async function createCollection() {
-            const token = document.getElementById('adminToken').value.trim();
+            let token;
             const name = document.getElementById('colName').value.trim();
             const description = document.getElementById('colDesc').value.trim();
             const coverImage = document.getElementById('colCover').value.trim();
 
-            if (!token) return alert('请先填入管理员 JWT（/api/auth/login 获取）');
             if (!name) return alert('名称必填');
             if (!coverImage) return alert('请上传封面图');
             if (selectedSpots.length === 0) return alert('请至少选择一个地点');
 
             try {
+                token = getTokenOrAlert();
                 const isEdit = !!editingCollectionId;
                 
                 const payload = { 
@@ -1355,7 +2066,7 @@
                 }
                 
                 if (result.success) {
-                    alert(isEdit ? '保存成功' : '创建成功（默认未上线）');
+                    alert(isEdit ? '保存成功' : '创建成功（默认下线状态，需手动上线）');
                     
                     if (isEdit) {
                         // 编辑模式：刷新数据并保持在编辑状态
@@ -1365,17 +2076,9 @@
                             startEditCollection(editingCollectionId);
                         }
                     } else {
-                        // 创建模式：跳转到编辑页面
-                        const newCollectionId = result.data?.id;
-                        if (newCollectionId) {
-                            await loadCollections();
-                            startEditCollection(newCollectionId);
-                            showSection('collections');
-                        } else {
-                            clearCollectionForm();
-                            await loadCollections();
-                            showSection('collections');
-                        }
+                        // 创建模式：回到合集库列表页
+                        await loadCollections();
+                        backToCollectionsList();
                     }
                 } else {
                     let errorMsg = '创建失败';
@@ -1395,8 +2098,7 @@
         }
 
         async function publishCollection(id) {
-            const token = document.getElementById('adminToken').value.trim();
-            if (!token) return alert('请先填入管理员 JWT');
+            const token = getTokenOrAlert();
             await fetch(`${COLLECTION_API_BASE}/${id}/publish`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -1405,8 +2107,7 @@
         }
 
         async function unpublishCollection(id) {
-            const token = document.getElementById('adminToken').value.trim();
-            if (!token) return alert('请先填入管理员 JWT');
+            const token = getTokenOrAlert();
             await fetch(`${COLLECTION_API_BASE}/${id}/unpublish`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -1431,6 +2132,11 @@
             document.getElementById('collectionFormHeader').style.display = 'block';
             document.getElementById('editModeTitle').textContent = `编辑合集: ${col.name}`;
             document.getElementById('saveCollectionBtn').textContent = '保存修改';
+            showCollectionForm(true);
+            showCollectionsList(false);
+            // 隐藏顶部 tab 栏和创建按钮（编辑模式同样需要）
+            document.querySelector('.nav-tabs').style.display = 'none';
+            document.querySelector('.collections-actions').style.display = 'none';
             
             // 填充表单数据
             document.getElementById('colName').value = col.name || '';
@@ -1482,22 +2188,38 @@
         }
         
         function cancelEdit() {
-            if (confirm('确定要取消编辑吗？未保存的修改将丢失。')) {
-                clearCollectionForm();
+            if (confirm('确定要取消吗？未保存的修改将丢失。')) {
+                backToCollectionsList();
             }
+        }
+        
+        // 返回合集库列表页，恢复 tab 栏和列表显示
+        function backToCollectionsList() {
+            editingCollectionId = null;
+            // 恢复顶部 tab 栏和创建按钮
+            document.querySelector('.nav-tabs').style.display = 'flex';
+            document.querySelector('.collections-actions').style.display = 'flex';
+            // 隐藏表单，显示列表
+            showCollectionForm(false);
+            showCollectionsList(true);
+            // 清空表单
+            document.getElementById('colName').value = '';
+            document.getElementById('colDesc').value = '';
+            clearCoverFile();
+            selectedSpots = [];
+            renderSelectedSpots();
+            peopleListData = [];
+            worksListData = [];
+            renderPeople();
+            renderWorks();
+            document.getElementById('collectionFormHeader').style.display = 'none';
+            document.getElementById('saveCollectionBtn').textContent = '创建合集';
         }
         
         function hideCollectionsList() {
-            const tableContainer = document.querySelector('#collectionsSection .table-container');
-            if (tableContainer) {
-                tableContainer.style.display = 'none';
-            }
-        }
-        
-        function showCollectionsList() {
-            const tableContainer = document.querySelector('#collectionsSection .table-container');
-            if (tableContainer) {
-                tableContainer.style.display = 'block';
+            const listContainer = document.getElementById('collectionsListContainer');
+            if (listContainer) {
+                listContainer.style.display = 'none';
             }
         }
 
@@ -1511,12 +2233,18 @@
                 dropdown.innerHTML = '';
                 return;
             }
+            
+            // 显示加载中
+            dropdown.style.display = 'block';
+            dropdown.innerHTML = '<div style="padding:12px;color:#666;">搜索中...</div>';
+            
             spotSearchTimer = setTimeout(async () => {
                 try {
                     // 使用公共地点库API，支持模糊搜索
-                    const res = await fetch(`${API_BASE}?search=${encodeURIComponent(query)}&limit=20`);
+                    const res = await fetch(`${API_BASE}?search=${encodeURIComponent(query)}&limit=50`);
                     const data = await res.json();
-                    if (data.success && data.data) {
+                    
+                    if (data.success && data.data && data.data.length > 0) {
                         // 模糊匹配：名称或地址包含查询字符串
                         const queryLower = query.toLowerCase();
                         const filtered = data.data.filter((s) => {
@@ -1525,15 +2253,20 @@
                             const city = (s.city || '').toLowerCase();
                             return name.includes(queryLower) || address.includes(queryLower) || city.includes(queryLower);
                         });
-                        renderSpotDropdown(filtered, query);
+                        
+                        if (filtered.length > 0) {
+                            renderSpotDropdown(filtered, query);
+                        } else {
+                            dropdown.innerHTML = '<div style="padding:12px;color:#999;">未找到匹配的地点，请尝试其他关键词</div>';
+                        }
                     } else {
-                        dropdown.style.display = 'none';
+                        dropdown.innerHTML = '<div style="padding:12px;color:#999;">未找到地点，请尝试其他关键词</div>';
                     }
                 } catch (e) {
                     console.error('搜索地点失败', e);
-                    dropdown.style.display = 'none';
+                    dropdown.innerHTML = '<div style="padding:12px;color:#f00;">搜索失败，请稍后重试</div>';
                 }
-            }, 200);
+            }, 300);
         }
 
         async function searchByLatLng() {
@@ -1607,13 +2340,16 @@
                 
                 const result = await res.json();
                 
-                if (result.success && result.spot) {
-                    // 使用spot ID
+                // API 返回 place 或 spot
+                const placeData = result.place || result.spot;
+                
+                if (result.success && placeData) {
+                    // 使用 place ID
                     selectedSpots.push({ 
-                        id: result.spot.id, 
-                        name: result.spot.name || name, 
-                        city: result.spot.city || city, 
-                        address: result.spot.address || address 
+                        id: placeData.id, 
+                        name: placeData.name || name, 
+                        city: placeData.city || city, 
+                        address: placeData.address || address 
                     });
                     renderSelectedSpots();
                     document.getElementById('spotSearchDropdown').style.display = 'none';
@@ -1855,7 +2591,414 @@
             document.getElementById('coverPreview').style.display = 'none';
         }
 
-        // 处理封面文件上传（校验大小与纵向 4:3 比例）
+        // ============ 地点编辑/新增功能 ============
+        let currentEditPlace = null;
+        let placeImages = []; // 存储当前地点的图片列表
+        
+        // 打开新增地点弹窗
+        function openAddPlaceModal() {
+            currentEditPlace = null;
+            placeImages = [];
+            document.getElementById('placeModalTitle').textContent = '新增地点';
+            document.getElementById('editPlaceId').value = '';
+            clearPlaceForm();
+            document.getElementById('placeModal').style.display = 'flex';
+        }
+        
+        // 打开编辑地点弹窗
+        async function openEditPlaceModal(id) {
+            try {
+                // 从缓存或API获取地点数据
+                let place = allPlaces.find(p => p.id === id);
+                if (!place) {
+                    const res = await fetch(`${API_BASE}/${id}`);
+                    const result = await res.json();
+                    if (result.success) {
+                        place = result.data;
+                    } else {
+                        throw new Error('获取地点数据失败');
+                    }
+                }
+                
+                currentEditPlace = place;
+                document.getElementById('placeModalTitle').textContent = '编辑地点';
+                document.getElementById('editPlaceId').value = id;
+                
+                // 填充表单
+                document.getElementById('placeName').value = place.name || '';
+                document.getElementById('placeCategory').value = place.category || '';
+                document.getElementById('placeCity').value = place.city || '';
+                document.getElementById('placeCountry').value = place.country || '';
+                document.getElementById('placeLat').value = place.latitude || '';
+                document.getElementById('placeLng').value = place.longitude || '';
+                document.getElementById('placeAddress').value = place.address || '';
+                document.getElementById('placeDescription').value = place.aiSummary || place.description || '';
+                document.getElementById('placeRating').value = place.rating || '';
+                document.getElementById('placeRatingCount').value = place.ratingCount || '';
+                document.getElementById('placePriceLevel').value = place.priceLevel ?? '';
+                document.getElementById('placeWebsite').value = place.website || '';
+                document.getElementById('placePhone').value = place.phoneNumber || '';
+                document.getElementById('placeCoverImage').value = place.coverImage || '';
+                
+                // 解析营业时间
+                let openingHoursText = '';
+                if (place.openingHours) {
+                    try {
+                        const hours = typeof place.openingHours === 'string' ? JSON.parse(place.openingHours) : place.openingHours;
+                        if (hours && hours.weekday_text && Array.isArray(hours.weekday_text)) {
+                            openingHoursText = hours.weekday_text.join('\n');
+                        } else if (Array.isArray(hours)) {
+                            openingHoursText = hours.join('\n');
+                        }
+                    } catch {}
+                }
+                document.getElementById('placeOpeningHours').value = openingHoursText;
+                
+                // 解析标签
+                let tagsText = '';
+                const tagsData = place.aiTags || place.tags;
+                if (tagsData) {
+                    try {
+                        const tagArr = typeof tagsData === 'string' ? JSON.parse(tagsData) : tagsData;
+                        if (Array.isArray(tagArr)) {
+                            tagsText = tagArr.join(', ');
+                        }
+                    } catch {}
+                }
+                document.getElementById('placeTags').value = tagsText;
+                
+                // 解析图片列表
+                placeImages = [];
+                if (place.coverImage) {
+                    placeImages.push(place.coverImage);
+                }
+                if (place.images) {
+                    try {
+                        const imgs = typeof place.images === 'string' ? JSON.parse(place.images) : place.images;
+                        if (Array.isArray(imgs)) {
+                            imgs.forEach(img => {
+                                if (!placeImages.includes(img)) {
+                                    placeImages.push(img);
+                                }
+                            });
+                        }
+                    } catch {}
+                }
+                
+                renderPlaceImages();
+                updateCoverImagePreview();
+                
+                // 解析剧照
+                placeStills = [];
+                if (place.customFields) {
+                    try {
+                        const custom = typeof place.customFields === 'string' ? JSON.parse(place.customFields) : place.customFields;
+                        if (custom && custom.stills && Array.isArray(custom.stills)) {
+                            placeStills = custom.stills;
+                        }
+                    } catch {}
+                }
+                renderPlaceStills();
+                
+                document.getElementById('placeModal').style.display = 'flex';
+            } catch (e) {
+                console.error('加载地点数据失败:', e);
+                alert('加载地点数据失败: ' + e.message);
+            }
+        }
+        
+        // 关闭地点弹窗
+        function closePlaceModal() {
+            document.getElementById('placeModal').style.display = 'none';
+            currentEditPlace = null;
+            placeImages = [];
+            placeStills = [];
+        }
+        
+        // 清空地点表单
+        function clearPlaceForm() {
+            document.getElementById('placeName').value = '';
+            document.getElementById('placeCategory').value = '';
+            document.getElementById('placeCity').value = '';
+            document.getElementById('placeCountry').value = '';
+            document.getElementById('placeLat').value = '';
+            document.getElementById('placeLng').value = '';
+            document.getElementById('placeAddress').value = '';
+            document.getElementById('placeDescription').value = '';
+            document.getElementById('placeRating').value = '';
+            document.getElementById('placeRatingCount').value = '';
+            document.getElementById('placePriceLevel').value = '';
+            document.getElementById('placeWebsite').value = '';
+            document.getElementById('placePhone').value = '';
+            document.getElementById('placeOpeningHours').value = '';
+            document.getElementById('placeTags').value = '';
+            document.getElementById('placeCoverImage').value = '';
+            document.getElementById('placeImageUpload').value = '';
+            placeImages = [];
+            renderPlaceImages();
+            updateCoverImagePreview();
+            // 清空剧照
+            placeStills = [];
+            renderPlaceStills();
+            const stillUpload = document.getElementById('placeStillUpload');
+            if (stillUpload) stillUpload.value = '';
+        }
+        
+        // 渲染图片列表
+        function renderPlaceImages() {
+            const container = document.getElementById('placeImagesList');
+            const coverImage = document.getElementById('placeCoverImage').value;
+            
+            container.innerHTML = placeImages.map((img, idx) => {
+                const isCover = img === coverImage;
+                return `
+                    <div class="chip" style="padding:4px;${isCover ? 'border:2px solid #667eea;' : ''}">
+                        <img src="${img}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;cursor:pointer;" 
+                             onclick="setAsCoverImage(${idx})" title="点击设为封面" 
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>📷</text></svg>'">
+                        ${isCover ? '<span style="font-size:10px;color:#667eea;">封面</span>' : ''}
+                        <button onclick="removePlaceImage(${idx})" style="margin-left:4px;">×</button>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 设置封面图
+        function setAsCoverImage(idx) {
+            if (placeImages[idx]) {
+                document.getElementById('placeCoverImage').value = placeImages[idx];
+                renderPlaceImages();
+                updateCoverImagePreview();
+            }
+        }
+        
+        // 删除图片
+        function removePlaceImage(idx) {
+            const removedImg = placeImages[idx];
+            placeImages.splice(idx, 1);
+            
+            // 如果删除的是封面图，清空封面或设置第一张为封面
+            const coverImage = document.getElementById('placeCoverImage').value;
+            if (removedImg === coverImage) {
+                document.getElementById('placeCoverImage').value = placeImages[0] || '';
+                updateCoverImagePreview();
+            }
+            
+            renderPlaceImages();
+        }
+        
+        // 更新封面图预览
+        function updateCoverImagePreview() {
+            const coverImage = document.getElementById('placeCoverImage').value;
+            const preview = document.getElementById('coverImagePreview');
+            if (coverImage) {
+                preview.innerHTML = `<img src="${coverImage}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" onerror="this.style.display='none'">`;
+            } else {
+                preview.innerHTML = '';
+            }
+        }
+        
+        // 处理图片上传
+        async function handlePlaceImageUpload(files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            
+            if (file.size > 5 * 1024 * 1024) {
+                alert('图片超过 5MB');
+                return;
+            }
+            
+            try {
+                const compressedDataUrl = await compressImage(file, 1200, 1200, 0.8);
+                placeImages.push(compressedDataUrl);
+                
+                // 如果没有封面图，自动设置第一张为封面
+                if (!document.getElementById('placeCoverImage').value) {
+                    document.getElementById('placeCoverImage').value = compressedDataUrl;
+                    updateCoverImagePreview();
+                }
+                
+                renderPlaceImages();
+                document.getElementById('placeImageUpload').value = '';
+            } catch (e) {
+                console.error('图片上传失败:', e);
+                alert('图片上传失败');
+            }
+        }
+        
+        // ============ 剧照管理 ============
+        let placeStills = []; // 存储剧照列表
+        
+        // 处理剧照上传
+        async function handlePlaceStillUpload(files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            
+            if (file.size > 5 * 1024 * 1024) {
+                alert('图片超过 5MB');
+                return;
+            }
+            
+            try {
+                const compressedDataUrl = await compressImage(file, 1200, 1200, 0.8);
+                placeStills.push(compressedDataUrl);
+                renderPlaceStills();
+                document.getElementById('placeStillUpload').value = '';
+            } catch (e) {
+                console.error('剧照上传失败:', e);
+                alert('剧照上传失败');
+            }
+        }
+        
+        // 渲染剧照列表
+        function renderPlaceStills() {
+            const container = document.getElementById('placeStillsList');
+            if (!container) return;
+            
+            container.innerHTML = placeStills.map((img, idx) => {
+                return `
+                    <div class="chip" style="padding:4px;">
+                        <img src="${img}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;" 
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2260%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>🎬</text></svg>'">
+                        <button onclick="removePlaceStill(${idx})" style="margin-left:4px;">×</button>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 删除剧照
+        function removePlaceStill(idx) {
+            placeStills.splice(idx, 1);
+            renderPlaceStills();
+        }
+        
+        // 保存地点数据
+        async function savePlaceData() {
+            // 校验必填字段
+            const name = document.getElementById('placeName').value.trim();
+            const lat = parseFloat(document.getElementById('placeLat').value);
+            const lng = parseFloat(document.getElementById('placeLng').value);
+            
+            if (!name) {
+                alert('请输入地点名称');
+                return;
+            }
+            if (isNaN(lat) || isNaN(lng)) {
+                alert('请输入有效的经纬度');
+                return;
+            }
+            
+            // 校验评分范围
+            const ratingVal = document.getElementById('placeRating').value;
+            if (ratingVal && (parseFloat(ratingVal) < 0 || parseFloat(ratingVal) > 5)) {
+                alert('评分必须在 0-5 之间');
+                return;
+            }
+            
+            // 校验价格等级
+            const priceLevelVal = document.getElementById('placePriceLevel').value;
+            if (priceLevelVal && (parseInt(priceLevelVal) < 0 || parseInt(priceLevelVal) > 4)) {
+                alert('价格等级必须在 0-4 之间');
+                return;
+            }
+            
+            // 校验网站URL格式
+            const website = document.getElementById('placeWebsite').value.trim();
+            if (website && !website.match(/^https?:\/\/.+/)) {
+                alert('请输入有效的网站URL（以http://或https://开头）');
+                return;
+            }
+            
+            try {
+                const token = getTokenOrAlert();
+                const editId = document.getElementById('editPlaceId').value;
+                const isEdit = !!editId;
+                
+                // 解析营业时间
+                const openingHoursText = document.getElementById('placeOpeningHours').value.trim();
+                let openingHours = null;
+                if (openingHoursText) {
+                    const lines = openingHoursText.split('\n').filter(l => l.trim());
+                    if (lines.length > 0) {
+                        openingHours = { weekday_text: lines };
+                    }
+                }
+                
+                // 解析标签
+                const tagsText = document.getElementById('placeTags').value.trim();
+                let tags = null;
+                if (tagsText) {
+                    tags = tagsText.split(',').map(t => t.trim()).filter(t => t);
+                }
+                
+                // 构建请求数据
+                const coverImage = document.getElementById('placeCoverImage').value.trim();
+                
+                // 构建 customFields（包含剧照）
+                let customFields = undefined;
+                if (placeStills && placeStills.length > 0) {
+                    customFields = JSON.stringify({ stills: placeStills });
+                }
+                
+                const payload = {
+                    name,
+                    latitude: lat,
+                    longitude: lng,
+                    city: document.getElementById('placeCity').value.trim() || undefined,
+                    country: document.getElementById('placeCountry').value.trim() || undefined,
+                    address: document.getElementById('placeAddress').value.trim() || undefined,
+                    category: document.getElementById('placeCategory').value.trim() || undefined,
+                    aiSummary: document.getElementById('placeDescription').value.trim() || undefined,
+                    rating: ratingVal ? parseFloat(ratingVal) : undefined,
+                    ratingCount: document.getElementById('placeRatingCount').value ? parseInt(document.getElementById('placeRatingCount').value) : undefined,
+                    priceLevel: priceLevelVal ? parseInt(priceLevelVal) : undefined,
+                    website: website || undefined,
+                    phoneNumber: document.getElementById('placePhone').value.trim() || undefined,
+                    openingHours: openingHours ? JSON.stringify(openingHours) : undefined,
+                    aiTags: tags ? JSON.stringify(tags) : undefined,
+                    coverImage: coverImage || undefined,
+                    images: placeImages.length > 0 ? JSON.stringify(placeImages) : undefined,
+                    customFields: customFields,
+                    source: isEdit ? undefined : 'manual',
+                };
+                
+                // 移除 undefined 值
+                Object.keys(payload).forEach(key => {
+                    if (payload[key] === undefined) {
+                        delete payload[key];
+                    }
+                });
+                
+                const url = isEdit ? `${API_BASE}/${editId}` : API_BASE;
+                const method = isEdit ? 'PUT' : 'POST';
+                
+                const res = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await res.json();
+                
+                if (res.ok && result.success) {
+                    alert(isEdit ? '更新成功' : '创建成功');
+                    closePlaceModal();
+                    await loadPlaces();
+                    // 更新缓存
+                    loadAllPlaces().then(() => updateFilterOptions());
+                } else {
+                    throw new Error(result.message || result.error || '操作失败');
+                }
+            } catch (e) {
+                console.error('保存地点失败:', e);
+                if (e.message !== 'not_logged_in') {
+                    alert(`保存失败: ${e.message}`);
+                }
+            }
+        }
     </script>
 </body>
 </html>

@@ -98,6 +98,7 @@ class AppRouter {
             pageBuilder: (context, state) {
               final tabParam = state.uri.queryParameters['tab']?.toLowerCase();
               final subTabParam = state.uri.queryParameters['subtab'];
+              final cityParam = state.uri.queryParameters['city'];
               final initialTabIndex =
                   (tabParam == 'collections' || tabParam == '1') ? 1 : 0;
               final initialSpotsSubTab =
@@ -106,6 +107,7 @@ class AppRouter {
                 MyLandScreen(
                   initialTabIndex: initialTabIndex,
                   initialSpotsSubTab: initialSpotsSubTab,
+                  initialCity: cityParam,
                 ),
               );
             },

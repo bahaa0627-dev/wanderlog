@@ -15,9 +15,10 @@ class AppConstants {
   static const Color successColor = Color(0xFF4CAF50);
   
   // API Endpoints (will be loaded from .env)
+  // 注意：iOS 模拟器需要使用 127.0.0.1 而不是 localhost
   static String get apiBaseUrl => const String.fromEnvironment(
         'API_BASE_URL',
-        defaultValue: 'http://localhost:3000/api',
+        defaultValue: 'http://127.0.0.1:3000/api',
       );
   
   // Mapbox

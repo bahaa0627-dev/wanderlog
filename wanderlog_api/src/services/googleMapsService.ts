@@ -1,6 +1,7 @@
 import { Client, AddressType, GeocodingAddressComponentType } from '@googlemaps/google-maps-services-js';
 import { PrismaClient } from '@prisma/client';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import { createId } from '@paralleldrive/cuid2';
 
 const prisma = new PrismaClient();
 
@@ -395,13 +396,14 @@ class GoogleMapsService {
           continue;
         }
 
-        await prisma.place.create({
-          data: {
-            ...placeData,
-            source: 'google_maps',
-            lastSyncedAt: new Date(),
-          },
-        });
+        // 使用原生 SQL 创建，避免 DateTime 格式问题
+        const id = createId();
+        const now = new Date().toISOString();
+        
+        await prisma.$executeRaw`
+          INSERT INTO Place (id, googlePlaceId, name, city, country, latitude, longitude, address, category, rating, ratingCount, coverImage, images, priceLevel, website, phoneNumber, openingHours, source, createdAt, updatedAt, lastSyncedAt)
+          VALUES (${id}, ${placeData.googlePlaceId || null}, ${placeData.name}, ${placeData.city || null}, ${placeData.country || null}, ${placeData.latitude}, ${placeData.longitude}, ${placeData.address || null}, ${placeData.category || null}, ${placeData.rating || null}, ${placeData.ratingCount || null}, ${placeData.coverImage || null}, ${placeData.images || null}, ${placeData.priceLevel || null}, ${placeData.website || null}, ${placeData.phoneNumber || null}, ${placeData.openingHours || null}, ${'google_maps'}, ${now}, ${now}, ${now})
+        `;
 
         imported++;
         console.log(`Imported: ${placeData.name}`);

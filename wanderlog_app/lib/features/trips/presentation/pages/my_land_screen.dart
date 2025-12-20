@@ -11,10 +11,12 @@ class MyLandScreen extends StatefulWidget {
     super.key,
     this.initialTabIndex = 0,
     this.initialSpotsSubTab,
+    this.initialCity,
   });
 
   final int initialTabIndex;
   final int? initialSpotsSubTab;
+  final String? initialCity;
 
   @override
   State<MyLandScreen> createState() => _MyLandScreenState();
@@ -28,11 +30,16 @@ class _MyLandScreenState extends State<MyLandScreen> {
   String _currentTripCity = '';
   List<String> _cityOptions = const [];
   String? _preferredCity;
+  bool _hasAppliedInitialCity = false;
 
   @override
   void initState() {
     super.initState();
     _selectedTabIndex = widget.initialTabIndex.clamp(0, 1);
+    // If an initial city is provided, set it as preferred
+    if (widget.initialCity != null && widget.initialCity!.isNotEmpty) {
+      _preferredCity = widget.initialCity;
+    }
   }
 
   @override
@@ -82,6 +89,20 @@ class _MyLandScreenState extends State<MyLandScreen> {
         _preferredCity = null;
       }
     });
+    
+    // Apply initial city preference when cities are first loaded
+    if (!_hasAppliedInitialCity && widget.initialCity != null && widget.initialCity!.isNotEmpty) {
+      final matchingCity = cities.firstWhere(
+        (c) => c.toLowerCase() == widget.initialCity!.toLowerCase(),
+        orElse: () => '',
+      );
+      if (matchingCity.isNotEmpty) {
+        _hasAppliedInitialCity = true;
+        _spotsTabController.selectCity(matchingCity);
+        return;
+      }
+    }
+    
     if (_preferredCity != null &&
         _preferredCity != _currentTripCity &&
         cities.contains(_preferredCity!)) {

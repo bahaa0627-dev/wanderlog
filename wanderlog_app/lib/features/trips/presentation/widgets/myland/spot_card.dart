@@ -9,6 +9,7 @@ class SpotCard extends StatelessWidget {
     required this.onCheckIn,
     required this.isMustGo,
     required this.onToggleMustGo,
+    this.onTap,
     super.key,
   });
 
@@ -16,6 +17,7 @@ class SpotCard extends StatelessWidget {
   final VoidCallback onCheckIn;
   final bool isMustGo;
   final VoidCallback onToggleMustGo;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -29,9 +31,7 @@ class SpotCard extends StatelessWidget {
     final String? tagsLine = _tagsLine();
 
     return GestureDetector(
-      onTap: () {
-        // TODO: 导航到地点详情页
-      },
+      onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: AppTheme.white,

@@ -12,6 +12,7 @@ import 'package:wanderlog/features/trips/presentation/widgets/myland/add_city_di
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
+import 'package:wanderlog/features/trips/presentation/widgets/myland/spot_detail_modal.dart';
 
 class SpotsTabController {
   _SpotsTabState? _state;
@@ -246,22 +247,131 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     );
   }
 
-  void _handleToggleMustGo(Spot spot) {
+  void _handleSpotTap(_SpotEntry entry) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => MyLandSpotDetailModal(
+        spot: entry.spot,
+        isMustGo: entry.isMustGo,
+        isTodaysPlan: entry.isTodaysPlan,
+        onStatusChanged: _handleStatusChanged,
+      ),
+    );
+  }
+
+  void _handleStatusChanged(String spotId, {bool? isMustGo, bool? isTodaysPlan, bool? isRemoved}) {
+    final index = _indexForSpot(spotId);
+    if (index == -1) return;
+
+    if (isRemoved == true) {
+      // Remove from list when unsaved
+      setState(() {
+        _entries.removeAt(index);
+      });
+      return;
+    }
+
+    final entry = _entries[index];
+    setState(() {
+      _entries[index] = entry.copyWith(
+        isMustGo: isMustGo,
+        isTodaysPlan: isTodaysPlan,
+      );
+    });
+  }
+
+  Future<void> _handleToggleMustGo(Spot spot) async {
     final index = _indexForSpot(spot.id);
     if (index == -1) {
       return;
     }
     final entry = _entries[index];
-    final nextEntry = entry.copyWith(isMustGo: !entry.isMustGo);
+    final wasChecked = entry.isMustGo;
+    final newChecked = !wasChecked;
+    
+    // Update local state immediately for responsiveness
+    final nextEntry = entry.copyWith(isMustGo: newChecked);
     setState(() {
       _entries[index] = nextEntry;
     });
-    if (!entry.isMustGo) {
-      CustomToast.showSuccess(context, 'added to MustGo');
+    
+    // Persist to backend
+    try {
+      final city = spot.city ?? '';
+      final destId = await _getDestinationIdForCity(city);
+      if (destId != null) {
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: destId,
+          spotId: spot.id,
+          status: TripSpotStatus.wishlist,
+          priority: newChecked ? SpotPriority.mustGo : SpotPriority.optional,
+        );
+      }
+    } catch (e) {
+      // Revert on error
+      setState(() {
+        _entries[index] = entry;
+      });
+      if (mounted) {
+        CustomToast.showError(context, 'Failed to update: $e');
+      }
+      return;
+    }
+    
+    if (newChecked) {
+      CustomToast.showSuccess(context, 'Added to MustGo');
+    } else {
+      CustomToast.showInfo(context, 'Removed from MustGo');
     }
   }
 
-  void _handleQuickAddMustGo(Spot spot) {
+  Future<void> _handleToggleTodaysPlan(Spot spot) async {
+    final index = _indexForSpot(spot.id);
+    if (index == -1) {
+      return;
+    }
+    final entry = _entries[index];
+    final wasChecked = entry.isTodaysPlan;
+    final newChecked = !wasChecked;
+    
+    // Update local state immediately for responsiveness
+    final nextEntry = entry.copyWith(isTodaysPlan: newChecked);
+    setState(() {
+      _entries[index] = nextEntry;
+    });
+    
+    // Persist to backend
+    try {
+      final city = spot.city ?? '';
+      final destId = await _getDestinationIdForCity(city);
+      if (destId != null) {
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: destId,
+          spotId: spot.id,
+          status: newChecked ? TripSpotStatus.todaysPlan : TripSpotStatus.wishlist,
+        );
+      }
+    } catch (e) {
+      // Revert on error
+      setState(() {
+        _entries[index] = entry;
+      });
+      if (mounted) {
+        CustomToast.showError(context, 'Failed to update: $e');
+      }
+      return;
+    }
+    
+    if (newChecked) {
+      CustomToast.showSuccess(context, "Added to Today's Plan");
+    } else {
+      CustomToast.showInfo(context, "Removed from Today's Plan");
+    }
+  }
+
+  Future<void> _handleQuickAddMustGo(Spot spot) async {
     final index = _indexForSpot(spot.id);
     if (index == -1) {
       return;
@@ -271,10 +381,54 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       CustomToast.showInfo(context, '${spot.name} already in MustGo');
       return;
     }
+    
+    // Update local state immediately
     setState(() {
       _entries[index] = entry.copyWith(isMustGo: true);
     });
-    CustomToast.showSuccess(context, 'added to MustGo');
+    
+    // Persist to backend
+    try {
+      final city = spot.city ?? '';
+      final destId = await _getDestinationIdForCity(city);
+      if (destId != null) {
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: destId,
+          spotId: spot.id,
+          status: TripSpotStatus.wishlist,
+          priority: SpotPriority.mustGo,
+        );
+      }
+    } catch (e) {
+      // Revert on error
+      setState(() {
+        _entries[index] = entry;
+      });
+      if (mounted) {
+        CustomToast.showError(context, 'Failed to update: $e');
+      }
+      return;
+    }
+    
+    CustomToast.showSuccess(context, 'Added to MustGo');
+  }
+
+  Future<String?> _getDestinationIdForCity(String city) async {
+    if (city.isEmpty) return null;
+    try {
+      final repo = ref.read(tripRepositoryProvider);
+      final trips = await repo.getMyTrips();
+      for (final t in trips) {
+        if (t.city?.toLowerCase() == city.toLowerCase()) {
+          return t.id;
+        }
+      }
+      // Create if not found
+      final newTrip = await repo.createTrip(name: city, city: city);
+      return newTrip.id;
+    } catch (_) {
+      return null;
+    }
   }
 
   void _showAddCityDialog() {
@@ -442,13 +596,18 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
                 ? 'Unknown'
                 : s.city!.trim();
             final slug = _ensureCitySlug(cityName);
+            final isMustGo = ts.priority == SpotPriority.mustGo;
+            final isTodaysPlan = ts.status == TripSpotStatus.todaysPlan;
             final entry = _SpotEntry(
               city: cityName,
               citySlug: slug,
               spot: s,
-              isMustGo: ts.priority == SpotPriority.mustGo,
-              isTodaysPlan: ts.status == TripSpotStatus.todaysPlan,
+              isMustGo: isMustGo,
+              isTodaysPlan: isTodaysPlan,
               isVisited: ts.status == TripSpotStatus.visited,
+              // Use updatedAt as the check time for sorting
+              mustGoCheckedAt: isMustGo ? ts.updatedAt : null,
+              todaysPlanCheckedAt: isTodaysPlan ? ts.updatedAt : null,
             );
             entries.add(entry);
           }
@@ -484,12 +643,17 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
   List<_SpotEntry> _filteredEntries() {
     Iterable<_SpotEntry> base = _entriesForCity;
+    bool shouldSortByMustGoTime = false;
+    bool shouldSortByTodaysPlanTime = false;
+
     switch (_selectedSubTab) {
       case 1:
         base = base.where((entry) => entry.isMustGo);
+        shouldSortByMustGoTime = true;
         break;
       case 2:
         base = base.where((entry) => entry.isTodaysPlan);
+        shouldSortByTodaysPlanTime = true;
         break;
       case 3:
         base = base.where((entry) => entry.isVisited);
@@ -498,17 +662,35 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         break;
     }
 
+    List<_SpotEntry> result;
     if (_activeTags.isEmpty) {
-      return base.toList();
+      result = base.toList();
+    } else {
+      result = base
+          .where(
+            (entry) => entry.spot.tags
+                .map((tag) => tag.toLowerCase())
+                .any(_activeTags.contains),
+          )
+          .toList();
     }
 
-    return base
-        .where(
-          (entry) => entry.spot.tags
-              .map((tag) => tag.toLowerCase())
-              .any(_activeTags.contains),
-        )
-        .toList();
+    // Sort by check time (newest first) for MustGo and Today's Plan tabs
+    if (shouldSortByMustGoTime) {
+      result.sort((a, b) {
+        final aTime = a.mustGoCheckedAt ?? DateTime(1970);
+        final bTime = b.mustGoCheckedAt ?? DateTime(1970);
+        return bTime.compareTo(aTime); // Descending order (newest first)
+      });
+    } else if (shouldSortByTodaysPlanTime) {
+      result.sort((a, b) {
+        final aTime = a.todaysPlanCheckedAt ?? DateTime(1970);
+        final bTime = b.todaysPlanCheckedAt ?? DateTime(1970);
+        return bTime.compareTo(aTime); // Descending order (newest first)
+      });
+    }
+
+    return result;
   }
 
   int _normalizeSubTab(int value) {
@@ -669,8 +851,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
                         key: const ValueKey('list-view'),
                         entries: filteredEntries,
                         onCheckIn: _handleCheckIn,
-                      onToggleMustGo: _handleToggleMustGo,
-                      onQuickAddMustGo: _handleQuickAddMustGo,
+                        onToggleMustGo: _handleToggleMustGo,
+                        onQuickAddMustGo: _handleQuickAddMustGo,
+                        onSpotTap: _handleSpotTap,
                       ),
           ),
         ),
@@ -960,12 +1143,14 @@ class _ListView extends StatelessWidget {
     required this.onCheckIn,
     required this.onToggleMustGo,
     required this.onQuickAddMustGo,
+    required this.onSpotTap,
   });
 
   final List<_SpotEntry> entries;
   final void Function(Spot spot) onCheckIn;
-  final void Function(Spot spot) onToggleMustGo;
-  final void Function(Spot spot) onQuickAddMustGo;
+  final Future<void> Function(Spot spot) onToggleMustGo;
+  final Future<void> Function(Spot spot) onQuickAddMustGo;
+  final void Function(_SpotEntry entry) onSpotTap;
 
   @override
   Widget build(BuildContext context) => ListView.separated(
@@ -987,6 +1172,7 @@ class _ListView extends StatelessWidget {
               isMustGo: entry.isMustGo,
               onCheckIn: () => onCheckIn(entry.spot),
               onToggleMustGo: () => onToggleMustGo(entry.spot),
+              onTap: () => onSpotTap(entry),
             ),
           );
         },
@@ -1509,14 +1695,17 @@ class _SpotCarouselCard extends StatelessWidget {
 }
 
 class _SpotEntry {
-  const _SpotEntry({
+  _SpotEntry({
     required this.city,
     required this.citySlug,
     required this.spot,
     this.isMustGo = false,
     this.isTodaysPlan = false,
     this.isVisited = false,
-  });
+    DateTime? mustGoCheckedAt,
+    DateTime? todaysPlanCheckedAt,
+  })  : mustGoCheckedAt = mustGoCheckedAt ?? (isMustGo ? DateTime.now() : null),
+        todaysPlanCheckedAt = todaysPlanCheckedAt ?? (isTodaysPlan ? DateTime.now() : null);
 
   final String city;
   final String citySlug;
@@ -1524,18 +1713,34 @@ class _SpotEntry {
   final bool isMustGo;
   final bool isTodaysPlan;
   final bool isVisited;
+  final DateTime? mustGoCheckedAt;
+  final DateTime? todaysPlanCheckedAt;
 
   _SpotEntry copyWith({
     bool? isMustGo,
     bool? isTodaysPlan,
     bool? isVisited,
-  }) =>
-      _SpotEntry(
-        city: city,
-        citySlug: citySlug,
-        spot: spot,
-        isMustGo: isMustGo ?? this.isMustGo,
-        isTodaysPlan: isTodaysPlan ?? this.isTodaysPlan,
-        isVisited: isVisited ?? this.isVisited,
-      );
+    DateTime? mustGoCheckedAt,
+    DateTime? todaysPlanCheckedAt,
+  }) {
+    final nowMustGo = isMustGo ?? this.isMustGo;
+    final nowTodaysPlan = isTodaysPlan ?? this.isTodaysPlan;
+    
+    return _SpotEntry(
+      city: city,
+      citySlug: citySlug,
+      spot: spot,
+      isMustGo: nowMustGo,
+      isTodaysPlan: nowTodaysPlan,
+      isVisited: isVisited ?? this.isVisited,
+      // Update mustGoCheckedAt: set to now if newly checked, keep existing if still checked, null if unchecked
+      mustGoCheckedAt: isMustGo != null
+          ? (nowMustGo ? (this.isMustGo ? this.mustGoCheckedAt : DateTime.now()) : null)
+          : this.mustGoCheckedAt,
+      // Update todaysPlanCheckedAt similarly
+      todaysPlanCheckedAt: isTodaysPlan != null
+          ? (nowTodaysPlan ? (this.isTodaysPlan ? this.todaysPlanCheckedAt : DateTime.now()) : null)
+          : this.todaysPlanCheckedAt,
+    );
+  }
 }

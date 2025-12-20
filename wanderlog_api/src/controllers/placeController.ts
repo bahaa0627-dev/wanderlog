@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logger } from '../utils/logger';
 import googleMapsService from '../services/googleMapsService';
+import { createId } from '@paralleldrive/cuid2';
 
 /**
  * 批量导入 Google Maps 地点
@@ -60,30 +61,18 @@ export const importSpot = async (req: Request, res: Response) => {
       });
     }
 
-    const place = await prisma.place.create({
-      data: {
-        googlePlaceId: placeData.googlePlaceId,
-        name: placeData.name,
-        city: placeData.city,
-        country: placeData.country,
-        latitude: placeData.latitude,
-        longitude: placeData.longitude,
-        address: placeData.address,
-        description: placeData.description,
-        openingHours: placeData.openingHours,
-        rating: placeData.rating,
-        ratingCount: placeData.ratingCount,
-        category: placeData.category,
-        tags: placeData.tags,
-        coverImage: placeData.coverImage,
-        images: placeData.images,
-        priceLevel: placeData.priceLevel,
-        website: placeData.website,
-        phoneNumber: placeData.phoneNumber,
-        source: 'user_import',
-        lastSyncedAt: new Date(),
-      },
-    });
+    // 使用原生 SQL 创建，避免 DateTime 格式问题
+    const id = createId();
+    const now = new Date().toISOString();
+    
+    await prisma.$executeRaw`
+      INSERT INTO Place (id, googlePlaceId, name, city, country, latitude, longitude, address, description, openingHours, rating, ratingCount, category, tags, coverImage, images, priceLevel, website, phoneNumber, source, createdAt, updatedAt, lastSyncedAt)
+      VALUES (${id}, ${placeData.googlePlaceId || null}, ${placeData.name}, ${placeData.city || null}, ${placeData.country || null}, ${placeData.latitude}, ${placeData.longitude}, ${placeData.address || null}, ${placeData.description || null}, ${placeData.openingHours || null}, ${placeData.rating || null}, ${placeData.ratingCount || null}, ${placeData.category || null}, ${placeData.tags || null}, ${placeData.coverImage || null}, ${placeData.images || null}, ${placeData.priceLevel || null}, ${placeData.website || null}, ${placeData.phoneNumber || null}, ${'user_import'}, ${now}, ${now}, ${now})
+    `;
+    
+    // 查询新创建的记录
+    const places = await prisma.$queryRaw<Array<any>>`SELECT * FROM Place WHERE id = ${id}`;
+    const place = places[0];
 
     return res.json({
       message: 'Place imported successfully',
@@ -237,9 +226,12 @@ export const getCityCenterPlaces = async (req: Request, res: Response) => {
 };
 
 /**
- * 从 publicPlace ID 获取或创建 Place
+ * 从 publicPlace ID 获取 Place 信息
  * POST /api/places/from-public-place
  * Body: { publicPlaceId: string }
+ * 
+ * 注意：在当前的数据模型中，publicPlace 和 Place 是同一张表，
+ * 所以我们直接返回 publicPlace 的信息即可。
  */
 export const getOrCreatePlaceFromPublicPlace = async (req: Request, res: Response) => {
   try {
@@ -249,64 +241,28 @@ export const getOrCreatePlaceFromPublicPlace = async (req: Request, res: Respons
       return res.status(400).json({ message: 'publicPlaceId is required' });
     }
 
-    const publicPlace = await prisma.place.findUnique({
-      where: { id: publicPlaceId },
-    });
+    // 使用原生 SQL 查询避免 DateTime 转换问题
+    const places = await prisma.$queryRaw<Array<{id: string, name: string, city: string | null, address: string | null}>>`
+      SELECT id, name, city, address FROM Place WHERE id = ${publicPlaceId} LIMIT 1
+    `;
 
-    if (!publicPlace) {
-      return res.status(404).json({ message: 'PublicPlace not found' });
+    if (!places || places.length === 0) {
+      return res.status(404).json({ message: 'Place not found' });
     }
 
-    if (publicPlace.placeId) {
-      const existingPlace = await prisma.place.findFirst({
-        where: { googlePlaceId: publicPlace.placeId },
-        select: { id: true, name: true, city: true, address: true },
-      });
-
-      if (existingPlace) {
-        return res.json({
-          success: true,
-          place: existingPlace,
-        });
-      }
-    }
-
-    const placeData: any = {
-      googlePlaceId: publicPlace.placeId || null,
-      name: publicPlace.name || 'Unnamed Place',
-      city: publicPlace.city || 'Unknown',
-      country: publicPlace.country || 'Unknown',
-      latitude: publicPlace.latitude,
-      longitude: publicPlace.longitude,
-      source: 'public_place_import',
-      lastSyncedAt: new Date(),
-    };
-
-    if (publicPlace.address) placeData.address = publicPlace.address;
-    if (publicPlace.category) placeData.category = publicPlace.category;
-    if (publicPlace.rating != null) placeData.rating = publicPlace.rating;
-    if (publicPlace.ratingCount != null) placeData.ratingCount = publicPlace.ratingCount;
-    if (publicPlace.priceLevel != null) placeData.priceLevel = publicPlace.priceLevel;
-    if (publicPlace.coverImage) placeData.coverImage = publicPlace.coverImage;
-    if (publicPlace.images) placeData.images = publicPlace.images;
-    if (publicPlace.website) placeData.website = publicPlace.website;
-    if (publicPlace.phoneNumber) placeData.phoneNumber = publicPlace.phoneNumber;
-    if (publicPlace.openingHours) placeData.openingHours = publicPlace.openingHours;
-    if (publicPlace.aiTags) placeData.aiTags = publicPlace.aiTags;
-    if (publicPlace.aiSummary) placeData.aiSummary = publicPlace.aiSummary;
-    if (publicPlace.aiDescription) placeData.aiDescription = publicPlace.aiDescription;
-
-    const newPlace = await prisma.place.create({
-      data: placeData,
-      select: { id: true, name: true, city: true, address: true },
-    });
+    const place = places[0];
 
     return res.json({
       success: true,
-      place: newPlace,
+      place: {
+        id: place.id,
+        name: place.name,
+        city: place.city,
+        address: place.address,
+      },
     });
   } catch (error) {
-    logger.error('Get or create Place from PublicPlace error:', error);
+    logger.error('Get Place from PublicPlace error:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -327,55 +283,26 @@ export const getOrCreatePlacesFromPublicPlaces = async (req: Request, res: Respo
     const results = [];
 
     for (const id of publicPlaceIds) {
-      const publicPlace = await prisma.place.findUnique({ where: { id } });
-      if (!publicPlace) {
-        results.push({ id, error: 'PublicPlace not found' });
+      // 使用原生 SQL 查询避免 DateTime 转换问题
+      const places = await prisma.$queryRaw<Array<{id: string, name: string, city: string | null, address: string | null}>>`
+        SELECT id, name, city, address FROM Place WHERE id = ${id} LIMIT 1
+      `;
+      
+      if (!places || places.length === 0) {
+        results.push({ id, error: 'Place not found' });
         continue;
       }
 
-      // googlePlaceId 查重
-      if (publicPlace.placeId) {
-        const existing = await prisma.place.findFirst({
-          where: { googlePlaceId: publicPlace.placeId },
-          select: { id: true, name: true, city: true, address: true },
-        });
-        if (existing) {
-          results.push({ id: existing.id, place: existing });
-          continue;
+      const place = places[0];
+      results.push({ 
+        id: place.id, 
+        place: {
+          id: place.id,
+          name: place.name,
+          city: place.city,
+          address: place.address,
         }
-      }
-
-      const placeData: any = {
-        googlePlaceId: publicPlace.placeId || null,
-        name: publicPlace.name || 'Unnamed Place',
-        city: publicPlace.city || 'Unknown',
-        country: publicPlace.country || 'Unknown',
-        latitude: publicPlace.latitude,
-        longitude: publicPlace.longitude,
-        source: 'public_place_import',
-        lastSyncedAt: new Date(),
-      };
-
-      if (publicPlace.address) placeData.address = publicPlace.address;
-      if (publicPlace.category) placeData.category = publicPlace.category;
-      if (publicPlace.rating != null) placeData.rating = publicPlace.rating;
-      if (publicPlace.ratingCount != null) placeData.ratingCount = publicPlace.ratingCount;
-      if (publicPlace.priceLevel != null) placeData.priceLevel = publicPlace.priceLevel;
-      if (publicPlace.coverImage) placeData.coverImage = publicPlace.coverImage;
-      if (publicPlace.images) placeData.images = publicPlace.images;
-      if (publicPlace.website) placeData.website = publicPlace.website;
-      if (publicPlace.phoneNumber) placeData.phoneNumber = publicPlace.phoneNumber;
-      if (publicPlace.openingHours) placeData.openingHours = publicPlace.openingHours;
-      if (publicPlace.aiTags) placeData.aiTags = publicPlace.aiTags;
-      if (publicPlace.aiSummary) placeData.aiSummary = publicPlace.aiSummary;
-      if (publicPlace.aiDescription) placeData.aiDescription = publicPlace.aiDescription;
-
-      const newPlace = await prisma.place.create({
-        data: placeData,
-        select: { id: true, name: true, city: true, address: true },
       });
-
-      results.push({ id: newPlace.id, place: newPlace });
     }
 
     return res.json({
@@ -383,7 +310,7 @@ export const getOrCreatePlacesFromPublicPlaces = async (req: Request, res: Respo
       results,
     });
   } catch (error) {
-    logger.error('Get or create Places from PublicPlaces error:', error);
+    logger.error('Get Places from PublicPlaces error:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };

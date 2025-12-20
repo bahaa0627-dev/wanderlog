@@ -394,8 +394,9 @@ class IconButtonCustom extends StatelessWidget {
             shape: BoxShape.circle,
             border: Border.all(
               color: AppTheme.black,
-              width: AppTheme.borderMedium,
+              width: 2,
             ),
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Icon(
             icon,

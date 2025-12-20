@@ -67,7 +67,7 @@ class TripRepository {
       if (remove) {
         data['remove'] = true;
       }
-      if (status != null) data['status'] = status.name.toUpperCase();
+      if (status != null) data['status'] = _statusToServer(status);
       if (priority != null) data['priority'] = _priorityToServer(priority);
       if (visitDate != null) data['visitDate'] = visitDate.toIso8601String();
       if (userRating != null) data['userRating'] = userRating;
@@ -82,6 +82,17 @@ class TripRepository {
       return TripSpot.fromJson(response.data!);
     } on DioException catch (e) {
       throw _handleError(e);
+    }
+  }
+
+  String _statusToServer(TripSpotStatus status) {
+    switch (status) {
+      case TripSpotStatus.wishlist:
+        return 'WISHLIST';
+      case TripSpotStatus.todaysPlan:
+        return 'TODAYS_PLAN';
+      case TripSpotStatus.visited:
+        return 'VISITED';
     }
   }
 

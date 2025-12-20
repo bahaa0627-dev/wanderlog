@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { createId } from '@paralleldrive/cuid2';
 
 /**
  * Safely parse JSON-like fields that may already be objects/arrays or invalid JSON strings.
@@ -105,29 +106,54 @@ class CollectionController {
         });
       }
 
-      const collection = await prisma.collection.create({
-        data: {
-          name,
-          coverImage,
-          description,
-          people: people ? JSON.stringify(people) : undefined,
-          works: works ? JSON.stringify(works) : undefined,
-          collectionSpots: {
-            create: places.map((p) => ({
-              placeId: p.id,
-              city: p.city ?? undefined,
-            })),
-          },
-          isPublished: false,
-        },
-        include: {
-          collectionSpots: {
-            include: {
-              place: true,
-            },
-          },
-        },
-      });
+      // 使用原生 SQL 创建合集，避免 DateTime 格式问题
+      const collectionId = createId();
+      const now = new Date().toISOString();
+      const peopleJson = people ? JSON.stringify(people) : null;
+      const worksJson = works ? JSON.stringify(works) : null;
+      
+      await prisma.$executeRaw`
+        INSERT INTO Collection (id, name, coverImage, description, people, works, isPublished, createdAt, updatedAt)
+        VALUES (${collectionId}, ${name}, ${coverImage}, ${description || null}, ${peopleJson}, ${worksJson}, ${0}, ${now}, ${now})
+      `;
+      
+      // 创建 collectionSpots
+      for (const place of places) {
+        const spotId = createId();
+        await prisma.$executeRaw`
+          INSERT INTO CollectionSpot (id, collectionId, placeId, city, createdAt)
+          VALUES (${spotId}, ${collectionId}, ${place.id}, ${place.city || null}, ${now})
+        `;
+      }
+      
+      // 查询创建的合集
+      const collections = await prisma.$queryRaw<Array<any>>`
+        SELECT * FROM Collection WHERE id = ${collectionId}
+      `;
+      const collection = collections[0];
+      
+      // 查询关联的 spots
+      const collectionSpots = await prisma.$queryRaw<Array<any>>`
+        SELECT cs.*, p.id as place_id, p.name as place_name, p.city as place_city, p.tags as place_tags, p.images as place_images
+        FROM CollectionSpot cs
+        LEFT JOIN Place p ON cs.placeId = p.id
+        WHERE cs.collectionId = ${collectionId}
+      `;
+      
+      collection.collectionSpots = collectionSpots.map((cs: any) => ({
+        id: cs.id,
+        collectionId: cs.collectionId,
+        placeId: cs.placeId,
+        city: cs.city,
+        createdAt: cs.createdAt,
+        place: cs.place_id ? {
+          id: cs.place_id,
+          name: cs.place_name,
+          city: cs.place_city,
+          tags: cs.place_tags,
+          images: cs.place_images,
+        } : null,
+      }));
 
       const normalized = {
         ...collection,

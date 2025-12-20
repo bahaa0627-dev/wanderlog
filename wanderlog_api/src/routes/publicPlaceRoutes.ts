@@ -18,6 +18,9 @@ router.get('/search', publicPlaceController.searchPlaces.bind(publicPlaceControl
 // 根据 place_id 获取地点详情
 router.get('/:placeId', publicPlaceController.getPlaceByPlaceId.bind(publicPlaceController));
 
+// 手动创建地点
+router.post('/', publicPlaceController.createPlace.bind(publicPlaceController));
+
 // 手动添加地点（通过 place_id）
 router.post('/add-by-place-id', publicPlaceController.addByPlaceId.bind(publicPlaceController));
 

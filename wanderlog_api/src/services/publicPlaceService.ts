@@ -1,5 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import googleMapsService from './googleMapsService';
+import { createId } from '@paralleldrive/cuid2';
 
 const prisma = new PrismaClient();
 
@@ -29,18 +30,19 @@ export interface PublicPlaceData {
 
 class PublicPlaceService {
   /**
-   * 根据 place_id 创建或更新公共地点
-   * 自动去重：如果 place_id 已存在，则更新；否则创建新记录
+   * 根据 googlePlaceId 创建或更新地点
+   * 自动去重：如果 googlePlaceId 已存在，则更新；否则创建新记录
    */
   async upsertPlace(data: PublicPlaceData): Promise<any> {
     try {
       // 检查是否已存在
-      const existing = await prisma.publicPlace.findUnique({
-        where: { placeId: data.placeId }
+      const existing = await prisma.place.findUnique({
+        where: { googlePlaceId: data.placeId }
       });
 
       const placeData = {
-        placeId: data.placeId,
+        googlePlaceId: data.placeId,
+        placeId: data.placeId, // 兼容旧字段
         name: data.name,
         latitude: data.latitude,
         longitude: data.longitude,
@@ -67,14 +69,14 @@ class PublicPlaceService {
       if (existing) {
         // 更新现有记录
         console.log(`Updating existing place: ${data.name} (${data.placeId})`);
-        return await prisma.publicPlace.update({
-          where: { placeId: data.placeId },
+        return await prisma.place.update({
+          where: { googlePlaceId: data.placeId },
           data: placeData
         });
       } else {
         // 创建新记录
         console.log(`Creating new place: ${data.name} (${data.placeId})`);
-        return await prisma.publicPlace.create({
+        return await prisma.place.create({
           data: placeData
         });
       }
@@ -161,6 +163,7 @@ class PublicPlaceService {
 
   /**
    * 获取所有公共地点（支持分页和筛选）
+   * 使用 Place 模型（统一地点表）
    */
   async getAllPlaces(options?: {
     page?: number;
@@ -172,6 +175,7 @@ class PublicPlaceService {
     search?: string;
     minRating?: number;
     maxRating?: number;
+    tag?: string;
   }) {
     const page = options?.page || 1;
     const limit = options?.limit || 50;
@@ -193,6 +197,15 @@ class PublicPlaceService {
       ];
     }
 
+    // 标签筛选（模糊匹配 aiTags 或 tags 字段）
+    if (options?.tag) {
+      where.OR = where.OR || [];
+      where.OR.push(
+        { aiTags: { contains: options.tag } },
+        { tags: { contains: options.tag } }
+      );
+    }
+
     // 评分区间筛选
     if (options?.minRating !== undefined || options?.maxRating !== undefined) {
       where.rating = {};
@@ -205,13 +218,13 @@ class PublicPlaceService {
     }
 
     const [places, total] = await Promise.all([
-      prisma.publicPlace.findMany({
+      prisma.place.findMany({
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' }
       }),
-      prisma.publicPlace.count({ where })
+      prisma.place.count({ where })
     ]);
 
     return {
@@ -226,61 +239,210 @@ class PublicPlaceService {
   }
 
   /**
-   * 根据 place_id 获取地点详情
+   * 根据 googlePlaceId 获取地点详情
    */
   async getPlaceByPlaceId(placeId: string) {
-    return await prisma.publicPlace.findUnique({
-      where: { placeId }
+    // 首先尝试按数据库 ID 查找
+    let place = await prisma.place.findUnique({
+      where: { id: placeId }
     });
+    
+    // 如果没找到，再尝试按 googlePlaceId 查找
+    if (!place) {
+      place = await prisma.place.findUnique({
+        where: { googlePlaceId: placeId }
+      });
+    }
+    
+    return place;
   }
 
   /**
    * 根据数据库 ID 获取地点详情
    */
   async getPlaceById(id: string) {
-    return await prisma.publicPlace.findUnique({
+    return await prisma.place.findUnique({
       where: { id }
     });
   }
 
   /**
    * 更新地点信息（支持手动编辑）
+   * 支持通过数据库 ID 或 googlePlaceId 更新
    */
-  async updatePlace(placeId: string, updates: Partial<PublicPlaceData>) {
-    const updateData: any = {};
+  async updatePlace(placeId: string, updates: any) {
+    // 使用原生 SQL 更新，绕过 Prisma DateTime 转换问题
+    const now = new Date().toISOString();
     
-    if (updates.name !== undefined) updateData.name = updates.name;
-    if (updates.latitude !== undefined) updateData.latitude = updates.latitude;
-    if (updates.longitude !== undefined) updateData.longitude = updates.longitude;
-    if (updates.address !== undefined) updateData.address = updates.address;
-    if (updates.city !== undefined) updateData.city = updates.city;
-    if (updates.country !== undefined) updateData.country = updates.country;
-    if (updates.category !== undefined) updateData.category = updates.category;
-    if (updates.coverImage !== undefined) updateData.coverImage = updates.coverImage;
-    if (updates.images !== undefined) updateData.images = JSON.stringify(updates.images);
-    if (updates.rating !== undefined) updateData.rating = updates.rating;
-    if (updates.ratingCount !== undefined) updateData.ratingCount = updates.ratingCount;
-    if (updates.priceLevel !== undefined) updateData.priceLevel = updates.priceLevel;
-    if (updates.openingHours !== undefined) updateData.openingHours = JSON.stringify(updates.openingHours);
-    if (updates.website !== undefined) updateData.website = updates.website;
-    if (updates.phoneNumber !== undefined) updateData.phoneNumber = updates.phoneNumber;
-    if (updates.aiTags !== undefined) updateData.aiTags = JSON.stringify(updates.aiTags);
-    if (updates.aiSummary !== undefined) updateData.aiSummary = updates.aiSummary;
-    if (updates.aiDescription !== undefined) updateData.aiDescription = updates.aiDescription;
-
-    return await prisma.publicPlace.update({
-      where: { placeId },
-      data: updateData
-    });
+    // 构建 SET 子句
+    const setClauses: string[] = [];
+    const values: any[] = [];
+    
+    if (updates.name !== undefined) {
+      setClauses.push('name = ?');
+      values.push(updates.name);
+    }
+    if (updates.latitude !== undefined) {
+      setClauses.push('latitude = ?');
+      values.push(parseFloat(updates.latitude));
+    }
+    if (updates.longitude !== undefined) {
+      setClauses.push('longitude = ?');
+      values.push(parseFloat(updates.longitude));
+    }
+    if (updates.address !== undefined) {
+      setClauses.push('address = ?');
+      values.push(updates.address || null);
+    }
+    if (updates.city !== undefined) {
+      setClauses.push('city = ?');
+      values.push(updates.city || null);
+    }
+    if (updates.country !== undefined) {
+      setClauses.push('country = ?');
+      values.push(updates.country || null);
+    }
+    if (updates.category !== undefined) {
+      setClauses.push('category = ?');
+      values.push(updates.category || null);
+    }
+    if (updates.coverImage !== undefined) {
+      setClauses.push('coverImage = ?');
+      values.push(updates.coverImage || null);
+    }
+    if (updates.images !== undefined) {
+      setClauses.push('images = ?');
+      values.push(updates.images ? (typeof updates.images === 'string' ? updates.images : JSON.stringify(updates.images)) : null);
+    }
+    if (updates.rating !== undefined) {
+      setClauses.push('rating = ?');
+      values.push(updates.rating !== null && updates.rating !== '' ? parseFloat(updates.rating) : null);
+    }
+    if (updates.ratingCount !== undefined) {
+      setClauses.push('ratingCount = ?');
+      values.push(updates.ratingCount !== null && updates.ratingCount !== '' ? parseInt(updates.ratingCount) : null);
+    }
+    if (updates.priceLevel !== undefined) {
+      setClauses.push('priceLevel = ?');
+      values.push(updates.priceLevel !== null && updates.priceLevel !== '' ? parseInt(updates.priceLevel) : null);
+    }
+    if (updates.openingHours !== undefined) {
+      setClauses.push('openingHours = ?');
+      values.push(updates.openingHours ? (typeof updates.openingHours === 'string' ? updates.openingHours : JSON.stringify(updates.openingHours)) : null);
+    }
+    if (updates.website !== undefined) {
+      setClauses.push('website = ?');
+      values.push(updates.website || null);
+    }
+    if (updates.phoneNumber !== undefined) {
+      setClauses.push('phoneNumber = ?');
+      values.push(updates.phoneNumber || null);
+    }
+    if (updates.aiTags !== undefined) {
+      setClauses.push('aiTags = ?');
+      values.push(updates.aiTags ? (typeof updates.aiTags === 'string' ? updates.aiTags : JSON.stringify(updates.aiTags)) : null);
+    }
+    if (updates.aiSummary !== undefined) {
+      setClauses.push('aiSummary = ?');
+      values.push(updates.aiSummary || null);
+    }
+    if (updates.aiDescription !== undefined) {
+      setClauses.push('aiDescription = ?');
+      values.push(updates.aiDescription || null);
+    }
+    if (updates.description !== undefined) {
+      setClauses.push('description = ?');
+      values.push(updates.description || null);
+    }
+    if (updates.customFields !== undefined) {
+      setClauses.push('customFields = ?');
+      values.push(updates.customFields ? (typeof updates.customFields === 'string' ? updates.customFields : JSON.stringify(updates.customFields)) : null);
+    }
+    
+    // 总是更新 updatedAt
+    setClauses.push('updatedAt = ?');
+    values.push(now);
+    
+    if (setClauses.length === 1) {
+      // 只有 updatedAt，没有其他更新
+      return await this.getPlaceByPlaceId(placeId);
+    }
+    
+    // 构建完整的 SQL
+    const setClause = setClauses.join(', ');
+    values.push(placeId); // WHERE 条件的值
+    
+    // 先尝试按数据库 ID 更新
+    const updateByIdQuery = `UPDATE Place SET ${setClause} WHERE id = ?`;
+    const result = await prisma.$executeRawUnsafe(updateByIdQuery, ...values);
+    
+    if (result === 0) {
+      // 如果按 ID 没更新到，尝试按 googlePlaceId 更新
+      const updateByGoogleIdQuery = `UPDATE Place SET ${setClause} WHERE googlePlaceId = ?`;
+      await prisma.$executeRawUnsafe(updateByGoogleIdQuery, ...values);
+    }
+    
+    // 返回更新后的记录
+    return await this.getPlaceByPlaceId(placeId);
   }
 
   /**
    * 删除地点
+   * 支持通过数据库 ID 或 googlePlaceId 删除
    */
   async deletePlace(placeId: string) {
-    return await prisma.publicPlace.delete({
-      where: { placeId }
+    // 先尝试通过数据库 ID 查找，再尝试 googlePlaceId
+    const existingById = await prisma.place.findUnique({ where: { id: placeId } });
+    if (existingById) {
+      return await prisma.place.delete({
+        where: { id: placeId }
+      });
+    }
+    
+    return await prisma.place.delete({
+      where: { googlePlaceId: placeId }
     });
+  }
+  
+  /**
+   * 手动创建新地点
+   */
+  async createPlace(data: any) {
+    // 生成唯一 ID 和时间戳
+    const id = createId();
+    const now = new Date().toISOString();
+    
+    // 准备数据
+    const name = data.name;
+    const latitude = parseFloat(data.latitude);
+    const longitude = parseFloat(data.longitude);
+    const city = data.city || null;
+    const country = data.country || null;
+    const address = data.address || null;
+    const category = data.category || null;
+    const coverImage = data.coverImage || null;
+    const images = data.images ? (typeof data.images === 'string' ? data.images : JSON.stringify(data.images)) : null;
+    const rating = data.rating !== undefined && data.rating !== null && data.rating !== '' ? parseFloat(data.rating) : null;
+    const ratingCount = data.ratingCount !== undefined && data.ratingCount !== null && data.ratingCount !== '' ? parseInt(data.ratingCount) : null;
+    const priceLevel = data.priceLevel !== undefined && data.priceLevel !== null && data.priceLevel !== '' ? parseInt(data.priceLevel) : null;
+    const openingHours = data.openingHours ? (typeof data.openingHours === 'string' ? data.openingHours : JSON.stringify(data.openingHours)) : null;
+    const website = data.website || null;
+    const phoneNumber = data.phoneNumber || null;
+    const aiTags = data.aiTags ? (typeof data.aiTags === 'string' ? data.aiTags : JSON.stringify(data.aiTags)) : null;
+    const aiSummary = data.aiSummary || null;
+    const aiDescription = data.aiDescription || null;
+    const description = data.description || null;
+    const customFields = data.customFields ? (typeof data.customFields === 'string' ? data.customFields : JSON.stringify(data.customFields)) : null;
+    const source = data.source || 'manual';
+
+    // 使用原生 SQL 插入，绕过 Prisma DateTime 转换问题
+    await prisma.$executeRaw`
+      INSERT INTO Place (id, name, latitude, longitude, city, country, address, category, coverImage, images, rating, ratingCount, priceLevel, openingHours, website, phoneNumber, aiTags, aiSummary, aiDescription, description, customFields, source, createdAt, updatedAt)
+      VALUES (${id}, ${name}, ${latitude}, ${longitude}, ${city}, ${country}, ${address}, ${category}, ${coverImage}, ${images}, ${rating}, ${ratingCount}, ${priceLevel}, ${openingHours}, ${website}, ${phoneNumber}, ${aiTags}, ${aiSummary}, ${aiDescription}, ${description}, ${customFields}, ${source}, ${now}, ${now})
+    `;
+
+    // 返回新创建的记录
+    return await prisma.place.findUnique({ where: { id } });
   }
 
   /**
@@ -295,8 +457,8 @@ class PublicPlaceService {
       }
 
       // 只更新 Google Maps 的数据，保留 AI 数据
-      return await prisma.publicPlace.update({
-        where: { placeId },
+      return await prisma.place.update({
+        where: { googlePlaceId: placeId },
         data: {
           name: placeDetails.name,
           latitude: placeDetails.latitude,
@@ -326,7 +488,7 @@ class PublicPlaceService {
    * 搜索地点
    */
   async searchPlaces(query: string) {
-    return await prisma.publicPlace.findMany({
+    return await prisma.place.findMany({
       where: {
         OR: [
           { name: { contains: query } },
@@ -380,18 +542,18 @@ class PublicPlaceService {
    */
   async getStats() {
     const [total, bySource, byCategory, byCountry] = await Promise.all([
-      prisma.publicPlace.count(),
-      prisma.publicPlace.groupBy({
+      prisma.place.count(),
+      prisma.place.groupBy({
         by: ['source'],
         _count: true
       }),
-      prisma.publicPlace.groupBy({
+      prisma.place.groupBy({
         by: ['category'],
         _count: true,
         orderBy: { _count: { category: 'desc' } },
         take: 10
       }),
-      prisma.publicPlace.groupBy({
+      prisma.place.groupBy({
         by: ['country'],
         _count: true,
         orderBy: { _count: { country: 'desc' } },

@@ -12,8 +12,8 @@ import {
 } from '../services/emailService';
 
 const JWT_SECRET: jwt.Secret = process.env.JWT_SECRET || 'default_secret';
-const JWT_ACCESS_EXPIRY: string | number = process.env.JWT_ACCESS_EXPIRY || '15m';
-const JWT_REFRESH_EXPIRY: string | number = process.env.JWT_REFRESH_EXPIRY || '7d';
+const JWT_ACCESS_EXPIRY: string | number = process.env.JWT_ACCESS_EXPIRY || '30d'; // 延长到30天
+const JWT_REFRESH_EXPIRY: string | number = process.env.JWT_REFRESH_EXPIRY || '90d'; // 延长到90天
 
 const signAccessToken = (payload: { id: string; email: string; verified?: boolean; version?: number }) =>
   jwt.sign(

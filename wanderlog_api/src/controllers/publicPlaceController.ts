@@ -11,7 +11,7 @@ class PublicPlaceController {
    */
   async getAllPlaces(req: Request, res: Response): Promise<void> {
     try {
-      const { page, limit, city, country, category, source, search, minRating, maxRating } = req.query;
+      const { page, limit, city, country, category, source, search, minRating, maxRating, tag } = req.query;
 
       const result = await publicPlaceService.getAllPlaces({
         page: page ? parseInt(page as string) : undefined,
@@ -23,6 +23,7 @@ class PublicPlaceController {
         search: search as string,
         minRating: minRating ? parseFloat(minRating as string) : undefined,
         maxRating: maxRating ? parseFloat(maxRating as string) : undefined,
+        tag: tag as string,
       });
 
       res.json({
@@ -429,6 +430,37 @@ class PublicPlaceController {
       res.json({
         success: true,
         data: stats,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+  
+  /**
+   * 手动创建地点
+   * POST /api/public-places
+   */
+  async createPlace(req: Request, res: Response): Promise<void> {
+    try {
+      const { name, latitude, longitude } = req.body;
+      
+      // 校验必填字段
+      if (!name || latitude === undefined || longitude === undefined) {
+        return res.status(400).json({
+          success: false,
+          error: 'name, latitude, longitude 是必填字段',
+        });
+      }
+      
+      const place = await publicPlaceService.createPlace(req.body);
+
+      res.json({
+        success: true,
+        data: place,
+        message: 'Place created successfully',
       });
     } catch (error: any) {
       res.status(500).json({

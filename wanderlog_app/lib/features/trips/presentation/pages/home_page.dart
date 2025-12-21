@@ -23,8 +23,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   int _selectedIndex = 0;
   int _selectedTab = 0; // 0: Collection, 1: Map
   bool _isMapFullscreen = false;
-  List<Map<String, dynamic>> _collections = [];
-  bool _isLoadingCollections = false;
+  List<Map<String, dynamic>> _recommendations = [];
+  bool _isLoadingRecommendations = false;
 
   bool _asBool(dynamic value) {
     if (value is bool) return value;
@@ -36,21 +36,24 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   void initState() {
     super.initState();
-    _loadCollections();
+    _loadRecommendations();
   }
 
-  Future<void> _loadCollections() async {
-    setState(() => _isLoadingCollections = true);
+  Future<void> _loadRecommendations() async {
+    setState(() => _isLoadingRecommendations = true);
     try {
       final repo = ref.read(collectionRepositoryProvider);
-      // 首页展示全部合集，需要 includeAll = true
-      final data = await repo.listCollections(includeAll: true);
-      setState(() => _collections = data);
-    } catch (_) {
-      setState(() => _collections = []);
+      final data = await repo.listRecommendations();
+      print('✅ Loaded ${data.length} recommendations');
+      print('📦 Recommendations data: $data');
+      setState(() => _recommendations = data);
+    } catch (e, stackTrace) {
+      print('❌ Error loading recommendations: $e');
+      print('📋 Stack trace: $stackTrace');
+      setState(() => _recommendations = []);
     } finally {
       if (mounted) {
-        setState(() => _isLoadingCollections = false);
+        setState(() => _isLoadingRecommendations = false);
       }
     }
   }
@@ -126,89 +129,207 @@ class _HomePageState extends ConsumerState<HomePage> {
               ],
               Expanded(
                 child: _selectedTab == 0
-                    ? (_isLoadingCollections
+                    ? (_isLoadingRecommendations
                         ? const Center(child: CircularProgressIndicator())
-                        : GridView.builder(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 3 / 4,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                            ),
-                            itemCount: _collections.length,
-                            itemBuilder: (context, index) {
-                              final item = _collections[index];
-                              final spots = item['collectionSpots'] as List<dynamic>? ?? [];
-                              final firstSpot = spots.isNotEmpty ? spots.first['spot'] as Map<String, dynamic>? : null;
+                        : _recommendations.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text('No recommendations available'),
+                                    const SizedBox(height: 16),
+                                    Text('Loaded: ${_recommendations.length} recommendations'),
+                                    TextButton(
+                                      onPressed: _loadRecommendations,
+                                      child: const Text('Retry'),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                itemCount: _recommendations.length,
+                                itemBuilder: (context, recommendationIndex) {
+                                  final recommendation = _recommendations[recommendationIndex];
+                                  final items = recommendation['items'] as List<dynamic>? ?? [];
+                                  final recommendationName = recommendation['name'] as String? ?? '';
+                                  final hasMore = items.length > 5;
+                                  final displayItems = items.take(5).toList();
+                                  
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 24),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // 推荐标题行
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                                          child: Row(
+                                            children: [
+                                              // 黄色竖杠
+                                              Container(
+                                                width: 4,
+                                                height: 20,
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.primaryYellow,
+                                                  borderRadius: BorderRadius.circular(2),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              // 推荐名称
+                                              Expanded(
+                                                child: Text(
+                                                  recommendationName,
+                                                  style: AppTheme.headlineLarge(context).copyWith(
+                                                    fontSize: 18,
+                                                  ),
+                                                ),
+                                              ),
+                                              // More 按钮（超过5个时显示）
+                                              if (hasMore)
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    final recommendationId = recommendation['id'] as String?;
+                                                    if (recommendationId != null) {
+                                                      context.push(
+                                                        '/recommendation/$recommendationId?name=${Uri.encodeComponent(recommendationName)}',
+                                                      );
+                                                    }
+                                                  },
+                                                  child: Text(
+                                                    'more >',
+                                                    style: AppTheme.bodyMedium(context).copyWith(
+                                                      color: AppTheme.mediumGray,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        // 横向滚动的合集列表
+                                        SizedBox(
+                                          height: 224,
+                                          child: ListView.builder(
+                                            scrollDirection: Axis.horizontal,
+                                            clipBehavior: Clip.none,
+                                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                                            itemCount: displayItems.length,
+                                            itemBuilder: (context, itemIndex) {
+                                              final item = displayItems[itemIndex];
+                                              final collection = item['collection'] as Map<String, dynamic>? ?? {};
+                                              final collectionId = collection['id'] as String?;
+                                              
+                                              // 获取合集的地点信息
+                                              final collectionSpots = collection['collectionSpots'] as List<dynamic>? ?? [];
+                                              final firstSpot = collectionSpots.isNotEmpty 
+                                                  ? (collectionSpots.first['place'] as Map<String, dynamic>?)
+                                                  : null;
+                                              
                               final city = (firstSpot?['city'] as String?)?.isNotEmpty == true
                                   ? firstSpot!['city'] as String
                                   : 'Multi-city';
-                              final tags = (firstSpot?['tags'] as List<dynamic>? ?? [])
+                                              
+                              // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
+                              List<dynamic> tagsList = [];
+                              for (final spot in collectionSpots) {
+                                final place = spot['place'] as Map<String, dynamic>?;
+                                if (place == null) continue;
+                                
+                                // 尝试获取 tags
+                                dynamic tagsValue = place['tags'];
+                                if (tagsValue != null) {
+                                  if (tagsValue is List) {
+                                    tagsList.addAll(tagsValue);
+                                  } else if (tagsValue is String) {
+                                    try {
+                                      final decoded = jsonDecode(tagsValue) as List<dynamic>?;
+                                      if (decoded != null) tagsList.addAll(decoded);
+                                    } catch (e) {
+                                      // 忽略解析错误
+                                    }
+                                  }
+                                }
+                                
+                                // 如果还没有标签，尝试使用 aiTags
+                                if (tagsList.isEmpty) {
+                                  dynamic aiTagsValue = place['aiTags'];
+                                  if (aiTagsValue != null) {
+                                    if (aiTagsValue is List) {
+                                      tagsList.addAll(aiTagsValue);
+                                    } else if (aiTagsValue is String) {
+                                      try {
+                                        final decoded = jsonDecode(aiTagsValue) as List<dynamic>?;
+                                        if (decoded != null) tagsList.addAll(decoded);
+                                      } catch (e) {
+                                        // 忽略解析错误
+                                      }
+                                    }
+                                  }
+                                }
+                                
+                                // 如果已经收集到足够的标签，可以提前退出
+                                if (tagsList.length >= 3) break;
+                              }
+                              
+                              // 去重并取前3个
+                              final uniqueTags = tagsList.toSet().toList();
+                              final tags = uniqueTags
                                   .take(3)
                                   .map((e) => '#$e')
                                   .toList();
-                              final image = item['coverImage'] as String? ??
+                                              
+                                              final collectionName = collection['name'] as String? ?? 'Collection';
+                                              final coverImage = collection['coverImage'] as String? ??
                                   (firstSpot?['coverImage'] as String? ??
                                       'https://via.placeholder.com/400x600');
-                              final title = item['name'] as String? ?? 'Collection';
-                              final count = spots.length;
-                              return _TripCard(
+                                              final count = collectionSpots.length;
+                                              
+                                              return Padding(
+                                                padding: EdgeInsets.only(
+                                                  right: itemIndex < displayItems.length - 1 ? 12 : 0,
+                                                ),
+                                                child: SizedBox(
+                                                  width: 168,
+                                                  height: 224,
+                                                  child: _TripCard(
                                 city: city,
                                 count: count,
-                                title: title,
+                                                    title: collectionName,
                                 tags: tags,
-                                imageUrl: image,
+                                                    imageUrl: coverImage,
                                 onTap: () async {
                                   final result = await Navigator.of(context).push<dynamic>(
                                     MaterialPageRoute<dynamic>(
                                       builder: (context) => CollectionSpotsMapPage(
                                         city: city,
-                                        collectionTitle: title,
-                                        collectionId: item['id'] as String?,
-                                        initialIsFavorited: _asBool(item['isFavorited']),
-                                        description: item['description'] as String?,
-                                        coverImage: item['coverImage'] as String?,
-                                        people: (item['people'] as List<dynamic>? ?? [])
-                                            .map((p) => LinkItem(
-                                                  name: p['name'] as String? ?? '',
-                                                  link: p['link'] as String?,
-                                                  avatarUrl: p['avatarUrl'] as String?,
-                                                ))
-                                            .toList(),
-                                        works: (item['works'] as List<dynamic>? ?? [])
-                                            .map((w) => LinkItem(
-                                                  name: w['name'] as String? ?? '',
-                                                  link: w['link'] as String?,
-                                                  coverImage: w['coverImage'] as String?,
-                                                ))
-                                            .toList(),
+                                                            collectionTitle: collectionName,
+                                                            collectionId: collectionId,
+                                                            initialIsFavorited: false, // 推荐列表中的合集默认未收藏
+                                                            description: collection['description'] as String?,
+                                                            coverImage: collection['coverImage'] as String?,
+                                                            people: [], // 推荐列表暂不包含people信息
+                                                            works: [], // 推荐列表暂不包含works信息
                                       ),
                                     ),
                                   );
 
-                                  bool needRefresh = false;
-                                  bool? latestFav;
-                                  if (result is Map) {
-                                    needRefresh = result['shouldRefresh'] == true;
-                                    latestFav = result['isFavorited'] as bool?;
-                                  } else if (result is bool) {
-                                    needRefresh = result;
-                                  }
-
-                                  // 乐观更新当前卡片的收藏状态，避免后台状态延迟
-                                  if (latestFav != null && mounted) {
-                                    setState(() {
-                                      _collections[index]['isFavorited'] = latestFav;
-                                    });
-                                  }
-
-                                  if (needRefresh && mounted) {
-                                    _loadCollections();
-                                  }
-                                },
+                                                      if (result != null && mounted) {
+                                                        // 如果需要刷新，重新加载推荐列表
+                                                        if ((result is Map && result['shouldRefresh'] == true) ||
+                                                            (result is bool && result)) {
+                                                          _loadRecommendations();
+                                                        }
+                                                      }
+                                                    },
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                               );
                             },
                           ))
@@ -471,17 +592,17 @@ class _TripCard extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          clipBehavior: Clip.hardEdge,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(cardRadius),
             border: Border.all(
               color: AppTheme.black,
               width: AppTheme.borderThick,
             ),
-            boxShadow: AppTheme.cardShadow,
+            boxShadow: AppTheme.strongShadow,
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(innerRadius),
+            clipBehavior: Clip.antiAlias,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -548,34 +669,18 @@ class _TripCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 顶部标签
+                      // 顶部标签 - 右侧对齐
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryYellow.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              city.toLowerCase(),
-                              style: AppTheme.labelSmall(context).copyWith(
-                                color: AppTheme.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+                          // 地点数量 - 64% 白色背景，黑色文字，在左侧
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryYellow.withOpacity(0.5),
+                              color: AppTheme.white.withOpacity(0.64),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
@@ -584,6 +689,7 @@ class _TripCard extends StatelessWidget {
                                 Text(
                                   count.toString(),
                                   style: AppTheme.labelSmall(context).copyWith(
+                                    fontSize: 10,
                                     color: AppTheme.black,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -597,6 +703,26 @@ class _TripCard extends StatelessWidget {
                               ],
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          // 城市名称 - 白色背景，黑色文字，在右侧
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.white,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              city.toLowerCase(),
+                              style: AppTheme.labelSmall(context).copyWith(
+                                fontSize: 10,
+                                color: AppTheme.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
 
@@ -606,6 +732,7 @@ class _TripCard extends StatelessWidget {
                       Text(
                         title,
                         style: AppTheme.headlineMedium(context).copyWith(
+                          fontSize: 16,
                           color: AppTheme.white,
                           shadows: [
                             const Shadow(
@@ -627,6 +754,7 @@ class _TripCard extends StatelessWidget {
                               (tag) => Text(
                                 tag,
                                 style: AppTheme.labelSmall(context).copyWith(
+                                  fontSize: 10,
                                   color: AppTheme.white.withOpacity(0.9),
                                 ),
                               ),

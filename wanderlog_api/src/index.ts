@@ -51,6 +51,7 @@ import tripRoutes from './routes/tripRoutes';
 import destinationRoutes from './routes/destinationRoutes';
 import collectionRoutes from './routes/collectionRoutes';
 import publicPlaceRoutes from './routes/publicPlaceRoutes';
+import collectionRecommendationRoutes from './routes/collectionRecommendationRoutes';
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -61,6 +62,8 @@ app.use('/api/trips', tripRoutes);
 app.use('/api/destinations', destinationRoutes);
 app.use('/api/collections', collectionRoutes);
 app.use('/api/public-places', publicPlaceRoutes);
+app.use('/api/collection-recommendations', collectionRecommendationRoutes);
+console.log('✅ Collection recommendations routes registered');
 // app.use('/api/trips', tripRoutes);
 // app.use('/api/spots', spotRoutes);
 

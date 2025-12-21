@@ -11,19 +11,19 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String?
-  name      String?
-  avatarUrl String?
-  authProvider    String    @default("email")
-  googleId        String?   @unique
-  isEmailVerified Boolean   @default(false)
-  emailVerifiedAt DateTime?
-  refreshToken    String?
-  tokenVersion    Int       @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  password           String?
+  name               String?
+  avatarUrl          String?
+  authProvider       String              @default("email")
+  googleId           String?             @unique
+  isEmailVerified    Boolean             @default(false)
+  emailVerifiedAt    DateTime?
+  refreshToken       String?
+  tokenVersion       Int                 @default(0)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
   trips              Trip[]
   verificationTokens VerificationToken[]
   userCollections    UserCollection[]
@@ -33,14 +33,14 @@ model User {
 }
 
 model VerificationToken {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token       String    @unique
-  type        String
-  expiresAt   DateTime
-  usedAt      DateTime?
-  createdAt   DateTime  @default(now())
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  type      String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([token])
   @@index([userId, type])
@@ -49,7 +49,7 @@ model VerificationToken {
 
 // 单一地点表 Place（合并原 Spot 与 PublicPlace）
 model Place {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String
   city          String?
   country       String?
@@ -63,15 +63,15 @@ model Place {
   category      String?
   aiSummary     String?
   aiDescription String?
-  tags          String?   // JSON string
-  aiTags        String?   // JSON string
+  tags          String? // JSON string
+  aiTags        String? // JSON string
   coverImage    String?
-  images        String?   // JSON string
+  images        String? // JSON string
   priceLevel    Int?
   website       String?
   phoneNumber   String?
   googlePlaceId String?   @unique
-  placeId       String?   // 兼容旧 publicPlace 的 placeId；可与 googlePlaceId 复用
+  placeId       String? // 兼容旧 publicPlace 的 placeId；可与 googlePlaceId 复用
   source        String?   @default("google_maps")
   sourceDetails String?
   isVerified    Boolean   @default(false)
@@ -123,42 +123,69 @@ model TripSpot {
 }
 
 model Collection {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   coverImage  String
   description String?
   people      String?
   works       String?
   source      String?
-  isPublished Boolean  @default(false)
+  isPublished Boolean   @default(false)
   publishedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  collectionSpots CollectionSpot[]
-  userCollections UserCollection[]
+  collectionSpots     CollectionSpot[]
+  userCollections     UserCollection[]
+  recommendationItems CollectionRecommendationItem[]
 }
 
 model CollectionSpot {
-  id           String      @id @default(cuid())
+  id           String     @id @default(cuid())
   collectionId String
-  collection   Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   placeId      String
-  place        Place       @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  place        Place      @relation(fields: [placeId], references: [id], onDelete: Cascade)
   city         String?
-  createdAt    DateTime    @default(now())
+  createdAt    DateTime   @default(now())
 
   @@unique([collectionId, placeId])
   @@index([city])
 }
 
 model UserCollection {
-  id           String      @id @default(cuid())
+  id           String     @id @default(cuid())
   userId       String
-  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   collectionId String
-  collection   Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  createdAt    DateTime    @default(now())
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
 
   @@unique([userId, collectionId])
+}
+
+model CollectionRecommendation {
+  id        String   @id @default(cuid())
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items CollectionRecommendationItem[]
+
+  @@index([name])
+  @@index([order])
+}
+
+model CollectionRecommendationItem {
+  id               String                   @id @default(cuid())
+  recommendationId String
+  recommendation   CollectionRecommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  collectionId     String
+  collection       Collection               @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  order            Int                      @default(0)
+  createdAt        DateTime                 @default(now())
+
+  @@unique([recommendationId, collectionId])
+  @@index([recommendationId, order])
 }

@@ -48,14 +48,19 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
     try {
       final repo = ref.read(collectionRepositoryProvider);
       // Myland 只显示当前用户收藏的合集（默认 includeAll=false）
+      print('📡 Loading collections for myland...');
       final data = await repo.listCollections();
+      print('📦 Loaded ${data.length} collections');
       setState(() {
         _allCollections
           ..clear()
           ..addAll(data);
         _filterCollections();
       });
-    } catch (_) {
+      print('✅ Filtered to ${_filteredCollections.length} collections');
+    } catch (e, stackTrace) {
+      print('❌ Error loading collections: $e');
+      print('📋 Stack trace: $stackTrace');
       setState(() {
         _allCollections.clear();
         _filteredCollections = [];
@@ -79,12 +84,15 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
         final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
         // 检查合集中是否有任何地点属于当前城市
         return spots.any((cs) {
-          final spot = cs['spot'] as Map<String, dynamic>?;
+          // 兼容 place 和 spot 两种字段名
+          final spot = cs['spot'] as Map<String, dynamic>? ?? 
+                      cs['place'] as Map<String, dynamic>?;
           final spotCity = (spot?['city'] as String?)?.toLowerCase().trim();
           return spotCity == city;
         });
       }).toList();
     }
+    print('🔍 Filtered collections: ${_filteredCollections.length} out of ${_allCollections.length}');
     if (mounted) setState(() {});
   }
 
@@ -97,88 +105,143 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
       return _buildEmptyState();
     }
 
-    return ListView.builder(
+    return GridView.builder(
       padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.8, // 4:5 aspect ratio
+      ),
       itemCount: _filteredCollections.length,
       itemBuilder: (context, index) {
         final collection = _filteredCollections[index];
         final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
+        // 兼容 place 和 spot 两种字段名
         final firstSpot = spots.isNotEmpty
-            ? spots.first['spot'] as Map<String, dynamic>?
+            ? (spots.first['spot'] as Map<String, dynamic>? ?? 
+               spots.first['place'] as Map<String, dynamic>?)
             : null;
         final city = (firstSpot?['city'] as String?)?.isNotEmpty == true
             ? firstSpot!['city'] as String
             : 'Multi-city';
         final count = spots.length;
-        final tags = (firstSpot?['tags'] as List<dynamic>? ?? [])
+        // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
+        List<dynamic> tagsList = [];
+        for (final spot in spots) {
+          // 兼容 place 和 spot 两种字段名
+          final spotData = spot['spot'] as Map<String, dynamic>? ?? 
+                          spot['place'] as Map<String, dynamic>?;
+          if (spotData == null) continue;
+          
+          // 尝试获取 tags
+          dynamic tagsValue = spotData['tags'];
+          List<dynamic> currentSpotTags = [];
+          if (tagsValue != null) {
+            if (tagsValue is List) {
+              currentSpotTags.addAll(tagsValue);
+            } else if (tagsValue is String) {
+              try {
+                final decoded = jsonDecode(tagsValue) as List<dynamic>?;
+                if (decoded != null) currentSpotTags.addAll(decoded);
+              } catch (e) {
+                // 忽略解析错误
+              }
+            }
+          }
+          
+          // 如果这个 spot 没有 tags，尝试使用 aiTags
+          if (currentSpotTags.isEmpty) {
+            dynamic aiTagsValue = spotData['aiTags'];
+            if (aiTagsValue != null) {
+              if (aiTagsValue is List) {
+                currentSpotTags.addAll(aiTagsValue);
+              } else if (aiTagsValue is String) {
+                try {
+                  final decoded = jsonDecode(aiTagsValue) as List<dynamic>?;
+                  if (decoded != null) currentSpotTags.addAll(decoded);
+                } catch (e) {
+                  // 忽略解析错误
+                }
+              }
+            }
+          }
+          
+          // 添加到总列表
+          tagsList.addAll(currentSpotTags);
+          
+          // 如果已经收集到足够的标签，可以提前退出
+          if (tagsList.length >= 3) break;
+        }
+        
+        // 去重并取前3个
+        final uniqueTags = tagsList.toSet().toList();
+        final tags = uniqueTags
             .take(3)
-            .map((t) => t.toString())
+            .map((e) => '#$e')
             .toList();
         final cover = collection['coverImage'] as String? ??
             (firstSpot?['coverImage'] as String? ??
                 'https://via.placeholder.com/400x600');
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _CollectionCard(
-            name: collection['name'] as String? ?? 'Collection',
-            city: city,
-            spotsCount: count,
-            image: cover,
-            tags: tags,
-            onTap: () async {
-              final result = await Navigator.of(context).push<dynamic>(
-                MaterialPageRoute<dynamic>(
-                  builder: (_) => CollectionSpotsMapPage(
-                    city: city,
-                    collectionTitle: collection['name'] as String? ?? 'Collection',
-                    collectionId: collection['id'] as String?,
-                    initialIsFavorited: collection['isFavorited'] as bool?,
-                    description: collection['description'] as String?,
-                    coverImage: collection['coverImage'] as String?,
-                    people: (collection['people'] as List<dynamic>? ?? [])
-                        .map((p) => LinkItem(
-                              name: p['name'] as String? ?? '',
-                              link: p['link'] as String?,
-                              avatarUrl: p['avatarUrl'] as String?,
-                            ))
-                        .toList(),
-                    works: (collection['works'] as List<dynamic>? ?? [])
-                        .map((w) => LinkItem(
-                              name: w['name'] as String? ?? '',
-                              link: w['link'] as String?,
-                              coverImage: w['coverImage'] as String?,
-                            ))
-                        .toList(),
-                  ),
+        return _CollectionCard(
+          name: collection['name'] as String? ?? 'Collection',
+          city: city,
+          spotsCount: count,
+          image: cover,
+          tags: tags,
+          onTap: () async {
+            final result = await Navigator.of(context).push<dynamic>(
+              MaterialPageRoute<dynamic>(
+                builder: (_) => CollectionSpotsMapPage(
+                  city: city,
+                  collectionTitle: collection['name'] as String? ?? 'Collection',
+                  collectionId: collection['id'] as String?,
+                  initialIsFavorited: collection['isFavorited'] as bool?,
+                  description: collection['description'] as String?,
+                  coverImage: collection['coverImage'] as String?,
+                  people: (collection['people'] as List<dynamic>? ?? [])
+                      .map((p) => LinkItem(
+                            name: p['name'] as String? ?? '',
+                            link: p['link'] as String?,
+                            avatarUrl: p['avatarUrl'] as String?,
+                          ))
+                      .toList(),
+                  works: (collection['works'] as List<dynamic>? ?? [])
+                      .map((w) => LinkItem(
+                            name: w['name'] as String? ?? '',
+                            link: w['link'] as String?,
+                            coverImage: w['coverImage'] as String?,
+                          ))
+                      .toList(),
                 ),
-              );
-              bool needRefresh = false;
-              bool? latestFav;
-              if (result is Map) {
-                needRefresh = result['shouldRefresh'] == true;
-                latestFav = result['isFavorited'] as bool?;
-              } else if (result is bool) {
-                needRefresh = result;
-              }
+              ),
+            );
+            bool needRefresh = false;
+            bool? latestFav;
+            if (result is Map) {
+              needRefresh = result['shouldRefresh'] == true;
+              latestFav = result['isFavorited'] as bool?;
+            } else if (result is bool) {
+              needRefresh = result;
+            }
 
-              if (latestFav != null && mounted) {
-                setState(() {
-                  _filteredCollections[index]['isFavorited'] = latestFav;
-                  // 同步更新 _allCollections 中对应的记录
-                  final collectionId = _filteredCollections[index]['id'];
-                  final allIndex = _allCollections.indexWhere((c) => c['id'] == collectionId);
-                  if (allIndex != -1) {
-                    _allCollections[allIndex]['isFavorited'] = latestFav;
-                  }
-                });
-              }
+            if (latestFav != null && mounted) {
+              setState(() {
+                _filteredCollections[index]['isFavorited'] = latestFav;
+                // 同步更新 _allCollections 中对应的记录
+                final collectionId = _filteredCollections[index]['id'];
+                final allIndex = _allCollections.indexWhere((c) => c['id'] == collectionId);
+                if (allIndex != -1) {
+                  _allCollections[allIndex]['isFavorited'] = latestFav;
+                }
+              });
+            }
 
-              // 如果返回 true，表示需要刷新列表（取消或重新收藏了）
-              if (needRefresh && mounted) {
-                _loadCollections();
-              }
-            },
-          ),
+            // 如果返回 true，表示需要刷新列表（取消或重新收藏了）
+            if (needRefresh && mounted) {
+              _loadCollections();
+            }
+          },
         );
       },
     );
@@ -243,68 +306,67 @@ class _CollectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double cardRadius = AppTheme.radiusMedium;
-    final double innerRadius = cardRadius - AppTheme.borderMedium;
+    const double cardRadius = AppTheme.radiusLarge;
+    final double innerRadius = cardRadius - AppTheme.borderThick;
 
     return RepaintBoundary(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          clipBehavior: Clip.hardEdge,
-          height: 200,
           decoration: BoxDecoration(
-            color: AppTheme.white,
             borderRadius: BorderRadius.circular(cardRadius),
             border: Border.all(
               color: AppTheme.black,
-              width: AppTheme.borderMedium,
+              width: AppTheme.borderThick,
             ),
-            boxShadow: AppTheme.cardShadow,
+            boxShadow: AppTheme.strongShadow,
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(innerRadius),
+            clipBehavior: Clip.antiAlias,
             child: Stack(
+              fit: StackFit.expand,
               children: [
                 // 背景图片 - 支持 DataURL (base64) 和网络图片
-                Positioned.fill(
-                  child: image.startsWith('data:image/')
-                      ? Image.memory(
-                          _decodeBase64Image(image),
-                          fit: BoxFit.cover,
-                          gaplessPlayback: true, // 避免重建时闪烁
-                          filterQuality: FilterQuality.low,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            color: AppTheme.background,
-                            child: const Center(
-                              child: Icon(
-                                Icons.image_outlined,
-                                size: 40,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                        )
-                      : Image.network(
-                          image,
-                          fit: BoxFit.cover,
-                          gaplessPlayback: true, // 避免重建时闪烁
-                          filterQuality: FilterQuality.low,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            color: AppTheme.background,
-                            child: const Center(
-                              child: Icon(
-                                Icons.image_outlined,
-                                size: 40,
-                                color: Colors.grey,
-                              ),
-                            ),
+                image.startsWith('data:image/')
+                    ? Image.memory(
+                        _decodeBase64Image(image),
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.low,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const ColoredBox(
+                          color: AppTheme.lightGray,
+                          child: Icon(
+                            Icons.image,
+                            size: 50,
+                            color: AppTheme.mediumGray,
                           ),
                         ),
-                ),
+                      )
+                    : Image.network(
+                        image,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.low,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const ColoredBox(
+                          color: AppTheme.lightGray,
+                          child: Icon(
+                            Icons.image,
+                            size: 50,
+                            color: AppTheme.mediumGray,
+                          ),
+                        ),
+                      ),
 
-                // 渐变遮罩
-                Positioned.fill(
+                // 底部黑色渐变蒙层
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                   child: Container(
+                    height: 150,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
@@ -312,55 +374,35 @@ class _CollectionCard extends StatelessWidget {
                         colors: [
                           Colors.transparent,
                           Colors.black.withOpacity(0.7),
+                          Colors.black.withOpacity(0.9),
                         ],
                       ),
                     ),
                   ),
                 ),
 
-                // 内容
-                Padding(
-                  padding: const EdgeInsets.all(16),
+                // 内容层
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  top: 12,
+                  bottom: 12,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 城市标签和数量
+                      // 顶部标签 - 右侧对齐
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
+                          // 地点数量 - 64% 白色背景，黑色文字，在左侧
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryYellow.withOpacity(0.9),
+                              color: AppTheme.white.withOpacity(0.64),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: AppTheme.black,
-                                width: AppTheme.borderThin,
-                              ),
-                            ),
-                            child: Text(
-                              city.toLowerCase(),
-                              style: AppTheme.labelSmall(context).copyWith(
-                                color: AppTheme.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryYellow.withOpacity(0.9),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: AppTheme.black,
-                                width: AppTheme.borderThin,
-                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -368,11 +410,12 @@ class _CollectionCard extends StatelessWidget {
                                 Text(
                                   spotsCount.toString(),
                                   style: AppTheme.labelSmall(context).copyWith(
+                                    fontSize: 10,
                                     color: AppTheme.black,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 2),
                                 const Icon(
                                   Icons.location_on,
                                   size: 12,
@@ -381,17 +424,37 @@ class _CollectionCard extends StatelessWidget {
                               ],
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          // 城市名称 - 白色背景，黑色文字，在右侧
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.white,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              city.toLowerCase(),
+                              style: AppTheme.labelSmall(context).copyWith(
+                                fontSize: 10,
+                                color: AppTheme.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
 
                       const Spacer(),
 
-                      // 标题和标签
+                      // 底部标题和标签
                       Text(
                         name,
                         style: AppTheme.headlineMedium(context).copyWith(
+                          fontSize: 16,
                           color: AppTheme.white,
-                          fontWeight: FontWeight.bold,
                           shadows: [
                             const Shadow(
                               color: Colors.black,
@@ -406,20 +469,18 @@ class _CollectionCard extends StatelessWidget {
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: tags.take(3).map((tag) {
-                          return Text(
-                            '#$tag',
-                            style: AppTheme.labelSmall(context).copyWith(
-                              color: AppTheme.white.withOpacity(0.9),
-                              shadows: [
-                                const Shadow(
-                                  color: Colors.black,
-                                  blurRadius: 4,
+                        children: tags
+                            .take(2)
+                            .map(
+                              (tag) => Text(
+                                tag,
+                                style: AppTheme.labelSmall(context).copyWith(
+                                  fontSize: 10,
+                                  color: AppTheme.white.withOpacity(0.9),
                                 ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
+                              ),
+                            )
+                            .toList(),
                       ),
                     ],
                   ),

@@ -731,6 +731,41 @@
             line-height: 1;
         }
 
+        .chip button:hover {
+            color: #dc3545;
+        }
+
+        .chip-remove {
+            margin-left: 4px;
+            padding: 0 4px;
+        }
+
+        .draggable-collection {
+            cursor: move;
+            user-select: none;
+        }
+
+        .draggable-collection:hover {
+            background: #dfe3ff;
+        }
+
+        .draggable-collection.dragging {
+            opacity: 0.5;
+        }
+
+        .draggable-recommendation {
+            cursor: move;
+            user-select: none;
+        }
+
+        .draggable-recommendation:hover {
+            background: #f5f5f5;
+        }
+
+        .draggable-recommendation.dragging {
+            opacity: 0.5;
+        }
+
         .section-title {
             font-size: 15px;
             font-weight: 700;
@@ -779,6 +814,7 @@
         <div class="nav-tabs">
             <button class="tab-btn active" id="tab-places" onclick="showSection('places')">地点库</button>
             <button class="tab-btn" id="tab-collections" onclick="showSection('collections')">合集库</button>
+            <button class="tab-btn" id="tab-recommendations" onclick="showSection('recommendations')">合集推荐</button>
         </div>
 
         <div id="placesSection" class="section active">
@@ -968,6 +1004,57 @@
                 </table>
             </div>
         </div> <!-- collectionsSection -->
+
+        <div id="recommendationsSection" class="section">
+            <div class="collections-actions">
+                <button class="btn btn-primary" type="button" onclick="startCreateRecommendation()">创建合集推荐</button>
+            </div>
+            <div id="recommendationFormContainer" class="form-card" style="display:none;">
+                <div id="recommendationFormHeader" style="display: none; margin-bottom: 16px;">
+                    <button class="btn btn-secondary" onclick="cancelEditRecommendation()">← 返回列表</button>
+                    <span id="editRecommendationModeTitle" style="margin-left: 16px; font-weight: 600; color: #666;"></span>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>推荐名称 *</label>
+                        <input id="recommendationName" type="text" placeholder="如：巴黎必游推荐">
+                    </div>
+                </div>
+                <div class="form-card" style="margin:0; margin-top:8px;">
+                    <div class="section-title">合集选择（必填，至少 1 个，可添加多个，支持拖拽排序）</div>
+                    <div class="form-row">
+                        <div class="form-group dropdown" style="flex: 1;">
+                            <label>合集名称（输入进行模糊匹配搜索）</label>
+                            <input id="collectionSearchInput" type="text" placeholder="输入合集名称进行搜索..." oninput="handleCollectionSearch(this.value)">
+                            <div id="collectionSearchDropdown" class="dropdown-list" style="display:none;"></div>
+                        </div>
+                    </div>
+                    <div id="selectedCollections" class="chip-list" style="min-height: 100px;"></div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" id="saveRecommendationBtn" onclick="saveRecommendation()">保存</button>
+                    <button class="btn btn-secondary" onclick="cancelEditRecommendation()">取消</button>
+                </div>
+            </div>
+
+            <div id="recommendationsListContainer" class="table-container">
+                <div id="recommendationsLoading" class="loading">加载中</div>
+                <div id="recommendationsEmpty" class="empty" style="display:none;">暂无合集推荐</div>
+                <table id="recommendationsTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">排序</th>
+                            <th>名称</th>
+                            <th>合集数量</th>
+                            <th>创建时间</th>
+                            <th>更新时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recommendationsBody"></tbody>
+                </table>
+            </div>
+        </div> <!-- recommendationsSection -->
     </div>
 
     <!-- 管理员登录弹窗 -->
@@ -1116,15 +1203,20 @@
         const API_BASE = '/api/public-places';
         const SPOT_API_BASE = '/api/spots';
         const COLLECTION_API_BASE = '/api/collections';
+        const RECOMMENDATION_API_BASE = '/api/collection-recommendations';
         const FETCH_TIMEOUT = 10000; // 10s 超时，避免请求长时间卡住
         let currentPage = 1;
         let totalPages = 1;
         let filters = {};
         let allPlaces = []; // 缓存所有地点数据
         let collections = [];
+        let recommendations = [];
         let selectedSpots = [];
+        let selectedCollections = []; // 用于编辑推荐时存储选中的合集
         let spotSearchTimer = null;
+        let collectionSearchTimer = null;
         let editingCollectionId = null;
+        let editingRecommendationId = null;
         let peopleListData = [];
         let worksListData = [];
 
@@ -1290,8 +1382,10 @@
         async function showSection(section) {
             document.getElementById('placesSection').classList.remove('active');
             document.getElementById('collectionsSection').classList.remove('active');
+            document.getElementById('recommendationsSection').classList.remove('active');
             document.getElementById('tab-places').classList.remove('active');
             document.getElementById('tab-collections').classList.remove('active');
+            document.getElementById('tab-recommendations').classList.remove('active');
 
             if (section === 'collections') {
                 document.getElementById('collectionsSection').classList.add('active');
@@ -1302,6 +1396,16 @@
                 // 如果不在编辑模式，显示列表
                 if (!editingCollectionId) {
                     showCollectionsList();
+                }
+            } else if (section === 'recommendations') {
+                document.getElementById('recommendationsSection').classList.add('active');
+                document.getElementById('tab-recommendations').classList.add('active');
+                if (recommendations.length === 0) {
+                    await loadRecommendations();
+                }
+                // 如果不在编辑模式，显示列表
+                if (!editingRecommendationId) {
+                    showRecommendationsList();
                 }
             } else {
                 document.getElementById('placesSection').classList.add('active');
@@ -2998,6 +3102,556 @@
                     alert(`保存失败: ${e.message}`);
                 }
             }
+        }
+
+        // ============ 合集推荐相关功能 ============
+        
+        // 加载合集推荐列表
+        async function loadRecommendations() {
+            try {
+                const listContainer = document.getElementById('recommendationsListContainer');
+                if (listContainer) listContainer.style.display = 'block';
+                document.getElementById('recommendationsLoading').style.display = 'block';
+                document.getElementById('recommendationsLoading').textContent = '加载中...';
+                document.getElementById('recommendationsEmpty').style.display = 'none';
+                document.getElementById('recommendationsTable').style.display = 'none';
+
+                const headers = {};
+                const token = getStoredToken();
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                else {
+                    document.getElementById('recommendationsLoading').textContent = '请先登录管理员后查看合集推荐';
+                    return;
+                }
+                const res = await fetchWithTimeout(`${RECOMMENDATION_API_BASE}`, { headers });
+                const result = await res.json();
+                if (result.success && Array.isArray(result.data)) {
+                    // 确保按order排序
+                    recommendations = result.data.sort((a, b) => {
+                        const orderA = a.order !== undefined ? a.order : 999;
+                        const orderB = b.order !== undefined ? b.order : 999;
+                        return orderA - orderB;
+                    });
+                    renderRecommendations();
+                    showRecommendationsList();
+                } else {
+                    throw new Error(result.message || '加载失败');
+                }
+            } catch (e) {
+                console.error('加载合集推荐失败:', e);
+                document.getElementById('recommendationsLoading').style.display = 'block';
+                document.getElementById('recommendationsLoading').textContent = `加载失败: ${e.message || '请检查后端或是否已设置管理员 Token'}`;
+                document.getElementById('recommendationsEmpty').style.display = 'none';
+                document.getElementById('recommendationsTable').style.display = 'none';
+            }
+        }
+
+        // 渲染合集推荐列表（支持拖拽排序）
+        function renderRecommendations() {
+            const body = document.getElementById('recommendationsBody');
+            body.innerHTML = '';
+
+            if (recommendations.length === 0) {
+                document.getElementById('recommendationsLoading').style.display = 'none';
+                document.getElementById('recommendationsEmpty').style.display = 'block';
+                document.getElementById('recommendationsTable').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('recommendationsLoading').style.display = 'none';
+            document.getElementById('recommendationsEmpty').style.display = 'none';
+            document.getElementById('recommendationsTable').style.display = 'table';
+
+            // 确保按order排序
+            const sortedRecommendations = [...recommendations].sort((a, b) => {
+                const orderA = a.order !== undefined ? a.order : 999;
+                const orderB = b.order !== undefined ? b.order : 999;
+                return orderA - orderB;
+            });
+
+            sortedRecommendations.forEach((rec, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'draggable-recommendation';
+                tr.setAttribute('draggable', 'true');
+                tr.setAttribute('data-id', rec.id);
+                tr.setAttribute('data-index', index);
+                const count = Array.isArray(rec.items) ? rec.items.length : 0;
+                tr.innerHTML = `
+                    <td style="cursor: move; user-select: none;">⋮⋮</td>
+                    <td class="place-name">${rec.name}</td>
+                    <td>${count}</td>
+                    <td>${rec.createdAt ? new Date(rec.createdAt).toLocaleString() : '-'}</td>
+                    <td>${rec.updatedAt ? new Date(rec.updatedAt).toLocaleString() : '-'}</td>
+                    <td>
+                        <div class="list-actions">
+                            <button class="btn btn-secondary" onclick="startEditRecommendation('${rec.id}')">编辑</button>
+                            <button class="btn btn-danger" onclick="deleteRecommendation('${rec.id}', '${rec.name.replace(/'/g, "\\'")}')">删除</button>
+                        </div>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+            
+            // 更新recommendations数组为排序后的顺序（保持引用，避免重新渲染）
+            recommendations.length = 0;
+            recommendations.push(...sortedRecommendations);
+
+            // 设置拖拽功能
+            setupRecommendationsDragAndDrop();
+        }
+
+        // 显示合集推荐列表
+        function showRecommendationsList(show = true) {
+            const listContainer = document.getElementById('recommendationsListContainer');
+            if (listContainer) {
+                listContainer.style.display = show ? 'block' : 'none';
+            }
+            if (show) {
+                document.getElementById('recommendationsLoading').style.display = 'none';
+                document.getElementById('recommendationsEmpty').style.display = 'none';
+                document.getElementById('recommendationsTable').style.display = 'table';
+                showRecommendationForm(false);
+            }
+        }
+
+        // 显示/隐藏合集推荐表单
+        function showRecommendationForm(show) {
+            const container = document.getElementById('recommendationFormContainer');
+            if (!container) return;
+            container.style.display = show ? 'block' : 'none';
+        }
+
+        // 开始创建合集推荐
+        function startCreateRecommendation() {
+            clearRecommendationForm();
+            editingRecommendationId = null;
+            document.getElementById('recommendationFormHeader').style.display = 'block';
+            document.getElementById('editRecommendationModeTitle').textContent = '创建合集推荐';
+            document.getElementById('saveRecommendationBtn').textContent = '保存';
+            showRecommendationForm(true);
+            showRecommendationsList(false);
+            document.querySelector('.nav-tabs').style.display = 'none';
+            document.querySelector('.collections-actions').style.display = 'none';
+        }
+
+        // 开始编辑合集推荐
+        async function startEditRecommendation(id) {
+            try {
+                const token = getTokenOrAlert();
+                if (!token) return;
+
+                const res = await fetchWithTimeout(`${RECOMMENDATION_API_BASE}/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await res.json();
+                if (!result.success || !result.data) {
+                    throw new Error(result.message || '获取推荐详情失败');
+                }
+
+                const rec = result.data;
+                editingRecommendationId = id;
+                document.getElementById('recommendationFormHeader').style.display = 'block';
+                document.getElementById('editRecommendationModeTitle').textContent = `编辑合集推荐: ${rec.name}`;
+                document.getElementById('saveRecommendationBtn').textContent = '保存';
+                showRecommendationForm(true);
+                showRecommendationsList(false);
+                document.querySelector('.nav-tabs').style.display = 'none';
+                document.querySelector('.collections-actions').style.display = 'none';
+
+                // 填充表单
+                document.getElementById('recommendationName').value = rec.name || '';
+                selectedCollections = (rec.items || []).map(item => ({
+                    id: item.collection.id,
+                    name: item.collection.name,
+                    coverImage: item.collection.coverImage,
+                    description: item.collection.description,
+                }));
+                renderSelectedCollections();
+            } catch (e) {
+                console.error('加载推荐详情失败:', e);
+                alert('加载推荐详情失败: ' + e.message);
+            }
+        }
+
+        // 取消编辑
+        function cancelEditRecommendation() {
+            backToRecommendationsList();
+        }
+
+        // 返回合集推荐列表
+        function backToRecommendationsList() {
+            editingRecommendationId = null;
+            clearRecommendationForm();
+            showRecommendationsList(true);
+            document.querySelector('.nav-tabs').style.display = 'flex';
+            document.querySelector('.collections-actions').style.display = 'flex';
+        }
+
+        // 清空表单
+        function clearRecommendationForm() {
+            document.getElementById('recommendationName').value = '';
+            selectedCollections = [];
+            renderSelectedCollections();
+            document.getElementById('collectionSearchInput').value = '';
+            document.getElementById('collectionSearchDropdown').style.display = 'none';
+        }
+
+        // 保存合集推荐
+        async function saveRecommendation() {
+            const name = document.getElementById('recommendationName').value.trim();
+            if (!name) {
+                alert('推荐名称必填');
+                return;
+            }
+            if (selectedCollections.length === 0) {
+                alert('至少需要选择一个合集');
+                return;
+            }
+
+            try {
+                const token = getTokenOrAlert();
+                if (!token) return;
+
+                const collectionIds = selectedCollections.map(c => c.id);
+                const isEdit = !!editingRecommendationId;
+
+                let res;
+                if (isEdit) {
+                    res = await fetchWithTimeout(`${RECOMMENDATION_API_BASE}/${editingRecommendationId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ name, collectionIds })
+                    });
+                } else {
+                    res = await fetchWithTimeout(`${RECOMMENDATION_API_BASE}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ name, collectionIds })
+                    });
+                }
+
+                const result = await res.json();
+                if (!result.success) {
+                    throw new Error(result.message || '保存失败');
+                }
+
+                alert(isEdit ? '更新成功' : '创建成功');
+                await loadRecommendations();
+                backToRecommendationsList();
+            } catch (e) {
+                console.error('保存推荐失败:', e);
+                alert('保存失败: ' + e.message);
+            }
+        }
+
+        // 删除合集推荐
+        async function deleteRecommendation(id, name) {
+            if (!confirm(`确定要删除合集推荐 "${name}" 吗？此操作不可撤销！`)) {
+                return;
+            }
+
+            try {
+                const token = getTokenOrAlert();
+                if (!token) return;
+
+                const res = await fetchWithTimeout(`${RECOMMENDATION_API_BASE}/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await res.json();
+                if (!result.success) {
+                    throw new Error(result.message || '删除失败');
+                }
+
+                alert('删除成功');
+                await loadRecommendations();
+            } catch (e) {
+                console.error('删除推荐失败:', e);
+                alert('删除失败: ' + e.message);
+            }
+        }
+
+        // 搜索合集（模糊搜索）
+        function handleCollectionSearch(query) {
+            if (collectionSearchTimer) {
+                clearTimeout(collectionSearchTimer);
+            }
+
+            const dropdown = document.getElementById('collectionSearchDropdown');
+            if (!query || query.trim().length < 1) {
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            collectionSearchTimer = setTimeout(async () => {
+                try {
+                    const token = getStoredToken();
+                    if (!token) {
+                        dropdown.innerHTML = '<div style="padding:12px;color:#999;">请先登录管理员</div>';
+                        dropdown.style.display = 'block';
+                        return;
+                    }
+
+                    const headers = { 'Authorization': `Bearer ${token}` };
+                    const res = await fetchWithTimeout(`${RECOMMENDATION_API_BASE}/search-collections?q=${encodeURIComponent(query)}`, { headers });
+                    
+                    if (!res.ok) {
+                        const errorData = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+                        throw new Error(errorData.message || `请求失败: ${res.status}`);
+                    }
+
+                    const result = await res.json();
+                    console.log('搜索合集响应:', result);
+                    
+                    if (result.success && Array.isArray(result.data)) {
+                        const collections = result.data;
+                        if (collections.length === 0) {
+                            dropdown.innerHTML = '<div style="padding:12px;color:#999;">未找到匹配的合集</div>';
+                        } else {
+                            dropdown.innerHTML = collections.map(c => `
+                                <div class="dropdown-item" onclick="selectCollection('${c.id}', '${c.name.replace(/'/g, "\\'")}', '${(c.coverImage || '').replace(/'/g, "\\'")}', '${(c.description || '').replace(/'/g, "\\'")}')">
+                                    <img src="${c.coverImage || ''}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;margin-right:8px;" onerror="this.style.display='none'">
+                                    <div>
+                                        <div style="font-weight:600;">${c.name}</div>
+                                        ${c.description ? `<div style="font-size:12px;color:#999;">${c.description}</div>` : ''}
+                                    </div>
+                                </div>
+                            `).join('');
+                        }
+                        dropdown.style.display = 'block';
+                    } else {
+                        const errorMsg = result.message || '搜索失败';
+                        console.error('搜索合集失败:', result);
+                        dropdown.innerHTML = `<div style="padding:12px;color:#dc3545;">${errorMsg}</div>`;
+                        dropdown.style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error('搜索合集失败', e);
+                    const errorMsg = e.message || '搜索失败，请重试';
+                    dropdown.innerHTML = `<div style="padding:12px;color:#dc3545;">${errorMsg}</div>`;
+                    dropdown.style.display = 'block';
+                }
+            }, 300);
+        }
+
+        // 选择合集
+        function selectCollection(id, name, coverImage, description) {
+            // 检查是否已添加
+            if (selectedCollections.some(c => c.id === id)) {
+                alert('该合集已添加');
+                return;
+            }
+
+            selectedCollections.push({ id, name, coverImage, description });
+            renderSelectedCollections();
+            document.getElementById('collectionSearchInput').value = '';
+            document.getElementById('collectionSearchDropdown').style.display = 'none';
+        }
+
+        // 移除选中的合集
+        function removeCollection(index) {
+            selectedCollections.splice(index, 1);
+            renderSelectedCollections();
+        }
+
+        // 渲染选中的合集列表（支持拖拽排序）
+        function renderSelectedCollections() {
+            const container = document.getElementById('selectedCollections');
+            if (!container) return;
+
+            if (selectedCollections.length === 0) {
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:#999;">暂无选中的合集，请在上方搜索并添加</div>';
+                return;
+            }
+
+            container.innerHTML = selectedCollections.map((col, index) => `
+                <div class="chip draggable-collection" data-index="${index}" draggable="true">
+                    <img src="${col.coverImage || ''}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:8px;" onerror="this.style.display='none'">
+                    <span>${col.name}</span>
+                    <button class="chip-remove" onclick="removeCollection(${index})" title="移除">×</button>
+                </div>
+            `).join('');
+
+            // 添加拖拽事件
+            setupDragAndDrop();
+        }
+
+        // 设置拖拽排序
+        function setupDragAndDrop() {
+            const items = document.querySelectorAll('.draggable-collection');
+            let draggedElement = null;
+
+            items.forEach(item => {
+                item.addEventListener('dragstart', (e) => {
+                    draggedElement = item;
+                    item.style.opacity = '0.5';
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                item.addEventListener('dragend', () => {
+                    item.style.opacity = '1';
+                    draggedElement = null;
+                });
+
+                item.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (draggedElement && draggedElement !== item) {
+                        const allItems = Array.from(items);
+                        const draggedIndex = allItems.indexOf(draggedElement);
+                        const targetIndex = allItems.indexOf(item);
+                        if (draggedIndex !== targetIndex) {
+                            const container = document.getElementById('selectedCollections');
+                            if (draggedIndex < targetIndex) {
+                                container.insertBefore(draggedElement, item.nextSibling);
+                            } else {
+                                container.insertBefore(draggedElement, item);
+                            }
+                            // 更新数组顺序
+                            const [moved] = selectedCollections.splice(draggedIndex, 1);
+                            selectedCollections.splice(targetIndex, 0, moved);
+                            // 重新渲染以更新索引
+                            renderSelectedCollections();
+                        }
+                    }
+                });
+
+                item.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                });
+            });
+        }
+
+        // 设置推荐列表的拖拽排序
+        function setupRecommendationsDragAndDrop() {
+            const rows = document.querySelectorAll('.draggable-recommendation');
+            let draggedElement = null;
+
+            rows.forEach(row => {
+                row.addEventListener('dragstart', (e) => {
+                    draggedElement = row;
+                    row.style.opacity = '0.5';
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                row.addEventListener('dragend', () => {
+                    row.style.opacity = '1';
+                    draggedElement = null;
+                });
+
+                row.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (draggedElement && draggedElement !== row) {
+                        const allRows = Array.from(rows);
+                        const draggedIndex = allRows.indexOf(draggedElement);
+                        const targetIndex = allRows.indexOf(row);
+                        if (draggedIndex !== targetIndex) {
+                            const tbody = document.getElementById('recommendationsBody');
+                            if (draggedIndex < targetIndex) {
+                                tbody.insertBefore(draggedElement, row.nextSibling);
+                            } else {
+                                tbody.insertBefore(draggedElement, row);
+                            }
+                            // 更新数组顺序
+                            const [moved] = recommendations.splice(draggedIndex, 1);
+                            recommendations.splice(targetIndex, 0, moved);
+                            
+                            // 立即保存新顺序（在重新渲染之前）
+                            const recommendationIds = recommendations.map(r => r.id);
+                            console.log('拖拽后新的顺序:', recommendationIds.map((id, idx) => {
+                                const rec = recommendations.find(r => r.id === id);
+                                return { id, name: rec?.name, order: idx };
+                            }));
+                            
+                            saveRecommendationsOrderWithIds(recommendationIds).then(() => {
+                                // 保存成功后再重新渲染以更新索引
+                                console.log('保存成功，重新渲染');
+                                renderRecommendations();
+                            }).catch((error) => {
+                                // 保存失败时显示错误并重新加载列表以恢复原始顺序
+                                console.error('保存失败:', error);
+                                alert('保存顺序失败: ' + (error.message || '未知错误'));
+                                loadRecommendations();
+                            });
+                        }
+                    }
+                });
+
+                row.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                });
+            });
+        }
+
+        // 保存推荐列表顺序（使用指定的ID列表）
+        async function saveRecommendationsOrderWithIds(recommendationIds) {
+            if (!recommendationIds || recommendationIds.length === 0) {
+                console.warn('没有推荐ID需要保存');
+                return;
+            }
+
+            try {
+                const token = getTokenOrAlert();
+                if (!token) {
+                    throw new Error('请先登录管理员');
+                }
+
+                console.log('📤 发送保存顺序请求，IDs:', recommendationIds);
+                console.log('📤 对应的名称和期望的order:', recommendationIds.map((id, idx) => {
+                    const rec = recommendations.find(r => r.id === id);
+                    return { id, name: rec?.name || '未知', expectedOrder: idx };
+                }));
+
+                const res = await fetchWithTimeout(`${RECOMMENDATION_API_BASE}/order`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ recommendationIds })
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+                    throw new Error(errorData.message || `请求失败: ${res.status}`);
+                }
+
+                const result = await res.json();
+                if (!result.success) {
+                    throw new Error(result.message || '更新顺序失败');
+                }
+
+                // 更新本地数据，确保按order排序
+                if (result.data && Array.isArray(result.data)) {
+                    recommendations = result.data.sort((a, b) => {
+                        const orderA = a.order !== undefined ? a.order : 999;
+                        const orderB = b.order !== undefined ? b.order : 999;
+                        return orderA - orderB;
+                    });
+                    console.log('✅ 推荐顺序已保存！');
+                    console.log('📋 服务器返回的顺序:', recommendations.map(r => ({ name: r.name, order: r.order, id: r.id })));
+                } else {
+                    console.warn('服务器返回的数据格式不正确:', result);
+                }
+            } catch (e) {
+                console.error('保存推荐顺序失败:', e);
+                console.error('尝试保存的ID列表:', recommendationIds);
+                console.error('当前推荐列表:', recommendations.map(r => ({ id: r.id, name: r.name })));
+                throw e; // 重新抛出错误，让调用者处理
+            }
+        }
+
+        // 保存推荐列表顺序（使用当前recommendations数组）
+        async function saveRecommendationsOrder() {
+            const recommendationIds = recommendations.map(r => r.id);
+            return saveRecommendationsOrderWithIds(recommendationIds);
         }
     </script>
 </body>

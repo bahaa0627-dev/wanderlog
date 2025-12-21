@@ -61,7 +61,7 @@ class AppTheme {
   static List<BoxShadow> strongShadow = [
     const BoxShadow(
       color: Color(0xFF000000),
-      offset: Offset(3, 4),
+      offset: Offset(2, 4),
       blurRadius: 0,
       spreadRadius: 0,
     ),

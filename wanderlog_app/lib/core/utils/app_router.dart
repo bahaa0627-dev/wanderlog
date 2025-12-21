@@ -11,6 +11,7 @@ import 'package:wanderlog/features/trips/presentation/pages/home_page.dart';
 import 'package:wanderlog/features/trips/presentation/pages/trip_list_page.dart';
 import 'package:wanderlog/features/trips/presentation/pages/trip_detail_page.dart';
 import 'package:wanderlog/features/trips/presentation/pages/my_land_screen.dart';
+import 'package:wanderlog/features/trips/presentation/pages/recommendation_detail_page.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_view_page.dart';
 
 class AppRouter {
@@ -108,6 +109,20 @@ class AppRouter {
                   initialTabIndex: initialTabIndex,
                   initialSpotsSubTab: initialSpotsSubTab,
                   initialCity: cityParam,
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/recommendation/:id',
+            name: 'recommendation-detail',
+            pageBuilder: (context, state) {
+              final id = state.pathParameters['id']!;
+              final name = state.uri.queryParameters['name'] ?? 'Recommendation';
+              return _slideFromRight(
+                RecommendationDetailPage(
+                  recommendationId: id,
+                  recommendationName: name,
                 ),
               );
             },

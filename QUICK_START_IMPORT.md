@@ -141,7 +141,7 @@ curl -X POST http://localhost:3000/api/public-places/import-by-place-ids \
 
 ```bash
 GOOGLE_MAPS_API_KEY=AIzaSyAFrsDUcA9JqNDT52646JKwGPBu5BdvyW0
-APIFY_API_TOKEN=apify_api_XbmdrjhdbIOwy4cDUuK6uHIvaEndsB2NVUPL
+APIFY_API_TOKEN=YOUR_API_TOKEN
 APIFY_ACTOR_ID=compass/google-maps-scraper
 ```
 

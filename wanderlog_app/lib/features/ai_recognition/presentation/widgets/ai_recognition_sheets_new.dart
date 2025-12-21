@@ -10,6 +10,7 @@ import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_s
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_history_service.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_recognition_history_chat_page.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
+import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:dio/dio.dart';
 
 /// AI识别引导底部弹窗
@@ -859,7 +860,10 @@ class _SpotCardOverlayState extends State<SpotCardOverlay> {
             context: context,
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
-            builder: (context) => SpotDetailModal(spot: widget.spot),
+            builder: (context) => UnifiedSpotDetailModal(
+              spot: widget.spot,
+              keepOpenOnAction: true,
+            ),
           );
         },
         child: AspectRatio(

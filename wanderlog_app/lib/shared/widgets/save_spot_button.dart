@@ -21,12 +21,16 @@ class SaveSpotButton extends StatefulWidget {
     required this.onToggleMustGo,
     required this.onToggleTodaysPlan,
     this.isLoading = false,
+    this.isMustGoLoading = false,
+    this.isTodaysPlanLoading = false,
   });
 
   final bool isSaved;
   final bool isMustGo;
   final bool isTodaysPlan;
-  final bool isLoading;
+  final bool isLoading; // For save/unsave operations only
+  final bool isMustGoLoading; // For MustGo toggle only
+  final bool isTodaysPlanLoading; // For Today's Plan toggle only
   final SaveSpotCallback onSave;
   final SaveSpotCallback onUnsave;
   final ToggleOptionCallback onToggleMustGo;
@@ -58,7 +62,7 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
   }
 
   Future<void> _handleMustGoToggle() async {
-    if (_isProcessing || widget.isLoading) return;
+    if (_isProcessing || widget.isLoading || widget.isMustGoLoading) return;
     
     setState(() => _isProcessing = true);
     try {
@@ -71,7 +75,7 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
   }
 
   Future<void> _handleTodaysPlanToggle() async {
-    if (_isProcessing || widget.isLoading) return;
+    if (_isProcessing || widget.isLoading || widget.isTodaysPlanLoading) return;
     
     setState(() => _isProcessing = true);
     try {
@@ -85,15 +89,18 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = widget.isLoading || _isProcessing;
+    // Save button only shows loading for save/unsave operations
+    final saveButtonLoading = widget.isLoading || (_isProcessing && !widget.isMustGoLoading && !widget.isTodaysPlanLoading);
+    // Options panel shows loading for respective operations
+    final optionsLoading = widget.isMustGoLoading || widget.isTodaysPlanLoading || _isProcessing;
     
     return Row(
       children: [
         // Left: Save/Unsave circle button
-        _buildSaveCircleButton(isLoading),
+        _buildSaveCircleButton(saveButtonLoading),
         const SizedBox(width: 12),
         // Right: Options panel with MustGo and Today's Plan
-        Expanded(child: _buildOptionsPanel(isLoading)),
+        Expanded(child: _buildOptionsPanel(optionsLoading)),
       ],
     );
   }
@@ -150,7 +157,7 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
               label: 'MustGo',
               icon: Icons.star,
               isChecked: widget.isMustGo,
-              isLoading: isLoading,
+              isLoading: widget.isMustGoLoading || (_isProcessing && !widget.isTodaysPlanLoading),
               isEnabled: widget.isSaved,
               activeColor: AppTheme.primaryYellow,
               onTap: widget.isSaved ? _handleMustGoToggle : null,
@@ -168,7 +175,7 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
               label: "Today's Plan",
               icon: Icons.today,
               isChecked: widget.isTodaysPlan,
-              isLoading: isLoading,
+              isLoading: widget.isTodaysPlanLoading || (_isProcessing && !widget.isMustGoLoading),
               isEnabled: widget.isSaved,
               activeColor: AppTheme.accentBlue,
               onTap: widget.isSaved ? _handleTodaysPlanToggle : null,

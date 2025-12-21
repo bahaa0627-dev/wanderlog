@@ -12,9 +12,10 @@ import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
+import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
 
-/// Callback for MustGo/TodaysPlan state changes
-typedef SpotStatusCallback = void Function(String spotId, {bool? isMustGo, bool? isTodaysPlan, bool? isRemoved});
+/// Callback for MustGo/TodaysPlan/Visited state changes
+typedef SpotStatusCallback = void Function(String spotId, {bool? isMustGo, bool? isTodaysPlan, bool? isVisited, bool? isRemoved});
 
 /// Spot Detail Modal for MyLand page - displays spot details with save functionality
 class MyLandSpotDetailModal extends ConsumerStatefulWidget {
@@ -41,8 +42,15 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
   bool _isWishlist = true; // Already in wishlist since it's in myland
   bool _isMustGo = false;
   bool _isTodaysPlan = false;
-  bool _isActionLoading = false;
+  bool _isVisited = false; // Check-in status
+  bool _isActionLoading = false; // Only for save/unsave operations
+  bool _isMustGoLoading = false; // Separate loading for MustGo
+  bool _isTodaysPlanLoading = false; // Separate loading for Today's Plan
   String? _destinationId;
+  DateTime? _visitDate;
+  int? _userRating;
+  String? _userNotes;
+  List<String> _userPhotos = [];
 
   @override
   void initState() {
@@ -107,6 +115,154 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
     }
 
     return result;
+  }
+
+  Widget _buildCheckInButton() {
+    return GestureDetector(
+      onTap: _isVisited ? null : _handleCheckIn,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: _isVisited ? AppTheme.background : AppTheme.primaryYellow,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          border: Border.all(
+            color: AppTheme.black,
+            width: AppTheme.borderMedium,
+          ),
+          boxShadow: _isVisited ? null : AppTheme.cardShadow,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isVisited) ...[
+              const Text('✓', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              _isVisited ? 'Checked in' : 'Check in',
+              style: AppTheme.labelMedium(context).copyWith(
+                color: AppTheme.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserCheckInInfo() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+        border: Border.all(
+          color: AppTheme.black,
+          width: AppTheme.borderThin,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('✓', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Text(
+                'Your Visit',
+                style: AppTheme.headlineMedium(context).copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          if (_visitDate != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _formatVisitDate(_visitDate!),
+              style: AppTheme.bodySmall(context).copyWith(
+                color: AppTheme.mediumGray,
+              ),
+            ),
+          ],
+          if (_userRating != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                ...List.generate(
+                  5,
+                  (index) => Icon(
+                    index < _userRating!
+                        ? Icons.star
+                        : Icons.star_border,
+                    color: AppTheme.primaryYellow,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (_userNotes != null && _userNotes!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              _userNotes!,
+              style: AppTheme.bodyMedium(context),
+            ),
+          ],
+          if (_userPhotos.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 80,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _userPhotos.length,
+                itemBuilder: (context, index) {
+                  return Container(
+                    width: 80,
+                    height: 80,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      border: Border.all(
+                        color: AppTheme.black,
+                        width: AppTheme.borderThin,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall - 1),
+                      child: _userPhotos[index].startsWith('data:')
+                          ? Image.memory(
+                              _decodeBase64Image(_userPhotos[index])!,
+                              fit: BoxFit.cover,
+                            )
+                          : Image.network(
+                              _userPhotos[index],
+                              fit: BoxFit.cover,
+                            ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatVisitDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inDays == 0) {
+      return 'Today';
+    } else if (diff.inDays == 1) {
+      return 'Yesterday';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays} days ago';
+    } else {
+      return '${date.month}/${date.day}/${date.year}';
+    }
   }
 
   @override
@@ -218,6 +374,12 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                     backgroundColor: Colors.white,
                   ),
                 ),
+                // Check-in button in bottom right corner
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: _buildCheckInButton(),
+                ),
               ],
             ),
             Expanded(
@@ -316,32 +478,51 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                             ),
                         ],
                       ),
-                    const SizedBox(height: 24),
-                    SaveSpotButton(
-                      isSaved: _isWishlist,
-                      isMustGo: _isMustGo,
-                      isTodaysPlan: _isTodaysPlan,
-                      isLoading: _isActionLoading,
-                      onSave: () async {
-                        // Already saved
-                        return true;
-                      },
-                      onUnsave: () async {
-                        final ok = await _handleRemoveWishlist();
-                        if (ok && context.mounted) {
-                          CustomToast.showSuccess(context, 'Removed from wishlist');
-                          Navigator.pop(context);
-                        }
-                        return ok;
-                      },
-                      onToggleMustGo: (isChecked) async {
-                        return await _handleToggleMustGo(isChecked);
-                      },
-                      onToggleTodaysPlan: (isChecked) async {
-                        return await _handleToggleTodaysPlan(isChecked);
-                      },
-                    ),
+                    // User check-in information (if visited) - shown below official rating
+                    if (_isVisited && _visitDate != null) ...[
+                      const SizedBox(height: 24),
+                      _buildUserCheckInInfo(),
+                    ],
                   ],
+                ),
+              ),
+            ),
+            // Fixed bottom bar with SaveSpotButton
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(
+                    color: AppTheme.black,
+                    width: AppTheme.borderMedium,
+                  ),
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: SaveSpotButton(
+                  isSaved: _isWishlist,
+                  isMustGo: _isMustGo,
+                  isTodaysPlan: _isTodaysPlan,
+                  isLoading: _isActionLoading,
+                  isMustGoLoading: _isMustGoLoading,
+                  isTodaysPlanLoading: _isTodaysPlanLoading,
+                  onSave: () async => true,
+                  onUnsave: () async {
+                    final ok = await _handleRemoveWishlist();
+                    if (ok && context.mounted) {
+                      CustomToast.showSuccess(context, 'Removed from wishlist');
+                      Navigator.pop(context);
+                    }
+                    return ok;
+                  },
+                  onToggleMustGo: (isChecked) async {
+                    return await _handleToggleMustGo(isChecked);
+                  },
+                  onToggleTodaysPlan: (isChecked) async {
+                    return await _handleToggleTodaysPlan(isChecked);
+                  },
                 ),
               ),
             ),
@@ -369,6 +550,11 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                 _isWishlist = true;
                 _isMustGo = tripSpot.priority == SpotPriority.mustGo;
                 _isTodaysPlan = tripSpot.status == TripSpotStatus.todaysPlan;
+                _isVisited = tripSpot.status == TripSpotStatus.visited;
+                _visitDate = tripSpot.visitDate;
+                _userRating = tripSpot.userRating;
+                _userNotes = tripSpot.userNotes;
+                _userPhotos = tripSpot.userPhotos;
               });
             }
             return;
@@ -422,7 +608,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
   }
 
   Future<bool> _handleToggleMustGo(bool isChecked) async {
-    setState(() => _isActionLoading = true);
+    setState(() => _isMustGoLoading = true);
     try {
       final authed = await requireAuth(context, ref);
       if (!authed) return false;
@@ -458,13 +644,13 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
       return false;
     } finally {
       if (mounted) {
-        setState(() => _isActionLoading = false);
+        setState(() => _isMustGoLoading = false);
       }
     }
   }
 
   Future<bool> _handleToggleTodaysPlan(bool isChecked) async {
-    setState(() => _isActionLoading = true);
+    setState(() => _isTodaysPlanLoading = true);
     try {
       final authed = await requireAuth(context, ref);
       if (!authed) return false;
@@ -499,9 +685,67 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
       return false;
     } finally {
       if (mounted) {
-        setState(() => _isActionLoading = false);
+        setState(() => _isTodaysPlanLoading = false);
       }
     }
+  }
+
+  Future<void> _handleCheckIn() async {
+    // Check authentication first
+    final authed = await requireAuth(context, ref);
+    if (!authed) return; // User not logged in, already navigated to login page
+    
+    // User is logged in, show check-in dialog
+    if (!context.mounted) return;
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => CheckInDialog(
+        spot: widget.spot,
+        onCheckIn: (visitDate, rating, notes) async {
+          try {
+
+            final city = widget.spot.city ?? '';
+            final destId = _destinationId ?? await ensureDestinationForCity(ref, city);
+            if (destId == null) {
+              _showError('Failed to create destination');
+              return;
+            }
+            _destinationId = destId;
+
+            await ref.read(tripRepositoryProvider).manageTripSpot(
+                  tripId: destId,
+                  spotId: widget.spot.id,
+                  status: TripSpotStatus.visited,
+                  visitDate: visitDate,
+                  userRating: rating.toInt(),
+                  userNotes: notes,
+                );
+
+            ref.invalidate(tripsProvider);
+            if (mounted) {
+              setState(() {
+                _isVisited = true;
+                _visitDate = visitDate;
+                _userRating = rating.toInt();
+                _userNotes = notes;
+                _isTodaysPlan = false; // Remove from Today's Plan when checked in
+              });
+              CustomToast.showSuccess(context, 'Checked in to ${widget.spot.name}');
+              // Notify parent about check-in
+              widget.onStatusChanged?.call(
+                widget.spot.id,
+                isMustGo: _isMustGo,
+                isTodaysPlan: false,
+                isVisited: true,
+              );
+              Navigator.of(context).pop({'success': true});
+            }
+          } catch (e) {
+            _showError('Error: $e');
+          }
+        },
+      ),
+    );
   }
 
   void _showError(String message) {

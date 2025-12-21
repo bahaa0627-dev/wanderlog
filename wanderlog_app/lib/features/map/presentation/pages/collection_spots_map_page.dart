@@ -17,6 +17,7 @@ import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/features/trips/providers/spots_provider.dart';
 import 'package:wanderlog/features/map/providers/public_place_providers.dart';
+import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 
 /// 合集地点地图页面 - 显示某个合集下的所有地点
 class CollectionSpotsMapPage extends ConsumerStatefulWidget {
@@ -520,7 +521,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => SpotDetailModal(spot: spot),
+      builder: (_) => UnifiedSpotDetailModal(spot: spot),
     );
   }
 

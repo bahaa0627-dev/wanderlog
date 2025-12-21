@@ -7,21 +7,43 @@ class CheckInDialog extends StatefulWidget {
   const CheckInDialog({
     required this.spot,
     required this.onCheckIn,
+    this.initialVisitDate,
+    this.initialRating,
+    this.initialNotes,
+    this.isEditMode = false,
     super.key,
   });
 
   final Spot spot;
-  final void Function(DateTime visitDate, double rating, String? notes) onCheckIn;
+  final Future<void> Function(DateTime visitDate, double rating, String? notes) onCheckIn;
+  final DateTime? initialVisitDate;
+  final double? initialRating;
+  final String? initialNotes;
+  final bool isEditMode;
 
   @override
   State<CheckInDialog> createState() => _CheckInDialogState();
 }
 
 class _CheckInDialogState extends State<CheckInDialog> {
-  DateTime _selectedDate = DateTime.now();
-  TimeOfDay _selectedTime = TimeOfDay.now();
-  double _rating = 3.0;
-  final TextEditingController _notesController = TextEditingController();
+  late DateTime _selectedDate;
+  late TimeOfDay _selectedTime;
+  late double _rating;
+  late final TextEditingController _notesController;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialVisitDate != null) {
+      _selectedDate = widget.initialVisitDate!;
+      _selectedTime = TimeOfDay.fromDateTime(widget.initialVisitDate!);
+    } else {
+      _selectedDate = DateTime.now();
+      _selectedTime = TimeOfDay.now();
+    }
+    _rating = widget.initialRating ?? 3.0;
+    _notesController = TextEditingController(text: widget.initialNotes ?? '');
+  }
 
   @override
   void dispose() {
@@ -77,7 +99,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
     }
   }
 
-  void _submitCheckIn() {
+  Future<void> _submitCheckIn() async {
     final visitDateTime = DateTime(
       _selectedDate.year,
       _selectedDate.month,
@@ -87,12 +109,14 @@ class _CheckInDialogState extends State<CheckInDialog> {
     );
 
     final notes = _notesController.text.trim();
-    widget.onCheckIn(
+    await widget.onCheckIn(
       visitDateTime,
       _rating,
       notes.isEmpty ? null : notes,
     );
-    Navigator.of(context).pop();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -138,7 +162,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Check-in Spot',
+                          widget.isEditMode ? 'Edit Check-in' : 'Check-in Spot',
                           style: AppTheme.headlineMedium(context).copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -390,7 +414,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
                         ),
                       ),
                       child: Text(
-                        'Check in',
+                        widget.isEditMode ? 'Save' : 'Check in',
                         style: AppTheme.labelLarge(context).copyWith(
                           fontWeight: FontWeight.bold,
                         ),

@@ -10,6 +10,7 @@ import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as 
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
+import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 
 /// MyLand 地点地图页面 - 展示 MustGo 或 Today's Plan 中的地点
 class MyLandSpotsMapPage extends ConsumerStatefulWidget {
@@ -21,6 +22,7 @@ class MyLandSpotsMapPage extends ConsumerStatefulWidget {
     this.allSpotsByCity = const {},
     this.onCityChanged,
     this.onDataChanged,
+    this.visitedSpots,
     super.key,
   });
 
@@ -31,6 +33,7 @@ class MyLandSpotsMapPage extends ConsumerStatefulWidget {
   final Map<String, List<Spot>> allSpotsByCity; // 按城市分组的所有地点
   final ValueChanged<String>? onCityChanged;
   final VoidCallback? onDataChanged; // Callback when spot status changes
+  final Map<String, bool>? visitedSpots; // spotId -> isVisited
 
   @override
   ConsumerState<MyLandSpotsMapPage> createState() => _MyLandSpotsMapPageState();
@@ -219,7 +222,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => SpotDetailModal(
+      builder: (_) => UnifiedSpotDetailModal(
         spot: spot,
         initialIsSaved: true,
         initialIsMustGo: isMustGo,
@@ -418,6 +421,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
             initialZoom: spots.isNotEmpty ? 14.0 : 10.0,
             selectedSpot: _selectedSpot,
             onSpotTap: _handleSpotTap,
+            visitedSpots: widget.visitedSpots,
             cameraPadding: MbxEdgeInsets(
               top: 200,
               bottom: 320,

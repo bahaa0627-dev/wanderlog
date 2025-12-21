@@ -22,6 +22,7 @@ class MapboxSpotMap extends StatefulWidget {
     this.onMapCreated,
     this.onCameraMove,
     this.cameraPadding,
+    this.visitedSpots,
     super.key,
   });
 
@@ -33,6 +34,7 @@ class MapboxSpotMap extends StatefulWidget {
   final VoidCallback? onMapCreated;
   final void Function(Position center, double zoom)? onCameraMove;
   final MbxEdgeInsets? cameraPadding;
+  final Map<String, bool>? visitedSpots; // spotId -> isVisited
 
   @override
   State<MapboxSpotMap> createState() => MapboxSpotMapState();
@@ -251,7 +253,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     Spot spot, {
     required bool isSelected,
   }) async {
-    final cacheKey = '${spot.id}_${isSelected ? 'selected' : 'default'}';
+    final isVisited = widget.visitedSpots?[spot.id] ?? false;
+    final cacheKey = '${spot.id}_${isSelected ? 'selected' : 'default'}_${isVisited ? 'visited' : 'normal'}';
     final cached = _markerBitmapCache[cacheKey];
     if (cached != null) {
       return cached;
@@ -260,8 +263,9 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final bitmap = await _createCustomMarkerBitmap(
       spot.name,
       spot.category,
-      isSelected ? AppTheme.primaryYellow : Colors.white,
+      isSelected ? AppTheme.primaryYellow : (isVisited ? AppTheme.mediumGray : Colors.white),
       isSelected,
+      isVisited: isVisited,
     );
     _markerBitmapCache[cacheKey] = bitmap;
     return bitmap;
@@ -272,8 +276,9 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     String title,
     String category,
     Color backgroundColor,
-    bool isSelected,
-  ) async {
+    bool isSelected, {
+    bool isVisited = false,
+  }) async {
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
 
@@ -309,13 +314,13 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     canvas.drawRRect(rrect, bgPaint);
     canvas.drawRRect(rrect, borderPaint);
 
-    // 获取分类 Emoji
-    final categoryEmoji = _getCategoryEmoji(category);
+    // 获取图标 Emoji - 已访问显示打勾，否则显示分类 emoji
+    final iconEmoji = isVisited ? '✓' : _getCategoryEmoji(category);
 
     // 绘制 Emoji 图标
     final iconPainter = TextPainter(
       text: TextSpan(
-        text: categoryEmoji,
+        text: iconEmoji,
         style: const TextStyle(
           color: AppTheme.black,
           fontSize: iconSize,
@@ -337,8 +342,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final textPainter = TextPainter(
       text: TextSpan(
         text: title.length > 10 ? '${title.substring(0, 10)}...' : title,
-        style: const TextStyle(
-          color: AppTheme.black,
+        style: TextStyle(
+          color: isVisited ? AppTheme.mediumGray : AppTheme.black,
           fontSize: 17,
           fontWeight: FontWeight.bold,
           fontFamily: 'ReemKufi',

@@ -20,6 +20,9 @@ import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/shared/widgets/save_spot_button.dart';
+import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
+import 'package:wanderlog/shared/models/spot_model.dart' as spot_model;
+import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 
 class Spot {
   Spot({
@@ -893,7 +896,7 @@ class _MapPageState extends ConsumerState<MapPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => SpotDetailModal(spot: spot),
+      builder: (context) => UnifiedSpotDetailModal(spot: spot),
     );
   }
 
@@ -1479,6 +1482,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
   bool _isWishlist = false;
   bool _isMustGo = false;
   bool _isTodaysPlan = false;
+  bool _isVisited = false; // Check-in status
   bool _isActionLoading = false; // Only for save/unsave operations
   bool _isMustGoLoading = false; // Separate loading for MustGo
   bool _isTodaysPlanLoading = false; // Separate loading for Today's Plan
@@ -1676,6 +1680,12 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                     backgroundColor: Colors.white,
                   ),
                 ),
+                // Check-in button in bottom right corner
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: _buildCheckInButton(),
+                ),
               ],
             ),
             Expanded(
@@ -1824,7 +1834,9 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                         isSaved: true,
                         isMustGo: _isMustGo,
                         isTodaysPlan: _isTodaysPlan,
-                        isLoading: _isActionLoading,
+                        isLoading: _isActionLoading, // Only for save/unsave
+                        isMustGoLoading: _isMustGoLoading,
+                        isTodaysPlanLoading: _isTodaysPlanLoading,
                         onSave: () async => true,
                         onUnsave: () async {
                           final ok = await _handleRemoveWishlist();
@@ -1961,7 +1973,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
   }
 
   Future<bool> _handleToggleMustGo(bool isChecked) async {
-    setState(() => _isActionLoading = true);
+    setState(() => _isMustGoLoading = true);
     try {
       final authed = await requireAuth(context, ref);
       if (!authed) return false;
@@ -1998,13 +2010,13 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       return false;
     } finally {
       if (mounted) {
-        setState(() => _isActionLoading = false);
+        setState(() => _isMustGoLoading = false);
       }
     }
   }
 
   Future<bool> _handleToggleTodaysPlan(bool isChecked) async {
-    setState(() => _isActionLoading = true);
+    setState(() => _isTodaysPlanLoading = true);
     try {
       final authed = await requireAuth(context, ref);
       if (!authed) return false;
@@ -2040,7 +2052,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       return false;
     } finally {
       if (mounted) {
-        setState(() => _isActionLoading = false);
+        setState(() => _isTodaysPlanLoading = false);
       }
     }
   }
@@ -2120,6 +2132,83 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
     } catch (_) {
       // ignore preload errors
     }
+  }
+
+  Widget _buildCheckInButton() {
+    return GestureDetector(
+      onTap: _isVisited ? null : _handleCheckIn,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: _isVisited ? AppTheme.background : AppTheme.primaryYellow,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          border: Border.all(
+            color: AppTheme.black,
+            width: AppTheme.borderMedium,
+          ),
+          boxShadow: _isVisited ? null : AppTheme.cardShadow,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isVisited) ...[
+              const Text('✓', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              _isVisited ? 'Checked in' : 'Check in',
+              style: AppTheme.labelMedium(context).copyWith(
+                color: AppTheme.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleCheckIn() async {
+    // Check authentication first
+    final authed = await requireAuth(context, ref);
+    if (!authed) return; // User not logged in, already navigated to login page
+    
+    // User is logged in, show check-in dialog
+    if (!context.mounted) return;
+    
+    // Convert Spot to spot_model.Spot for CheckInDialog
+    final now = DateTime.now();
+    final spotModel = spot_model.Spot(
+      id: widget.spot.id,
+      googlePlaceId: widget.spot.id,
+      name: widget.spot.name,
+      city: widget.spot.city,
+      latitude: widget.spot.latitude,
+      longitude: widget.spot.longitude,
+      tags: widget.spot.tags,
+      images: widget.spot.images,
+      rating: widget.spot.rating,
+      ratingCount: widget.spot.ratingCount,
+      category: widget.spot.category,
+      createdAt: now,
+      updatedAt: now,
+    );
+    
+    showDialog<void>(
+      context: context,
+      builder: (context) => CheckInDialog(
+        spot: spotModel,
+        onCheckIn: (visitDate, rating, notes) async {
+          // TODO: Implement check-in API call
+          if (mounted) {
+            setState(() {
+              _isVisited = true;
+            });
+            CustomToast.showSuccess(context, 'Checked in to ${widget.spot.name}');
+          }
+        },
+      ),
+    );
   }
 
   void _showError(String message) {

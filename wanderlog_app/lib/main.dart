@@ -10,8 +10,13 @@ import 'package:wanderlog/core/storage/storage_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load environment variables
-  await dotenv.load(fileName: '.env');
+  // Load environment variables (ignore if file doesn't exist)
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    // .env file doesn't exist, use defaults from AppConstants
+    print('Warning: .env file not found, using default values');
+  }
   
   // Init services
   await StorageService.instance.init();

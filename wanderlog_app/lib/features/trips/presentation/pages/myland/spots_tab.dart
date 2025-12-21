@@ -15,9 +15,11 @@ import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/spot_detail_modal.dart';
+import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/trips/presentation/pages/myland/myland_spots_map_page.dart';
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
+import 'package:wanderlog/shared/utils/destination_utils.dart';
 
 class SpotsTabController {
   _SpotsTabState? _state;
@@ -258,12 +260,18 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     });
   }
 
-  void _handleCheckIn(Spot spot) {
+  Future<void> _handleCheckIn(Spot spot) async {
+    // Check authentication first
+    final authed = await requireAuth(context, ref);
+    if (!authed) return; // User not logged in, already navigated to login page
+    
+    // User is logged in, show check-in dialog
+    if (!context.mounted) return;
     showDialog<void>(
       context: context,
       builder: (context) => CheckInDialog(
         spot: spot,
-        onCheckIn: (visitDate, rating, notes) {
+        onCheckIn: (visitDate, rating, notes) async {
           setState(() => _selectedSubTab = 3);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Checked in to ${spot.name}')),
@@ -278,16 +286,24 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => MyLandSpotDetailModal(
+      builder: (_) => UnifiedSpotDetailModal(
         spot: entry.spot,
-        isMustGo: entry.isMustGo,
-        isTodaysPlan: entry.isTodaysPlan,
-        onStatusChanged: _handleStatusChanged,
+        initialIsSaved: true,
+        initialIsMustGo: entry.isMustGo,
+        initialIsTodaysPlan: entry.isTodaysPlan,
+        onStatusChanged: (spotId, {isMustGo, isTodaysPlan, isVisited, isRemoved, needsReload}) {
+          if (needsReload == true) {
+            // Reload all data from server to get updated check-in info
+            unawaited(_loadDestinationsFromServer());
+          } else {
+            _handleStatusChanged(spotId, isMustGo: isMustGo, isTodaysPlan: isTodaysPlan, isVisited: isVisited, isRemoved: isRemoved);
+          }
+        },
       ),
     );
   }
 
-  void _handleStatusChanged(String spotId, {bool? isMustGo, bool? isTodaysPlan, bool? isRemoved}) {
+  void _handleStatusChanged(String spotId, {bool? isMustGo, bool? isTodaysPlan, bool? isVisited, bool? isRemoved}) {
     final index = _indexForSpot(spotId);
     if (index == -1) return;
 
@@ -304,6 +320,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       _entries[index] = entry.copyWith(
         isMustGo: isMustGo,
         isTodaysPlan: isTodaysPlan,
+        isVisited: isVisited,
       );
     });
   }
@@ -492,6 +509,11 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       final tabLabel = _selectedSubTab == 1 ? 'MustGo' : "Today's Plan";
       final allCities = _getAvailableCitiesForCurrentTab();
       final allSpotsByCity = _getAllSpotsByCityForCurrentTab();
+      // Build visitedSpots map
+      final visitedSpots = <String, bool>{};
+      for (final entry in filteredEntries) {
+        visitedSpots[entry.spot.id] = entry.isVisited;
+      }
       
       Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
@@ -501,6 +523,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             tabLabel: tabLabel,
             allCities: allCities,
             allSpotsByCity: allSpotsByCity,
+            visitedSpots: visitedSpots,
             onCityChanged: (newCity) {
               _selectCity(newCity);
             },
@@ -729,6 +752,10 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
               // Use updatedAt as the check time for sorting
               mustGoCheckedAt: isMustGo ? ts.updatedAt : null,
               todaysPlanCheckedAt: isTodaysPlan ? ts.updatedAt : null,
+              visitDate: ts.visitDate,
+              userRating: ts.userRating,
+              userNotes: ts.userNotes,
+              userPhotos: ts.userPhotos,
             );
             entries.add(entry);
           }
@@ -1009,15 +1036,21 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
                             onToggleTag: _toggleTag,
                             onOpenFullMap: _openFullMap,
                             controller: _carouselController,
-                            onCardTap: _handleCheckIn,
+                            onCardTap: (spot) {
+                              final entry = _entries.firstWhere(
+                                (e) => e.spot.id == spot.id,
+                                orElse: () => _entries.first,
+                              );
+                              _handleSpotTap(entry);
+                            },
                           )
                     : _ListView(
                         key: const ValueKey('list-view'),
                         entries: filteredEntries,
-                        onCheckIn: _handleCheckIn,
                         onToggleMustGo: _handleToggleMustGo,
                         onQuickAddMustGo: _handleQuickAddMustGo,
                         onSpotTap: _handleSpotTap,
+                        isVisitedTab: _selectedSubTab == 3,
                       ),
           ),
         ),
@@ -1316,17 +1349,17 @@ class _ListView extends StatelessWidget {
   const _ListView({
     super.key,
     required this.entries,
-    required this.onCheckIn,
     required this.onToggleMustGo,
     required this.onQuickAddMustGo,
     required this.onSpotTap,
+    required this.isVisitedTab,
   });
 
   final List<_SpotEntry> entries;
-  final void Function(Spot spot) onCheckIn;
   final Future<void> Function(Spot spot) onToggleMustGo;
   final Future<void> Function(Spot spot) onQuickAddMustGo;
   final void Function(_SpotEntry entry) onSpotTap;
+  final bool isVisitedTab;
 
   @override
   Widget build(BuildContext context) => ListView.separated(
@@ -1335,6 +1368,13 @@ class _ListView extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(height: 16),
         itemBuilder: (context, index) {
           final entry = entries[index];
+          if (isVisitedTab && entry.isVisited) {
+            return _VisitedSpotCard(
+              entry: entry,
+              onTap: () => onSpotTap(entry),
+              onToggleMustGo: onToggleMustGo,
+            );
+          }
           return Dismissible(
             key: ValueKey('spot-${entry.spot.id}'),
             direction: DismissDirection.startToEnd,
@@ -1346,7 +1386,6 @@ class _ListView extends StatelessWidget {
             child: SpotCard(
               spot: entry.spot,
               isMustGo: entry.isMustGo,
-              onCheckIn: () => onCheckIn(entry.spot),
               onToggleMustGo: () => onToggleMustGo(entry.spot),
               onTap: () => onSpotTap(entry),
             ),
@@ -1954,7 +1993,7 @@ class _MapPreview extends StatelessWidget {
                   itemCount: entries.length,
                   itemBuilder: (context, index) => _SpotCarouselCard(
                     entry: entries[index],
-                    onCheckIn: () => onCardTap(entries[index].spot),
+                    onTap: () => onCardTap(entries[index].spot),
                   ),
                 ),
               ),
@@ -1967,11 +2006,11 @@ class _MapPreview extends StatelessWidget {
 class _SpotCarouselCard extends StatelessWidget {
   const _SpotCarouselCard({
     required this.entry,
-    required this.onCheckIn,
+    required this.onTap,
   });
 
   final _SpotEntry entry;
-  final VoidCallback onCheckIn;
+  final VoidCallback onTap;
 
   /// Combine category (if present) and tags, removing duplicates
   List<String> _effectiveTags() {
@@ -2036,7 +2075,9 @@ class _SpotCarouselCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Container(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
           border: Border.all(
@@ -2117,50 +2158,12 @@ class _SpotCarouselCard extends StatelessWidget {
                         );
                       }).toList(),
                     ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: GestureDetector(
-                        onTap: onCheckIn,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.white,
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusSmall),
-                            border: Border.all(
-                              color: AppTheme.black,
-                              width: AppTheme.borderMedium,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.check_circle_outline,
-                                size: 16,
-                                color: AppTheme.black,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Check in',
-                                style: AppTheme.labelSmall(context).copyWith(
-                                  color: AppTheme.black,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -2178,6 +2181,10 @@ class _SpotEntry {
     this.isVisited = false,
     DateTime? mustGoCheckedAt,
     DateTime? todaysPlanCheckedAt,
+    this.visitDate,
+    this.userRating,
+    this.userNotes,
+    this.userPhotos = const [],
   })  : mustGoCheckedAt = mustGoCheckedAt ?? (isMustGo ? DateTime.now() : null),
         todaysPlanCheckedAt = todaysPlanCheckedAt ?? (isTodaysPlan ? DateTime.now() : null);
 
@@ -2190,6 +2197,10 @@ class _SpotEntry {
   final bool isVisited;
   final DateTime? mustGoCheckedAt;
   final DateTime? todaysPlanCheckedAt;
+  final DateTime? visitDate;
+  final int? userRating;
+  final String? userNotes;
+  final List<String> userPhotos;
 
   _SpotEntry copyWith({
     bool? isMustGo,
@@ -2198,6 +2209,10 @@ class _SpotEntry {
     DateTime? addedAt,
     DateTime? mustGoCheckedAt,
     DateTime? todaysPlanCheckedAt,
+    DateTime? visitDate,
+    int? userRating,
+    String? userNotes,
+    List<String>? userPhotos,
   }) {
     final nowMustGo = isMustGo ?? this.isMustGo;
     final nowTodaysPlan = isTodaysPlan ?? this.isTodaysPlan;
@@ -2218,6 +2233,582 @@ class _SpotEntry {
       todaysPlanCheckedAt: isTodaysPlan != null
           ? (nowTodaysPlan ? (this.isTodaysPlan ? this.todaysPlanCheckedAt : DateTime.now()) : null)
           : this.todaysPlanCheckedAt,
+      visitDate: visitDate ?? this.visitDate,
+      userRating: userRating ?? this.userRating,
+      userNotes: userNotes ?? this.userNotes,
+      userPhotos: userPhotos ?? this.userPhotos,
+    );
+  }
+}
+
+class _VisitedSpotCard extends StatelessWidget {
+  const _VisitedSpotCard({
+    required this.entry,
+    required this.onTap,
+    required this.onToggleMustGo,
+  });
+
+  final _SpotEntry entry;
+  final VoidCallback onTap;
+  final Future<void> Function(Spot spot) onToggleMustGo;
+
+  String _formatVisitDate(DateTime date) {
+    // Format as year/month/day (e.g., 2025/12/14)
+    return '${date.year}/${date.month}/${date.day}';
+  }
+
+  String? _openingInfoText() {
+    final raw = entry.spot.openingHours;
+    if (raw == null) {
+      return 'Hours unavailable';
+    }
+    
+    final utcOffsetMinutes = _extractUtcOffset(raw);
+    final List<Map<String, dynamic>>? periods = _parsePeriods(raw['periods']);
+    
+    if (periods == null || periods.isEmpty) {
+      return _getTodayHoursFromWeekdayText(raw);
+    }
+    
+    if (_is24HoursPeriods(periods)) {
+      return 'Open 24 hours';
+    }
+
+    final DateTime now = _nowInPlace(utcOffsetMinutes);
+    bool isOpen = false;
+    DateTime? closingTime;
+    DateTime? nextOpening;
+
+    for (final period in periods) {
+      final openInfo = period['open'];
+      if (openInfo is! Map<String, dynamic>) {
+        continue;
+      }
+      final openDay = _normalizeGoogleDay(openInfo['day']);
+      final openTime = _buildDateTimeForGoogleDay(now, openDay, openInfo['time']);
+      if (openTime == null) {
+        continue;
+      }
+      final closeInfo = period['close'];
+      DateTime? closeTime;
+      if (closeInfo is Map<String, dynamic>) {
+        final closeDay = _normalizeGoogleDay(closeInfo['day']) ?? openDay;
+        closeTime = _buildDateTimeForGoogleDay(now, closeDay, closeInfo['time']);
+      }
+      closeTime ??= openTime.add(const Duration(hours: 24));
+      if (closeTime.isBefore(openTime)) {
+        closeTime = closeTime.add(const Duration(days: 7));
+      }
+
+      for (final offset in [-7, 0, 7]) {
+        final start = openTime.add(Duration(days: offset));
+        final end = closeTime.add(Duration(days: offset));
+
+        final bool started = !now.isBefore(start);
+        final bool notEnded = now.isBefore(end);
+        if (!isOpen && started && notEnded) {
+          isOpen = true;
+          closingTime = end;
+        }
+        if (start.isAfter(now)) {
+          if (nextOpening == null || start.isBefore(nextOpening)) {
+            nextOpening = start;
+          }
+        }
+      }
+    }
+
+    if (isOpen && closingTime != null) {
+      final diff = closingTime.difference(now);
+      if (diff > Duration.zero && diff <= const Duration(hours: 2)) {
+        return 'Open, Closes ${_formatClosingCountdown(diff)}, ${_formatTime(closingTime)}';
+      }
+      return 'Open, Closes ${_formatTime(closingTime)}';
+    }
+
+    if (nextOpening != null) {
+      final timeText = _formatTime(nextOpening);
+      if (_isSameDay(nextOpening, now) || _isTomorrow(nextOpening, now)) {
+        return 'Closed, Open $timeText';
+      }
+      return 'Closed, Open ${_weekdayLabel(nextOpening.weekday)} $timeText';
+    }
+
+    return 'Hours unavailable';
+  }
+
+  String? _priceInfoText() {
+    final price = entry.spot.priceLevel;
+    if (price == null || price <= 0) {
+      return null;
+    }
+    return '\$${price * 10}';
+  }
+
+  String? _tagsLine() {
+    final List<String> allTags = [];
+    final Set<String> seen = {};
+    
+    final category = entry.spot.category?.trim() ?? '';
+    if (category.isNotEmpty) {
+      allTags.add(category);
+      seen.add(category.toLowerCase());
+    }
+    
+    for (final rawTag in entry.spot.tags) {
+      final tag = rawTag.trim();
+      if (tag.isEmpty) continue;
+      final key = tag.toLowerCase();
+      if (seen.add(key)) {
+        allTags.add(tag);
+      }
+    }
+    
+    if (allTags.isEmpty) {
+      return null;
+    }
+    
+    final formatted = allTags
+        .take(3)
+        .map((tag) => '#${tag.replaceAll(RegExp(r'\s+'), '')}')
+        .toList();
+    
+    return formatted.join('   ');
+  }
+
+  Widget _buildCoverImage() {
+    return SizedBox(
+      width: 130,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.horizontal(
+          left: Radius.circular(AppTheme.radiusMedium - 2),
+        ),
+        child: AspectRatio(
+          aspectRatio: 3 / 4,
+          child: entry.spot.images.isNotEmpty
+              ? _buildImageWidget(entry.spot.images.first)
+              : _buildPlaceholder(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageWidget(String imageSource) {
+    if (imageSource.startsWith('data:')) {
+      try {
+        final base64Data = imageSource.split(',').last;
+        final bytes = base64Decode(base64Data);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+        );
+      } catch (e) {
+        return _buildPlaceholder();
+      }
+    }
+    return Image.network(
+      imageSource,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      color: AppTheme.background,
+      child: const Center(
+        child: Icon(
+          Icons.image_outlined,
+          size: 40,
+          color: Colors.grey,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFavoriteButton() => GestureDetector(
+        onTap: () => onToggleMustGo(entry.spot),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: entry.isMustGo
+                ? AppTheme.primaryYellow.withOpacity(0.2)
+                : AppTheme.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppTheme.black,
+              width: AppTheme.borderThin,
+            ),
+          ),
+          child: Icon(
+            entry.isMustGo ? Icons.star : Icons.star_outline,
+            size: 18,
+            color: entry.isMustGo ? AppTheme.primaryYellow : AppTheme.black,
+          ),
+        ),
+      );
+
+  // Helper methods from SpotCard
+  int? _extractUtcOffset(Map<String, dynamic>? value) {
+    if (value == null) return null;
+    final candidate = value['utc_offset_minutes'] ?? value['utcOffsetMinutes'];
+    if (candidate is int) return candidate;
+    if (candidate is String) return int.tryParse(candidate);
+    return null;
+  }
+
+  DateTime _nowInPlace(int? offsetMinutes) {
+    if (offsetMinutes == null) return DateTime.now();
+    return DateTime.now().toUtc().add(Duration(minutes: offsetMinutes));
+  }
+
+  List<Map<String, dynamic>>? _parsePeriods(dynamic value) {
+    if (value is! List) return null;
+    final list = <Map<String, dynamic>>[];
+    for (final entry in value) {
+      if (entry is Map<String, dynamic>) list.add(entry);
+    }
+    return list.isEmpty ? null : list;
+  }
+
+  bool _is24HoursPeriods(List<Map<String, dynamic>> periods) {
+    if (periods.length != 1) return false;
+    final period = periods.first;
+    final openInfo = period['open'];
+    if (openInfo is! Map<String, dynamic>) return false;
+    final day = openInfo['day'];
+    final time = openInfo['time']?.toString() ?? '';
+    final hasClose = period['close'] != null;
+    return day == 0 && time == '0000' && !hasClose;
+  }
+
+  String? _getTodayHoursFromWeekdayText(Map<String, dynamic> raw) {
+    final weekdayText = raw['weekday_text'];
+    if (weekdayText is! List || weekdayText.isEmpty) return 'Hours unavailable';
+    for (final item in weekdayText) {
+      final text = item?.toString().toLowerCase() ?? '';
+      if (text == '7x24' || text == '24/7' || text.contains('open 24 hours') || text.contains('always open')) {
+        return 'Open 24 hours';
+      }
+    }
+    final now = DateTime.now();
+    final dartWeekday = now.weekday;
+    final googleIndex = dartWeekday == 7 ? 6 : dartWeekday - 1;
+    if (googleIndex < weekdayText.length) {
+      final todayText = weekdayText[googleIndex]?.toString() ?? '';
+      final colonIndex = todayText.indexOf(':');
+      if (colonIndex != -1 && colonIndex < todayText.length - 1) {
+        final hours = todayText.substring(colonIndex + 1).trim();
+        if (hours.toLowerCase().contains('open 24') || hours == '7x24') return 'Open 24 hours';
+        if (hours.toLowerCase() == 'closed') return 'Closed today';
+        return hours;
+      }
+      if (todayText.toLowerCase().contains('open 24')) return 'Open 24 hours';
+    }
+    return 'Hours unavailable';
+  }
+
+  int? _normalizeGoogleDay(dynamic value) {
+    if (value is int) return value % 7;
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      return parsed == null ? null : parsed % 7;
+    }
+    return null;
+  }
+
+  DateTime? _buildDateTimeForGoogleDay(DateTime reference, int? googleDay, dynamic rawTime, {bool futureOnly = false}) {
+    if (googleDay == null) return null;
+    final normalizedTime = _normalizeTime(rawTime);
+    if (normalizedTime == null) return null;
+    final hours = int.tryParse(normalizedTime.substring(0, 2));
+    final minutes = int.tryParse(normalizedTime.substring(2, 4));
+    if (hours == null || minutes == null) return null;
+    final DateTime startOfDay = reference.isUtc
+        ? DateTime.utc(reference.year, reference.month, reference.day)
+        : DateTime(reference.year, reference.month, reference.day);
+    final currentGoogleDay = reference.weekday % 7;
+    var delta = googleDay - currentGoogleDay;
+    var candidate = startOfDay.add(Duration(days: delta));
+    candidate = candidate.add(Duration(hours: hours, minutes: minutes));
+    if (futureOnly && !candidate.isAfter(reference)) {
+      candidate = candidate.add(const Duration(days: 7));
+    }
+    return candidate;
+  }
+
+  String? _normalizeTime(dynamic value) {
+    if (value == null) return null;
+    var text = value.toString().replaceAll(':', '');
+    if (text.length == 3) text = '0$text';
+    if (text.length != 4) return null;
+    return text;
+  }
+
+  String _weekdayLabel(int weekday) {
+    const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    var index = weekday - 1;
+    if (index < 0 || index >= labels.length) index = 0;
+    return labels[index];
+  }
+
+  String _formatTime(DateTime date) {
+    final hourValue = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minuteValue = date.minute;
+    final minuteText = minuteValue == 0 ? '' : ':${minuteValue.toString().padLeft(2, '0')}';
+    final period = date.hour >= 12 ? 'p.m' : 'a.m';
+    return '$hourValue$minuteText$period';
+  }
+
+  String _formatClosingCountdown(Duration diff) {
+    if (diff >= const Duration(hours: 2)) return 'in 2h';
+    if (diff >= const Duration(hours: 1)) return 'in 1h';
+    final minutes = diff.inMinutes.clamp(1, 59);
+    return 'in ${minutes}mins';
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+
+  bool _isTomorrow(DateTime target, DateTime reference) {
+    final tomorrow = reference.add(const Duration(days: 1));
+    return target.year == tomorrow.year && target.month == tomorrow.month && target.day == tomorrow.day;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String? openingText = _openingInfoText();
+    final String? priceText = _priceInfoText();
+    final String? tagsLine = _tagsLine();
+
+    final hasCheckInData = entry.visitDate != null || entry.userRating != null || (entry.userNotes != null && entry.userNotes!.isNotEmpty) || entry.userPhotos.isNotEmpty;
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(
+            color: AppTheme.black,
+            width: AppTheme.borderMedium,
+          ),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Upper section: Basic info (image + info)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildCoverImage(),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Basic info section (like SpotCard)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    entry.spot.name,
+                                    style: AppTheme.bodyLarge(context).copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (entry.spot.rating != null) ...[
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.star,
+                                          size: 16,
+                                          color: AppTheme.primaryYellow,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          entry.spot.rating!.toStringAsFixed(1),
+                                          style: AppTheme.labelMedium(context).copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          entry.spot.ratingCount != null ? '(${entry.spot.ratingCount})' : '(0)',
+                                          style: AppTheme.labelSmall(context).copyWith(
+                                            color: AppTheme.black.withOpacity(0.6),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _buildFavoriteButton(),
+                          ],
+                        ),
+                        if (openingText != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              '🕒 $openingText',
+                              style: AppTheme.labelSmall(context).copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.black,
+                              ),
+                            ),
+                          ),
+                        if (priceText != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              '🎫 $priceText',
+                              style: AppTheme.labelSmall(context).copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.black,
+                              ),
+                            ),
+                          ),
+                        if (tagsLine != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              tagsLine,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTheme.labelSmall(context).copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            // Divider that spans the entire card width
+            if (hasCheckInData)
+              Divider(
+                color: AppTheme.black,
+                thickness: AppTheme.borderThin,
+                height: 1,
+              ),
+            // Lower section: Check-in content
+            if (hasCheckInData)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Left: 📔 emoji + text and date
+                    const Text(
+                      '📔',
+                      style: TextStyle(fontSize: 20),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // User notes (black, 14px)
+                          if (entry.userNotes != null && entry.userNotes!.isNotEmpty)
+                            Text(
+                              entry.userNotes!,
+                              style: AppTheme.bodyMedium(context).copyWith(
+                                color: AppTheme.black,
+                                fontSize: 14,
+                              ),
+                            ),
+                          if (entry.userNotes != null && entry.userNotes!.isNotEmpty && entry.visitDate != null)
+                            const SizedBox(height: 4),
+                          // Date and Rating in the same row
+                          if (entry.visitDate != null)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _formatVisitDate(entry.visitDate!),
+                                  style: AppTheme.labelSmall(context).copyWith(
+                                    color: AppTheme.mediumGray,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                                // Rating stars after date
+                                if (entry.userRating != null) ...[
+                                  const SizedBox(width: 8),
+                                  ...List.generate(
+                                    5,
+                                    (index) => Icon(
+                                      index < entry.userRating!
+                                          ? Icons.star
+                                          : Icons.star_border,
+                                      color: AppTheme.primaryYellow,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Right: 4:3 vertical image placeholder
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 60, // 4:3 ratio: 60 * 3/4 = 45
+                      height: 80, // Fixed height for vertical image
+                      child: entry.userPhotos.isNotEmpty
+                          ? Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                                border: Border.all(
+                                  color: AppTheme.black,
+                                  width: AppTheme.borderThin,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall - 1),
+                                child: entry.userPhotos.first.startsWith('data:')
+                                    ? Image.memory(
+                                        base64Decode(entry.userPhotos.first.split(',').last),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Image.network(
+                                        entry.userPhotos.first,
+                                        fit: BoxFit.cover,
+                                      ),
+                              ),
+                            )
+                          : Container(
+                              decoration: BoxDecoration(
+                                color: AppTheme.background,
+                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                                border: Border.all(
+                                  color: AppTheme.black,
+                                  width: AppTheme.borderThin,
+                                ),
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

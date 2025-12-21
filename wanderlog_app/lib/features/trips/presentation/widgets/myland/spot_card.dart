@@ -8,7 +8,6 @@ import 'package:wanderlog/shared/models/spot_model.dart';
 class SpotCard extends StatelessWidget {
   const SpotCard({
     required this.spot,
-    required this.onCheckIn,
     required this.isMustGo,
     required this.onToggleMustGo,
     this.onTap,
@@ -16,17 +15,12 @@ class SpotCard extends StatelessWidget {
   });
 
   final Spot spot;
-  final VoidCallback onCheckIn;
   final bool isMustGo;
   final VoidCallback onToggleMustGo;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    // 是否已打卡（临时用 tag 标记，后续替换为真实字段）
-    final bool isCheckedIn = spot.tags.any(
-      (tag) => tag.toLowerCase() == 'visited',
-    );
     final String? openingText = _openingInfoText();
     final bool isClosingSoon = _isClosingSoon();
     final String? priceText = _priceInfoText();
@@ -142,46 +136,6 @@ class SpotCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      const Spacer(),
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: GestureDetector(
-                          onTap: isCheckedIn ? null : onCheckIn,
-                          child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 150),
-                            opacity: isCheckedIn ? 0.45 : 1,
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: isCheckedIn
-                                    ? AppTheme.background
-                                    : AppTheme.primaryYellow,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppTheme.black,
-                                  width: AppTheme.borderMedium,
-                                ),
-                                boxShadow: isCheckedIn
-                                    ? null
-                                    : [
-                                        BoxShadow(
-                                          color: AppTheme.black
-                                              .withOpacity(0.15),
-                                          offset: const Offset(0, 4),
-                                          blurRadius: 12,
-                                        ),
-                                      ],
-                              ),
-                              child: Icon(
-                                Icons.check,
-                                color: AppTheme.black,
-                                size: 22,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),

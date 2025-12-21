@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
@@ -457,6 +459,66 @@ class SpotRecognitionCard extends StatefulWidget {
 }
 
 class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
+  /// Decode base64 image data from data URI
+  Uint8List? _decodeBase64Image(String dataUri) {
+    try {
+      final base64Data = dataUri.split(',').last;
+      return base64Decode(base64Data);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Build cover image widget that handles both data URIs and network URLs
+  Widget _buildCoverImage(String imageUrl) {
+    const placeholder = ColoredBox(
+      color: AppTheme.lightGray,
+      child: Center(
+        child: Icon(
+          Icons.image_not_supported,
+          size: 48,
+          color: AppTheme.mediumGray,
+        ),
+      ),
+    );
+
+    if (imageUrl.isEmpty) {
+      return Container(height: 160, child: placeholder);
+    }
+
+    if (imageUrl.startsWith('data:')) {
+      final bytes = _decodeBase64Image(imageUrl);
+      if (bytes != null) {
+        return Image.memory(
+          bytes,
+          width: double.infinity,
+          height: 160,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(height: 160, child: placeholder),
+        );
+      }
+      return Container(height: 160, child: placeholder);
+    }
+
+    return Image.network(
+      imageUrl,
+      width: double.infinity,
+      height: 160,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+          height: 160,
+          color: AppTheme.lightGray,
+          child: const Center(
+            child: Icon(
+              Icons.image_not_supported,
+              size: 48,
+              color: AppTheme.mediumGray,
+            ),
+          ),
+        ),
+    );
+  }
+
   bool _isInWishlist = false;
 
   @override
@@ -491,23 +553,7 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(AppTheme.radiusMedium - 2),
                   ),
-                  child: Image.network(
-                    widget.spot.coverImage,
-                    width: double.infinity,
-                    height: 160,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                        height: 160,
-                        color: AppTheme.lightGray,
-                        child: const Center(
-                          child: Icon(
-                            Icons.image_not_supported,
-                            size: 48,
-                            color: AppTheme.mediumGray,
-                          ),
-                        ),
-                      ),
-                  ),
+                  child: _buildCoverImage(widget.spot.coverImage),
                 ),
                 // 加入Wishlist按钮
                 Positioned(

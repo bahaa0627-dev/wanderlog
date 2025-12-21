@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -17,6 +19,41 @@ class SpotListItem extends ConsumerWidget {
   final TripSpot tripSpot;
   final bool showOpeningHours;
   final bool showRating;
+
+  /// Build image widget that handles both data URIs and network URLs
+  Widget _buildSpotImage(String imageSource) {
+    final placeholder = Container(
+      width: 60,
+      height: 60,
+      color: Colors.grey.shade300,
+      child: const Icon(Icons.place),
+    );
+
+    // Handle data URI format (data:image/jpeg;base64,...)
+    if (imageSource.startsWith('data:')) {
+      try {
+        final base64Data = imageSource.split(',').last;
+        final bytes = base64Decode(base64Data);
+        return Image.memory(
+          bytes,
+          width: 60,
+          height: 60,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder,
+        );
+      } catch (e) {
+        return placeholder;
+      }
+    }
+    // Handle regular network URLs
+    return Image.network(
+      imageSource,
+      width: 60,
+      height: 60,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => placeholder,
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -42,18 +79,7 @@ class SpotListItem extends ConsumerWidget {
                   if (spot.images.isNotEmpty)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        spot.images.first,
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 60,
-                          height: 60,
-                          color: Colors.grey.shade300,
-                          child: const Icon(Icons.place),
-                        ),
-                      ),
+                      child: _buildSpotImage(spot.images.first),
                     )
                   else
                     Container(

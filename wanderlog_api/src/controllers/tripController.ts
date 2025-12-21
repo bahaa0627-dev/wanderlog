@@ -3,11 +3,13 @@ import prisma from '../config/database';
 import { logger } from '../utils/logger';
 
 export const createTrip = async (req: Request, res: Response) => {
+  // prisma client typed as any here to be resilient to schema drift in local dev
+  const prismaAny = prisma as any;
   try {
     const { name, city, startDate, endDate } = req.body;
     const userId = req.user.id;
 
-    const trip = await prisma.trip.create({
+    const trip = await prismaAny.trip.create({
       data: {
         userId,
         name,
@@ -26,9 +28,10 @@ export const createTrip = async (req: Request, res: Response) => {
 };
 
 export const getMyTrips = async (req: Request, res: Response) => {
+  const prismaAny = prisma as any;
   try {
     const userId = req.user.id;
-    const trips = await prisma.trip.findMany({
+    const trips = await prismaAny.trip.findMany({
       where: { userId },
       orderBy: { updatedAt: 'desc' },
       include: {
@@ -45,11 +48,12 @@ export const getMyTrips = async (req: Request, res: Response) => {
 };
 
 export const getTripById = async (req: Request, res: Response) => {
+  const prismaAny = prisma as any;
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
-    const trip = await prisma.trip.findUnique({
+    const trip = await prismaAny.trip.findUnique({
       where: { id },
       include: {
         tripSpots: {
@@ -69,19 +73,55 @@ export const getTripById = async (req: Request, res: Response) => {
     }
 
     const normalizedTripSpots = await Promise.all(
-      trip.tripSpots.map(async (ts) => {
-        const dbPlace = await prisma.place.findUnique({ where: { id: ts.placeId } });
+      (trip.tripSpots as any[]).map(async (ts: any) => {
+        const placeId = (ts as any).placeId ?? (ts as any).spotId;
+        const dbPlace = placeId
+          ? await prismaAny.place.findUnique({ where: { id: placeId } })
+          : null;
         const normalizedPlace = dbPlace
-          ? {
-              ...dbPlace,
-              tags: dbPlace.tags ? JSON.parse(dbPlace.tags) : [],
-              images: dbPlace.images ? JSON.parse(dbPlace.images) : [],
-            }
+          ? (() => {
+              const parsedTags: string[] = (() => {
+                if (dbPlace.tags) {
+                  try {
+                    const value = JSON.parse(dbPlace.tags);
+                    return Array.isArray(value) ? value : [];
+                  } catch (_) {
+                    return [];
+                  }
+                }
+                return [];
+              })();
+
+              // 补充 AI 生成的标签作为兜底
+              const parsedAiTags: string[] = (() => {
+                if (dbPlace.aiTags) {
+                  try {
+                    const value = JSON.parse(dbPlace.aiTags);
+                    return Array.isArray(value) ? value : [];
+                  } catch (_) {
+                    return [];
+                  }
+                }
+                return [];
+              })();
+
+              const mergedTags =
+                parsedTags.length > 0 ? parsedTags : parsedAiTags;
+
+              return {
+                ...dbPlace,
+                tags: mergedTags,
+                images: dbPlace.images ? JSON.parse(dbPlace.images) : [],
+                openingHours: dbPlace.openingHours
+                  ? JSON.parse(dbPlace.openingHours)
+                  : undefined,
+              };
+            })()
           : null;
 
         return {
           ...ts,
-          spotId: ts.placeId,
+          spotId: placeId,
           userPhotos: ts.userPhotos ? JSON.parse(ts.userPhotos as unknown as string) : [],
           place: normalizedPlace,
           spot: normalizedPlace, // 前端 TripSpot.spot 期望地点数据
@@ -100,6 +140,7 @@ export const getTripById = async (req: Request, res: Response) => {
 };
 
 export const manageTripSpot = async (req: Request, res: Response) => {
+  const prismaAny = prisma as any;
   try {
     const { id } = req.params; // Trip ID
     const { spotId, placeId, status, priority, visitDate, userRating, userNotes, spot, remove } =
@@ -114,7 +155,7 @@ export const manageTripSpot = async (req: Request, res: Response) => {
     const normalizedPriority = normalizePriority(priority);
 
     // Verify trip ownership
-    const trip = await prisma.trip.findUnique({
+    const trip = await prismaAny.trip.findUnique({
       where: { id },
     });
 
@@ -124,7 +165,7 @@ export const manageTripSpot = async (req: Request, res: Response) => {
 
     // 删除收藏/计划
     if (remove === true) {
-      await prisma.tripSpot.deleteMany({
+      await prismaAny.tripSpot.deleteMany({
         where: {
           tripId: id,
           placeId: targetPlaceId,
@@ -134,99 +175,111 @@ export const manageTripSpot = async (req: Request, res: Response) => {
     }
 
     // Ensure place exists (allow creating on the fly if payload provided)
-    const existingPlace = await prisma.place.findUnique({ where: { id: targetPlaceId } });
+    const existingPlace = await prismaAny.place.findUnique({ where: { id: targetPlaceId } });
     if (!existingPlace) {
       if (!spot || !spot.name || !spot.city || spot.latitude === undefined || spot.longitude === undefined) {
         return res.status(400).json({ message: 'Place not found and insufficient data to create' });
       }
-      await prisma.place.create({
-        data: {
-          id: targetPlaceId,
-          name: spot.name,
-          city: spot.city,
-          country: spot.country ?? 'Unknown',
-          latitude: spot.latitude,
-          longitude: spot.longitude,
-          address: spot.address,
-          description: spot.description,
-          openingHours: spot.openingHours,
-          rating: spot.rating,
-          ratingCount: spot.ratingCount,
-          category: spot.category,
-          aiSummary: spot.aiSummary,
-          tags: spot.tags != null ? JSON.stringify(spot.tags) : undefined,
-          coverImage: spot.coverImage,
-          images: spot.images != null ? JSON.stringify(spot.images) : undefined,
-          priceLevel: spot.priceLevel,
-          website: spot.website,
-          phoneNumber: spot.phoneNumber,
-          source: spot.source ?? 'user_import',
-        },
-      });
+      const now = new Date().toISOString();
+      // 使用原生 SQL 创建，确保时间戳格式正确
+      await prismaAny.$executeRaw`
+        INSERT INTO Place (id, name, city, country, latitude, longitude, address, description, openingHours, rating, ratingCount, category, aiSummary, tags, coverImage, images, priceLevel, website, phoneNumber, source, createdAt, updatedAt)
+        VALUES (${targetPlaceId}, ${spot.name}, ${spot.city}, ${spot.country ?? 'Unknown'}, ${spot.latitude}, ${spot.longitude}, ${spot.address || null}, ${spot.description || null}, ${spot.openingHours || null}, ${spot.rating || null}, ${spot.ratingCount || null}, ${spot.category || null}, ${spot.aiSummary || null}, ${spot.tags != null ? JSON.stringify(spot.tags) : null}, ${spot.coverImage || null}, ${spot.images != null ? JSON.stringify(spot.images) : null}, ${spot.priceLevel || null}, ${spot.website || null}, ${spot.phoneNumber || null}, ${spot.source ?? 'user_import'}, ${now}, ${now})
+      `;
     }
 
     // Upsert TripSpot (placeId)
     // 检查是否已存在记录
-    const existing = await prisma.tripSpot.findUnique({
+    const existing = await prismaAny.tripSpot.findFirst({
       where: {
-        tripId_placeId: {
-          tripId: id,
-          placeId: targetPlaceId,
-        },
+        tripId: id,
+        placeId: targetPlaceId,
       },
     });
 
     let tripSpot;
+    const now = new Date().toISOString();
+    const { createId } = await import('@paralleldrive/cuid2');
+    
     if (existing) {
-      // 更新已存在的记录
-      tripSpot = await prisma.tripSpot.update({
-        where: {
-          tripId_placeId: {
-            tripId: id,
-            placeId: targetPlaceId,
-          },
-        },
-        data: {
-          status,
-          priority: normalizedPriority,
-          visitDate: visitDate ? new Date(visitDate) : undefined,
-          userRating,
-          userNotes,
-        },
-      });
-    } else {
-      // 创建新记录 - 使用 $executeRaw 以避免 Prisma DateTime 问题
-      const newId = `cmj${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-      const nowIso = new Date().toISOString();
-      await prisma.$executeRaw`
-        INSERT INTO TripSpot (id, tripId, placeId, status, priority, visitDate, createdAt, updatedAt)
-        VALUES (${newId}, ${id}, ${targetPlaceId}, ${status || 'WISHLIST'}, ${normalizedPriority || 'OPTIONAL'}, ${visitDate || null}, ${nowIso}, ${nowIso})
+      // 更新已存在的记录 - 使用原生 SQL
+      const visitDateStr = visitDate ? new Date(visitDate).toISOString() : null;
+      await prismaAny.$executeRaw`
+        UPDATE TripSpot SET 
+          status = COALESCE(${status}, status),
+          priority = COALESCE(${normalizedPriority}, priority),
+          visitDate = ${visitDateStr},
+          userRating = COALESCE(${userRating}, userRating),
+          userNotes = COALESCE(${userNotes}, userNotes),
+          updatedAt = ${now}
+        WHERE tripId = ${id} AND placeId = ${targetPlaceId}
       `;
-      tripSpot = await prisma.tripSpot.findUnique({
-        where: { tripId_placeId: { tripId: id, placeId: targetPlaceId } },
-      });
+      // 重新加载记录
+      const results = await prismaAny.$queryRaw`SELECT * FROM TripSpot WHERE tripId = ${id} AND placeId = ${targetPlaceId} LIMIT 1`;
+      tripSpot = results[0];
+    } else {
+      // 创建新记录 - 使用原生 SQL
+      const tripSpotId = createId();
+      const visitDateStr = visitDate ? new Date(visitDate).toISOString() : null;
+      await prismaAny.$executeRaw`
+        INSERT INTO TripSpot (id, tripId, placeId, status, priority, visitDate, userRating, userNotes, createdAt, updatedAt)
+        VALUES (${tripSpotId}, ${id}, ${targetPlaceId}, ${status || 'WISHLIST'}, ${normalizedPriority || 'OPTIONAL'}, ${visitDateStr}, ${userRating || null}, ${userNotes || null}, ${now}, ${now})
+      `;
+      const results = await prismaAny.$queryRaw`SELECT * FROM TripSpot WHERE id = ${tripSpotId}`;
+      tripSpot = results[0];
     }
 
     // Load place for payload
-    const dbPlace = await prisma.place.findUnique({ where: { id: targetPlaceId } });
+    const dbPlace = await prismaAny.place.findUnique({ where: { id: targetPlaceId } });
     const normalizedPlace = dbPlace
-      ? {
-          ...dbPlace,
-          tags: dbPlace.tags ? JSON.parse(dbPlace.tags) : [],
-          images: dbPlace.images ? JSON.parse(dbPlace.images) : [],
-        }
+      ? (() => {
+          // 解析 tags，若为空则回落到 aiTags
+          const parsedTags: string[] = (() => {
+            if (dbPlace.tags) {
+              try {
+                const val = JSON.parse(dbPlace.tags);
+                return Array.isArray(val) ? val : [];
+              } catch (_) {
+                return [];
+              }
+            }
+            return [];
+          })();
+          const parsedAiTags: string[] = (() => {
+            if (dbPlace.aiTags) {
+              try {
+                const val = JSON.parse(dbPlace.aiTags);
+                return Array.isArray(val) ? val : [];
+              } catch (_) {
+                return [];
+              }
+            }
+            return [];
+          })();
+          const mergedTags = parsedTags.length > 0 ? parsedTags : parsedAiTags;
+          return {
+            ...dbPlace,
+            tags: mergedTags,
+            images: dbPlace.images ? JSON.parse(dbPlace.images) : [],
+            openingHours: dbPlace.openingHours
+              ? JSON.parse(dbPlace.openingHours)
+              : undefined,
+          };
+        })()
       : null;
 
-    const normalizedTripSpot = {
+    const normalizedTripSpot = tripSpot
+      ? {
       ...tripSpot,
-      spotId: tripSpot.placeId, // 前端期望 spotId
-      priority: normalizePriority(tripSpot.priority) || tripSpot.priority,
-      userPhotos: tripSpot.userPhotos
-        ? JSON.parse(tripSpot.userPhotos as unknown as string)
-        : [],
-      place: normalizedPlace,
-      spot: normalizedPlace, // 前端也可能使用 spot 而不是 place
-    };
+        spotId: (tripSpot as any).placeId, // 前端期望 spotId
+        priority: normalizePriority(tripSpot.priority) || tripSpot.priority,
+        userPhotos: tripSpot.userPhotos
+          ? JSON.parse(tripSpot.userPhotos as unknown as string)
+          : [],
+        place: normalizedPlace,
+        spot: normalizedPlace, // 前端也可能使用 spot 而不是 place
+      }
+      : null;
 
     return res.json(normalizedTripSpot);
   } catch (error) {

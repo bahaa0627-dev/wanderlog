@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
@@ -201,15 +203,34 @@ class SpotCard extends StatelessWidget {
         child: AspectRatio(
           aspectRatio: 3 / 4,
           child: spot.images.isNotEmpty
-              ? Image.network(
-                  spot.images.first,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      _buildPlaceholder(),
-                )
+              ? _buildImageWidget(spot.images.first)
               : _buildPlaceholder(),
         ),
       ),
+    );
+  }
+
+  /// Build image widget that handles both data URIs and network URLs
+  Widget _buildImageWidget(String imageSource) {
+    // Handle data URI format (data:image/jpeg;base64,...)
+    if (imageSource.startsWith('data:')) {
+      try {
+        final base64Data = imageSource.split(',').last;
+        final bytes = base64Decode(base64Data);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+        );
+      } catch (e) {
+        return _buildPlaceholder();
+      }
+    }
+    // Handle regular network URLs
+    return Image.network(
+      imageSource,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
     );
   }
 
@@ -250,10 +271,21 @@ class SpotCard extends StatelessWidget {
 
   String? _openingInfoText() {
     final raw = spot.openingHours;
-    final utcOffsetMinutes = _extractUtcOffset(raw);
-    final List<Map<String, dynamic>>? periods = _parsePeriods(raw?['periods']);
-    if (periods == null) {
+    if (raw == null) {
       return 'Hours unavailable';
+    }
+    
+    final utcOffsetMinutes = _extractUtcOffset(raw);
+    final List<Map<String, dynamic>>? periods = _parsePeriods(raw['periods']);
+    
+    // If no periods data, try to use weekday_text as fallback
+    if (periods == null || periods.isEmpty) {
+      return _getTodayHoursFromWeekdayText(raw);
+    }
+    
+    // Check for 24/7 places: single period with open at day 0, time 0000, and no close
+    if (_is24HoursPeriods(periods)) {
+      return 'Open 24 hours';
     }
 
     final DateTime now = _nowInPlace(utcOffsetMinutes);
@@ -326,6 +358,11 @@ class SpotCard extends StatelessWidget {
     if (periods == null) {
       return false;
     }
+    
+    // 24/7 places never close
+    if (_is24HoursPeriods(periods)) {
+      return false;
+    }
 
     final DateTime now = _nowInPlace(utcOffsetMinutes);
     DateTime? closingTime;
@@ -373,6 +410,71 @@ class SpotCard extends StatelessWidget {
     }
 
     return false;
+  }
+
+  /// Fallback: extract today's hours from weekday_text array
+  String? _getTodayHoursFromWeekdayText(Map<String, dynamic> raw) {
+    final weekdayText = raw['weekday_text'];
+    if (weekdayText is! List || weekdayText.isEmpty) {
+      return 'Hours unavailable';
+    }
+
+    // First check for 24/7 indicators in the entire list
+    for (final item in weekdayText) {
+      final text = item?.toString().toLowerCase() ?? '';
+      if (text == '7x24' || 
+          text == '24/7' || 
+          text.contains('open 24 hours') ||
+          text.contains('always open')) {
+        return 'Open 24 hours';
+      }
+    }
+
+    // weekday_text is ordered: Monday=0, Tuesday=1, ..., Sunday=6
+    // DateTime.weekday is: Monday=1, ..., Sunday=7
+    final now = DateTime.now();
+    final dartWeekday = now.weekday; // 1=Mon, 7=Sun
+    final googleIndex = dartWeekday == 7 ? 6 : dartWeekday - 1; // Convert to 0-6
+
+    if (googleIndex < weekdayText.length) {
+      final todayText = weekdayText[googleIndex]?.toString() ?? '';
+      // Format: "Monday: 9:00 AM – 5:00 PM" or "Monday: Open 24 hours" or "Monday: Closed"
+      final colonIndex = todayText.indexOf(':');
+      if (colonIndex != -1 && colonIndex < todayText.length - 1) {
+        final hours = todayText.substring(colonIndex + 1).trim();
+        if (hours.toLowerCase().contains('open 24') || hours == '7x24') {
+          return 'Open 24 hours';
+        }
+        if (hours.toLowerCase() == 'closed') {
+          return 'Closed today';
+        }
+        return hours;
+      }
+      // If no colon found but text looks like "Open 24 hours" directly
+      if (todayText.toLowerCase().contains('open 24')) {
+        return 'Open 24 hours';
+      }
+    }
+
+    return 'Hours unavailable';
+  }
+
+  /// Check if periods indicate a 24/7 place
+  /// Google's format for 24/7: single period with open at day 0, time "0000", and no close
+  bool _is24HoursPeriods(List<Map<String, dynamic>> periods) {
+    if (periods.length != 1) return false;
+    
+    final period = periods.first;
+    final openInfo = period['open'];
+    if (openInfo is! Map<String, dynamic>) return false;
+    
+    // Check if open is at Sunday 0000 and there's no close field
+    final day = openInfo['day'];
+    final time = openInfo['time']?.toString() ?? '';
+    final hasClose = period['close'] != null;
+    
+    // day == 0 is Sunday, time "0000" is midnight, no close means never closes
+    return day == 0 && time == '0000' && !hasClose;
   }
 
   DateTime? _resolveClosingTime(List<Map<String, dynamic>> periods, DateTime now) {
@@ -566,19 +668,37 @@ class SpotCard extends StatelessWidget {
     return '\$${price * 10}';
   }
 
+  /// Combine category (if present) and tags into a single tag line
   String? _tagsLine() {
-    if (spot.tags.isEmpty) {
+    final List<String> allTags = [];
+    final Set<String> seen = {};
+    
+    // Add category first if available
+    final category = spot.category?.trim() ?? '';
+    if (category.isNotEmpty) {
+      allTags.add(category);
+      seen.add(category.toLowerCase());
+    }
+    
+    // Add regular tags (which may include AI tags from backend)
+    for (final rawTag in spot.tags) {
+      final tag = rawTag.trim();
+      if (tag.isEmpty) continue;
+      final key = tag.toLowerCase();
+      if (seen.add(key)) {
+        allTags.add(tag);
+      }
+    }
+    
+    if (allTags.isEmpty) {
       return null;
     }
-    final tags = spot.tags
-        .map((tag) => tag.trim())
-        .where((tag) => tag.isNotEmpty)
-        .map((tag) => '#${tag.replaceAll(RegExp(r'\s+'), '')}')
+    
+    final formatted = allTags
         .take(3)
+        .map((tag) => '#${tag.replaceAll(RegExp(r'\s+'), '')}')
         .toList();
-    if (tags.isEmpty) {
-      return null;
-    }
-    return tags.join('   ');
+    
+    return formatted.join('   ');
   }
 }

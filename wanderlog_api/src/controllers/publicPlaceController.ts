@@ -4,6 +4,37 @@ import apifyService from '../services/apifyService';
 import aiService from '../services/aiService';
 import googleMapsFavoritesService from '../services/googleMapsFavoritesService';
 
+// 解析 JSON 字符串字段，确保返回数组
+function parseJsonField(value: any): any[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+// 转换 place 对象，解析 JSON 字符串字段，确保必填字段不为 null
+function transformPlace(place: any): any {
+  if (!place) return place;
+  const images = parseJsonField(place.images);
+  const coverImage = place.coverImage || (images.length > 0 ? images[0] : null);
+  return {
+    ...place,
+    // 确保 placeId 不为空，优先使用 placeId，其次 googlePlaceId，最后 id
+    placeId: place.placeId || place.googlePlaceId || place.id,
+    images,
+    coverImage,
+    tags: parseJsonField(place.tags || place.aiTags),
+    aiTags: parseJsonField(place.aiTags),
+  };
+}
+
 class PublicPlaceController {
   /**
    * 获取所有公共地点（支持分页和筛选）
@@ -28,7 +59,7 @@ class PublicPlaceController {
 
       res.json({
         success: true,
-        data: result.places,
+        data: result.places.map(transformPlace),
         pagination: result.pagination,
       });
     } catch (error: any) {
@@ -57,7 +88,7 @@ class PublicPlaceController {
 
       res.json({
         success: true,
-        data: place,
+        data: transformPlace(place),
       });
     } catch (error: any) {
       res.status(500).json({
@@ -86,7 +117,7 @@ class PublicPlaceController {
 
       res.json({
         success: true,
-        data: places,
+        data: places.map(transformPlace),
       });
     } catch (error: any) {
       res.status(500).json({

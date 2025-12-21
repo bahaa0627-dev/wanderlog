@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
@@ -16,6 +18,40 @@ class SpotBottomSheet extends ConsumerStatefulWidget {
 class _SpotBottomSheetState extends ConsumerState<SpotBottomSheet> {
   String? _selectedTripId;
   bool _isLoading = false;
+
+  /// Build image widget that handles both data URIs and network URLs
+  Widget _buildSpotImage(String imageSource) {
+    final placeholder = Container(
+      height: 200,
+      color: Colors.grey.shade300,
+      child: const Icon(Icons.place, size: 80),
+    );
+
+    // Handle data URI format (data:image/jpeg;base64,...)
+    if (imageSource.startsWith('data:')) {
+      try {
+        final base64Data = imageSource.split(',').last;
+        final bytes = base64Decode(base64Data);
+        return Image.memory(
+          bytes,
+          height: 200,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder,
+        );
+      } catch (e) {
+        return placeholder;
+      }
+    }
+    // Handle regular network URLs
+    return Image.network(
+      imageSource,
+      height: 200,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => placeholder,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,17 +88,7 @@ class _SpotBottomSheetState extends ConsumerState<SpotBottomSheet> {
                 if (widget.spot.images.isNotEmpty)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      widget.spot.images.first,
-                      height: 200,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        height: 200,
-                        color: Colors.grey.shade300,
-                        child: const Icon(Icons.place, size: 80),
-                      ),
-                    ),
+                    child: _buildSpotImage(widget.spot.images.first),
                   ),
                 const SizedBox(height: 16),
                 // Spot name

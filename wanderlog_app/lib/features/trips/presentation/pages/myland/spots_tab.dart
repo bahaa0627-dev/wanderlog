@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
@@ -13,6 +15,9 @@ import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/spot_detail_modal.dart';
+import 'package:wanderlog/features/trips/presentation/pages/myland/myland_spots_map_page.dart';
+import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
+import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
 
 class SpotsTabController {
   _SpotsTabState? _state;
@@ -88,6 +93,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     'design',
     'history',
   ];
+  static const String _allCityLabel = 'All';
+  static const String _allCitySlug = '__all__';
 
   // Start empty; real data comes from destinations fetched from server or user input.
   final List<_SpotEntry> _entries = _buildMockEntries();
@@ -96,13 +103,16 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       PageController(viewportFraction: 0.78);
   final List<String> _userCityHistory = [];
   final Map<String, String> _extraCitySlugs = {};
+  bool _isLoadingDestinations = true;
 
   late int _selectedSubTab;
   late bool _isMapView;
   late String _selectedCitySlug;
+  String? _pendingSelectedSlug;
 
-  List<_SpotEntry> get _entriesForCity =>
-      _entries.where((entry) => entry.citySlug == _selectedCitySlug).toList();
+  List<_SpotEntry> get _entriesForCity => _selectedCitySlug == _allCitySlug
+      ? List<_SpotEntry>.from(_entries)
+      : _entries.where((entry) => entry.citySlug == _selectedCitySlug).toList();
 
   int get _allCount => _entriesForCity.length;
   int get _mustGoCount =>
@@ -114,7 +124,22 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
   List<String> get _tagOptions {
     final tagSet = <String>{};
-    for (final entry in _entriesForCity) {
+    // Get entries filtered by current tab
+    Iterable<_SpotEntry> relevantEntries = _entriesForCity;
+    switch (_selectedSubTab) {
+      case 1: // MustGo - only tags from MustGo spots
+        relevantEntries = relevantEntries.where((entry) => entry.isMustGo);
+        break;
+      case 2: // Today's Plan - only tags from Today's Plan spots
+        relevantEntries = relevantEntries.where((entry) => entry.isTodaysPlan);
+        break;
+      case 3: // Visited - only tags from Visited spots
+        relevantEntries = relevantEntries.where((entry) => entry.isVisited);
+        break;
+      default: // All - use all entries
+        break;
+    }
+    for (final entry in relevantEntries) {
       tagSet.addAll(entry.spot.tags.map((tag) => tag.toLowerCase()));
     }
     final ordered = <String>[];
@@ -132,6 +157,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   }
 
   String get _selectedCityName {
+    if (_selectedCitySlug == _allCitySlug) return _allCityLabel;
     for (final entry in _entries) {
       if (entry.citySlug == _selectedCitySlug) {
         return entry.city;
@@ -152,7 +178,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     super.initState();
     _selectedSubTab = _normalizeSubTab(widget.initialSubTab ?? 0);
     _isMapView = _defaultMapViewFor(_selectedSubTab);
-    _selectedCitySlug = _entries.isNotEmpty ? _entries.first.citySlug : '';
+    _selectedCitySlug = _allCitySlug;
     widget.controller?._attach(this);
     final controller = widget.controller;
     if (controller != null) {
@@ -166,7 +192,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       }
       final savedSlug = controller.savedSelectedCitySlug;
       if (savedSlug != null && savedSlug.isNotEmpty) {
-        _selectedCitySlug = savedSlug;
+        _pendingSelectedSlug = savedSlug;
       }
     }
     unawaited(_loadDestinationsFromServer());
@@ -454,7 +480,86 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   }
 
   void _openFullMap() {
+    // MustGo (1) 和 Today's Plan (2) 使用专门的地图页面展示已筛选的地点
+    if (_selectedSubTab == 1 || _selectedSubTab == 2) {
+      final filteredEntries = _filteredEntries();
+      if (filteredEntries.isEmpty) {
+        _launchCityMapFlow(_selectedCityName);
+        return;
+      }
+      
+      final spots = filteredEntries.map((e) => e.spot).toList();
+      final tabLabel = _selectedSubTab == 1 ? 'MustGo' : "Today's Plan";
+      final allCities = _getAvailableCitiesForCurrentTab();
+      final allSpotsByCity = _getAllSpotsByCityForCurrentTab();
+      
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => MyLandSpotsMapPage(
+            cityName: _selectedCityName,
+            spots: spots,
+            tabLabel: tabLabel,
+            allCities: allCities,
+            allSpotsByCity: allSpotsByCity,
+            onCityChanged: (newCity) {
+              _selectCity(newCity);
+            },
+            onDataChanged: () {
+              // Refresh data when spot status changes in the map page
+              unawaited(_loadDestinationsFromServer());
+            },
+          ),
+        ),
+      );
+      return;
+    }
+    
     _launchCityMapFlow(_selectedCityName);
+  }
+
+  /// 获取当前 tab 下存在地点的城市列表（包含 All 选项）
+  List<String> _getAvailableCitiesForCurrentTab() {
+    final Set<String> cities = {};
+    for (final entry in _entries) {
+      // MustGo tab
+      if (_selectedSubTab == 1 && entry.isMustGo) {
+        final city = entry.city.trim();
+        if (city.isNotEmpty) cities.add(city);
+      }
+      // Today's Plan tab
+      if (_selectedSubTab == 2 && entry.isTodaysPlan) {
+        final city = entry.city.trim();
+        if (city.isNotEmpty) cities.add(city);
+      }
+    }
+    // Always include 'All' option at the beginning
+    final result = cities.toList();
+    if (result.isNotEmpty) {
+      result.insert(0, _allCityLabel);
+    }
+    return result;
+  }
+
+  /// 获取当前 tab 下按城市分组的所有地点
+  Map<String, List<Spot>> _getAllSpotsByCityForCurrentTab() {
+    final Map<String, List<Spot>> result = {};
+    for (final entry in _entries) {
+      // MustGo tab
+      if (_selectedSubTab == 1 && entry.isMustGo) {
+        final city = entry.city.trim();
+        if (city.isNotEmpty) {
+          result.putIfAbsent(city, () => []).add(entry.spot);
+        }
+      }
+      // Today's Plan tab
+      if (_selectedSubTab == 2 && entry.isTodaysPlan) {
+        final city = entry.city.trim();
+        if (city.isNotEmpty) {
+          result.putIfAbsent(city, () => []).add(entry.spot);
+        }
+      }
+    }
+    return result;
   }
 
   void _navigateToCityMap(String city) {
@@ -504,6 +609,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
   String _ensureCitySlug(String city) {
     final normalized = _normalizeCityName(city);
+    if (normalized.toLowerCase() == _allCityLabel.toLowerCase()) {
+      return _allCitySlug;
+    }
     if (normalized.isEmpty) {
       return _selectedCitySlug;
     }
@@ -538,6 +646,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   }
 
   void _recordCityAddition(String city) {
+    if (city.toLowerCase() == _allCityLabel.toLowerCase()) {
+      return;
+    }
     final normalized = city.trim();
     if (normalized.isEmpty) {
       return;
@@ -565,6 +676,13 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   }
 
   Future<void> _loadDestinationsFromServer() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingDestinations = true;
+      });
+    } else {
+      _isLoadingDestinations = true;
+    }
     try {
       final repo = ref.read(tripRepositoryProvider);
       final destinations = await repo.getMyTrips();
@@ -592,16 +710,19 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           for (final ts in tripSpots) {
             final s = ts.spot;
             if (s == null) continue;
+            // Use spot.city for city grouping
+            // City list = manually added destinations + cities of saved spots
             final cityName = (s.city ?? 'Unknown').trim().isEmpty
                 ? 'Unknown'
                 : s.city!.trim();
-            final slug = _ensureCitySlug(cityName);
+            final spotSlug = _ensureCitySlug(cityName);
             final isMustGo = ts.priority == SpotPriority.mustGo;
             final isTodaysPlan = ts.status == TripSpotStatus.todaysPlan;
             final entry = _SpotEntry(
               city: cityName,
-              citySlug: slug,
+              citySlug: spotSlug,
               spot: s,
+              addedAt: ts.createdAt,
               isMustGo: isMustGo,
               isTodaysPlan: isTodaysPlan,
               isVisited: ts.status == TripSpotStatus.visited,
@@ -621,7 +742,18 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           ..clear()
           ..addAll(entries);
 
-        if (_userCityHistory.isNotEmpty) {
+        if (_pendingSelectedSlug != null && _pendingSelectedSlug!.isNotEmpty) {
+          final slug = _pendingSelectedSlug!;
+          final hasSlug = _entries.any((e) => e.citySlug == slug) ||
+              _extraCitySlugs.containsKey(slug) ||
+              slug == _allCitySlug;
+          if (hasSlug) {
+            _selectedCitySlug = slug;
+          }
+          _pendingSelectedSlug = null;
+        }
+
+        if (_selectedCitySlug != _allCitySlug && _userCityHistory.isNotEmpty) {
           final currentCity = _selectedCityName.toLowerCase();
           final hasCurrent = _citiesInCreationOrder(newestFirst: true).any(
             (city) => city.toLowerCase() == currentCity,
@@ -638,6 +770,14 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       _persistCityState();
     } catch (_) {
       // Ignore errors; fallback to local state.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingDestinations = false;
+        });
+      } else {
+        _isLoadingDestinations = false;
+      }
     }
   }
 
@@ -688,6 +828,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         final bTime = b.todaysPlanCheckedAt ?? DateTime(1970);
         return bTime.compareTo(aTime); // Descending order (newest first)
       });
+    } else if (_selectedCitySlug == _allCitySlug) {
+      // All city视图下按收藏时间倒序
+      result.sort((a, b) => b.addedAt.compareTo(a.addedAt));
     }
 
     return result;
@@ -730,7 +873,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       return;
     }
     widget.onCityOptionsChanged!(
-      _citiesInCreationOrder(newestFirst: true),
+      _cityOptionsWithAll(),
     );
   }
 
@@ -777,8 +920,18 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     return ordered;
   }
 
+  List<String> _cityOptionsWithAll() {
+    final cities = _citiesInCreationOrder(newestFirst: true);
+    if (cities.contains(_allCityLabel)) return cities;
+    return [_allCityLabel, ...cities];
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingDestinations) {
+      return const _LoadingState();
+    }
+
     final hasDestinations = _citiesInCreationOrder(newestFirst: true).isNotEmpty;
     if (!hasDestinations) {
       return _NoDestinationState(
@@ -836,17 +989,28 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
                     isMapView: _isMapView,
                   )
                 : _isMapView
-                    ? _MapPreview(
-                        key: const ValueKey('map-view'),
-                        entries: filteredEntries,
-                        cityName: _selectedCityName,
-                        tagOptions: _tagOptions,
-                        activeTags: _activeTags,
-                        onToggleTag: _toggleTag,
-                        onOpenFullMap: _openFullMap,
-                        controller: _carouselController,
-                        onCardTap: _handleCheckIn,
-                      )
+                    // MustGo (1) 和 Today's Plan (2) 使用紧凑地图预览
+                    ? (_selectedSubTab == 1 || _selectedSubTab == 2)
+                        ? _CompactMapPreview(
+                            key: ValueKey('compact-map-view-$_selectedSubTab-$_selectedCitySlug'),
+                            entries: filteredEntries,
+                            cityName: _selectedCityName,
+                            spotsCount: filteredEntries.length,
+                            onOpenFullMap: _openFullMap,
+                            availableCities: _getAvailableCitiesForCurrentTab(),
+                            onCityChanged: _selectCity,
+                          )
+                        : _MapPreview(
+                            key: const ValueKey('map-view'),
+                            entries: filteredEntries,
+                            cityName: _selectedCityName,
+                            tagOptions: _tagOptions,
+                            activeTags: _activeTags,
+                            onToggleTag: _toggleTag,
+                            onOpenFullMap: _openFullMap,
+                            controller: _carouselController,
+                            onCardTap: _handleCheckIn,
+                          )
                     : _ListView(
                         key: const ValueKey('list-view'),
                         entries: filteredEntries,
@@ -862,6 +1026,18 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   }
 
   static List<_SpotEntry> _buildMockEntries() => [];
+}
+
+class _LoadingState extends StatelessWidget {
+  const _LoadingState();
+
+  @override
+  Widget build(BuildContext context) => const Center(
+        child: Padding(
+          padding: EdgeInsets.only(top: 64),
+          child: CircularProgressIndicator(),
+        ),
+      );
 }
 
 class _TabCounts {
@@ -1392,6 +1568,258 @@ class _NoDestinationState extends StatelessWidget {
       );
 }
 
+/// 紧凑地图预览组件 - 类似 home-map 初始态，展示真正的 Mapbox 地图、城市标签和放大按钮
+class _CompactMapPreview extends StatefulWidget {
+  const _CompactMapPreview({
+    super.key,
+    required this.entries,
+    required this.cityName,
+    required this.spotsCount,
+    required this.onOpenFullMap,
+    this.availableCities = const [],
+    this.onCityChanged,
+  });
+
+  final List<_SpotEntry> entries;
+  final String cityName;
+  final int spotsCount;
+  final VoidCallback onOpenFullMap;
+  final List<String> availableCities;
+  final ValueChanged<String>? onCityChanged;
+
+  @override
+  State<_CompactMapPreview> createState() => _CompactMapPreviewState();
+}
+
+class _CompactMapPreviewState extends State<_CompactMapPreview> {
+  final GlobalKey<MapboxSpotMapState> _mapKey = GlobalKey<MapboxSpotMapState>();
+  map_page.Spot? _selectedSpot;
+
+  @override
+  void initState() {
+    super.initState();
+    // 默认选中第一个地点（最新的）
+    final mapSpots = _convertToMapSpots();
+    if (mapSpots.isNotEmpty) {
+      _selectedSpot = mapSpots.first;
+      // 延迟跳转相机到选中的地点
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_selectedSpot != null && _mapKey.currentState != null) {
+          _mapKey.currentState!.jumpToPosition(
+            Position(_selectedSpot!.longitude, _selectedSpot!.latitude),
+            zoom: 14.0,
+          );
+        }
+      });
+    }
+  }
+
+  /// 将 _SpotEntry 转换为 map_page.Spot
+  List<map_page.Spot> _convertToMapSpots() {
+    return widget.entries.map((entry) {
+      final spot = entry.spot;
+      final List<String> imageList = spot.images;
+      final String coverImg = imageList.isNotEmpty ? imageList.first : '';
+      final List<String> tagList = spot.tags
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      final String category = (spot.category ?? 'place').trim();
+      if (category.isNotEmpty && !tagList.contains(category)) {
+        tagList.add(category);
+      }
+
+      return map_page.Spot(
+        id: spot.id,
+        name: spot.name,
+        city: spot.city ?? 'Unknown',
+        category: category.isNotEmpty ? category : 'place',
+        latitude: spot.latitude,
+        longitude: spot.longitude,
+        rating: spot.rating ?? 0.0,
+        ratingCount: spot.ratingCount ?? 0,
+        coverImage: coverImg,
+        images: imageList,
+        tags: tagList,
+        aiSummary: null,
+      );
+    }).toList();
+  }
+
+  /// 获取地图中心点 - 优先使用选中的地点
+  Position _getMapCenter() {
+    // 优先使用选中的地点
+    if (_selectedSpot != null) {
+      return Position(_selectedSpot!.longitude, _selectedSpot!.latitude);
+    }
+    // 使用第一个地点
+    if (widget.entries.isNotEmpty) {
+      final first = widget.entries.first.spot;
+      return Position(first.longitude, first.latitude);
+    }
+    return Position(139.6503, 35.6762); // Tokyo as default
+  }
+
+  void _showCityPicker() {
+    if (widget.availableCities.isEmpty) return;
+    
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.8,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Select City', style: AppTheme.headlineMedium(context)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  itemCount: widget.availableCities.length,
+                  itemBuilder: (context, index) {
+                    final city = widget.availableCities[index];
+                    return ListTile(
+                      title: Text(city, style: AppTheme.bodyLarge(context)),
+                      trailing: city == widget.cityName
+                          ? const Icon(Icons.check, color: AppTheme.primaryYellow)
+                          : null,
+                      onTap: () {
+                        Navigator.pop(context);
+                        if (city != widget.cityName) {
+                          widget.onCityChanged?.call(city);
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mapSpots = _convertToMapSpots();
+    final center = _getMapCenter();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.background,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(
+            color: AppTheme.black,
+            width: AppTheme.borderMedium,
+          ),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2),
+          child: Stack(
+            children: [
+              // Mapbox 地图 - 支持拖拽和缩放交互
+              Positioned.fill(
+                child: MapboxSpotMap(
+                  key: _mapKey,
+                  spots: mapSpots,
+                  initialCenter: center,
+                  initialZoom: 14.0,
+                  selectedSpot: _selectedSpot,
+                  onSpotTap: (_) => widget.onOpenFullMap(), // 点击地点进入全屏
+                  onCameraMove: (_, __) {},
+                ),
+              ),
+              // 顶部：城市标签和放大按钮
+              Positioned(
+                top: 12,
+                left: 12,
+                right: 12,
+                child: Row(
+                  children: [
+                    // 城市标签（可点击切换城市）
+                    GestureDetector(
+                      onTap: widget.availableCities.isNotEmpty ? _showCityPicker : null,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.white,
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                          border: Border.all(
+                            color: AppTheme.black,
+                            width: AppTheme.borderMedium,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.cityName,
+                              style: AppTheme.labelLarge(context).copyWith(
+                                color: AppTheme.black,
+                              ),
+                            ),
+                            if (widget.availableCities.isNotEmpty) ...[
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.keyboard_arrow_down,
+                                size: 20,
+                                color: AppTheme.black,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    // 放大按钮
+                    GestureDetector(
+                      onTap: widget.onOpenFullMap,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppTheme.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppTheme.black,
+                            width: AppTheme.borderMedium,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.fullscreen,
+                          size: 24,
+                          color: AppTheme.black,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MapPreview extends StatelessWidget {
   const _MapPreview({
     super.key,
@@ -1545,6 +1973,62 @@ class _SpotCarouselCard extends StatelessWidget {
   final _SpotEntry entry;
   final VoidCallback onCheckIn;
 
+  /// Combine category (if present) and tags, removing duplicates
+  List<String> _effectiveTags() {
+    final List<String> result = [];
+    final Set<String> seen = {};
+
+    final category = entry.spot.category?.trim() ?? '';
+    if (category.isNotEmpty) {
+      result.add(category);
+      seen.add(category.toLowerCase());
+    }
+
+    for (final raw in entry.spot.tags) {
+      final tag = raw.trim();
+      if (tag.isEmpty) continue;
+      final key = tag.toLowerCase();
+      if (seen.add(key)) {
+        result.add(tag);
+      }
+    }
+
+    return result;
+  }
+
+  /// Build image widget that handles both data URIs and network URLs
+  Widget _buildImageWidget(String imageSource) {
+    final placeholder = Container(
+      color: AppTheme.lightGray,
+      child: const Icon(
+        Icons.photo,
+        size: 48,
+        color: AppTheme.mediumGray,
+      ),
+    );
+
+    // Handle data URI format (data:image/jpeg;base64,...)
+    if (imageSource.startsWith('data:')) {
+      try {
+        final base64Data = imageSource.split(',').last;
+        final bytes = base64Decode(base64Data);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder,
+        );
+      } catch (e) {
+        return placeholder;
+      }
+    }
+    // Handle regular network URLs
+    return Image.network(
+      imageSource,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => placeholder,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final imageUrl =
@@ -1567,18 +2051,7 @@ class _SpotCarouselCard extends StatelessWidget {
             children: [
               Positioned.fill(
                 child: imageUrl != null
-                    ? Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppTheme.lightGray,
-                          child: const Icon(
-                            Icons.photo,
-                            size: 48,
-                            color: AppTheme.mediumGray,
-                          ),
-                        ),
-                      )
+                    ? _buildImageWidget(imageUrl)
                     : Container(
                         color: AppTheme.lightGray,
                         child: const Icon(
@@ -1621,7 +2094,7 @@ class _SpotCarouselCard extends StatelessWidget {
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
-                      children: entry.spot.tags.take(3).map((tag) {
+                      children: _effectiveTags().take(3).map((tag) {
                         return Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -1699,6 +2172,7 @@ class _SpotEntry {
     required this.city,
     required this.citySlug,
     required this.spot,
+    required this.addedAt,
     this.isMustGo = false,
     this.isTodaysPlan = false,
     this.isVisited = false,
@@ -1710,6 +2184,7 @@ class _SpotEntry {
   final String city;
   final String citySlug;
   final Spot spot;
+  final DateTime addedAt;
   final bool isMustGo;
   final bool isTodaysPlan;
   final bool isVisited;
@@ -1720,6 +2195,7 @@ class _SpotEntry {
     bool? isMustGo,
     bool? isTodaysPlan,
     bool? isVisited,
+    DateTime? addedAt,
     DateTime? mustGoCheckedAt,
     DateTime? todaysPlanCheckedAt,
   }) {
@@ -1730,6 +2206,7 @@ class _SpotEntry {
       city: city,
       citySlug: citySlug,
       spot: spot,
+      addedAt: addedAt ?? this.addedAt,
       isMustGo: nowMustGo,
       isTodaysPlan: nowTodaysPlan,
       isVisited: isVisited ?? this.isVisited,

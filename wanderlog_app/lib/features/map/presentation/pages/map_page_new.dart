@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show File;
 import 'dart:math' as math;
 
@@ -123,21 +124,10 @@ class _MapPageState extends ConsumerState<MapPage> {
   static const String _mapHeroTag = 'map-page-map-hero';
   static const double _nonFullscreenTopInset = 0.0;
   static const double _collapsedMapZoom = 13.0;
-  static const int _spotsPerCityLimit = 10;
-  static const int _minCategoriesPerCity = 3;
+  static const int _spotsPerCityLimit = 100; // Increased to show more spots per city
+  static const int _minCategoriesPerCity = 1; // Reduced to include cities with fewer categories
   static const String _fallbackCoverImage =
       'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80';
-  static const List<String> _cityOrder = [
-    'Tokyo',
-    'Sapporo',
-    'Hakodate',
-    'Asahikawa',
-    'Otaru',
-    'Yamanashi',
-    'Paris',
-    'Copenhagen',
-    'Chiang Mai',
-  ];
 
   static const List<String> _tagOptions = [
     'Architecture',
@@ -167,31 +157,22 @@ class _MapPageState extends ConsumerState<MapPage> {
   bool _isLaunchingOverlay = false;
 
   Map<String, List<Spot>> _spotsByCity = const <String, List<Spot>>{};
+  List<String> _availableCities = const <String>[];
   bool _isLoadingSpots = false;
   String? _loadingError;
 
-  final Map<String, Position> _cityCoordinates = {
-    'Tokyo': Position(139.6503, 35.6762),
-    'Sapporo': Position(141.3545, 43.0621),
-    'Hakodate': Position(140.7288, 41.7687),
-    'Asahikawa': Position(142.3650, 43.7706),
-    'Otaru': Position(140.9930, 43.1907),
-    'Yamanashi': Position(138.5683, 35.6641),
-    'Paris': Position(2.3522, 48.8566),
-    'Copenhagen': Position(12.5683, 55.6761),
-    'Chiang Mai': Position(98.9853, 18.7883),
-  };
+  // Dynamic city coordinates - populated from place data
+  final Map<String, Position> _cityCoordinates = <String, Position>{};
 
   @override
   void initState() {
     super.initState();
     _isOverlayInstance = widget.onExitFullscreen != null;
     _isFullscreen = widget.startFullscreen;
-    _selectedCity = widget.initialSnapshot?.selectedCity ?? _cityOrder.first;
+    _selectedCity = widget.initialSnapshot?.selectedCity ?? '';
     _selectedSpot = widget.initialSnapshot?.selectedSpot;
     _selectedTags.addAll(widget.initialSnapshot?.selectedTags ?? <String>{});
-    _currentMapCenter =
-        widget.initialSnapshot?.currentCenter ?? _cityPosition(_selectedCity);
+    _currentMapCenter = widget.initialSnapshot?.currentCenter;
     _currentZoom = widget.initialSnapshot?.currentZoom ?? _currentZoom;
     _searchPickedImage = widget.initialSnapshot?.searchImage;
     _carouselSpots = widget.initialSnapshot?.carouselSpots ?? const <Spot>[];
@@ -209,7 +190,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     }
 
     _cardPageController = PageController(
-      viewportFraction: 0.85,
+      viewportFraction: 0.55,
       initialPage: _currentCardIndex,
     );
 
@@ -223,7 +204,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     super.dispose();
   }
 
-  List<String> get _cities => _cityOrder;
+  List<String> get _cities => _availableCities;
 
   List<Spot> get _currentCitySpots => _spotsByCity[_selectedCity] ?? const [];
 
@@ -389,7 +370,9 @@ class _MapPageState extends ConsumerState<MapPage> {
   }
 
   Position _cityPosition(String city) =>
-      _cityCoordinates[city] ?? _cityCoordinates[_cityOrder.first]!;
+      _cityCoordinates[city] ??
+      (_cities.isNotEmpty ? _cityCoordinates[_cities.first] : null) ??
+      Position(139.6503, 35.6762); // Tokyo as default
 
   List<Spot> _computeNearbySpots(Spot anchor, {List<Spot>? baseSpots}) {
     final spots = baseSpots ?? _filteredSpots;
@@ -414,7 +397,8 @@ class _MapPageState extends ConsumerState<MapPage> {
         ),
       );
 
-    return sorted.take(5).toList();
+    // Return all spots sorted by distance, not just 5
+    return sorted;
   }
 
   double _distanceBetween(
@@ -508,7 +492,9 @@ class _MapPageState extends ConsumerState<MapPage> {
         _spotsByCity.values.any((spots) => spots.isNotEmpty);
     final bool showErrorOverlay = _loadingError != null && !hasAnySpots;
     final cityFallback =
-        _cityCoordinates[_selectedCity] ?? _cityCoordinates[_cityOrder.first]!;
+        _cityCoordinates[_selectedCity] ??
+        (_cities.isNotEmpty ? _cityCoordinates[_cities.first] : null) ??
+        Position(139.6503, 35.6762); // Tokyo as default
     const double controlsHorizontalPadding = 16.0;
     final mapSurface = _MapSurface(
       borderRadius: borderRadius,
@@ -921,20 +907,39 @@ class _MapPageState extends ConsumerState<MapPage> {
     final Map<String, List<Spot>> nextSpotsByCity = <String, List<Spot>>{};
     String? firstError;
 
-    for (final city in _cityOrder) {
+    // First, fetch available cities from the database
+    List<String> cities = <String>[];
+    try {
+      cities = await repository.fetchCities();
+    } on PublicPlaceRepositoryException catch (error) {
+      firstError ??= error.message;
+    } catch (error) {
+      firstError ??= error.toString();
+    }
+
+    // Load places for each city
+    for (final city in cities) {
       try {
         final places = await repository.fetchPlacesByCity(
           city: city,
           limit: 200,
-          minRating: 4.0,
+          minRating: 0.0, // Include all places
         );
-        nextSpotsByCity[city] = _selectTopSpotsForCity(city, places);
+        final spots = _selectTopSpotsForCity(city, places);
+        if (spots.isNotEmpty) {
+          nextSpotsByCity[city] = spots;
+          // Calculate city center from the first spot
+          if (!_cityCoordinates.containsKey(city)) {
+            _cityCoordinates[city] = Position(
+              spots.first.longitude,
+              spots.first.latitude,
+            );
+          }
+        }
       } on PublicPlaceRepositoryException catch (error) {
         firstError ??= error.message;
-        nextSpotsByCity[city] = _loadFallbackSpots(city);
       } catch (error) {
         firstError ??= error.toString();
-        nextSpotsByCity[city] = _loadFallbackSpots(city);
       }
     }
 
@@ -942,7 +947,12 @@ class _MapPageState extends ConsumerState<MapPage> {
       return;
     }
 
-    final resolvedCity = _resolveCitySelection(nextSpotsByCity);
+    // Only include cities that have spots
+    final citiesWithSpots = cities
+        .where((city) => (nextSpotsByCity[city] ?? const <Spot>[]).isNotEmpty)
+        .toList();
+
+    final resolvedCity = _resolveCitySelection(nextSpotsByCity, citiesWithSpots);
     final resolvedSpot = _resolveSelectedSpot(
       resolvedCity,
       nextSpotsByCity,
@@ -959,6 +969,7 @@ class _MapPageState extends ConsumerState<MapPage> {
         : _cityPosition(resolvedCity);
 
     setState(() {
+      _availableCities = citiesWithSpots;
       _spotsByCity = nextSpotsByCity;
       _selectedCity = resolvedCity;
       _selectedSpot = resolvedSpot;
@@ -982,25 +993,22 @@ class _MapPageState extends ConsumerState<MapPage> {
     }
   }
 
-  // Provides curated sample spots so the UI stays functional offline.
-  List<Spot> _loadFallbackSpots(String city) {
-    final fallback = samplePublicPlacesByCity[city];
-    if (fallback == null || fallback.isEmpty) {
-      return const <Spot>[];
-    }
-    return _selectTopSpotsForCity(city, fallback);
-  }
-
-  String _resolveCitySelection(Map<String, List<Spot>> nextSpotsByCity) {
-    if ((nextSpotsByCity[_selectedCity] ?? const <Spot>[]).isNotEmpty) {
+  String _resolveCitySelection(
+    Map<String, List<Spot>> nextSpotsByCity,
+    List<String> citiesWithSpots,
+  ) {
+    // If we have a previously selected city that still has spots, keep it
+    if (_selectedCity.isNotEmpty &&
+        (nextSpotsByCity[_selectedCity] ?? const <Spot>[]).isNotEmpty) {
       return _selectedCity;
     }
-    for (final city in _cityOrder) {
+    // Otherwise, pick the first city with spots
+    for (final city in citiesWithSpots) {
       if ((nextSpotsByCity[city] ?? const <Spot>[]).isNotEmpty) {
         return city;
       }
     }
-    return _selectedCity;
+    return citiesWithSpots.isNotEmpty ? citiesWithSpots.first : '';
   }
 
   Spot? _resolveSelectedSpot(
@@ -1253,36 +1261,50 @@ class _CitySelector extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Select City', style: AppTheme.headlineMedium(context)),
-            const SizedBox(height: 16),
-            ...cities.map(
-              (city) => ListTile(
-                title: Text(city, style: AppTheme.bodyLarge(context)),
-                trailing: city == selectedCity
-                    ? const Icon(Icons.check, color: AppTheme.primaryYellow)
-                    : null,
-                onTap: () {
-                  onCityChanged(city);
-                  Navigator.pop(context);
-                },
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.8,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Select City', style: AppTheme.headlineMedium(context)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  itemCount: cities.length,
+                  itemBuilder: (context, index) {
+                    final city = cities[index];
+                    return ListTile(
+                      title: Text(city, style: AppTheme.bodyLarge(context)),
+                      trailing: city == selectedCity
+                          ? const Icon(Icons.check, color: AppTheme.primaryYellow)
+                          : null,
+                      onTap: () {
+                        onCityChanged(city);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
+/// 底部地点卡片组件 - 全图+渐变覆盖样式（无收藏按钮，收藏在详情页）
 class _BottomSpotCard extends StatelessWidget {
   const _BottomSpotCard({
     required this.spot,
@@ -1292,118 +1314,160 @@ class _BottomSpotCard extends StatelessWidget {
   final Spot spot;
   final VoidCallback onTap;
 
+  /// Build image widget that handles both data URIs and network URLs
+  Widget _buildCover() {
+    final placeholder = Container(
+      color: AppTheme.lightGray,
+      child: const Icon(
+        Icons.place,
+        size: 52,
+        color: AppTheme.mediumGray,
+      ),
+    );
+
+    if (spot.coverImage.isEmpty) return placeholder;
+
+    // Handle data URI format (data:image/jpeg;base64,...)
+    if (spot.coverImage.startsWith('data:')) {
+      try {
+        final base64Data = spot.coverImage.split(',').last;
+        final bytes = base64Decode(base64Data);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder,
+        );
+      } catch (e) {
+        return placeholder;
+      }
+    }
+    // Handle regular network URLs
+    return Image.network(
+      spot.coverImage,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => placeholder,
+    );
+  }
+
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border:
-                Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: SizedBox(
-            width: 180,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(AppTheme.radiusMedium - 1),
-                  ),
-                  child: Image.network(
-                    spot.coverImage,
-                    height: 135,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border:
+              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildCover(),
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black26,
+                      Colors.black87,
+                    ],
                   ),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Wrap(
-                          spacing: 6,
-                          children: spot.tags
-                              .take(2)
-                              .map(
-                                (tag) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppTheme.primaryYellow.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(
-                                      AppTheme.radiusSmall,
-                                    ),
-                                    border: Border.all(
-                                      color: AppTheme.black,
-                                      width: 0.5,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    tag,
-                                    style: AppTheme.labelSmall(context),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          spot.name,
-                          style: AppTheme.bodyLarge(context).copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              color: AppTheme.primaryYellow,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${spot.rating}',
-                              style: AppTheme.bodyMedium(context).copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '(${spot.ratingCount})',
-                              style: AppTheme.bodySmall(context).copyWith(
-                                color: AppTheme.mediumGray,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+              ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      spot.name,
+                      style: AppTheme.bodyLarge(context).copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    _RatingRow(
+                      rating: spot.rating,
+                      ratingCount: spot.ratingCount,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      );
+      ),
+    );
+  }
+}
+
+class _RatingRow extends StatelessWidget {
+  const _RatingRow({
+    required this.rating,
+    required this.ratingCount,
+  });
+
+  final double rating;
+  final int ratingCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasRating = rating > 0;
+    return Row(
+      children: [
+        Icon(
+          Icons.star,
+          color: hasRating ? AppTheme.primaryYellow : Colors.white70,
+          size: 18,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          hasRating ? rating.toStringAsFixed(1) : '暂无评分',
+          style: AppTheme.bodyMedium(context).copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (hasRating) ...[
+          const SizedBox(width: 4),
+          Text(
+            '($ratingCount)',
+            style: AppTheme.bodySmall(context).copyWith(
+              color: Colors.white70,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class SpotDetailModal extends ConsumerStatefulWidget {
-  const SpotDetailModal({required this.spot, super.key});
+  const SpotDetailModal({
+    required this.spot,
+    this.initialIsSaved,
+    this.initialIsMustGo,
+    this.initialIsTodaysPlan,
+    super.key,
+  });
 
   final Spot spot;
+  /// If provided, skip async loading and use these initial values
+  final bool? initialIsSaved;
+  final bool? initialIsMustGo;
+  final bool? initialIsTodaysPlan;
 
   @override
   ConsumerState<SpotDetailModal> createState() => _SpotDetailModalState();
@@ -1417,11 +1481,51 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
   bool _isTodaysPlan = false;
   bool _isActionLoading = false;
   String? _destinationId;
+  bool _hasStatusChanged = false; // Track if any status changed
 
   @override
   void initState() {
     super.initState();
+    // If caller passes initial values, use them for first paint to avoid flicker.
+    // Still fetch latest status/destinationId afterwards to stay in sync.
+    if (widget.initialIsSaved != null) {
+      _isWishlist = widget.initialIsSaved!;
+      _isMustGo = widget.initialIsMustGo ?? false;
+      _isTodaysPlan = widget.initialIsTodaysPlan ?? false;
+    }
+    // Always load authoritative status in background.
     _loadWishlistStatus();
+  }
+
+  /// Load only the destinationId without updating wishlist status
+  Future<void> _loadDestinationId() async {
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) return;
+    try {
+      final repo = ref.read(tripRepositoryProvider);
+      final trips = await repo.getMyTrips();
+      for (final t in trips) {
+        try {
+          final detail = await repo.getTripById(t.id);
+          final tripSpot = detail.tripSpots?.firstWhere(
+            _matchesTripSpot,
+            orElse: () => throw StateError('not found'),
+          );
+          if (tripSpot != null) {
+            _destinationId = detail.id;
+            return;
+          }
+        } catch (_) {
+          // ignore this trip
+        }
+      }
+      // Fallback: get/create destination by city
+      final city = widget.spot.city.trim();
+      if (city.isEmpty) return;
+      _destinationId = await ensureDestinationForCity(ref, city);
+    } catch (_) {
+      // ignore errors
+    }
   }
 
   List<String> _effectiveTags() {
@@ -1444,6 +1548,25 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
     }
 
     return result;
+  }
+
+  /// Build placeholder widget for missing images
+  Widget _buildPlaceholder() {
+    return Container(
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+        color: AppTheme.lightGray,
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.image_outlined,
+          size: 64,
+          color: AppTheme.mediumGray,
+        ),
+      ),
+    );
   }
 
   @override
@@ -1469,26 +1592,54 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
               children: [
                 SizedBox(
                   height: 300,
-                  child: PageView.builder(
-                    controller: _imagePageController,
-                    onPageChanged: (index) {
-                      setState(() {
-                        _currentImageIndex = index;
-                      });
-                    },
-                    itemCount: widget.spot.images.length,
-                    itemBuilder: (context, index) => Container(
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(24),
-                        ),
-                        image: DecorationImage(
-                          image: NetworkImage(widget.spot.images[index]),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  ),
+                  child: widget.spot.images.isNotEmpty
+                      ? PageView.builder(
+                          controller: _imagePageController,
+                          onPageChanged: (index) {
+                            setState(() {
+                              _currentImageIndex = index;
+                            });
+                          },
+                          itemCount: widget.spot.images.length,
+                          itemBuilder: (context, index) {
+                            final imageSource = widget.spot.images[index];
+                            // Handle data URI images
+                            if (imageSource.startsWith('data:')) {
+                              try {
+                                final base64Data = imageSource.split(',').last;
+                                final bytes = base64Decode(base64Data);
+                                return ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(24),
+                                  ),
+                                  child: Image.memory(
+                                    bytes,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    errorBuilder: (_, __, ___) =>
+                                        _buildPlaceholder(),
+                                  ),
+                                );
+                              } catch (e) {
+                                return _buildPlaceholder();
+                              }
+                            }
+                            // Handle network URLs
+                            return Container(
+                              decoration: BoxDecoration(
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(24),
+                                ),
+                                image: DecorationImage(
+                                  image: NetworkImage(imageSource),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : _buildPlaceholder(),
                 ),
                 if (widget.spot.images.length > 1)
                   Positioned(
@@ -1519,7 +1670,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                   right: 16,
                   child: IconButtonCustom(
                     icon: Icons.close,
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => Navigator.pop(context, _hasStatusChanged),
                     backgroundColor: Colors.white,
                   ),
                 ),
@@ -1609,32 +1760,85 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    SaveSpotButton(
-                      isSaved: _isWishlist,
-                      isMustGo: _isMustGo,
-                      isTodaysPlan: _isTodaysPlan,
-                      isLoading: _isActionLoading,
-                      onSave: () async {
-                        final success = await _handleAddWishlist();
-                        if (success && context.mounted) {
-                          CustomToast.showSuccess(context, 'Added to wishlist');
-                        }
-                        return success;
-                      },
-                      onUnsave: () async {
-                        final ok = await _handleRemoveWishlist();
-                        if (ok && context.mounted) {
-                          CustomToast.showSuccess(context, 'Removed from wishlist');
-                        }
-                        return ok;
-                      },
-                      onToggleMustGo: (isChecked) async {
-                        return await _handleToggleMustGo(isChecked);
-                      },
-                      onToggleTodaysPlan: (isChecked) async {
-                        return await _handleToggleTodaysPlan(isChecked);
-                      },
-                    ),
+                    // 根据收藏状态显示不同的按钮
+                    if (!_isWishlist)
+                      // 未收藏状态：显示大的收藏按钮
+                      GestureDetector(
+                        onTap: _isActionLoading
+                            ? null
+                            : () async {
+                                final success = await _handleAddWishlist();
+                                if (success && context.mounted) {
+                                  CustomToast.showSuccess(
+                                      context, 'Saved');
+                                }
+                              },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryYellow,
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSmall),
+                            border: Border.all(color: AppTheme.black, width: 2),
+                            boxShadow: AppTheme.cardShadow,
+                          ),
+                          child: _isActionLoading
+                              ? const Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.black,
+                                    ),
+                                  ),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.favorite_border,
+                                      color: AppTheme.black,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      'Save',
+                                      style:
+                                          AppTheme.labelLarge(context).copyWith(
+                                        color: AppTheme.black,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      )
+                    else
+                      // 已收藏状态：显示完整的 SaveSpotButton
+                      SaveSpotButton(
+                        isSaved: true,
+                        isMustGo: _isMustGo,
+                        isTodaysPlan: _isTodaysPlan,
+                        isLoading: _isActionLoading,
+                        onSave: () async => true,
+                        onUnsave: () async {
+                          final ok = await _handleRemoveWishlist();
+                          if (ok && context.mounted) {
+                            CustomToast.showSuccess(
+                                context, 'Removed');
+                          }
+                          return ok;
+                        },
+                        onToggleMustGo: (isChecked) async {
+                          return await _handleToggleMustGo(isChecked);
+                        },
+                        onToggleTodaysPlan: (isChecked) async {
+                          return await _handleToggleTodaysPlan(isChecked);
+                        },
+                      ),
                   ],
                 ),
               ),
@@ -1662,7 +1866,10 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
           );
       ref.invalidate(tripsProvider);
       if (mounted) {
-        setState(() => _isWishlist = true);
+        setState(() {
+          _isWishlist = true;
+          _hasStatusChanged = true;
+        });
       }
       return true;
     } catch (e) {
@@ -1698,6 +1905,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
           _isWishlist = false;
           _isMustGo = false;
           _isTodaysPlan = false;
+          _hasStatusChanged = true;
         });
       }
       return true;
@@ -1737,7 +1945,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
         CustomToast.showSuccess(
           context,
           status == TripSpotStatus.todaysPlan
-              ? 'Added to Today\'s Plan'
+              ? "Added to Today's Plan"
               : 'Added to MustGo',
         );
       }
@@ -1773,7 +1981,10 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       
       ref.invalidate(tripsProvider);
       if (mounted) {
-        setState(() => _isMustGo = isChecked);
+        setState(() {
+          _isMustGo = isChecked;
+          _hasStatusChanged = true;
+        });
         CustomToast.showSuccess(
           context,
           isChecked ? 'Added to MustGo' : 'Removed from MustGo',
@@ -1812,7 +2023,10 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       
       ref.invalidate(tripsProvider);
       if (mounted) {
-        setState(() => _isTodaysPlan = isChecked);
+        setState(() {
+          _isTodaysPlan = isChecked;
+          _hasStatusChanged = true;
+        });
         CustomToast.showSuccess(
           context,
           isChecked ? "Added to Today's Plan" : "Removed from Today's Plan",
@@ -1827,6 +2041,17 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
         setState(() => _isActionLoading = false);
       }
     }
+  }
+
+  /// Check if a TripSpot matches the current spot by googlePlaceId or name
+  bool _matchesTripSpot(TripSpot ts) {
+    final spot = ts.spot;
+    if (spot == null) return false;
+    // Compare by googlePlaceId (widget.spot.id is the googlePlaceId in this context)
+    if (spot.googlePlaceId == widget.spot.id) return true;
+    // Fallback: compare by name (case-insensitive)
+    if (spot.name.toLowerCase() == widget.spot.name.toLowerCase()) return true;
+    return false;
   }
 
   Future<void> _loadWishlistStatus() async {
@@ -1846,7 +2071,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       if (_destinationId != null) {
         final trip = await ref.read(tripRepositoryProvider).getTripById(_destinationId!);
         final tripSpot = trip.tripSpots?.firstWhere(
-          (ts) => ts.spotId == widget.spot.id,
+          _matchesTripSpot,
           orElse: () => throw StateError('not found'),
         );
         if (tripSpot != null) {
@@ -1863,7 +2088,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
         try {
           final detail = await repo.getTripById(t.id);
           final tripSpot = detail.tripSpots?.firstWhere(
-            (ts) => ts.spotId == widget.spot.id,
+            _matchesTripSpot,
             orElse: () => throw StateError('not found'),
           );
           if (tripSpot != null) {
@@ -1884,7 +2109,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       _destinationId = destId;
       final trip = await ref.read(tripRepositoryProvider).getTripById(destId);
       final tripSpot = trip.tripSpots?.firstWhere(
-        (ts) => ts.spotId == widget.spot.id,
+        _matchesTripSpot,
         orElse: () => throw StateError('not found'),
       );
       if (tripSpot != null && mounted) {
@@ -1920,6 +2145,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
         'priceLevel': null,
         'website': null,
         'phoneNumber': null,
+        'googlePlaceId': widget.spot.id, // 添加 googlePlaceId 用于匹配
         'source': 'app_wishlist',
       };
 }

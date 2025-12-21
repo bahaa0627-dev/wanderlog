@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
-import 'package:wanderlog/features/map/presentation/pages/album_spots_map_page.dart';
+import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 
@@ -68,7 +68,9 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
   /// 根据选中的城市筛选合集
   void _filterCollections() {
     final city = widget.selectedCity?.toLowerCase().trim();
-    if (city == null || city.isEmpty) {
+    final isAll =
+        city == null || city.isEmpty || city == 'all' || city == '__all__';
+    if (isAll) {
       // 没有选择城市时显示所有收藏的合集
       _filteredCollections = List.from(_allCollections);
     } else {
@@ -126,9 +128,9 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
             onTap: () async {
               final result = await Navigator.of(context).push<dynamic>(
                 MaterialPageRoute<dynamic>(
-                  builder: (_) => AlbumSpotsMapPage(
+                  builder: (_) => CollectionSpotsMapPage(
                     city: city,
-                    albumTitle: collection['name'] as String? ?? 'Collection',
+                    collectionTitle: collection['name'] as String? ?? 'Collection',
                     collectionId: collection['id'] as String?,
                     initialIsFavorited: collection['isFavorited'] as bool?,
                     description: collection['description'] as String?,

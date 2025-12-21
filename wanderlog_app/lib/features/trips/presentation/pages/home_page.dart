@@ -7,7 +7,7 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
-import 'package:wanderlog/features/map/presentation/pages/album_spots_map_page.dart';
+import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/widgets/ai_recognition_sheets_new.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/trips_bottom_nav.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
@@ -21,7 +21,7 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   int _selectedIndex = 0;
-  int _selectedTab = 0; // 0: Album, 1: Map
+  int _selectedTab = 0; // 0: Collection, 1: Map
   bool _isMapFullscreen = false;
   List<Map<String, dynamic>> _collections = [];
   bool _isLoadingCollections = false;
@@ -164,9 +164,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 onTap: () async {
                                   final result = await Navigator.of(context).push<dynamic>(
                                     MaterialPageRoute<dynamic>(
-                                      builder: (context) => AlbumSpotsMapPage(
+                                      builder: (context) => CollectionSpotsMapPage(
                                         city: city,
-                                        albumTitle: title,
+                                        collectionTitle: title,
                                         collectionId: item['id'] as String?,
                                         initialIsFavorited: _asBool(item['isFavorited']),
                                         description: item['description'] as String?,
@@ -406,7 +406,7 @@ class _TabSwitcher extends StatelessWidget {
                     ),
                     child: Center(
                       child: Text(
-                        'Album',
+                        'Collection',
                         style: AppTheme.labelLarge(context),
                       ),
                     ),

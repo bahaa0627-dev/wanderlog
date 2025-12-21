@@ -352,10 +352,34 @@ export const getPlaceById = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Place not found' });
     }
     // 解析 JSON 字段，前端期望数组而不是字符串
+    const parsedTags: string[] = (() => {
+      if (spot.tags) {
+        try {
+          const val = JSON.parse(spot.tags);
+          return Array.isArray(val) ? val : [];
+        } catch (_) {
+          return [];
+        }
+      }
+      return [];
+    })();
+    const parsedAiTags: string[] = (() => {
+      if ((spot as any).aiTags) {
+        try {
+          const val = JSON.parse((spot as any).aiTags);
+          return Array.isArray(val) ? val : [];
+        } catch (_) {
+          return [];
+        }
+      }
+      return [];
+    })();
+    const mergedTags = parsedTags.length > 0 ? parsedTags : parsedAiTags;
     const normalizedSpot = {
       ...spot,
-      tags: spot.tags ? JSON.parse(spot.tags) : [],
+      tags: mergedTags,
       images: spot.images ? JSON.parse(spot.images) : [],
+      openingHours: spot.openingHours ? JSON.parse(spot.openingHours) : undefined,
     };
     res.json(normalizedSpot);
   } catch (error) {

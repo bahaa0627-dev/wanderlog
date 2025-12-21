@@ -65,6 +65,34 @@ class PublicPlaceRepository {
       throw PublicPlaceRepositoryException(error.toString());
     }
   }
+
+  /// Fetch list of cities that have places in the database
+  Future<List<String>> fetchCities({String? query}) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/public-places/cities',
+        queryParameters: {
+          if (query != null && query.isNotEmpty) 'q': query,
+        },
+      );
+
+      final data = response.data?['data'];
+      if (data is List) {
+        return data.whereType<String>().toList();
+      }
+      return const [];
+    } on DioException catch (error) {
+      final dynamic payload = error.response?.data;
+      final message = payload is Map<String, dynamic>
+          ? payload['error'] as String?
+          : error.message;
+      throw PublicPlaceRepositoryException(
+        message ?? 'Failed to load cities',
+      );
+    } catch (error) {
+      throw PublicPlaceRepositoryException(error.toString());
+    }
+  }
 }
 
 class PublicPlaceRepositoryException implements Exception {

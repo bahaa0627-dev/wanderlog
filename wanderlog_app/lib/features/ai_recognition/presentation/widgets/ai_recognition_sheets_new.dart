@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
@@ -805,6 +807,50 @@ class SpotCardOverlay extends StatefulWidget {
 class _SpotCardOverlayState extends State<SpotCardOverlay> {
   bool _isInWishlist = false;
 
+  /// Decode base64 image data from data URI
+  Uint8List? _decodeBase64Image(String dataUri) {
+    try {
+      final base64Data = dataUri.split(',').last;
+      return base64Decode(base64Data);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Build cover image widget that handles both data URIs and network URLs
+  Widget _buildCoverImage(String imageUrl) {
+    const placeholder = ColoredBox(
+      color: AppTheme.lightGray,
+      child: Center(
+        child: Icon(
+          Icons.image_not_supported,
+          size: 48,
+          color: AppTheme.mediumGray,
+        ),
+      ),
+    );
+
+    if (imageUrl.isEmpty) return placeholder;
+
+    if (imageUrl.startsWith('data:')) {
+      final bytes = _decodeBase64Image(imageUrl);
+      if (bytes != null) {
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder,
+        );
+      }
+      return placeholder;
+    }
+
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => placeholder,
+    );
+  }
+
   @override
   Widget build(BuildContext context) => GestureDetector(
         onTap: () {
@@ -832,21 +878,8 @@ class _SpotCardOverlayState extends State<SpotCardOverlay> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // 背景图片
-                  Image.network(
-                    widget.spot.coverImage,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const ColoredBox(
-                        color: AppTheme.lightGray,
-                        child: Center(
-                          child: Icon(
-                            Icons.image_not_supported,
-                            size: 48,
-                            color: AppTheme.mediumGray,
-                          ),
-                        ),
-                      ),
-                  ),
+                  // 背景图片 - 支持 data URI 和网络图片
+                  _buildCoverImage(widget.spot.coverImage),
                   // 渐变遮罩
                   Positioned.fill(
                     child: Container(

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
@@ -55,6 +58,35 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
     super.dispose();
   }
 
+  /// Decode base64 image data from data URI
+  Uint8List? _decodeBase64Image(String dataUri) {
+    try {
+      final base64Data = dataUri.split(',').last;
+      return base64Decode(base64Data);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Build placeholder widget for missing images
+  Widget _buildPlaceholder() {
+    return Container(
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+        color: AppTheme.lightGray,
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.image_outlined,
+          size: 64,
+          color: AppTheme.mediumGray,
+        ),
+      ),
+    );
+  }
+
   List<String> _effectiveTags() {
     final List<String> result = [];
     final Set<String> seen = {};
@@ -102,17 +134,40 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                             });
                           },
                           itemCount: widget.spot.images.length,
-                          itemBuilder: (context, index) => Container(
-                            decoration: BoxDecoration(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(24),
+                          itemBuilder: (context, index) {
+                            final imageSource = widget.spot.images[index];
+                            // Handle data URI images
+                            if (imageSource.startsWith('data:')) {
+                              final bytes = _decodeBase64Image(imageSource);
+                              if (bytes != null) {
+                                return ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(24),
+                                  ),
+                                  child: Image.memory(
+                                    bytes,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                                  ),
+                                );
+                              }
+                              return _buildPlaceholder();
+                            }
+                            // Handle network URLs
+                            return Container(
+                              decoration: BoxDecoration(
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(24),
+                                ),
+                                image: DecorationImage(
+                                  image: NetworkImage(imageSource),
+                                  fit: BoxFit.cover,
+                                ),
                               ),
-                              image: DecorationImage(
-                                image: NetworkImage(widget.spot.images[index]),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
+                            );
+                          },
                         )
                       : Container(
                           decoration: const BoxDecoration(

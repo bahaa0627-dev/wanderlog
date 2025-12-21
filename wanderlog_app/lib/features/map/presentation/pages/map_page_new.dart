@@ -1479,7 +1479,9 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
   bool _isWishlist = false;
   bool _isMustGo = false;
   bool _isTodaysPlan = false;
-  bool _isActionLoading = false;
+  bool _isActionLoading = false; // Only for save/unsave operations
+  bool _isMustGoLoading = false; // Separate loading for MustGo
+  bool _isTodaysPlanLoading = false; // Separate loading for Today's Plan
   String? _destinationId;
   bool _hasStatusChanged = false; // Track if any status changed
 

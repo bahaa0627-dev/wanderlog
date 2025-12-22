@@ -86,6 +86,18 @@ class OpeningHoursUtils {
     return weekdayEval;
   }
 
+  /// Compatibility helper: some call sites want to force a timezone.
+  ///
+  /// Current implementation still relies on `utc_offset_minutes` embedded in
+  /// the openingHours payload (preferred) and will fall back to device time if
+  /// absent. The [timezoneId] is accepted to keep call sites stable.
+  static OpeningHoursEvaluation? evaluateWithTimezone(
+    Map<String, dynamic>? raw,
+    String timezoneId,
+  ) {
+    return evaluate(raw);
+  }
+
   static String _formatSummary(DateTime now, OpeningHoursComputation computed) {
     if (computed.isOpen && computed.closingTime != null) {
       final diff = computed.closingTime!.difference(now);
@@ -285,7 +297,12 @@ class OpeningHoursUtils {
       }
 
       // Otherwise show next opening from future days.
-      final nextOpenText = _findNextOpeningFromWeekdayText(weekdayText, index);
+      // After closing time, search from tomorrow to avoid returning today's
+      // already-passed opening time.
+      final nextOpenText = _findNextOpeningFromWeekdayText(
+        weekdayText,
+        (index + 1) % weekdayText.length,
+      );
       return OpeningHoursEvaluation(
         now: now,
         isOpen: false,

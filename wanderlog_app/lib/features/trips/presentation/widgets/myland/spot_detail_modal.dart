@@ -77,8 +77,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
   }
 
   /// Build placeholder widget for missing images
-  Widget _buildPlaceholder() {
-    return Container(
+  Widget _buildPlaceholder() => Container(
       decoration: const BoxDecoration(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(24),
@@ -93,7 +92,6 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
         ),
       ),
     );
-  }
 
   List<String> _effectiveTags() {
     final List<String> result = [];
@@ -117,8 +115,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
     return result;
   }
 
-  Widget _buildCheckInButton() {
-    return GestureDetector(
+  Widget _buildCheckInButton() => GestureDetector(
       onTap: _isVisited ? null : _handleCheckIn,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -149,10 +146,8 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
         ),
       ),
     );
-  }
 
-  Widget _buildUserCheckInInfo() {
-    return Container(
+  Widget _buildUserCheckInInfo() => Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.background,
@@ -249,7 +244,6 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
         ],
       ),
     );
-  }
 
   String _formatVisitDate(DateTime date) {
     final now = DateTime.now();
@@ -428,7 +422,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.location_on_outlined,
                             size: 18,
                             color: AppTheme.mediumGray,
@@ -490,7 +484,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
             // Fixed bottom bar with SaveSpotButton
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(
                   top: BorderSide(
@@ -517,12 +511,8 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                     }
                     return ok;
                   },
-                  onToggleMustGo: (isChecked) async {
-                    return await _handleToggleMustGo(isChecked);
-                  },
-                  onToggleTodaysPlan: (isChecked) async {
-                    return await _handleToggleTodaysPlan(isChecked);
-                  },
+                  onToggleMustGo: (isChecked) async => await _handleToggleMustGo(isChecked),
+                  onToggleTodaysPlan: (isChecked) async => await _handleToggleTodaysPlan(isChecked),
                 ),
               ),
             ),

@@ -22,7 +22,10 @@ class SpotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final openingEval = OpeningHoursUtils.evaluate(spot.openingHours);
+    // For Japan, force local time to Asia/Tokyo
+    final openingEval = (spot.country == 'JP')
+      ? OpeningHoursUtils.evaluateWithTimezone(spot.openingHours, 'Asia/Tokyo')
+      : OpeningHoursUtils.evaluate(spot.openingHours);
     final String? openingText = openingEval?.summaryText;
     final bool isClosingSoon = openingEval?.isClosingSoon ?? false;
     final String? priceText = _priceInfoText();
@@ -149,8 +152,7 @@ class SpotCard extends StatelessWidget {
     );
   }
 
-  Widget _buildCoverImage() {
-    return SizedBox(
+  Widget _buildCoverImage() => SizedBox(
       width: 130,
       child: ClipRRect(
         borderRadius: const BorderRadius.horizontal(
@@ -164,7 +166,6 @@ class SpotCard extends StatelessWidget {
         ),
       ),
     );
-  }
 
   /// Build image widget that handles both data URIs and network URLs
   Widget _buildImageWidget(String imageSource) {
@@ -190,8 +191,7 @@ class SpotCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholder() {
-    return Container(
+  Widget _buildPlaceholder() => Container(
       color: AppTheme.background,
       child: const Center(
         child: Icon(
@@ -201,7 +201,6 @@ class SpotCard extends StatelessWidget {
         ),
       ),
     );
-  }
 
   Widget _buildFavoriteButton() => GestureDetector(
         onTap: onToggleMustGo,
@@ -274,8 +273,8 @@ class SpotCard extends StatelessWidget {
         // Extract opening and closing times from hours string (e.g., "9:00 AM – 5:00 PM")
         final hoursMatch = RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)\s*–\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false).firstMatch(hours);
         if (hoursMatch != null) {
-          final openTime = hoursMatch.group(1)! + (hoursMatch.group(2) != null ? ':${hoursMatch.group(2)}' : '') + ' ' + hoursMatch.group(3)!;
-          final closeTime = hoursMatch.group(4)! + (hoursMatch.group(5) != null ? ':${hoursMatch.group(5)}' : '') + ' ' + hoursMatch.group(6)!;
+          final openTime = '${hoursMatch.group(1)!}${hoursMatch.group(2) != null ? ':${hoursMatch.group(2)}' : ''} ${hoursMatch.group(3)!}';
+          final closeTime = '${hoursMatch.group(4)!}${hoursMatch.group(5) != null ? ':${hoursMatch.group(5)}' : ''} ${hoursMatch.group(6)!}';
           
           // Check if currently open
           if (_isCurrentlyOpenFromHours(hours, now)) {
@@ -494,7 +493,7 @@ class SpotCard extends StatelessWidget {
     // Dart: Monday=1, Tuesday=2, ..., Sunday=7
     // Google: Sunday=0, Monday=1, ..., Saturday=6
     final currentGoogleDay = reference.weekday == 7 ? 0 : reference.weekday;
-    var delta = googleDay - currentGoogleDay;
+    final delta = googleDay - currentGoogleDay;
     var candidate = startOfDay.add(Duration(days: delta));
     candidate = candidate.add(Duration(hours: hours, minutes: minutes));
     if (futureOnly && !candidate.isAfter(reference)) {

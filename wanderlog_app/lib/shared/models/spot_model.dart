@@ -9,16 +9,9 @@ class Spot {
 
   Spot({
     required this.id,
-    this.googlePlaceId,
-    required this.name,
+    required this.name, required this.latitude, required this.longitude, required this.tags, required this.images, required this.createdAt, required this.updatedAt, this.googlePlaceId,
     this.city,
     this.country,
-    required this.latitude,
-    required this.longitude,
-    required this.tags,
-    required this.images,
-    required this.createdAt,
-    required this.updatedAt,
     this.address,
     this.category,
     this.openingHours,

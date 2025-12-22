@@ -121,7 +121,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
       final categoryLower = spot.category.toLowerCase();
       return _selectedTags.any((tag) =>
           spotTags.contains(tag.toLowerCase()) ||
-          categoryLower == tag.toLowerCase());
+          categoryLower == tag.toLowerCase(),);
     }).toList();
   }
 
@@ -248,7 +248,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
       ),
     ).then((hasChanged) {
       // Only refresh if status actually changed
-      if (hasChanged == true) {
+      if (hasChanged ?? false) {
         widget.onDataChanged?.call();
       }
     });
@@ -485,10 +485,10 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
             ),
           ),
 
-          // 底部地点卡片滑动列表 - 调整位置避免遮挡
+          // 底部地点卡片滑动列表 - 与 map_page_new.dart 保持一致
           if (spots.isNotEmpty)
             Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 24,
+              bottom: 32, // 与 map_page_new.dart 保持一致
               left: 0,
               right: 0,
               child: _buildBottomCards(spots),
@@ -679,8 +679,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     );
   }
 
-  Widget _buildTagBar(List<String> tags) {
-    return Container(
+  Widget _buildTagBar(List<String> tags) => Container(
       padding: const EdgeInsets.only(bottom: 12),
       child: SizedBox(
         height: 42,
@@ -728,11 +727,11 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         ),
       ),
     );
-  }
 
-  Widget _buildBottomCards(List<map_page.Spot> spots) {
-    const double cardHeight = 220;
-    const double shadowPadding = 8; // Extra space for shadow and border
+  Widget _buildBottomCards(List<map_page.Spot> spots, {double extraHeight = 0}) {
+    // 与 map_page_new.dart 保持一致：卡片高度 240，底部 padding 16 用于阴影
+    const double cardHeight = 240;
+    const double shadowPadding = 16; // 阴影空间
 
     return SizedBox(
       height: cardHeight + shadowPadding,
@@ -854,7 +853,7 @@ class _BottomSpotCard extends StatelessWidget {
       );
 
   Widget _buildCover() {
-    final placeholder = Container(
+    final placeholder = ColoredBox(
       color: AppTheme.lightGray,
       child: const Icon(
         Icons.place,

@@ -111,8 +111,7 @@ class _MyLandScreenState extends State<MyLandScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
         child: Column(
@@ -170,7 +169,6 @@ class _MyLandScreenState extends State<MyLandScreen> {
         ),
       ),
     );
-  }
 }
 
 class _TopUnderlineTab extends StatelessWidget {
@@ -186,7 +184,7 @@ class _TopUnderlineTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = AppTheme.black;
+    const activeColor = AppTheme.black;
     final inactiveColor = AppTheme.black.withOpacity(0.35);
 
     return GestureDetector(

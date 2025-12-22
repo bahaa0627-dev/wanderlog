@@ -219,8 +219,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     }
   }
 
-  Widget _buildPlaceholder() {
-    return Container(
+  Widget _buildPlaceholder() => Container(
       decoration: const BoxDecoration(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         color: AppTheme.lightGray,
@@ -229,7 +228,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         child: Icon(Icons.image_outlined, size: 64, color: AppTheme.mediumGray),
       ),
     );
-  }
 
   List<String> _effectiveTags() {
     final List<String> result = [];
@@ -284,8 +282,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     } catch (_) {}
   }
 
-  Widget _buildCheckInButton() {
-    return GestureDetector(
+  Widget _buildCheckInButton() => GestureDetector(
       onTap: _isVisited ? null : _handleCheckIn,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -313,7 +310,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         ),
       ),
     );
-  }
 
   Future<void> _handleCheckIn() async {
     final authed = await requireAuth(context, ref);
@@ -494,7 +490,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       ),
     );
     
-    if (confirmed == true) {
+    if (confirmed ?? false) {
       try {
         await ref.read(tripRepositoryProvider).manageTripSpot(
           tripId: _destinationId!,
@@ -520,8 +516,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     }
   }
 
-  Widget _buildUserCheckInInfo() {
-    return Container(
+  Widget _buildUserCheckInInfo() => Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.background,
@@ -607,7 +602,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         ],
       ),
     );
-  }
 
   Future<bool> _handleAddWishlist() async {
     setState(() => _isActionLoading = true);
@@ -757,8 +751,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   };
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -985,6 +978,5 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       ],
     ),
     );
-  }
 }
 

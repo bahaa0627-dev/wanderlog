@@ -26,7 +26,7 @@ class TagFilterBar extends StatelessWidget {
   Widget build(BuildContext context) => Container(
       height: 60,
       padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
           bottom: BorderSide(

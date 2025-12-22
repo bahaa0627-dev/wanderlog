@@ -226,18 +226,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                   ? (collectionSpots.first['place'] as Map<String, dynamic>?)
                                                   : null;
                                               
-                              final city = (firstSpot?['city'] as String?)?.isNotEmpty == true
+                              final city = (firstSpot?['city'] as String?)?.isNotEmpty ?? false
                                   ? firstSpot!['city'] as String
                                   : 'Multi-city';
                                               
                               // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
-                              List<dynamic> tagsList = [];
+                              final List<dynamic> tagsList = [];
                               for (final spot in collectionSpots) {
                                 final place = spot['place'] as Map<String, dynamic>?;
                                 if (place == null) continue;
                                 
                                 // 尝试获取 tags
-                                dynamic tagsValue = place['tags'];
+                                final dynamic tagsValue = place['tags'];
                                 if (tagsValue != null) {
                                   if (tagsValue is List) {
                                     tagsList.addAll(tagsValue);
@@ -253,7 +253,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 
                                 // 如果还没有标签，尝试使用 aiTags
                                 if (tagsList.isEmpty) {
-                                  dynamic aiTagsValue = place['aiTags'];
+                                  final dynamic aiTagsValue = place['aiTags'];
                                   if (aiTagsValue != null) {
                                     if (aiTagsValue is List) {
                                       tagsList.addAll(aiTagsValue);
@@ -308,8 +308,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                             initialIsFavorited: false, // 推荐列表中的合集默认未收藏
                                                             description: collection['description'] as String?,
                                                             coverImage: collection['coverImage'] as String?,
-                                                            people: [], // 推荐列表暂不包含people信息
-                                                            works: [], // 推荐列表暂不包含works信息
+                                                            people: const [], // 推荐列表暂不包含people信息
+                                                            works: const [], // 推荐列表暂不包含works信息
                                       ),
                                     ),
                                   );
@@ -586,7 +586,7 @@ class _TripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const double cardRadius = AppTheme.radiusLarge;
-    final double innerRadius = cardRadius - AppTheme.borderThick;
+    const double innerRadius = cardRadius - AppTheme.borderThick;
 
     return RepaintBoundary(
       child: GestureDetector(
@@ -607,8 +607,7 @@ class _TripCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 // 背景图片 - 支持 DataURL (base64) 和网络图片
-                imageUrl.startsWith('data:image/')
-                    ? Image.memory(
+                if (imageUrl.startsWith('data:image/')) Image.memory(
                         _decodeBase64Image(imageUrl),
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
@@ -622,8 +621,7 @@ class _TripCard extends StatelessWidget {
                             color: AppTheme.mediumGray,
                           ),
                         ),
-                      )
-                    : Image.network(
+                      ) else Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
                         gaplessPlayback: true,

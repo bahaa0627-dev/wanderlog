@@ -594,7 +594,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
 
   Widget _buildDescription() {
     final desc = widget.description ?? '';
-    final hasExtra = desc.length > 0;
+    final hasExtra = desc.isNotEmpty;
     if (!hasExtra) return const SizedBox.shrink();
 
     final text = Text(
@@ -932,7 +932,7 @@ class _BottomSpotCard extends StatelessWidget {
       );
 
   Widget _buildCover() {
-    final placeholder = Container(
+    final placeholder = ColoredBox(
       color: AppTheme.lightGray,
       child: const Icon(
         Icons.place,
@@ -1027,8 +1027,7 @@ class _LinkChip extends StatelessWidget {
   final Widget? leading;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: url == null
           ? null
           : () async {
@@ -1061,6 +1060,5 @@ class _LinkChip extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 

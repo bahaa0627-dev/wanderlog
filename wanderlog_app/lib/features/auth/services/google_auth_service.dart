@@ -49,13 +49,11 @@ class GoogleAuthService {
       }
 
       // 如果静默登录失败，则显示登录界面
-      if (account == null) {
-        account = await GoogleSignIn.instance.authenticate(
+      account ??= await GoogleSignIn.instance.authenticate(
           scopeHint: const ['email', 'profile'],
         ).timeout(
           const Duration(seconds: 30),
         );
-      }
 
       // 确保有账户后才请求授权范围
       await account.authorizationClient.authorizationForScopes(

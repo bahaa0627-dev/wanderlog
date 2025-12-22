@@ -14,7 +14,7 @@ class MapViewPage extends StatelessWidget {
     final hasCity = trimmedCity != null && trimmedCity.isNotEmpty;
     final snapshot = hasCity
         ? MapPageSnapshot(
-            selectedCity: trimmedCity!,
+            selectedCity: trimmedCity,
             selectedTags: <String>{},
             currentZoom: 13.0,
             carouselSpots: const <Spot>[],

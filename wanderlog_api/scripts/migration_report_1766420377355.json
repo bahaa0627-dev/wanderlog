@@ -1,0 +1,34 @@
+{
+  "startTime": "2025-12-22T16:18:40.433Z",
+  "results": [
+    {
+      "table": "places",
+      "total": 228,
+      "migrated": 228,
+      "failed": 0,
+      "errors": []
+    },
+    {
+      "table": "collections",
+      "total": 6,
+      "migrated": 6,
+      "failed": 0,
+      "errors": []
+    },
+    {
+      "table": "recommendations",
+      "total": 2,
+      "migrated": 2,
+      "failed": 0,
+      "errors": []
+    },
+    {
+      "table": "users",
+      "total": 7,
+      "migrated": 7,
+      "failed": 0,
+      "errors": []
+    }
+  ],
+  "endTime": "2025-12-22T16:19:37.354Z"
+}

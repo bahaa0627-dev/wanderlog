@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
+    // 自定义灰色和文字色
+    static const Color markerGray = Color(0xFFCCCCCC); // #cccccc
+    static const Color markerLabelGray = Color(0xFF8D8D8D); // #8d8d8d
   // 主题色 - 明亮黄色系列
   static const Color primaryYellow = Color(0xFFFFF200); // 用于实心按钮、tab、标签等
   static const Color borderYellow = Color(0xFFC7BD00); // 用于边框和文字按钮
@@ -168,11 +171,11 @@ class AppTheme {
       onSurface: black,
     ),
     scaffoldBackgroundColor: background,
-    appBarTheme: AppBarTheme(
+    appBarTheme: const AppBarTheme(
       backgroundColor: white,
       elevation: 0,
-      iconTheme: const IconThemeData(color: black),
-      titleTextStyle: const TextStyle(
+      iconTheme: IconThemeData(color: black),
+      titleTextStyle: TextStyle(
         fontFamily: 'ReemKufi',
         fontSize: textLarge,
         fontWeight: FontWeight.bold,

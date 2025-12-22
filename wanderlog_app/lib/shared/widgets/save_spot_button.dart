@@ -12,14 +12,7 @@ typedef ToggleOptionCallback = Future<bool> Function(bool isChecked);
 /// - Right: MustGo and Today's Plan checkboxes
 class SaveSpotButton extends StatefulWidget {
   const SaveSpotButton({
-    super.key,
-    required this.isSaved,
-    required this.isMustGo,
-    required this.isTodaysPlan,
-    required this.onSave,
-    required this.onUnsave,
-    required this.onToggleMustGo,
-    required this.onToggleTodaysPlan,
+    required this.isSaved, required this.isMustGo, required this.isTodaysPlan, required this.onSave, required this.onUnsave, required this.onToggleMustGo, required this.onToggleTodaysPlan, super.key,
     this.isLoading = false,
     this.isMustGoLoading = false,
     this.isTodaysPlanLoading = false,
@@ -105,8 +98,7 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
     );
   }
 
-  Widget _buildSaveCircleButton(bool isLoading) {
-    return GestureDetector(
+  Widget _buildSaveCircleButton(bool isLoading) => GestureDetector(
       onTap: _handleSaveTap,
       child: Container(
         width: 48,
@@ -135,10 +127,8 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
               ),
       ),
     );
-  }
 
-  Widget _buildOptionsPanel(bool isLoading) {
-    return Container(
+  Widget _buildOptionsPanel(bool isLoading) => Container(
       height: 48,
       decoration: BoxDecoration(
         color: AppTheme.white,
@@ -184,7 +174,6 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
         ],
       ),
     );
-  }
 }
 
 class _OptionCheckbox extends StatelessWidget {

@@ -1340,7 +1340,7 @@ class _BottomSpotCard extends StatelessWidget {
 
   /// Build image widget that handles both data URIs and network URLs
   Widget _buildCover() {
-    final placeholder = Container(
+    final placeholder = ColoredBox(
       color: AppTheme.lightGray,
       child: const Icon(
         Icons.place,
@@ -1374,8 +1374,7 @@ class _BottomSpotCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 6),
@@ -1434,7 +1433,6 @@ class _BottomSpotCard extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 
 class _RatingRow extends StatelessWidget {
@@ -1578,8 +1576,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
   }
 
   /// Build placeholder widget for missing images
-  Widget _buildPlaceholder() {
-    return Container(
+  Widget _buildPlaceholder() => Container(
       decoration: const BoxDecoration(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(24),
@@ -1594,7 +1591,6 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
         ),
       ),
     );
-  }
 
   @override
   void dispose() {
@@ -1803,7 +1799,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                                 final success = await _handleAddWishlist();
                                 if (success && context.mounted) {
                                   CustomToast.showSuccess(
-                                      context, 'Saved');
+                                      context, 'Saved',);
                                 }
                               },
                         child: Container(
@@ -1863,16 +1859,12 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                           final ok = await _handleRemoveWishlist();
                           if (ok && context.mounted) {
                             CustomToast.showSuccess(
-                                context, 'Removed');
+                                context, 'Removed',);
                           }
                           return ok;
                         },
-                        onToggleMustGo: (isChecked) async {
-                          return await _handleToggleMustGo(isChecked);
-                        },
-                        onToggleTodaysPlan: (isChecked) async {
-                          return await _handleToggleTodaysPlan(isChecked);
-                        },
+                        onToggleMustGo: (isChecked) async => await _handleToggleMustGo(isChecked),
+                        onToggleTodaysPlan: (isChecked) async => await _handleToggleTodaysPlan(isChecked),
                       ),
                   ],
                 ),
@@ -2155,8 +2147,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
     }
   }
 
-  Widget _buildCheckInButton() {
-    return GestureDetector(
+  Widget _buildCheckInButton() => GestureDetector(
       onTap: _isVisited ? null : _handleCheckIn,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -2187,7 +2178,6 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
         ),
       ),
     );
-  }
 
   Future<void> _handleCheckIn() async {
     // Check authentication first

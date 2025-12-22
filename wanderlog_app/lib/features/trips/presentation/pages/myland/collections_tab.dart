@@ -122,12 +122,12 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
             ? (spots.first['spot'] as Map<String, dynamic>? ?? 
                spots.first['place'] as Map<String, dynamic>?)
             : null;
-        final city = (firstSpot?['city'] as String?)?.isNotEmpty == true
+        final city = (firstSpot?['city'] as String?)?.isNotEmpty ?? false
             ? firstSpot!['city'] as String
             : 'Multi-city';
         final count = spots.length;
         // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
-        List<dynamic> tagsList = [];
+        final List<dynamic> tagsList = [];
         for (final spot in spots) {
           // 兼容 place 和 spot 两种字段名
           final spotData = spot['spot'] as Map<String, dynamic>? ?? 
@@ -135,8 +135,8 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
           if (spotData == null) continue;
           
           // 尝试获取 tags
-          dynamic tagsValue = spotData['tags'];
-          List<dynamic> currentSpotTags = [];
+          final dynamic tagsValue = spotData['tags'];
+          final List<dynamic> currentSpotTags = [];
           if (tagsValue != null) {
             if (tagsValue is List) {
               currentSpotTags.addAll(tagsValue);
@@ -152,7 +152,7 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
           
           // 如果这个 spot 没有 tags，尝试使用 aiTags
           if (currentSpotTags.isEmpty) {
-            dynamic aiTagsValue = spotData['aiTags'];
+            final dynamic aiTagsValue = spotData['aiTags'];
             if (aiTagsValue != null) {
               if (aiTagsValue is List) {
                 currentSpotTags.addAll(aiTagsValue);
@@ -204,14 +204,14 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
                             name: p['name'] as String? ?? '',
                             link: p['link'] as String?,
                             avatarUrl: p['avatarUrl'] as String?,
-                          ))
+                          ),)
                       .toList(),
                   works: (collection['works'] as List<dynamic>? ?? [])
                       .map((w) => LinkItem(
                             name: w['name'] as String? ?? '',
                             link: w['link'] as String?,
                             coverImage: w['coverImage'] as String?,
-                          ))
+                          ),)
                       .toList(),
                 ),
               ),
@@ -247,8 +247,7 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
+  Widget _buildEmptyState() => Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -273,7 +272,6 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
         ],
       ),
     );
-  }
 }
 
 /// 合集卡片组件
@@ -307,7 +305,7 @@ class _CollectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const double cardRadius = AppTheme.radiusLarge;
-    final double innerRadius = cardRadius - AppTheme.borderThick;
+    const double innerRadius = cardRadius - AppTheme.borderThick;
 
     return RepaintBoundary(
       child: GestureDetector(
@@ -328,8 +326,7 @@ class _CollectionCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 // 背景图片 - 支持 DataURL (base64) 和网络图片
-                image.startsWith('data:image/')
-                    ? Image.memory(
+                if (image.startsWith('data:image/')) Image.memory(
                         _decodeBase64Image(image),
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
@@ -343,8 +340,7 @@ class _CollectionCard extends StatelessWidget {
                             color: AppTheme.mediumGray,
                           ),
                         ),
-                      )
-                    : Image.network(
+                      ) else Image.network(
                         image,
                         fit: BoxFit.cover,
                         gaplessPlayback: true,

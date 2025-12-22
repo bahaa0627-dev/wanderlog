@@ -10,9 +10,7 @@ import 'package:wanderlog/shared/widgets/ui_components.dart';
 
 class RecommendationDetailPage extends ConsumerStatefulWidget {
   const RecommendationDetailPage({
-    super.key,
-    required this.recommendationId,
-    required this.recommendationName,
+    required this.recommendationId, required this.recommendationName, super.key,
   });
 
   final String recommendationId;
@@ -55,8 +53,7 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: AppTheme.background,
@@ -76,7 +73,6 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
               ? const Center(child: Text('Recommendation not found'))
               : _buildContent(),
     );
-  }
 
   Widget _buildContent() {
     final items = _recommendation!['items'] as List<dynamic>? ?? [];
@@ -102,18 +98,18 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
             ? (collectionSpots.first['place'] as Map<String, dynamic>?)
             : null;
         
-        final city = (firstSpot?['city'] as String?)?.isNotEmpty == true
+        final city = (firstSpot?['city'] as String?)?.isNotEmpty ?? false
             ? firstSpot!['city'] as String
             : 'Multi-city';
         
         // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
-        List<dynamic> tagsList = [];
+        final List<dynamic> tagsList = [];
         for (final spot in collectionSpots) {
           final place = spot['place'] as Map<String, dynamic>?;
           if (place == null) continue;
           
           // 尝试获取 tags
-          dynamic tagsValue = place['tags'];
+          final dynamic tagsValue = place['tags'];
           if (tagsValue != null) {
             if (tagsValue is List) {
               tagsList.addAll(tagsValue);
@@ -129,7 +125,7 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
           
           // 如果还没有标签，尝试使用 aiTags
           if (tagsList.isEmpty) {
-            dynamic aiTagsValue = place['aiTags'];
+            final dynamic aiTagsValue = place['aiTags'];
             if (aiTagsValue != null) {
               if (aiTagsValue is List) {
                 tagsList.addAll(aiTagsValue);
@@ -177,8 +173,8 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
                   initialIsFavorited: false,
                   description: collection['description'] as String?,
                   coverImage: collection['coverImage'] as String?,
-                  people: [],
-                  works: [],
+                  people: const [],
+                  works: const [],
                 ),
               ),
             );
@@ -216,7 +212,7 @@ class _TripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const double cardRadius = AppTheme.radiusLarge;
-    final double innerRadius = cardRadius - AppTheme.borderThick;
+    const double innerRadius = cardRadius - AppTheme.borderThick;
 
     return RepaintBoundary(
       child: GestureDetector(
@@ -237,8 +233,7 @@ class _TripCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 // 背景图片
-                imageUrl.startsWith('data:image/')
-                    ? Image.memory(
+                if (imageUrl.startsWith('data:image/')) Image.memory(
                         _decodeBase64Image(imageUrl),
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
@@ -252,8 +247,7 @@ class _TripCard extends StatelessWidget {
                             color: AppTheme.mediumGray,
                           ),
                         ),
-                      )
-                    : Image.network(
+                      ) else Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
                         gaplessPlayback: true,

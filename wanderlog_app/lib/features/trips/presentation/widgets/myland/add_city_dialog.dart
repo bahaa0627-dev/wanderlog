@@ -136,8 +136,7 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Dialog(
+  Widget build(BuildContext context) => Dialog(
       backgroundColor: AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -359,5 +358,4 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
         ),
       ),
     );
-  }
 }

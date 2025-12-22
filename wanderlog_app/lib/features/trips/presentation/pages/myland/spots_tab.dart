@@ -293,7 +293,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         initialIsMustGo: entry.isMustGo,
         initialIsTodaysPlan: entry.isTodaysPlan,
         onStatusChanged: (spotId, {isMustGo, isTodaysPlan, isVisited, isRemoved, needsReload}) {
-          if (needsReload == true) {
+          if (needsReload ?? false) {
             // Reload all data from server to get updated check-in info
             unawaited(_loadDestinationsFromServer());
           } else {
@@ -308,7 +308,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     final index = _indexForSpot(spotId);
     if (index == -1) return;
 
-    if (isRemoved == true) {
+    if (isRemoved ?? false) {
       // Remove from list when unsaved
       setState(() {
         _entries.removeAt(index);
@@ -599,7 +599,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     unawaited(_pushMapAndHandleResult(
       city,
       adoptReturnedCity: adoptReturnedCity,
-    ));
+    ),);
   }
 
   Future<void> _pushMapAndHandleResult(
@@ -1353,12 +1353,7 @@ class _QuickActionChip extends StatelessWidget {
 
 class _ListView extends StatelessWidget {
   const _ListView({
-    super.key,
-    required this.entries,
-    required this.onToggleMustGo,
-    required this.onQuickAddMustGo,
-    required this.onSpotTap,
-    required this.isVisitedTab,
+    required this.entries, required this.onToggleMustGo, required this.onQuickAddMustGo, required this.onSpotTap, required this.isVisitedTab, super.key,
   });
 
   final List<_SpotEntry> entries;
@@ -1420,7 +1415,7 @@ class _SwipeBackground extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.star,
               color: AppTheme.black,
             ),
@@ -1616,11 +1611,7 @@ class _NoDestinationState extends StatelessWidget {
 /// 紧凑地图预览组件 - 类似 home-map 初始态，展示真正的 Mapbox 地图、城市标签和放大按钮
 class _CompactMapPreview extends StatefulWidget {
   const _CompactMapPreview({
-    super.key,
-    required this.entries,
-    required this.cityName,
-    required this.spotsCount,
-    required this.onOpenFullMap,
+    required this.entries, required this.cityName, required this.spotsCount, required this.onOpenFullMap, super.key,
     this.availableCities = const [],
     this.onCityChanged,
   });
@@ -1660,8 +1651,7 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
   }
 
   /// 将 _SpotEntry 转换为 map_page.Spot
-  List<map_page.Spot> _convertToMapSpots() {
-    return widget.entries.map((entry) {
+  List<map_page.Spot> _convertToMapSpots() => widget.entries.map((entry) {
       final spot = entry.spot;
       final List<String> imageList = spot.images;
       final String coverImg = imageList.isNotEmpty ? imageList.first : '';
@@ -1689,7 +1679,6 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
         aiSummary: null,
       );
     }).toList();
-  }
 
   /// 获取地图中心点 - 优先使用选中的地点
   Position _getMapCenter() {
@@ -1876,15 +1865,7 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
 
 class _MapPreview extends StatelessWidget {
   const _MapPreview({
-    super.key,
-    required this.entries,
-    required this.cityName,
-    required this.tagOptions,
-    required this.activeTags,
-    required this.onToggleTag,
-    required this.onOpenFullMap,
-    required this.controller,
-    required this.onCardTap,
+    required this.entries, required this.cityName, required this.tagOptions, required this.activeTags, required this.onToggleTag, required this.onOpenFullMap, required this.controller, required this.onCardTap, super.key,
   });
 
   final List<_SpotEntry> entries;
@@ -2052,7 +2033,7 @@ class _SpotCarouselCard extends StatelessWidget {
 
   /// Build image widget that handles both data URIs and network URLs
   Widget _buildImageWidget(String imageSource) {
-    final placeholder = Container(
+    final placeholder = ColoredBox(
       color: AppTheme.lightGray,
       child: const Icon(
         Icons.photo,
@@ -2108,7 +2089,7 @@ class _SpotCarouselCard extends StatelessWidget {
               Positioned.fill(
                 child: imageUrl != null
                     ? _buildImageWidget(imageUrl)
-                    : Container(
+                    : ColoredBox(
                         color: AppTheme.lightGray,
                         child: const Icon(
                           Icons.photo,
@@ -2150,8 +2131,7 @@ class _SpotCarouselCard extends StatelessWidget {
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
-                      children: _effectiveTags().take(3).map((tag) {
-                        return Container(
+                      children: _effectiveTags().take(3).map((tag) => Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
                             vertical: 4,
@@ -2170,8 +2150,7 @@ class _SpotCarouselCard extends StatelessWidget {
                               color: AppTheme.black,
                             ),
                           ),
-                        );
-                      }).toList(),
+                        )).toList(),
                     ),
                   ],
                 ),
@@ -2391,8 +2370,7 @@ class _VisitedSpotCard extends StatelessWidget {
     return formatted.join('   ');
   }
 
-  Widget _buildCoverImage() {
-    return SizedBox(
+  Widget _buildCoverImage() => SizedBox(
       width: 130,
       child: ClipRRect(
         borderRadius: const BorderRadius.horizontal(
@@ -2406,7 +2384,6 @@ class _VisitedSpotCard extends StatelessWidget {
         ),
       ),
     );
-  }
 
   Widget _buildImageWidget(String imageSource) {
     if (imageSource.startsWith('data:')) {
@@ -2429,8 +2406,7 @@ class _VisitedSpotCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholder() {
-    return Container(
+  Widget _buildPlaceholder() => Container(
       color: AppTheme.background,
       child: const Center(
         child: Icon(
@@ -2440,7 +2416,6 @@ class _VisitedSpotCard extends StatelessWidget {
         ),
       ),
     );
-  }
 
   Widget _buildFavoriteButton() => GestureDetector(
         onTap: () => onToggleMustGo(entry.spot),
@@ -2544,7 +2519,7 @@ class _VisitedSpotCard extends StatelessWidget {
         ? DateTime.utc(reference.year, reference.month, reference.day)
         : DateTime(reference.year, reference.month, reference.day);
     final currentGoogleDay = reference.weekday % 7;
-    var delta = googleDay - currentGoogleDay;
+    final delta = googleDay - currentGoogleDay;
     var candidate = startOfDay.add(Duration(days: delta));
     candidate = candidate.add(Duration(hours: hours, minutes: minutes));
     if (futureOnly && !candidate.isAfter(reference)) {
@@ -2717,7 +2692,7 @@ class _VisitedSpotCard extends StatelessWidget {
             ),
             // Divider that spans the entire card width
             if (hasCheckInData)
-              Divider(
+              const Divider(
                 color: AppTheme.black,
                 thickness: AppTheme.borderThin,
                 height: 1,

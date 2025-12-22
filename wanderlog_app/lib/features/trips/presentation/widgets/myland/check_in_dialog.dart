@@ -57,8 +57,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
+      builder: (context, child) => Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
               primary: AppTheme.primaryYellow,
@@ -66,8 +65,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
             ),
           ),
           child: child!,
-        );
-      },
+        ),
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
@@ -80,8 +78,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime,
-      builder: (context, child) {
-        return Theme(
+      builder: (context, child) => Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
               primary: AppTheme.primaryYellow,
@@ -89,8 +86,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
             ),
           ),
           child: child!,
-        );
-      },
+        ),
     );
     if (picked != null && picked != _selectedTime) {
       setState(() {
@@ -120,8 +116,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Dialog(
+  Widget build(BuildContext context) => Dialog(
       backgroundColor: AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -428,14 +423,12 @@ class _CheckInDialogState extends State<CheckInDialog> {
         ),
       ),
     );
-  }
 
   Widget _buildDateTimeButton({
     required IconData icon,
     required String label,
     required VoidCallback onTap,
-  }) {
-    return GestureDetector(
+  }) => GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -462,11 +455,8 @@ class _CheckInDialogState extends State<CheckInDialog> {
         ),
       ),
     );
-  }
 
-  String _formatDate(DateTime date) {
-    return '${date.month}/${date.day}/${date.year}';
-  }
+  String _formatDate(DateTime date) => '${date.month}/${date.day}/${date.year}';
 
   String _getRatingLabel(double rating) {
     if (rating >= 5.0) return 'Amazing!';

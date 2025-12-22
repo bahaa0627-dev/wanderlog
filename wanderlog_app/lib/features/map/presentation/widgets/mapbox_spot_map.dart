@@ -260,16 +260,21 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       return cached;
     }
 
+    // Spec:
+    // - visited/check-in marker background: #CCCCCC
+    // - visited/check-in border + text: #8D8D8D
+    // - selected non-visited highlight: yellow
+    final Color markerColor = isVisited
+        ? AppTheme.markerGray
+        : (isSelected ? AppTheme.primaryYellow : Colors.white);
+    final Color labelColor = isVisited ? AppTheme.markerLabelGray : AppTheme.black;
     final bitmap = await _createCustomMarkerBitmap(
       spot.name,
       spot.category,
-      // Visited/check-in markers should look grey when not selected.
-      // Selection highlight still uses yellow to communicate active selection.
-      isSelected
-          ? AppTheme.primaryYellow
-          : (isVisited ? AppTheme.lightGray : Colors.white),
+      markerColor,
       isSelected,
       isVisited: isVisited,
+      labelColor: labelColor,
     );
     _markerBitmapCache[cacheKey] = bitmap;
     return bitmap;
@@ -282,6 +287,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     Color backgroundColor,
     bool isSelected, {
     bool isVisited = false,
+    Color labelColor = AppTheme.black,
   }) async {
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
@@ -299,7 +305,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()
-      ..color = AppTheme.black
+      ..color = isVisited ? AppTheme.markerLabelGray : AppTheme.black
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
 
@@ -326,7 +332,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       text: TextSpan(
         text: iconEmoji,
         style: TextStyle(
-          color: isVisited ? AppTheme.mediumGray : AppTheme.black,
+          // Spec: visited/check-in border + text: #8D8D8D
+          color: labelColor,
           fontSize: iconSize,
           fontFamily: 'ReemKufi',
         ),
@@ -347,7 +354,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       text: TextSpan(
         text: title.length > 10 ? '${title.substring(0, 10)}...' : title,
         style: TextStyle(
-          color: isVisited ? AppTheme.mediumGray : AppTheme.black,
+          color: labelColor,
           fontSize: 17,
           fontWeight: FontWeight.bold,
           fontFamily: 'ReemKufi',

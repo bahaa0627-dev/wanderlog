@@ -9,10 +9,11 @@ import 'package:image_picker/image_picker.dart' as picker;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
-import 'package:wanderlog/features/map/data/public_place_repository.dart';
+import 'package:wanderlog/features/map/data/supabase_place_repository.dart';
 import 'package:wanderlog/features/map/data/sample_public_places.dart';
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/features/map/providers/public_place_providers.dart';
+import 'package:wanderlog/features/map/providers/places_cache_provider.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
@@ -927,6 +928,86 @@ class _MapPageState extends ConsumerState<MapPage> {
       _loadingError = null;
     });
 
+    // 优先使用缓存数据
+    final cacheState = ref.read(placesCacheProvider);
+    
+    if (cacheState.hasData && !cacheState.isStale) {
+      // 使用缓存数据
+      _loadFromCache(cacheState);
+      return;
+    }
+
+    // 如果缓存正在加载，等待它完成
+    if (cacheState.isLoading) {
+      // 监听缓存状态变化
+      final completer = Completer<void>();
+      late final ProviderSubscription<PlacesCacheState> subscription;
+      subscription = ref.listenManual(placesCacheProvider, (previous, next) {
+        if (!next.isLoading && next.hasData) {
+          subscription.close();
+          _loadFromCache(next);
+          completer.complete();
+        } else if (!next.isLoading && next.error != null) {
+          subscription.close();
+          _loadDirectly(); // 缓存加载失败，直接加载
+          completer.complete();
+        }
+      });
+      await completer.future;
+      return;
+    }
+
+    // 缓存为空或过期，触发预加载并直接加载
+    ref.read(placesCacheProvider.notifier).preloadPlaces();
+    await _loadDirectly();
+  }
+
+  /// 从缓存加载数据
+  void _loadFromCache(PlacesCacheState cacheState) {
+    final Map<String, List<Spot>> nextSpotsByCity = <String, List<Spot>>{};
+    
+    for (final entry in cacheState.placesByCity.entries) {
+      final spots = _selectTopSpotsForCity(entry.key, entry.value);
+      if (spots.isNotEmpty) {
+        nextSpotsByCity[entry.key] = spots;
+        if (!_cityCoordinates.containsKey(entry.key)) {
+          _cityCoordinates[entry.key] = Position(
+            spots.first.longitude,
+            spots.first.latitude,
+          );
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    final citiesWithSpots = nextSpotsByCity.keys.toList()..sort();
+    final resolvedCity = _resolveCitySelection(nextSpotsByCity, citiesWithSpots);
+    final resolvedSpot = _resolveSelectedSpot(resolvedCity, nextSpotsByCity, _selectedSpot);
+    final nearby = resolvedSpot != null
+        ? _computeNearbySpots(resolvedSpot, baseSpots: nextSpotsByCity[resolvedCity])
+        : const <Spot>[];
+    final targetCenter = resolvedSpot != null
+        ? Position(resolvedSpot.longitude, resolvedSpot.latitude)
+        : _cityPosition(resolvedCity);
+
+    setState(() {
+      _availableCities = citiesWithSpots;
+      _spotsByCity = nextSpotsByCity;
+      _selectedCity = resolvedCity;
+      _selectedSpot = resolvedSpot;
+      _carouselSpots = nearby;
+      _currentCardIndex = 0;
+      _currentMapCenter = targetCenter;
+      _isLoadingSpots = false;
+      _loadingError = null;
+    });
+
+    _updateMapPosition(targetCenter, resolvedSpot);
+  }
+
+  /// 直接从 API 加载数据
+  Future<void> _loadDirectly() async {
     final repository = ref.read(publicPlaceRepositoryProvider);
     final Map<String, List<Spot>> nextSpotsByCity = <String, List<Spot>>{};
     String? firstError;
@@ -935,7 +1016,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     List<String> cities = <String>[];
     try {
       cities = await repository.fetchCities();
-    } on PublicPlaceRepositoryException catch (error) {
+    } on SupabasePlaceRepositoryException catch (error) {
       firstError ??= error.message;
     } catch (error) {
       firstError ??= error.toString();
@@ -960,7 +1041,7 @@ class _MapPageState extends ConsumerState<MapPage> {
             );
           }
         }
-      } on PublicPlaceRepositoryException catch (error) {
+      } on SupabasePlaceRepositoryException catch (error) {
         firstError ??= error.message;
       } catch (error) {
         firstError ??= error.toString();
@@ -1004,11 +1085,15 @@ class _MapPageState extends ConsumerState<MapPage> {
       _loadingError = firstError;
     });
 
+    _updateMapPosition(targetCenter, _selectedSpot);
+  }
+
+  void _updateMapPosition(Position targetCenter, [Spot? spot]) async {
     final mapState = _mapKey.currentState;
     if (mapState != null) {
       await mapState.jumpToPosition(
         targetCenter,
-        zoom: resolvedSpot != null
+        zoom: spot != null
             ? math.max(_currentZoom, 14.0)
             : _collapsedMapZoom,
       );

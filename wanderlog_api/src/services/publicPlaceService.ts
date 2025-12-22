@@ -1,8 +1,6 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import prisma from '../config/database';
 import googleMapsService from './googleMapsService';
-import { createId } from '@paralleldrive/cuid2';
-
-const prisma = new PrismaClient();
 
 export interface PublicPlaceData {
   placeId: string;
@@ -271,119 +269,58 @@ class PublicPlaceService {
    * 支持通过数据库 ID 或 googlePlaceId 更新
    */
   async updatePlace(placeId: string, updates: any) {
-    // 使用原生 SQL 更新，绕过 Prisma DateTime 转换问题
-    const now = new Date().toISOString();
+    // 构建 Prisma 更新数据对象
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
     
-    // 构建 SET 子句
-    const setClauses: string[] = [];
-    const values: any[] = [];
-    
-    if (updates.name !== undefined) {
-      setClauses.push('name = ?');
-      values.push(updates.name);
-    }
-    if (updates.latitude !== undefined) {
-      setClauses.push('latitude = ?');
-      values.push(parseFloat(updates.latitude));
-    }
-    if (updates.longitude !== undefined) {
-      setClauses.push('longitude = ?');
-      values.push(parseFloat(updates.longitude));
-    }
-    if (updates.address !== undefined) {
-      setClauses.push('address = ?');
-      values.push(updates.address || null);
-    }
-    if (updates.city !== undefined) {
-      setClauses.push('city = ?');
-      values.push(updates.city || null);
-    }
-    if (updates.country !== undefined) {
-      setClauses.push('country = ?');
-      values.push(updates.country || null);
-    }
-    if (updates.category !== undefined) {
-      setClauses.push('category = ?');
-      values.push(updates.category || null);
-    }
-    if (updates.coverImage !== undefined) {
-      setClauses.push('coverImage = ?');
-      values.push(updates.coverImage || null);
-    }
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.latitude !== undefined) updateData.latitude = parseFloat(updates.latitude);
+    if (updates.longitude !== undefined) updateData.longitude = parseFloat(updates.longitude);
+    if (updates.address !== undefined) updateData.address = updates.address || null;
+    if (updates.city !== undefined) updateData.city = updates.city || null;
+    if (updates.country !== undefined) updateData.country = updates.country || null;
+    if (updates.category !== undefined) updateData.category = updates.category || null;
+    if (updates.coverImage !== undefined) updateData.coverImage = updates.coverImage || null;
     if (updates.images !== undefined) {
-      setClauses.push('images = ?');
-      values.push(updates.images ? (typeof updates.images === 'string' ? updates.images : JSON.stringify(updates.images)) : null);
+      updateData.images = updates.images ? (typeof updates.images === 'string' ? JSON.parse(updates.images) : updates.images) : [];
     }
     if (updates.rating !== undefined) {
-      setClauses.push('rating = ?');
-      values.push(updates.rating !== null && updates.rating !== '' ? parseFloat(updates.rating) : null);
+      updateData.rating = updates.rating !== null && updates.rating !== '' ? parseFloat(updates.rating) : null;
     }
     if (updates.ratingCount !== undefined) {
-      setClauses.push('ratingCount = ?');
-      values.push(updates.ratingCount !== null && updates.ratingCount !== '' ? parseInt(updates.ratingCount) : null);
+      updateData.ratingCount = updates.ratingCount !== null && updates.ratingCount !== '' ? parseInt(updates.ratingCount) : null;
     }
     if (updates.priceLevel !== undefined) {
-      setClauses.push('priceLevel = ?');
-      values.push(updates.priceLevel !== null && updates.priceLevel !== '' ? parseInt(updates.priceLevel) : null);
+      updateData.priceLevel = updates.priceLevel !== null && updates.priceLevel !== '' ? parseInt(updates.priceLevel) : null;
     }
-    if (updates.openingHours !== undefined) {
-      setClauses.push('openingHours = ?');
-      values.push(updates.openingHours ? (typeof updates.openingHours === 'string' ? updates.openingHours : JSON.stringify(updates.openingHours)) : null);
-    }
-    if (updates.website !== undefined) {
-      setClauses.push('website = ?');
-      values.push(updates.website || null);
-    }
-    if (updates.phoneNumber !== undefined) {
-      setClauses.push('phoneNumber = ?');
-      values.push(updates.phoneNumber || null);
-    }
+    if (updates.openingHours !== undefined) updateData.openingHours = updates.openingHours || null;
+    if (updates.website !== undefined) updateData.website = updates.website || null;
+    if (updates.phoneNumber !== undefined) updateData.phoneNumber = updates.phoneNumber || null;
     if (updates.aiTags !== undefined) {
-      setClauses.push('aiTags = ?');
-      values.push(updates.aiTags ? (typeof updates.aiTags === 'string' ? updates.aiTags : JSON.stringify(updates.aiTags)) : null);
+      updateData.aiTags = updates.aiTags ? (typeof updates.aiTags === 'string' ? JSON.parse(updates.aiTags) : updates.aiTags) : [];
     }
-    if (updates.aiSummary !== undefined) {
-      setClauses.push('aiSummary = ?');
-      values.push(updates.aiSummary || null);
-    }
-    if (updates.aiDescription !== undefined) {
-      setClauses.push('aiDescription = ?');
-      values.push(updates.aiDescription || null);
-    }
-    if (updates.description !== undefined) {
-      setClauses.push('description = ?');
-      values.push(updates.description || null);
-    }
+    if (updates.aiSummary !== undefined) updateData.aiSummary = updates.aiSummary || null;
+    if (updates.aiDescription !== undefined) updateData.aiDescription = updates.aiDescription || null;
+    if (updates.description !== undefined) updateData.description = updates.description || null;
     if (updates.customFields !== undefined) {
-      setClauses.push('customFields = ?');
-      values.push(updates.customFields ? (typeof updates.customFields === 'string' ? updates.customFields : JSON.stringify(updates.customFields)) : null);
+      updateData.customFields = updates.customFields ? (typeof updates.customFields === 'string' ? JSON.parse(updates.customFields) : updates.customFields) : null;
     }
-    
-    // 总是更新 updatedAt
-    setClauses.push('updatedAt = ?');
-    values.push(now);
-    
-    if (setClauses.length === 1) {
-      // 只有 updatedAt，没有其他更新
-      return await this.getPlaceByPlaceId(placeId);
-    }
-    
-    // 构建完整的 SQL
-    const setClause = setClauses.join(', ');
-    values.push(placeId); // WHERE 条件的值
     
     // 先尝试按数据库 ID 更新
-    const updateByIdQuery = `UPDATE Place SET ${setClause} WHERE id = ?`;
-    const result = await prisma.$executeRawUnsafe(updateByIdQuery, ...values);
-    
-    if (result === 0) {
-      // 如果按 ID 没更新到，尝试按 googlePlaceId 更新
-      const updateByGoogleIdQuery = `UPDATE Place SET ${setClause} WHERE googlePlaceId = ?`;
-      await prisma.$executeRawUnsafe(updateByGoogleIdQuery, ...values);
+    const existingById = await prisma.place.findUnique({ where: { id: placeId } });
+    if (existingById) {
+      return await prisma.place.update({
+        where: { id: placeId },
+        data: updateData,
+      });
     }
     
-    // 返回更新后的记录
-    return await this.getPlaceByPlaceId(placeId);
+    // 如果按 ID 没找到，尝试按 googlePlaceId 更新
+    return await prisma.place.update({
+      where: { googlePlaceId: placeId },
+      data: updateData,
+    });
   }
 
   /**
@@ -408,41 +345,35 @@ class PublicPlaceService {
    * 手动创建新地点
    */
   async createPlace(data: any) {
-    // 生成唯一 ID 和时间戳
-    const id = createId();
-    const now = new Date().toISOString();
-    
     // 准备数据
-    const name = data.name;
-    const latitude = parseFloat(data.latitude);
-    const longitude = parseFloat(data.longitude);
-    const city = data.city || null;
-    const country = data.country || null;
-    const address = data.address || null;
-    const category = data.category || null;
-    const coverImage = data.coverImage || null;
-    const images = data.images ? (typeof data.images === 'string' ? data.images : JSON.stringify(data.images)) : null;
-    const rating = data.rating !== undefined && data.rating !== null && data.rating !== '' ? parseFloat(data.rating) : null;
-    const ratingCount = data.ratingCount !== undefined && data.ratingCount !== null && data.ratingCount !== '' ? parseInt(data.ratingCount) : null;
-    const priceLevel = data.priceLevel !== undefined && data.priceLevel !== null && data.priceLevel !== '' ? parseInt(data.priceLevel) : null;
-    const openingHours = data.openingHours ? (typeof data.openingHours === 'string' ? data.openingHours : JSON.stringify(data.openingHours)) : null;
-    const website = data.website || null;
-    const phoneNumber = data.phoneNumber || null;
-    const aiTags = data.aiTags ? (typeof data.aiTags === 'string' ? data.aiTags : JSON.stringify(data.aiTags)) : null;
-    const aiSummary = data.aiSummary || null;
-    const aiDescription = data.aiDescription || null;
-    const description = data.description || null;
-    const customFields = data.customFields ? (typeof data.customFields === 'string' ? data.customFields : JSON.stringify(data.customFields)) : null;
-    const source = data.source || 'manual';
+    const createData: any = {
+      name: data.name,
+      latitude: parseFloat(data.latitude),
+      longitude: parseFloat(data.longitude),
+      city: data.city || null,
+      country: data.country || null,
+      address: data.address || null,
+      category: data.category || null,
+      coverImage: data.coverImage || null,
+      images: data.images ? (typeof data.images === 'string' ? JSON.parse(data.images) : data.images) : [],
+      rating: data.rating !== undefined && data.rating !== null && data.rating !== '' ? parseFloat(data.rating) : null,
+      ratingCount: data.ratingCount !== undefined && data.ratingCount !== null && data.ratingCount !== '' ? parseInt(data.ratingCount) : null,
+      priceLevel: data.priceLevel !== undefined && data.priceLevel !== null && data.priceLevel !== '' ? parseInt(data.priceLevel) : null,
+      openingHours: data.openingHours || null,
+      website: data.website || null,
+      phoneNumber: data.phoneNumber || null,
+      aiTags: data.aiTags ? (typeof data.aiTags === 'string' ? JSON.parse(data.aiTags) : data.aiTags) : [],
+      aiSummary: data.aiSummary || null,
+      aiDescription: data.aiDescription || null,
+      description: data.description || null,
+      customFields: data.customFields ? (typeof data.customFields === 'string' ? JSON.parse(data.customFields) : data.customFields) : null,
+      source: data.source || 'manual',
+    };
 
-    // 使用原生 SQL 插入，绕过 Prisma DateTime 转换问题
-    await prisma.$executeRaw`
-      INSERT INTO Place (id, name, latitude, longitude, city, country, address, category, coverImage, images, rating, ratingCount, priceLevel, openingHours, website, phoneNumber, aiTags, aiSummary, aiDescription, description, customFields, source, createdAt, updatedAt)
-      VALUES (${id}, ${name}, ${latitude}, ${longitude}, ${city}, ${country}, ${address}, ${category}, ${coverImage}, ${images}, ${rating}, ${ratingCount}, ${priceLevel}, ${openingHours}, ${website}, ${phoneNumber}, ${aiTags}, ${aiSummary}, ${aiDescription}, ${description}, ${customFields}, ${source}, ${now}, ${now})
-    `;
-
-    // 返回新创建的记录
-    return await prisma.place.findUnique({ where: { id } });
+    // 使用 Prisma ORM 创建
+    return await prisma.place.create({
+      data: createData,
+    });
   }
 
   /**

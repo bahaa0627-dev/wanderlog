@@ -6,6 +6,7 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/app_router.dart';
 import 'package:wanderlog/core/network/dio_client.dart';
 import 'package:wanderlog/core/storage/storage_service.dart';
+import 'package:wanderlog/core/supabase/supabase_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +18,9 @@ void main() async {
     // .env file doesn't exist, use defaults from AppConstants
     print('Warning: .env file not found, using default values');
   }
+  
+  // Init Supabase
+  await SupabaseConfig.initialize();
   
   // Init services
   await StorageService.instance.init();

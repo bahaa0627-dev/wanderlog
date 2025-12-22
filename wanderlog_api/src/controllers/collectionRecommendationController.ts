@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { createId } from '@paralleldrive/cuid2';
 
 console.log('📦 Loading CollectionRecommendationController...');
 
@@ -31,24 +30,21 @@ class CollectionRecommendationController {
         return res.status(400).json({ success: false, message: '部分合集ID无效' });
       }
 
-      // 获取当前最大的order值，新推荐放在最后
+      // 获取当前最大的sortOrder值，新推荐放在最后
       const maxOrder = await prisma.collectionRecommendation.aggregate({
-        _max: { order: true },
+        _max: { sortOrder: true },
       });
-      const newOrder = (maxOrder._max.order ?? -1) + 1;
+      const newOrder = (maxOrder._max.sortOrder ?? -1) + 1;
 
       // 创建推荐
-      const recommendationId = createId();
       const recommendation = await prisma.collectionRecommendation.create({
         data: {
-          id: recommendationId,
           name: name.trim(),
-          order: newOrder,
+          sortOrder: newOrder,
           items: {
             create: collectionIds.map((collectionId, index) => ({
-              id: createId(),
               collectionId,
-              order: index,
+              sortOrder: index,
             })),
           },
         },
@@ -65,7 +61,7 @@ class CollectionRecommendationController {
                 },
               },
             },
-            orderBy: { order: 'asc' },
+            orderBy: { sortOrder: 'asc' },
           },
         },
       });
@@ -98,10 +94,10 @@ class CollectionRecommendationController {
                 },
               },
             },
-            orderBy: { order: 'asc' },
+            orderBy: { sortOrder: 'asc' },
           },
         },
-        orderBy: { order: 'asc' }, // 按order字段排序
+        orderBy: { sortOrder: 'asc' },
       });
 
       console.log(`✅ Found ${recommendations.length} recommendations`);
@@ -134,7 +130,7 @@ class CollectionRecommendationController {
                 },
               },
             },
-            orderBy: { order: 'asc' },
+            orderBy: { sortOrder: 'asc' },
           },
         },
       });
@@ -199,9 +195,8 @@ class CollectionRecommendationController {
 
         updateData.items = {
           create: collectionIds.map((collectionId, index) => ({
-            id: createId(),
             collectionId,
-            order: index,
+            sortOrder: index,
           })),
         };
       }
@@ -222,7 +217,7 @@ class CollectionRecommendationController {
                 },
               },
             },
-            orderBy: { order: 'asc' },
+            orderBy: { sortOrder: 'asc' },
           },
         },
       });
@@ -252,7 +247,7 @@ class CollectionRecommendationController {
       // 验证所有推荐ID是否都存在
       const recommendations = await prisma.collectionRecommendation.findMany({
         where: { id: { in: recommendationIds } },
-        select: { id: true, name: true, order: true },
+        select: { id: true, name: true, sortOrder: true },
       });
 
       console.log('找到的推荐:', recommendations);
@@ -272,23 +267,23 @@ class CollectionRecommendationController {
       }
 
       // 批量更新顺序 - 使用事务确保原子性
-      console.log('开始更新推荐顺序:', recommendationIds.map((id, idx) => ({ id, order: idx })));
+      console.log('开始更新推荐顺序:', recommendationIds.map((id, idx) => ({ id, sortOrder: idx })));
       
       for (let index = 0; index < recommendationIds.length; index++) {
         const recommendationId = recommendationIds[index];
         try {
           const before = await prisma.collectionRecommendation.findUnique({
             where: { id: recommendationId },
-            select: { id: true, name: true, order: true },
+            select: { id: true, name: true, sortOrder: true },
           });
           console.log(`更新前 - 推荐 ${recommendationId}:`, before);
 
           const result = await prisma.collectionRecommendation.update({
             where: { id: recommendationId },
-            data: { order: index },
+            data: { sortOrder: index },
           });
           
-          console.log(`✅ 更新成功 - 推荐 ${recommendationId} (${result.name}) 的order从 ${before?.order} 更新为 ${index}`);
+          console.log(`✅ 更新成功 - 推荐 ${recommendationId} (${result.name}) 的sortOrder从 ${before?.sortOrder} 更新为 ${index}`);
         } catch (error: any) {
           // 如果推荐不存在，记录详细错误
           if (error.code === 'P2025') {
@@ -317,10 +312,10 @@ class CollectionRecommendationController {
                 },
               },
             },
-            orderBy: { order: 'asc' },
+            orderBy: { sortOrder: 'asc' },
           },
         },
-        orderBy: { order: 'asc' },
+        orderBy: { sortOrder: 'asc' },
       });
 
       return res.json({ success: true, data: updated });
@@ -369,7 +364,7 @@ class CollectionRecommendationController {
               collectionId,
             },
             data: {
-              order: index,
+              sortOrder: index,
             },
           })
         )
@@ -391,7 +386,7 @@ class CollectionRecommendationController {
                 },
               },
             },
-            orderBy: { order: 'asc' },
+            orderBy: { sortOrder: 'asc' },
           },
         },
       });

@@ -49,6 +49,31 @@ class PublicPlaceDto {
         updatedAt: _parseDateTime(json['updatedAt']),
       );
 
+  /// 从 Supabase 数据创建 (字段名使用 snake_case)
+  factory PublicPlaceDto.fromSupabase(Map<String, dynamic> json) => PublicPlaceDto(
+        placeId: json['id'] as String,
+        name: json['name'] as String,
+        latitude: (json['latitude'] as num).toDouble(),
+        longitude: (json['longitude'] as num).toDouble(),
+        address: json['address'] as String?,
+        city: json['city'] as String?,
+        country: json['country'] as String?,
+        category: json['category'] as String?,
+        coverImage: json['cover_image'] as String?,
+        images: _parseStringList(json['images']),
+        rating: _parseDouble(json['rating']),
+        ratingCount: _parseInt(json['rating_count']),
+        priceLevel: _parseInt(json['price_level']),
+        website: json['website'] as String?,
+        phoneNumber: json['phone_number'] as String?,
+        aiTags: _parseStringList(json['ai_tags']),
+        aiSummary: json['ai_summary'] as String?,
+        aiDescription: json['ai_description'] as String?,
+        source: json['source'] as String?,
+        createdAt: _parseDateTime(json['created_at']),
+        updatedAt: _parseDateTime(json['updated_at']),
+      );
+
   final String placeId;
   final String name;
   final double latitude;

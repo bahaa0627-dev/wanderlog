@@ -13,6 +13,9 @@ router.post('/:id/unpublish', authenticateToken, collectionController.unpublish.
 // 获取合集列表（可选鉴权以返回 isFavorited）
 router.get('/', authenticateTokenIfPresent, collectionController.list.bind(collectionController));
 
+// 获取推荐合集（必须在 /:id 之前定义）
+router.get('/featured', authenticateTokenIfPresent, collectionController.getFeatured.bind(collectionController));
+
 // 获取合集详情（可选鉴权以返回 isFavorited）
 router.get('/:id', authenticateTokenIfPresent, collectionController.getById.bind(collectionController));
 

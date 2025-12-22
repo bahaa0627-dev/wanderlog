@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { createId } from '@paralleldrive/cuid2';
 
 /**
  * Safely parse JSON-like fields that may already be objects/arrays or invalid JSON strings.
@@ -106,68 +105,38 @@ class CollectionController {
         });
       }
 
-      // 使用原生 SQL 创建合集，避免 DateTime 格式问题
-      const collectionId = createId();
-      const now = new Date().toISOString();
-      const peopleJson = people ? JSON.stringify(people) : null;
-      const worksJson = works ? JSON.stringify(works) : null;
-      
-      await prisma.$executeRaw`
-        INSERT INTO Collection (id, name, coverImage, description, people, works, isPublished, createdAt, updatedAt)
-        VALUES (${collectionId}, ${name}, ${coverImage}, ${description || null}, ${peopleJson}, ${worksJson}, ${0}, ${now}, ${now})
-      `;
-      
-      // 创建 collectionSpots
-      for (const place of places) {
-        const spotId = createId();
-        await prisma.$executeRaw`
-          INSERT INTO CollectionSpot (id, collectionId, placeId, city, createdAt)
-          VALUES (${spotId}, ${collectionId}, ${place.id}, ${place.city || null}, ${now})
-        `;
-      }
-      
-      // 查询创建的合集
-      const collections = await prisma.$queryRaw<Array<any>>`
-        SELECT * FROM Collection WHERE id = ${collectionId}
-      `;
-      const collection = collections[0];
-      
-      // 查询关联的 spots
-      const collectionSpots = await prisma.$queryRaw<Array<any>>`
-        SELECT cs.*, p.id as place_id, p.name as place_name, p.city as place_city, p.tags as place_tags, p.images as place_images
-        FROM CollectionSpot cs
-        LEFT JOIN Place p ON cs.placeId = p.id
-        WHERE cs.collectionId = ${collectionId}
-      `;
-      
-      collection.collectionSpots = collectionSpots.map((cs: any) => ({
-        id: cs.id,
-        collectionId: cs.collectionId,
-        placeId: cs.placeId,
-        city: cs.city,
-        createdAt: cs.createdAt,
-        place: cs.place_id ? {
-          id: cs.place_id,
-          name: cs.place_name,
-          city: cs.place_city,
-          tags: cs.place_tags,
-          images: cs.place_images,
-        } : null,
-      }));
+      // 使用 Prisma ORM 创建合集
+      const collection = await prisma.collection.create({
+        data: {
+          name,
+          coverImage,
+          description: description || null,
+          people: people || null,
+          works: works || null,
+          isPublished: false,
+          collectionSpots: {
+            create: places.map((place) => ({
+              placeId: place.id,
+              city: place.city ?? undefined,
+            })),
+          },
+        },
+        include: {
+          collectionSpots: {
+            include: {
+              place: true,
+            },
+          },
+        },
+      });
 
       const normalized = {
         ...collection,
-        people: collection.people ? JSON.parse(collection.people) : [],
-        works: collection.works ? JSON.parse(collection.works) : [],
+        people: safeParseJson(collection.people, []),
+        works: safeParseJson(collection.works, []),
         collectionSpots: collection.collectionSpots.map((cs) => ({
           ...cs,
-          place: cs.place
-            ? {
-                ...cs.place,
-                tags: cs.place.tags ? JSON.parse(cs.place.tags) : [],
-                images: cs.place.images ? JSON.parse(cs.place.images) : [],
-              }
-            : null,
+          place: normalizePlace(cs.place),
         })),
       };
 
@@ -193,7 +162,7 @@ class CollectionController {
         if (userId) {
           // 返回用户收藏的合集（无论是否发布，用户收藏了就应该能在 MyLand 看到）
           whereClause = {
-            userCollections: {
+            userCollectionFavorites: {
               some: {
                 userId: userId,
               },
@@ -214,7 +183,7 @@ class CollectionController {
       };
 
       if (userId) {
-        includeConfig.userCollections = {
+        includeConfig.userCollectionFavorites = {
           where: { userId },
           select: { id: true },
         };
@@ -228,7 +197,7 @@ class CollectionController {
 
       const normalized = (collections as any[]).map((c) => ({
         ...c,
-        isFavorited: !!(userId && c.userCollections && c.userCollections.length > 0),
+        isFavorited: !!(userId && c.userCollectionFavorites && c.userCollectionFavorites.length > 0),
         people: safeParseJson(c.people, []),
         works: safeParseJson(c.works, []),
         collectionSpots: (c.collectionSpots as any[]).map((cs: any) => {
@@ -242,8 +211,8 @@ class CollectionController {
           };
         }),
       }));
-      // 移除 userCollections，避免返回多余字段
-      normalized.forEach((item: any) => delete item.userCollections);
+      // 移除 userCollectionFavorites，避免返回多余字段
+      normalized.forEach((item: any) => delete item.userCollectionFavorites);
 
       return res.json({ success: true, data: normalized });
     } catch (error: any) {
@@ -362,6 +331,61 @@ class CollectionController {
   }
 
   /**
+   * 获取推荐合集（已发布的合集）
+   */
+  async getFeatured(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      const includeConfig: any = {
+        collectionSpots: {
+          include: {
+            place: true,
+          },
+        },
+      };
+
+      if (userId) {
+        includeConfig.userCollectionFavorites = {
+          where: { userId },
+          select: { id: true },
+        };
+      }
+
+      const collections = await prisma.collection.findMany({
+        where: { isPublished: true },
+        orderBy: { publishedAt: 'desc' },
+        take: limit,
+        include: includeConfig,
+      });
+
+      const normalized = (collections as any[]).map((c) => ({
+        ...c,
+        isFavorited: !!(userId && c.userCollectionFavorites && c.userCollectionFavorites.length > 0),
+        people: safeParseJson(c.people, []),
+        works: safeParseJson(c.works, []),
+        collectionSpots: (c.collectionSpots as any[]).map((cs: any) => {
+          const place = normalizePlace(cs.place);
+          return {
+            ...cs,
+            place,
+            spotId: cs.placeId,
+            spot: place,
+          };
+        }),
+      }));
+
+      // 移除 userCollectionFavorites，避免返回多余字段
+      normalized.forEach((item: any) => delete item.userCollectionFavorites);
+
+      return res.json({ success: true, data: normalized });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  /**
    * 获取合集详情
    */
   async getById(req: Request, res: Response) {
@@ -379,7 +403,7 @@ class CollectionController {
           },
           ...(userId
             ? {
-                userCollections: {
+                userCollectionFavorites: {
                   where: { userId },
                   select: { id: true },
                 },
@@ -393,8 +417,8 @@ class CollectionController {
       }
 
       // 检查是否已收藏
-      const userCollections = (collection as any).userCollections || [];
-      const isFavorited = userId && userCollections.length > 0;
+      const userCollectionFavorites = (collection as any).userCollectionFavorites || [];
+      const isFavorited = userId && userCollectionFavorites.length > 0;
 
       // 规范化数据格式，与 list 方法保持一致
       const normalized = {
@@ -413,8 +437,8 @@ class CollectionController {
         }),
       };
 
-      // 移除 userCollections 字段，因为已经提取到 isFavorited
-      delete (normalized as any).userCollections;
+      // 移除 userCollectionFavorites 字段，因为已经提取到 isFavorited
+      delete (normalized as any).userCollectionFavorites;
 
       return res.json({ success: true, data: normalized });
     } catch (error: any) {
@@ -430,7 +454,7 @@ class CollectionController {
       const userId = req.user.id;
       const { id } = req.params;
 
-      await prisma.userCollection.upsert({
+      await prisma.userCollectionFavorite.upsert({
         where: { userId_collectionId: { userId, collectionId: id } },
         update: {},
         create: {
@@ -453,7 +477,7 @@ class CollectionController {
       const userId = req.user.id;
       const { id } = req.params;
 
-      await prisma.userCollection.delete({
+      await prisma.userCollectionFavorite.delete({
         where: { userId_collectionId: { userId, collectionId: id } },
       });
 

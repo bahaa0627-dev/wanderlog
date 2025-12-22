@@ -265,23 +265,20 @@ class GoogleMapsFavoritesService {
    */
   private async checkExistingPlaceIds(placeIds: string[]): Promise<string[]> {
     try {
-      const { PrismaClient } = require('@prisma/client');
-      const prisma = new PrismaClient();
+      const prisma = require('../config/database').default;
 
-      const existingPlaces = await prisma.publicPlace.findMany({
+      const existingPlaces = await prisma.place.findMany({
         where: {
-          placeId: {
+          googlePlaceId: {
             in: placeIds
           }
         },
         select: {
-          placeId: true
+          googlePlaceId: true
         }
       });
 
-      await prisma.$disconnect();
-
-      return existingPlaces.map((p: any) => p.placeId);
+      return existingPlaces.map((p: any) => p.googlePlaceId);
     } catch (error: any) {
       console.error('Error checking existing place IDs:', error.message);
       return [];

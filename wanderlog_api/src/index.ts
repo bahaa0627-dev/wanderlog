@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import path from 'path';
 import { bootstrap } from 'global-agent';
 
 import { errorHandler } from './middleware/errorHandler';
@@ -38,7 +39,9 @@ app.use((req, _res, next) => {
 });
 
 // 静态文件服务 - 管理后台
-app.use('/admin', express.static('public'));
+const publicPath = path.join(__dirname, '..', 'public');
+console.log(`📁 Static files path: ${publicPath}`);
+app.use('/admin', express.static(publicPath));
 
 // Health check
 app.get('/health', (_req, res) => {

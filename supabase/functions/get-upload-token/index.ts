@@ -1,5 +1,4 @@
 // Supabase Edge Function: 获取图片上传 Token
-// 部署: supabase functions deploy get-upload-token
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -11,13 +10,11 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // CORS 预检
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // 验证用户身份
     const authHeader = req.headers.get('Authorization')!
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -34,7 +31,6 @@ serve(async (req) => {
       )
     }
 
-    // 生成临时上传 token (15分钟有效)
     const secret = new TextEncoder().encode(Deno.env.get('R2_UPLOAD_SECRET') ?? '')
     const token = await new SignJWT({ 
       userId: user.id,
@@ -46,10 +42,7 @@ serve(async (req) => {
       .sign(secret)
 
     return new Response(
-      JSON.stringify({ 
-        token,
-        expiresIn: 900, // 15分钟
-      }),
+      JSON.stringify({ token, expiresIn: 900 }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

@@ -1,55 +1,27 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Prisma schema for Supabase PostgreSQL
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-model User {
-  id                 String              @id @default(cuid())
-  email              String              @unique
-  password           String?
-  name               String?
-  avatarUrl          String?
-  authProvider       String              @default("email")
-  googleId           String?             @unique
-  isEmailVerified    Boolean             @default(false)
-  emailVerifiedAt    DateTime?
-  refreshToken       String?
-  tokenVersion       Int                 @default(0)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  trips              Trip[]
-  verificationTokens VerificationToken[]
-  userCollections    UserCollection[]
-
-  @@index([email])
-  @@index([googleId])
+model Profile {
+  id        String   @id @db.Uuid
+  name      String?
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+  userCollectionFavorites UserCollectionFavorite[]
+  @@map("profiles")
 }
 
-model VerificationToken {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String    @unique
-  type      String
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([token])
-  @@index([userId, type])
-  @@index([expiresAt])
-}
-
-// 单一地点表 Place（合并原 Spot 与 PublicPlace）
 model Place {
-  id            String    @id @default(cuid())
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name          String
   city          String?
   country       String?
@@ -57,135 +29,100 @@ model Place {
   longitude     Float
   address       String?
   description   String?
-  openingHours  String?
+  openingHours  String?   @map("opening_hours")
   rating        Float?
-  ratingCount   Int?
+  ratingCount   Int?      @map("rating_count")
   category      String?
-  aiSummary     String?
-  aiDescription String?
-  tags          String? // JSON string
-  aiTags        String? // JSON string
-  coverImage    String?
-  images        String? // JSON string
-  priceLevel    Int?
+  aiSummary     String?   @map("ai_summary")
+  aiDescription String?   @map("ai_description")
+  tags          Json?     @default("[]")
+  aiTags        Json?     @default("[]") @map("ai_tags")
+  coverImage    String?   @map("cover_image")
+  images        Json?     @default("[]")
+  priceLevel    Int?      @map("price_level")
   website       String?
-  phoneNumber   String?
-  googlePlaceId String?   @unique
-  placeId       String? // 兼容旧 publicPlace 的 placeId；可与 googlePlaceId 复用
+  phoneNumber   String?   @map("phone_number")
+  googlePlaceId String?   @unique @map("google_place_id")
   source        String?   @default("google_maps")
-  sourceDetails String?
-  isVerified    Boolean   @default(false)
-  lastSyncedAt  DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  customFields  String?
-
-  tripSpots       TripSpot[]
+  sourceDetails Json?     @map("source_details")
+  isVerified    Boolean   @default(false) @map("is_verified")
+  customFields  Json?     @map("custom_fields")
+  lastSyncedAt  DateTime? @map("last_synced_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @map("updated_at")
   collectionSpots CollectionSpot[]
-
   @@index([city])
   @@index([category])
   @@index([rating])
-  @@index([source])
-}
-
-model Trip {
-  id         String     @id @default(cuid())
-  userId     String
-  user       User       @relation(fields: [userId], references: [id])
-  name       String
-  city       String?
-  startDate  DateTime?
-  endDate    DateTime?
-  coverImage String?
-  status     String     @default("PLANNING")
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  tripSpots  TripSpot[]
-}
-
-model TripSpot {
-  id         String    @id @default(cuid())
-  tripId     String
-  trip       Trip      @relation(fields: [tripId], references: [id])
-  placeId    String
-  place      Place     @relation(fields: [placeId], references: [id])
-  status     String    @default("WISHLIST")
-  priority   String    @default("OPTIONAL")
-  visitDate  DateTime?
-  userRating Int?
-  userNotes  String?
-  userPhotos String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @default(now())
-
-  @@unique([tripId, placeId])
+  @@map("places")
 }
 
 model Collection {
-  id          String    @id @default(cuid())
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name        String
-  coverImage  String
+  coverImage  String?   @map("cover_image")
   description String?
-  people      String?
-  works       String?
+  people      Json?
+  works       Json?
   source      String?
-  isPublished Boolean   @default(false)
-  publishedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  collectionSpots     CollectionSpot[]
-  userCollections     UserCollection[]
-  recommendationItems CollectionRecommendationItem[]
+  sortOrder   Int       @default(0) @map("sort_order")
+  isPublished Boolean   @default(false) @map("is_published")
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @map("updated_at")
+  collectionSpots         CollectionSpot[]
+  userCollectionFavorites UserCollectionFavorite[]
+  recommendationItems     CollectionRecommendationItem[]
+  @@map("collections")
 }
 
 model CollectionSpot {
-  id           String     @id @default(cuid())
-  collectionId String
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectionId String     @map("collection_id") @db.Uuid
   collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  placeId      String
+  placeId      String     @map("place_id") @db.Uuid
   place        Place      @relation(fields: [placeId], references: [id], onDelete: Cascade)
   city         String?
-  createdAt    DateTime   @default(now())
-
+  sortOrder    Int        @default(0) @map("sort_order")
+  createdAt    DateTime   @default(now()) @map("created_at")
   @@unique([collectionId, placeId])
   @@index([city])
+  @@map("collection_spots")
 }
 
-model UserCollection {
-  id           String     @id @default(cuid())
-  userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collectionId String
+model UserCollectionFavorite {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  user         Profile    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collectionId String     @map("collection_id") @db.Uuid
   collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  createdAt    DateTime   @default(now())
-
+  createdAt    DateTime   @default(now()) @map("created_at")
   @@unique([userId, collectionId])
+  @@map("user_collection_favorites")
 }
 
 model CollectionRecommendation {
-  id        String   @id @default(cuid())
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name      String
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
   items CollectionRecommendationItem[]
-
   @@index([name])
-  @@index([order])
+  @@index([sortOrder])
+  @@map("collection_recommendations")
 }
 
 model CollectionRecommendationItem {
-  id               String                   @id @default(cuid())
-  recommendationId String
+  id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recommendationId String                   @map("recommendation_id") @db.Uuid
   recommendation   CollectionRecommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
-  collectionId     String
+  collectionId     String                   @map("collection_id") @db.Uuid
   collection       Collection               @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  order            Int                      @default(0)
-  createdAt        DateTime                 @default(now())
-
+  sortOrder        Int                      @default(0) @map("sort_order")
+  createdAt        DateTime                 @default(now()) @map("created_at")
   @@unique([recommendationId, collectionId])
-  @@index([recommendationId, order])
+  @@index([recommendationId, sortOrder])
+  @@map("collection_recommendation_items")
 }

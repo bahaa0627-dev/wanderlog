@@ -1,6 +1,6 @@
 /**
  * WanderLog Image Service - Cloudflare Worker
- * 处理图片上传、获取和基础变换
+ * 处理图片上传、获取和 Google Places 图片代理
  */
 
 export interface Env {
@@ -23,6 +23,11 @@ export default {
     // CORS 预检
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
+    }
+
+    // Google Places 图片代理
+    if (path === 'proxy/google-photo') {
+      return await handleGooglePhotoProxy(url);
     }
 
     // 验证上传/删除权限
@@ -50,6 +55,41 @@ export default {
     }
   },
 };
+
+// Google Places 图片代理
+async function handleGooglePhotoProxy(url: URL): Promise<Response> {
+  const googleUrl = url.searchParams.get('url');
+  
+  if (!googleUrl) {
+    return jsonResponse({ error: 'Missing url parameter' }, 400);
+  }
+
+  try {
+    // 请求 Google 图片，跟随重定向
+    const response = await fetch(googleUrl, {
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; WanderLog/1.0)',
+      },
+    });
+
+    if (!response.ok) {
+      return jsonResponse({ error: 'Failed to fetch image' }, response.status);
+    }
+
+    // 返回图片，添加缓存头
+    const headers = new Headers();
+    headers.set('Content-Type', response.headers.get('Content-Type') || 'image/jpeg');
+    headers.set('Cache-Control', 'public, max-age=86400'); // 缓存 1 天
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      headers.set(key, value);
+    });
+
+    return new Response(response.body, { headers });
+  } catch (error: any) {
+    return jsonResponse({ error: error.message }, 500);
+  }
+}
 
 // 验证授权
 function validateAuth(authHeader: string, secret: string): boolean {

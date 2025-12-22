@@ -1,9 +1,7 @@
 import { Client, AddressType, GeocodingAddressComponentType } from '@googlemaps/google-maps-services-js';
-import { PrismaClient } from '@prisma/client';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { createId } from '@paralleldrive/cuid2';
-
-const prisma = new PrismaClient();
+import prisma from '../config/database';
 
 // 配置代理
 const proxyUrl = process.env.https_proxy || process.env.http_proxy;

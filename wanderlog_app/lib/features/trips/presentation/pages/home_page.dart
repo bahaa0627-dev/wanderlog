@@ -11,6 +11,8 @@ import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_p
 import 'package:wanderlog/features/ai_recognition/presentation/widgets/ai_recognition_sheets_new.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/trips_bottom_nav.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
+import 'package:wanderlog/features/map/providers/places_cache_provider.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -37,6 +39,11 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     _loadRecommendations();
+    // 预加载 Map 数据和合集数据
+    Future.microtask(() {
+      ref.read(placesCacheProvider.notifier).preloadPlaces();
+      ref.read(collectionsCacheProvider.notifier).preloadCollections();
+    });
   }
 
   Future<void> _loadRecommendations() async {

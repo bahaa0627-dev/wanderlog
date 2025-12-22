@@ -2,12 +2,10 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logger } from '../utils/logger';
 import googleMapsService from '../services/googleMapsService';
-import { createId } from '@paralleldrive/cuid2';
 
 /**
  * 批量导入 Google Maps 地点
  * POST /api/places/import
- * Body: { placeIds: string[] }
  */
 export const importSpots = async (req: Request, res: Response) => {
   try {
@@ -33,7 +31,6 @@ export const importSpots = async (req: Request, res: Response) => {
 /**
  * 导入单个地点
  * POST /api/places/import-one
- * Body: { placeId: string }
  */
 export const importSpot = async (req: Request, res: Response) => {
   try {
@@ -49,7 +46,7 @@ export const importSpot = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Place not found' });
     }
 
-    // 重复检查：按 googlePlaceId
+    // 重复检查
     const existing = await prisma.place.findUnique({
       where: { googlePlaceId: placeData.googlePlaceId },
     });
@@ -61,18 +58,30 @@ export const importSpot = async (req: Request, res: Response) => {
       });
     }
 
-    // 使用原生 SQL 创建，避免 DateTime 格式问题
-    const id = createId();
-    const now = new Date().toISOString();
-    
-    await prisma.$executeRaw`
-      INSERT INTO Place (id, googlePlaceId, name, city, country, latitude, longitude, address, description, openingHours, rating, ratingCount, category, tags, coverImage, images, priceLevel, website, phoneNumber, source, createdAt, updatedAt, lastSyncedAt)
-      VALUES (${id}, ${placeData.googlePlaceId || null}, ${placeData.name}, ${placeData.city || null}, ${placeData.country || null}, ${placeData.latitude}, ${placeData.longitude}, ${placeData.address || null}, ${placeData.description || null}, ${placeData.openingHours || null}, ${placeData.rating || null}, ${placeData.ratingCount || null}, ${placeData.category || null}, ${placeData.tags || null}, ${placeData.coverImage || null}, ${placeData.images || null}, ${placeData.priceLevel || null}, ${placeData.website || null}, ${placeData.phoneNumber || null}, ${'user_import'}, ${now}, ${now}, ${now})
-    `;
-    
-    // 查询新创建的记录
-    const places = await prisma.$queryRaw<Array<any>>`SELECT * FROM Place WHERE id = ${id}`;
-    const place = places[0];
+    // 使用 Prisma ORM 创建
+    const place = await prisma.place.create({
+      data: {
+        googlePlaceId: placeData.googlePlaceId,
+        name: placeData.name,
+        city: placeData.city,
+        country: placeData.country,
+        latitude: placeData.latitude,
+        longitude: placeData.longitude,
+        address: placeData.address,
+        description: placeData.description,
+        openingHours: placeData.openingHours,
+        rating: placeData.rating,
+        ratingCount: placeData.ratingCount,
+        category: placeData.category,
+        tags: placeData.tags ? JSON.parse(placeData.tags) : [],
+        coverImage: placeData.coverImage,
+        images: placeData.images ? JSON.parse(placeData.images) : [],
+        priceLevel: placeData.priceLevel,
+        website: placeData.website,
+        phoneNumber: placeData.phoneNumber,
+        source: 'user_import',
+      },
+    });
 
     return res.json({
       message: 'Place imported successfully',
@@ -86,9 +95,8 @@ export const importSpot = async (req: Request, res: Response) => {
 };
 
 /**
- * 获取地点列表（支持筛选）
+ * 获取地点列表
  * GET /api/places
- * Query params: city, category, tags, search, lat, lng, radius, limit
  */
 export const getPlaces = async (req: Request, res: Response) => {
   try {
@@ -113,39 +121,25 @@ export const getPlaces = async (req: Request, res: Response) => {
       where.category = String(category);
     }
 
-    if (tags) {
-      const tagArray = String(tags).split(',');
-      where.tags = {
-        contains: tagArray[0],
-      };
-    }
-
     if (search) {
       where.OR = [
-        { name: { contains: String(search) } },
-        { address: { contains: String(search) } },
-        { description: { contains: String(search) } },
+        { name: { contains: String(search), mode: 'insensitive' } },
+        { address: { contains: String(search), mode: 'insensitive' } },
+        { description: { contains: String(search), mode: 'insensitive' } },
       ];
     }
 
-    // 经纬度筛选（简易边界框）
+    // 经纬度筛选
     if (lat && lng) {
       const latitude = parseFloat(String(lat));
       const longitude = parseFloat(String(lng));
       const radiusNum = parseInt(String(radius));
 
       const latDelta = radiusNum / 111000;
-      const lngDelta =
-        radiusNum / (111000 * Math.cos(latitude * Math.PI / 180));
+      const lngDelta = radiusNum / (111000 * Math.cos(latitude * Math.PI / 180));
 
-      where.latitude = {
-        gte: latitude - latDelta,
-        lte: latitude + latDelta,
-      };
-      where.longitude = {
-        gte: longitude - lngDelta,
-        lte: longitude + lngDelta,
-      };
+      where.latitude = { gte: latitude - latDelta, lte: latitude + latDelta };
+      where.longitude = { gte: longitude - lngDelta, lte: longitude + lngDelta };
     }
 
     const places = await prisma.place.findMany({
@@ -169,40 +163,12 @@ export const getPlaceById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const place = await prisma.place.findUnique({ where: { id } });
+    
     if (!place) {
       return res.status(404).json({ message: 'Place not found' });
     }
-    // 解析 JSON 字段，前端期望数组而不是字符串
-    const parsedTags: string[] = (() => {
-      if (place.tags) {
-        try {
-          const val = JSON.parse(place.tags);
-          return Array.isArray(val) ? val : [];
-        } catch (_) {
-          return [];
-        }
-      }
-      return [];
-    })();
-    const parsedAiTags: string[] = (() => {
-      if ((place as any).aiTags) {
-        try {
-          const val = JSON.parse((place as any).aiTags);
-          return Array.isArray(val) ? val : [];
-        } catch (_) {
-          return [];
-        }
-      }
-      return [];
-    })();
-    const mergedTags = parsedTags.length > 0 ? parsedTags : parsedAiTags;
-    const normalizedPlace = {
-      ...place,
-      tags: mergedTags,
-      images: place.images ? JSON.parse(place.images) : [],
-      openingHours: place.openingHours ? JSON.parse(place.openingHours) : undefined,
-    };
-    return res.json(normalizedPlace);
+
+    return res.json(place);
   } catch (error) {
     logger.error('Get Place error:', error);
     return res.status(500).json({ message: 'Server error' });
@@ -210,7 +176,7 @@ export const getPlaceById = async (req: Request, res: Response) => {
 };
 
 /**
- * 获取城市中心的默认地点（30个）
+ * 获取城市中心的默认地点
  * GET /api/places/city-center/:city
  */
 export const getCityCenterPlaces = async (req: Request, res: Response) => {
@@ -232,13 +198,8 @@ export const getCityCenterPlaces = async (req: Request, res: Response) => {
     }
 
     const places = await prisma.place.findMany({
-      where: {
-        city,
-      },
-      orderBy: [
-        { rating: 'desc' },
-        { ratingCount: 'desc' },
-      ],
+      where: { city: { equals: city, mode: 'insensitive' } },
+      orderBy: [{ rating: 'desc' }, { ratingCount: 'desc' }],
       take: 30,
     });
 
@@ -252,10 +213,6 @@ export const getCityCenterPlaces = async (req: Request, res: Response) => {
 /**
  * 从 publicPlace ID 获取 Place 信息
  * POST /api/places/from-public-place
- * Body: { publicPlaceId: string }
- * 
- * 注意：在当前的数据模型中，publicPlace 和 Place 是同一张表，
- * 所以我们直接返回 publicPlace 的信息即可。
  */
 export const getOrCreatePlaceFromPublicPlace = async (req: Request, res: Response) => {
   try {
@@ -265,26 +222,16 @@ export const getOrCreatePlaceFromPublicPlace = async (req: Request, res: Respons
       return res.status(400).json({ message: 'publicPlaceId is required' });
     }
 
-    // 使用原生 SQL 查询避免 DateTime 转换问题
-    const places = await prisma.$queryRaw<Array<{id: string, name: string, city: string | null, address: string | null}>>`
-      SELECT id, name, city, address FROM Place WHERE id = ${publicPlaceId} LIMIT 1
-    `;
+    const place = await prisma.place.findUnique({
+      where: { id: publicPlaceId },
+      select: { id: true, name: true, city: true, address: true },
+    });
 
-    if (!places || places.length === 0) {
+    if (!place) {
       return res.status(404).json({ message: 'Place not found' });
     }
 
-    const place = places[0];
-
-    return res.json({
-      success: true,
-      place: {
-        id: place.id,
-        name: place.name,
-        city: place.city,
-        address: place.address,
-      },
-    });
+    return res.json({ success: true, place });
   } catch (error) {
     logger.error('Get Place from PublicPlace error:', error);
     return res.status(500).json({ message: 'Server error' });
@@ -292,9 +239,8 @@ export const getOrCreatePlaceFromPublicPlace = async (req: Request, res: Respons
 };
 
 /**
- * 批量从 publicPlace IDs 获取或创建 Place 列表
+ * 批量从 publicPlace IDs 获取 Place 列表
  * POST /api/places/from-public-places
- * Body: { publicPlaceIds: string[] }
  */
 export const getOrCreatePlacesFromPublicPlaces = async (req: Request, res: Response) => {
   try {
@@ -304,35 +250,17 @@ export const getOrCreatePlacesFromPublicPlaces = async (req: Request, res: Respo
       return res.status(400).json({ message: 'publicPlaceIds array is required' });
     }
 
-    const results = [];
-
-    for (const id of publicPlaceIds) {
-      // 使用原生 SQL 查询避免 DateTime 转换问题
-      const places = await prisma.$queryRaw<Array<{id: string, name: string, city: string | null, address: string | null}>>`
-        SELECT id, name, city, address FROM Place WHERE id = ${id} LIMIT 1
-      `;
-      
-      if (!places || places.length === 0) {
-        results.push({ id, error: 'Place not found' });
-        continue;
-      }
-
-      const place = places[0];
-      results.push({ 
-        id: place.id, 
-        place: {
-          id: place.id,
-          name: place.name,
-          city: place.city,
-          address: place.address,
-        }
-      });
-    }
-
-    return res.json({
-      success: true,
-      results,
+    const places = await prisma.place.findMany({
+      where: { id: { in: publicPlaceIds } },
+      select: { id: true, name: true, city: true, address: true },
     });
+
+    const results = publicPlaceIds.map(id => {
+      const place = places.find(p => p.id === id);
+      return place ? { id, place } : { id, error: 'Place not found' };
+    });
+
+    return res.json({ success: true, results });
   } catch (error) {
     logger.error('Get Places from PublicPlaces error:', error);
     return res.status(500).json({ message: 'Server error' });
@@ -340,16 +268,14 @@ export const getOrCreatePlacesFromPublicPlaces = async (req: Request, res: Respo
 };
 
 /**
- * 同步地点数据（按需实现）
+ * 同步地点数据
  * POST /api/places/sync
  */
 export const syncPlaceData = async (_req: Request, res: Response) => {
   try {
-    // TODO: 实现同步逻辑
     return res.json({ message: 'Sync not implemented yet' });
   } catch (error) {
     logger.error('Sync Place error:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };
-

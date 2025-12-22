@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -12,6 +13,7 @@ import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as 
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
@@ -233,14 +235,23 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   }
 
   Future<void> _loadCitySpots() async {
-    // 如果有collectionId，从API获取真实数据
+    // 如果有collectionId，优先从缓存获取数据
     if (widget.collectionId != null) {
       try {
         print('🔍 开始加载合集数据，collectionId: ${widget.collectionId}');
-        final repo = ref.read(collectionRepositoryProvider);
-        final spotRepo = ref.read(spotRepositoryProvider);
-        final publicPlaceRepo = ref.read(publicPlaceRepositoryProvider);
-        final collection = await repo.getCollection(widget.collectionId!);
+        
+        // 优先从缓存获取
+        final cacheState = ref.read(collectionsCacheProvider);
+        Map<String, dynamic>? collection = cacheState.collectionsById[widget.collectionId];
+        
+        if (collection != null) {
+          print('⚡ 从缓存获取合集数据');
+        } else {
+          print('📡 缓存未命中，从 API 获取');
+          final repo = ref.read(collectionRepositoryProvider);
+          collection = await repo.getCollection(widget.collectionId!);
+        }
+        
         print('📦 获取到合集数据: ${collection.keys}');
         
         // 加载收藏状态
@@ -255,90 +266,45 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         final collectionSpots = collection['collectionSpots'] as List<dynamic>? ?? [];
         print('📍 合集中的地点数量: ${collectionSpots.length}');
 
-        final List<map_page.Spot?> results =
-            List<map_page.Spot?>.filled(collectionSpots.length, null);
-        final Map<String, map_page.Spot> cache = {};
+        final List<map_page.Spot> spots = [];
 
-        Future<map_page.Spot?> fetchSpot(int index) async {
+        for (int index = 0; index < collectionSpots.length; index++) {
           final cs = collectionSpots[index];
           print('🔎 处理第 ${index + 1} 个地点: ${cs.runtimeType}');
 
-          final spotId = cs['spotId'] as String?;
           final spotData = cs['spot'] as Map<String, dynamic>?;
-          if (spotId == null || spotId.isEmpty) {
-            print('⚠️ 第 ${index + 1} 个地点缺少 spotId');
-            return null;
+          if (spotData == null) {
+            print('⚠️ 第 ${index + 1} 个地点缺少 spot 数据');
+            continue;
           }
 
-          if (cache.containsKey(spotId)) {
-            return cache[spotId];
-          }
-
-          map_page.Spot? converted;
-
-          // 优先从 Spot 服务获取最新详情，并用 public-place 补全标签/分类/评分人数
           try {
-            final spot = await spotRepo.getSpotById(spotId);
-            // 优先用 Spot 内的 googlePlaceId，若无则用合集内嵌的 placeId 兜底
-            final placeIdCandidate = (spot.googlePlaceId != null &&
-                    spot.googlePlaceId!.isNotEmpty)
-                ? spot.googlePlaceId
-                : (spotData?['googlePlaceId'] as String?);
-            final place = (placeIdCandidate != null &&
-                    placeIdCandidate.isNotEmpty)
-                ? await publicPlaceRepo.getPlaceById(placeIdCandidate)
-                : null;
-
-            final tags = (place?.aiTags.isNotEmpty ?? false)
-                ? place!.aiTags
-                : spot.tags;
-            final categoryOverride =
-                (place?.category ?? spot.category ?? '').trim().isNotEmpty
-                    ? (place?.category ?? spot.category)
-                    : null;
-            final ratingOverride = place?.rating ?? spot.rating ?? 0.0;
-            final ratingCountOverride =
-                place?.ratingCount ?? spot.ratingCount ?? 0;
-
-            converted = _convertSpot(
-              spot,
-              tagsOverride: tags,
-              categoryOverride: categoryOverride,
-              ratingOverride: ratingOverride,
-              ratingCountOverride: ratingCountOverride,
+            // 直接从合集返回的数据创建 Spot
+            // 注意: map_page.Spot 类只有以下参数: id, name, city, category, latitude, longitude, rating, ratingCount, coverImage, images, tags, aiSummary
+            final coverImg = spotData['coverImage']?.toString() ?? spotData['cover_image']?.toString() ?? '';
+            final imagesList = _parseTagsList(spotData['images'] ?? []);
+            
+            final spot = map_page.Spot(
+              id: spotData['id']?.toString() ?? '',
+              name: spotData['name']?.toString() ?? '',
+              latitude: (spotData['latitude'] as num?)?.toDouble() ?? 0.0,
+              longitude: (spotData['longitude'] as num?)?.toDouble() ?? 0.0,
+              city: spotData['city']?.toString() ?? '',
+              coverImage: coverImg,
+              rating: (spotData['rating'] as num?)?.toDouble() ?? 0.0,
+              ratingCount: (spotData['ratingCount'] as num?)?.toInt() ?? (spotData['rating_count'] as num?)?.toInt() ?? 0,
+              category: spotData['category']?.toString() ?? 'place',
+              tags: _parseTagsList(spotData['tags'] ?? spotData['aiTags'] ?? spotData['ai_tags']),
+              images: imagesList.isNotEmpty ? imagesList : (coverImg.isNotEmpty ? [coverImg] : []),
+              aiSummary: spotData['aiSummary']?.toString() ?? spotData['ai_summary']?.toString(),
             );
-            print('✅ Spot 服务获取成功: ${spot.name}');
+            spots.add(spot);
+            print('✅ 成功解析地点: ${spot.name}, lat: ${spot.latitude}, lng: ${spot.longitude}');
           } catch (e, stackTrace) {
-            print('⚠️ 拉取 spot 详情失败 ($spotId): $e');
+            print('⚠️ 解析地点失败: $e');
             print('📋 Stack trace: $stackTrace');
           }
-
-          // 兜底：使用合集返回的嵌套 spot 数据
-          if (converted == null && spotData != null) {
-            try {
-              final spot = Spot.fromJson(spotData);
-              converted = _convertSpot(spot);
-              print('ℹ️ 使用合集内嵌 spot 兜底: ${spot.name}');
-            } catch (e, stackTrace) {
-              print('⚠️ 兜底解析 spot 失败 ($spotId): $e');
-              print('📋 Stack trace: $stackTrace');
-            }
-          }
-
-          if (converted != null) {
-            cache[spotId] = converted;
-          } else {
-            print('⚠️ 无法获取地点 ($spotId)，已跳过');
-          }
-          return converted;
         }
-
-        await Future.wait([
-          for (int i = 0; i < collectionSpots.length; i++)
-            fetchSpot(i).then((spot) => results[i] = spot),
-        ]);
-
-        final spots = results.whereType<map_page.Spot>().toList();
         
         print('✅ 成功转换了 ${spots.length} 个地点');
         
@@ -395,6 +361,18 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
     if (_citySpots.isNotEmpty) {
       _selectedSpot = _citySpots[0];
     }
+  }
+
+  List<String> _parseTagsList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) return value.map((e) => e.toString()).toList();
+    if (value is String) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List) return decoded.map((e) => e.toString()).toList();
+      } catch (_) {}
+    }
+    return [];
   }
 
   bool get _hasMeta =>
@@ -941,7 +919,13 @@ class _BottomSpotCard extends StatelessWidget {
       ),
     );
 
-    if (spot.coverImage.isEmpty) return placeholder;
+    if (spot.coverImage.isEmpty) {
+      print('🖼️ [${spot.name}] coverImage 为空');
+      return placeholder;
+    }
+    
+    print('🖼️ [${spot.name}] coverImage: ${spot.coverImage.substring(0, spot.coverImage.length > 80 ? 80 : spot.coverImage.length)}...');
+    
     if (spot.coverImage.startsWith('data:image/')) {
       final data = _decodeBase64Image(spot.coverImage);
       if (data.isEmpty) return placeholder;
@@ -952,10 +936,22 @@ class _BottomSpotCard extends StatelessWidget {
       );
     }
 
-    return Image.network(
-      spot.coverImage,
+    // 直接使用原始 URL
+    return CachedNetworkImage(
+      imageUrl: spot.coverImage,
       fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => placeholder,
+      placeholder: (_, __) => const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+      errorWidget: (_, url, error) {
+        print('❌ [${spot.name}] 图片加载失败: $error');
+        print('❌ URL: $url');
+        return placeholder;
+      },
     );
   }
 }

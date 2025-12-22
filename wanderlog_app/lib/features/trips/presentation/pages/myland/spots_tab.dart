@@ -20,6 +20,7 @@ import 'package:wanderlog/features/trips/presentation/pages/myland/myland_spots_
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
 import 'package:wanderlog/shared/utils/destination_utils.dart';
+import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 
 class SpotsTabController {
   _SpotsTabState? _state;
@@ -509,10 +510,15 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       final tabLabel = _selectedSubTab == 1 ? 'MustGo' : "Today's Plan";
       final allCities = _getAvailableCitiesForCurrentTab();
       final allSpotsByCity = _getAllSpotsByCityForCurrentTab();
-      // Build visitedSpots map
+      // Build visitedSpots map (true when user has check-in data for this spot)
       final visitedSpots = <String, bool>{};
       for (final entry in filteredEntries) {
-        visitedSpots[entry.spot.id] = entry.isVisited;
+        final hasCheckInData =
+            entry.visitDate != null ||
+            entry.userRating != null ||
+            (entry.userNotes != null && entry.userNotes!.isNotEmpty) ||
+            entry.userPhotos.isNotEmpty;
+        visitedSpots[entry.spot.id] = hasCheckInData;
       }
       
       Navigator.of(context).push<void>(
@@ -1753,6 +1759,14 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
   Widget build(BuildContext context) {
     final mapSpots = _convertToMapSpots();
     final center = _getMapCenter();
+    final visitedSpots = <String, bool>{
+      for (final entry in widget.entries)
+        entry.spot.id:
+            (entry.visitDate != null ||
+                entry.userRating != null ||
+                (entry.userNotes != null && entry.userNotes!.isNotEmpty) ||
+                entry.userPhotos.isNotEmpty),
+    };
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
@@ -1778,6 +1792,7 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
                   initialCenter: center,
                   initialZoom: 14.0,
                   selectedSpot: _selectedSpot,
+                  visitedSpots: visitedSpots,
                   onSpotTap: (_) => widget.onOpenFullMap(), // 点击地点进入全屏
                   onCameraMove: (_, __) {},
                 ),
@@ -2577,7 +2592,8 @@ class _VisitedSpotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? openingText = _openingInfoText();
+    final String? openingText =
+        OpeningHoursUtils.evaluate(entry.spot.openingHours)?.summaryText;
     final String? priceText = _priceInfoText();
     final String? tagsLine = _tagsLine();
 

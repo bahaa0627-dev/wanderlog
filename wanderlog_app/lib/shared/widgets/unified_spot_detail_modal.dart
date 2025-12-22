@@ -784,15 +784,34 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                           if (bytes != null) {
                             return ClipRRect(
                               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                              child: Image.memory(bytes, fit: BoxFit.cover, width: double.infinity, height: double.infinity, errorBuilder: (_, __, ___) => _buildPlaceholder()),
+                              child: Image.memory(
+                                bytes,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                height: double.infinity,
+                                gaplessPlayback: true,
+                                errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                              ),
                             );
                           }
                           return _buildPlaceholder();
                         }
-                        return Container(
-                          decoration: BoxDecoration(
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                            image: DecorationImage(image: NetworkImage(imageSource), fit: BoxFit.cover),
+                        return ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
+                          child: Image.network(
+                            imageSource,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            gaplessPlayback: true,
+                            // Avoid fade/jump during quick rebuilds (e.g. toggling Today's Plan)
+                            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                              if (wasSynchronouslyLoaded) return child;
+                              return child;
+                            },
+                            errorBuilder: (_, __, ___) => _buildPlaceholder(),
                           ),
                         );
                       },

@@ -263,7 +263,11 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final bitmap = await _createCustomMarkerBitmap(
       spot.name,
       spot.category,
-      isSelected ? AppTheme.primaryYellow : (isVisited ? AppTheme.mediumGray : Colors.white),
+      // Visited/check-in markers should look grey when not selected.
+      // Selection highlight still uses yellow to communicate active selection.
+      isSelected
+          ? AppTheme.primaryYellow
+          : (isVisited ? AppTheme.lightGray : Colors.white),
       isSelected,
       isVisited: isVisited,
     );
@@ -321,8 +325,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final iconPainter = TextPainter(
       text: TextSpan(
         text: iconEmoji,
-        style: const TextStyle(
-          color: AppTheme.black,
+        style: TextStyle(
+          color: isVisited ? AppTheme.mediumGray : AppTheme.black,
           fontSize: iconSize,
           fontFamily: 'ReemKufi',
         ),
@@ -448,6 +452,38 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       _currentCenter = center;
       if (zoom != null) _currentZoom = zoom;
     });
+  }
+
+  /// Returns true if the given [position] projects into the vertical "safe band"
+  /// between [topPaddingPx] and [bottomPaddingPx] (plus a small margin).
+  ///
+  /// This is used to avoid forcing recenter on marker taps when the marker is
+  /// already visible between the top chrome and bottom cards.
+  Future<bool> isPositionWithinVerticalSafeArea(
+    Position position, {
+    required double topPaddingPx,
+    required double bottomPaddingPx,
+    double marginPx = 24,
+  }) async {
+    final map = _mapboxMap;
+    final size = context.size;
+    if (map == null || size == null) {
+      return true;
+    }
+
+    try {
+      final projected = await map.pixelForCoordinate(
+        Point(coordinates: position),
+      );
+
+      final safeTop = topPaddingPx + marginPx;
+      final safeBottom = size.height - bottomPaddingPx - marginPx;
+
+      return projected.y >= safeTop && projected.y <= safeBottom;
+    } catch (e) {
+      // If projection fails, don't force a recenter.
+      return true;
+    }
   }
 
   Future<void> jumpToPosition(Position center, {double? zoom}) async {

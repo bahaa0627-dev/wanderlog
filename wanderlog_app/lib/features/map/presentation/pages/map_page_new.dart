@@ -245,10 +245,31 @@ class _MapPageState extends ConsumerState<MapPage> {
       _currentCardIndex = 0;
     });
     _jumpToPage(0);
-    _animateCamera(
-      Position(spot.longitude, spot.latitude),
-      zoom: math.max(_currentZoom, 14.0),
-    );
+
+    final target = Position(spot.longitude, spot.latitude);
+    final mapState = _mapKey.currentState;
+    if (mapState == null) {
+      _animateCamera(target, zoom: math.max(_currentZoom, 14.0));
+      return;
+    }
+
+    final mq = MediaQuery.of(context);
+    final double topPaddingPx =
+        mq.padding.top + 160.0; // matches top gradient height
+    final double bottomPaddingPx =
+        _carouselSpots.isNotEmpty ? (32.0 + 240.0) : 0.0; // carousel overlay
+
+    mapState
+        .isPositionWithinVerticalSafeArea(
+          target,
+          topPaddingPx: topPaddingPx,
+          bottomPaddingPx: bottomPaddingPx,
+        )
+        .then((isSafe) {
+      if (!isSafe) {
+        _animateCamera(target, zoom: math.max(_currentZoom, 14.0));
+      }
+    });
 
     // 共享组件会自动通过 didUpdateWidget 更新标记
   }

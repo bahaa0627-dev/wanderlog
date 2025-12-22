@@ -204,6 +204,24 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     setState(() => _selectedSpot = spot);
     _skipNextRecenter = true;
 
+    // Only recenter if the marker is likely obscured by the top chrome or
+    // bottom cards. If it's in the safe band, selecting should not move camera.
+    final mapState = _mapKey.currentState;
+    if (mapState != null) {
+      final target = Position(spot.longitude, spot.latitude);
+      mapState
+          .isPositionWithinVerticalSafeArea(
+            target,
+            topPaddingPx: 200,
+            bottomPaddingPx: 320,
+          )
+          .then((isSafe) {
+        if (!isSafe) {
+          mapState.animateCamera(target);
+        }
+      });
+    }
+
     if (spotIndex != _currentCardIndex) {
       _cardPageController.animateToPage(
         spotIndex,

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
+import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 
 /// 地点卡片组件 - 用于 MyLand 页面展示地点信息
 class SpotCard extends StatelessWidget {
@@ -21,8 +22,9 @@ class SpotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? openingText = _openingInfoText();
-    final bool isClosingSoon = _isClosingSoon();
+    final openingEval = OpeningHoursUtils.evaluate(spot.openingHours);
+    final String? openingText = openingEval?.summaryText;
+    final bool isClosingSoon = openingEval?.isClosingSoon ?? false;
     final String? priceText = _priceInfoText();
     final String? tagsLine = _tagsLine();
 
@@ -223,154 +225,13 @@ class SpotCard extends StatelessWidget {
         ),
       );
 
-  String? _openingInfoText() {
-    final raw = spot.openingHours;
-    if (raw == null) {
-      return 'Hours unavailable';
-    }
-    
-    final utcOffsetMinutes = _extractUtcOffset(raw);
-    final List<Map<String, dynamic>>? periods = _parsePeriods(raw['periods']);
-    
-    // If no periods data, try to use weekday_text as fallback
-    if (periods == null || periods.isEmpty) {
-      return _getTodayHoursFromWeekdayText(raw);
-    }
-    
-    // Check for 24/7 places: single period with open at day 0, time 0000, and no close
-    if (_is24HoursPeriods(periods)) {
-      return 'Open 24 hours';
-    }
-
-    final DateTime now = _nowInPlace(utcOffsetMinutes);
-    bool isOpen = false;
-    DateTime? closingTime;
-    DateTime? nextOpening;
-
-    for (final period in periods) {
-      final openInfo = period['open'];
-      if (openInfo is! Map<String, dynamic>) {
-        continue;
-      }
-      final openDay = _normalizeGoogleDay(openInfo['day']);
-      final openTime = _buildDateTimeForGoogleDay(now, openDay, openInfo['time']);
-      if (openTime == null) {
-        continue;
-      }
-      final closeInfo = period['close'];
-      DateTime? closeTime;
-      if (closeInfo is Map<String, dynamic>) {
-        final closeDay = _normalizeGoogleDay(closeInfo['day']) ?? openDay;
-        closeTime = _buildDateTimeForGoogleDay(now, closeDay, closeInfo['time']);
-      }
-      closeTime ??= openTime.add(const Duration(hours: 24));
-      if (closeTime.isBefore(openTime)) {
-        closeTime = closeTime.add(const Duration(days: 7));
-      }
-
-      for (final offset in [-7, 0, 7]) {
-        final start = openTime.add(Duration(days: offset));
-        final end = closeTime.add(Duration(days: offset));
-
-        final bool started = !now.isBefore(start);
-        final bool notEnded = now.isBefore(end);
-        if (!isOpen && started && notEnded) {
-          isOpen = true;
-          closingTime = end;
-        }
-        if (start.isAfter(now)) {
-          if (nextOpening == null || start.isBefore(nextOpening)) {
-            nextOpening = start;
-          }
-        }
-      }
-    }
-
-    if (isOpen && closingTime != null) {
-      final diff = closingTime.difference(now);
-      if (diff > Duration.zero && diff <= const Duration(hours: 2)) {
-        return 'Open, Closes ${_formatClosingCountdown(diff)}, ${_formatTime(closingTime)}';
-      }
-      return 'Open, Closes ${_formatTime(closingTime)}';
-    }
-
-    if (nextOpening != null) {
-      final timeText = _formatTime(nextOpening);
-      if (_isSameDay(nextOpening, now) || _isTomorrow(nextOpening, now)) {
-        return 'Closed, Open $timeText';
-      }
-      return 'Closed, Open ${_weekdayLabel(nextOpening.weekday)} $timeText';
-    }
-
-    return 'Hours unavailable';
-  }
-
-  bool _isClosingSoon() {
-    final raw = spot.openingHours;
-    final utcOffsetMinutes = _extractUtcOffset(raw);
-    final List<Map<String, dynamic>>? periods = _parsePeriods(raw?['periods']);
-    if (periods == null) {
-      return false;
-    }
-    
-    // 24/7 places never close
-    if (_is24HoursPeriods(periods)) {
-      return false;
-    }
-
-    final DateTime now = _nowInPlace(utcOffsetMinutes);
-    DateTime? closingTime;
-
-    for (final period in periods) {
-      final openInfo = period['open'];
-      if (openInfo is! Map<String, dynamic>) {
-        continue;
-      }
-      final openDay = _normalizeGoogleDay(openInfo['day']);
-      final openTime = _buildDateTimeForGoogleDay(now, openDay, openInfo['time']);
-      if (openTime == null) {
-        continue;
-      }
-      final closeInfo = period['close'];
-      DateTime? closeTime;
-      if (closeInfo is Map<String, dynamic>) {
-        final closeDay = _normalizeGoogleDay(closeInfo['day']) ?? openDay;
-        closeTime = _buildDateTimeForGoogleDay(now, closeDay, closeInfo['time']);
-      }
-      closeTime ??= openTime.add(const Duration(hours: 24));
-      if (closeTime.isBefore(openTime)) {
-        closeTime = closeTime.add(const Duration(days: 7));
-      }
-
-      for (final offset in [-7, 0, 7]) {
-        final start = openTime.add(Duration(days: offset));
-        final end = closeTime.add(Duration(days: offset));
-
-        final bool started = !now.isBefore(start);
-        final bool notEnded = now.isBefore(end);
-        if (started && notEnded) {
-          closingTime = end;
-          break;
-        }
-      }
-      if (closingTime != null) {
-        break;
-      }
-    }
-
-    if (closingTime != null) {
-      final diff = closingTime.difference(now);
-      return diff > Duration.zero && diff <= const Duration(hours: 2);
-    }
-
-    return false;
-  }
+  // Opening-hours parsing has been centralized in OpeningHoursUtils.
 
   /// Fallback: extract today's hours from weekday_text array
   String? _getTodayHoursFromWeekdayText(Map<String, dynamic> raw) {
     final weekdayText = raw['weekday_text'];
     if (weekdayText is! List || weekdayText.isEmpty) {
-      return 'Hours unavailable';
+      return 'Closed';
     }
 
     // First check for 24/7 indicators in the entire list
@@ -384,9 +245,12 @@ class SpotCard extends StatelessWidget {
       }
     }
 
+    // Get the local time at the place (not device local time!)
+    final utcOffsetMinutes = _extractUtcOffset(raw);
+    final now = _nowInPlace(utcOffsetMinutes);
+    
     // weekday_text is ordered: Monday=0, Tuesday=1, ..., Sunday=6
     // DateTime.weekday is: Monday=1, ..., Sunday=7
-    final now = DateTime.now();
     final dartWeekday = now.weekday; // 1=Mon, 7=Sun
     final googleIndex = dartWeekday == 7 ? 6 : dartWeekday - 1; // Convert to 0-6
 
@@ -400,8 +264,54 @@ class SpotCard extends StatelessWidget {
           return 'Open 24 hours';
         }
         if (hours.toLowerCase() == 'closed') {
-          return 'Closed today';
+          // Check if we can find next opening time from weekday_text
+          final nextOpenText = _findNextOpeningFromWeekdayText(weekdayText, googleIndex);
+          if (nextOpenText != null) {
+            return 'Closed, Open $nextOpenText';
+          }
+          return 'Closed';
         }
+        // Extract opening and closing times from hours string (e.g., "9:00 AM – 5:00 PM")
+        final hoursMatch = RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)\s*–\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false).firstMatch(hours);
+        if (hoursMatch != null) {
+          final openTime = hoursMatch.group(1)! + (hoursMatch.group(2) != null ? ':${hoursMatch.group(2)}' : '') + ' ' + hoursMatch.group(3)!;
+          final closeTime = hoursMatch.group(4)! + (hoursMatch.group(5) != null ? ':${hoursMatch.group(5)}' : '') + ' ' + hoursMatch.group(6)!;
+          
+          // Check if currently open
+          if (_isCurrentlyOpenFromHours(hours, now)) {
+            // Format closing time
+            final closingMatch = RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false).firstMatch(closeTime);
+            if (closingMatch != null) {
+              return 'Open, Closes ${_formatTimeFromMatch(closingMatch)}';
+            }
+            return 'Open';
+          } else {
+            // Closed now, show next opening time
+            final openingMatch = RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false).firstMatch(openTime);
+            if (openingMatch != null) {
+              // Check if opening is later today or tomorrow
+              final openHour = int.parse(openingMatch.group(1)!);
+              final openMinute = int.tryParse(openingMatch.group(2) ?? '0') ?? 0;
+              final isPm = openingMatch.group(3)!.toUpperCase() == 'PM';
+              final openMinutes = _parse12HourTime(openHour, openMinute, isPm);
+              final currentMinutes = now.hour * 60 + now.minute;
+              
+              if (openMinutes > currentMinutes) {
+                // Opens later today
+                return 'Closed, Open ${_formatTimeFromMatch(openingMatch)}';
+              } else {
+                // Check next day
+                final nextOpenText = _findNextOpeningFromWeekdayText(weekdayText, googleIndex);
+                if (nextOpenText != null) {
+                  return 'Closed, Open $nextOpenText';
+                }
+                return 'Closed';
+              }
+            }
+            return 'Closed';
+          }
+        }
+        // If hours format is not recognized, just show the raw text
         return hours;
       }
       // If no colon found but text looks like "Open 24 hours" directly
@@ -410,7 +320,84 @@ class SpotCard extends StatelessWidget {
       }
     }
 
-    return 'Hours unavailable';
+    return 'Closed';
+  }
+
+  /// Find next opening time from weekday_text array starting from current day
+  String? _findNextOpeningFromWeekdayText(List weekdayText, int currentIndex) {
+    // Check today and next 7 days
+    for (int offset = 0; offset < 7; offset++) {
+      final index = (currentIndex + offset) % weekdayText.length;
+      final dayText = weekdayText[index]?.toString() ?? '';
+      final colonIndex = dayText.indexOf(':');
+      if (colonIndex != -1 && colonIndex < dayText.length - 1) {
+        final hours = dayText.substring(colonIndex + 1).trim();
+        if (hours.toLowerCase() != 'closed' && 
+            !hours.toLowerCase().contains('open 24')) {
+          // Extract opening time
+          final openingMatch = RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false).firstMatch(hours);
+          if (openingMatch != null) {
+            if (offset == 0) {
+              // Today
+              return _formatTimeFromMatch(openingMatch);
+            } else if (offset == 1) {
+              // Tomorrow - could add "tomorrow" prefix if needed
+              return _formatTimeFromMatch(openingMatch);
+            }
+            // Future day - could add day name if needed
+            return _formatTimeFromMatch(openingMatch);
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Check if currently open based on hours string like "9:00 AM – 5:00 PM"
+  bool _isCurrentlyOpenFromHours(String hours, DateTime now) {
+    final match = RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)\s*–\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false).firstMatch(hours);
+    if (match == null) return false;
+    
+    try {
+      final openHour = int.parse(match.group(1)!);
+      final openMinute = int.tryParse(match.group(2) ?? '0') ?? 0;
+      final openPeriod = match.group(3)!.toUpperCase();
+      final closeHour = int.parse(match.group(4)!);
+      final closeMinute = int.tryParse(match.group(5) ?? '0') ?? 0;
+      final closePeriod = match.group(6)!.toUpperCase();
+
+      final openTime = _parse12HourTime(openHour, openMinute, openPeriod == 'PM');
+      final closeTime = _parse12HourTime(closeHour, closeMinute, closePeriod == 'PM');
+      
+      final currentTime = now.hour * 60 + now.minute;
+      final openMinutes = openTime;
+      final closeMinutes = closeTime < openMinutes ? closeTime + 24 * 60 : closeTime;
+      
+      return currentTime >= openMinutes && currentTime < closeMinutes;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Parse 12-hour time to minutes since midnight
+  int _parse12HourTime(int hour, int minute, bool isPm) {
+    var h = hour % 12;
+    if (isPm && h != 12) h += 12;
+    if (!isPm && h == 12) h = 0;
+    return h * 60 + minute;
+  }
+
+  /// Format time from regex match (e.g., "9:00 AM" -> "9a.m")
+  String _formatTimeFromMatch(RegExpMatch match) {
+    final hour = int.parse(match.group(1)!);
+    final minute = int.tryParse(match.group(2) ?? '0') ?? 0;
+    final period = match.group(3)!.toUpperCase();
+    
+    final hourValue = hour % 12 == 0 ? 12 : hour % 12;
+    final minuteText = minute == 0 ? '' : ':${minute.toString().padLeft(2, '0')}';
+    final periodText = period == 'PM' ? 'p.m' : 'a.m';
+    
+    return '$hourValue$minuteText$periodText';
   }
 
   /// Check if periods indicate a 24/7 place
@@ -501,10 +488,12 @@ class SpotCard extends StatelessWidget {
     if (hours == null || minutes == null) {
       return null;
     }
-    final DateTime startOfDay = reference.isUtc
-        ? DateTime.utc(reference.year, reference.month, reference.day)
-        : DateTime(reference.year, reference.month, reference.day);
-    final currentGoogleDay = reference.weekday % 7;
+    // Create start of day in local time (not UTC) since we're working with place-local time
+    final DateTime startOfDay = DateTime(reference.year, reference.month, reference.day);
+    // Convert Dart weekday (1=Mon, 7=Sun) to Google day (0=Sun, 1=Mon, ..., 6=Sat)
+    // Dart: Monday=1, Tuesday=2, ..., Sunday=7
+    // Google: Sunday=0, Monday=1, ..., Saturday=6
+    final currentGoogleDay = reference.weekday == 7 ? 0 : reference.weekday;
     var delta = googleDay - currentGoogleDay;
     var candidate = startOfDay.add(Duration(days: delta));
     candidate = candidate.add(Duration(hours: hours, minutes: minutes));
@@ -558,7 +547,20 @@ class SpotCard extends StatelessWidget {
       return DateTime.now();
     }
     // Google returns utc_offset_minutes relative to UTC, so adjust from UTC to place-local time.
-    return DateTime.now().toUtc().add(Duration(minutes: offsetMinutes));
+    // We need to return a local time (isUtc = false) DateTime to match how we build opening hours
+    final utcNow = DateTime.now().toUtc();
+    final localTime = utcNow.add(Duration(minutes: offsetMinutes));
+    // Create a new DateTime in local time (not UTC) with the same values
+    return DateTime(
+      localTime.year,
+      localTime.month,
+      localTime.day,
+      localTime.hour,
+      localTime.minute,
+      localTime.second,
+      localTime.millisecond,
+      localTime.microsecond,
+    );
   }
 
   String _weekdayLabel(int weekday) {

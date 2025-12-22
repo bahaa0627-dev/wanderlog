@@ -7,6 +7,7 @@ import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/features/trips/data/trip_repository.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/core/providers/dio_provider.dart';
+import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 
 class SpotListItem extends ConsumerWidget {
 
@@ -59,6 +60,8 @@ class SpotListItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final spot = tripSpot.spot;
     if (spot == null) return const SizedBox.shrink();
+    final openingEval =
+        showOpeningHours ? OpeningHoursUtils.evaluate(spot.openingHours) : null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -196,7 +199,7 @@ class SpotListItem extends ConsumerWidget {
                 ),
               ],
               // Opening hours (for Today's Plan)
-              if (showOpeningHours && spot.openingHours != null) ...[
+              if (openingEval != null) ...[
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -207,7 +210,7 @@ class SpotListItem extends ConsumerWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'Check opening hours',
+                      openingEval.summaryText,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,

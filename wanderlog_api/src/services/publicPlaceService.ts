@@ -609,17 +609,12 @@ class PublicPlaceService {
       country: { equals: country, mode: 'insensitive' },
     };
 
-    // 如果有标签，使用 OR 条件匹配任意标签（不区分大小写）
-    if (tags && tags.length > 0) {
-      where.OR = tags.flatMap(tag => [
-        // 对于 category 字段（字符串），使用 contains + insensitive
-        { category: { contains: tag, mode: 'insensitive' } },
-      ]);
-    }
+    // 如果有标签，先不在数据库层面过滤，而是取出所有该城市的地点
+    // 然后在内存中进行标签匹配（因为 aiTags 是 JSON 数组，Prisma 不支持直接查询）
 
     const places = await prisma.place.findMany({
       where,
-      take: limit * 2, // 取更多以便内存过滤后仍有足够数据
+      take: limit * 4, // 取更多以便内存过滤后仍有足够数据
       orderBy: [
         { rating: 'desc' },
         { ratingCount: 'desc' },
@@ -643,7 +638,7 @@ class PublicPlaceService {
       },
     });
 
-    // 如果有标签，在内存中进一步过滤 aiTags 和 tags 字段（不区分大小写）
+    // 如果有标签，在内存中过滤 category、aiTags 和 tags 字段（不区分大小写）
     let filteredPlaces = places;
     if (tags && tags.length > 0) {
       const tagsLower = tags.map(t => t.toLowerCase());

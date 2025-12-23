@@ -89,6 +89,9 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
 
   /// 获取过滤后的地点
   List<Spot> get _filteredSpots {
+    // 如果是 AI 生成的结果，不需要再过滤
+    if (_isAiGenerated) return _spots;
+    
     if (_activeFilterTags.isEmpty) return _spots;
     
     // 转换为小写进行比较
@@ -122,9 +125,13 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
       
       // 调试日志
       print('📍 Search result: ${result.places.length} places, isAiGenerated=${result.isAiGenerated}');
+      if (result.places.isNotEmpty) {
+        print('📍 First place: ${result.places.first.name}, tags: ${result.places.first.tags}');
+      }
 
       // 如果选择了标签但没有结果，尝试使用 AI 生成
       if (result.places.isEmpty && _userSelectedTags.isNotEmpty) {
+        print('🤖 No results, trying AI generation...');
         try {
           result = await repository.generatePlacesWithAI(
             city: _currentCity,
@@ -132,7 +139,9 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
             tags: _userSelectedTags,
             maxPerCategory: 10,
           );
+          print('🤖 AI generated ${result.places.length} places');
         } catch (aiError) {
+          print('❌ AI generation failed: $aiError');
           setState(() {
             _isLoading = false;
             _isAiGenerationFailed = true;
@@ -182,6 +191,11 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
       if (place.category != null && place.category!.isNotEmpty) place.category!,
       ...place.tags,
     }.toList();
+    
+    // 调试日志
+    if (place.name.contains('Yoyogi') || place.name.contains('Ebisu')) {
+      print('🏷️ Converting ${place.name}: category=${place.category}, tags=${place.tags}, allTags=$allTags');
+    }
     
     return Spot(
       id: place.id,
@@ -422,15 +436,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (_isAiGenerated)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryYellow,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Text('✨ AI', style: TextStyle(fontSize: 12)),
-                                ),
                             ],
                           ),
                         ),
@@ -502,9 +507,10 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
               left: 0,
               right: 0,
               child: SizedBox(
-                height: 240,
+                height: 250, // 增加高度避免 overflow
                 child: PageView.builder(
                   controller: _cardPageController,
+                  clipBehavior: Clip.none, // 允许卡片超出边界
                   onPageChanged: (index) {
                     if (index >= filteredSpots.length) return;
                     final spot = filteredSpots[index];
@@ -524,6 +530,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                       child: _BottomSpotCard(
                         spot: spot,
                         onTap: () => _showSpotDetail(spot),
+                        isAiGenerated: _isAiGenerated,
                       ),
                     );
                   },
@@ -554,7 +561,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     );
   }
 
-  /// 标签栏 - 与首页 map 样式一致
+  /// 标签栏 - 与首页 map 样式一致，最多展示 8 个标签
   Widget _buildTagBar() {
     // 合并用户选择的标签和搜索结果的标签
     final allTags = <String>{..._userSelectedTags, ..._allTagsCounts.keys};
@@ -569,16 +576,19 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
       final bCount = _allTagsCounts[b] ?? 0;
       return bCount.compareTo(aCount);
     });
+    
+    // 最多展示 8 个标签
+    final displayTags = sortedTags.take(8).toList();
 
     return SizedBox(
       height: 42,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 0),
         scrollDirection: Axis.horizontal,
-        itemCount: sortedTags.length,
+        itemCount: displayTags.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
-          final tag = sortedTags[index];
+          final tag = displayTags[index];
           final isSelected = _activeFilterTags.contains(tag);
           final emoji = _tagEmoji(tag);
           final count = _allTagsCounts[tag];
@@ -601,15 +611,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                   Text(emoji, style: const TextStyle(fontSize: 16)),
                   const SizedBox(width: 6),
                   Text(tag, style: AppTheme.labelMedium(context)),
-                  if (count != null && count > 0) ...[
-                    const SizedBox(width: 4),
-                    Text(
-                      '($count)',
-                      style: AppTheme.labelSmall(context).copyWith(
-                        color: AppTheme.mediumGray,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -759,10 +760,12 @@ class _BottomSpotCard extends StatelessWidget {
   const _BottomSpotCard({
     required this.spot,
     required this.onTap,
+    this.isAiGenerated = false,
   });
 
   final Spot spot;
   final VoidCallback onTap;
+  final bool isAiGenerated;
 
   Widget _buildCover() {
     final placeholder = ColoredBox(
@@ -811,6 +814,21 @@ class _BottomSpotCard extends StatelessWidget {
                 ),
               ),
             ),
+            // AI 标签 - 右上角
+            if (isAiGenerated)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryYellow,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.black, width: 1),
+                  ),
+                  child: const Text('✨ AI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
@@ -900,10 +918,10 @@ class _SearchMenuOverlayInPageState extends ConsumerState<_SearchMenuOverlayInPa
   late Set<String> _selectedTags;
 
   static const Map<String, List<String>> _interestCategories = {
-    'Things to do': ['museum', 'attractions', 'store'],
-    'Nature': ['park', 'cemetery', 'hiking'],
-    'Arts': ['architecture', 'pilgrimage', 'knitting'],
-    'Food': ['cafe', 'bread', 'brunch', 'restaurant'],
+    'Things to do': ['Museum', 'Attractions', 'Store'],
+    'Nature': ['Park', 'Cemetery', 'Hiking'],
+    'Arts': ['Architecture', 'Pilgrimage', 'Knitting'],
+    'Food': ['Cafe', 'Bread', 'Brunch', 'Restaurant'],
   };
 
   @override
@@ -947,7 +965,7 @@ class _SearchMenuOverlayInPageState extends ConsumerState<_SearchMenuOverlayInPa
   Widget build(BuildContext context) {
     final RenderBox? searchBox = widget.searchBoxKey.currentContext?.findRenderObject() as RenderBox?;
     final searchBoxPosition = searchBox?.localToGlobal(Offset.zero) ?? Offset.zero;
-    final searchBoxSize = searchBox?.size ?? const ui.Size(0, 0);
+    final searchBoxSize = searchBox?.size ?? ui.Size.zero;
     final topOffset = searchBoxPosition.dy + searchBoxSize.height + 8;
 
     return Stack(

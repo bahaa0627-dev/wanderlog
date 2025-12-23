@@ -30,10 +30,10 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
 
   // 兴趣标签分类（根据图片）
   static const Map<String, List<String>> _interestCategories = {
-    'Things to do': ['museum', 'attractions', 'store'],
-    'Nature': ['park', 'cemetery', 'hiking'],
-    'Arts': ['architecture', 'pilgrimage', 'knitting'],
-    'Food': ['cafe', 'bread', 'brunch', 'restaurant'],
+    'Things to do': ['Museum', 'Attractions', 'Store'],
+    'Nature': ['Park', 'Cemetery', 'Hiking'],
+    'Arts': ['Architecture', 'Pilgrimage', 'Knitting'],
+    'Food': ['Cafe', 'Bread', 'Brunch', 'Restaurant'],
   };
 
   List<String> get _countries {
@@ -83,6 +83,8 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
     final searchBoxSize = searchBox?.size ?? ui.Size.zero;
     
     final topOffset = searchBoxPosition.dy + searchBoxSize.height + 8;
+    // 底部留出更多空间给 bottom bar
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 80;
     
     return Stack(
       children: [
@@ -102,7 +104,7 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
             color: Colors.transparent,
             child: Container(
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height - topOffset - 100,
+                maxHeight: MediaQuery.of(context).size.height - topOffset - bottomPadding,
               ),
               decoration: BoxDecoration(
                 color: AppTheme.white,
@@ -125,7 +127,7 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
         // 可滚动内容
         Flexible(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -362,7 +364,7 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
   Widget _buildSearchButton() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       child: PrimaryButton(
         text: 'AI Search & Customize',
         onPressed: _handleSearch,

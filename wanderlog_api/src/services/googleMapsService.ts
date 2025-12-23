@@ -17,6 +17,51 @@ if (proxyUrl) {
 
 const client = new Client(clientConfig);
 
+// 城市名称映射：当地语言 -> 英文
+const cityNameMapping: Record<string, string> = {
+  // 丹麦
+  'København': 'Copenhagen',
+  'Kobenhavn': 'Copenhagen',
+  // 日本
+  '東京': 'Tokyo',
+  '東京都': 'Tokyo',
+  '大阪': 'Osaka',
+  '大阪市': 'Osaka',
+  '京都': 'Kyoto',
+  '京都市': 'Kyoto',
+  '札幌': 'Sapporo',
+  '札幌市': 'Sapporo',
+  // 泰国
+  'กรุงเทพมหานคร': 'Bangkok',
+  'เชียงใหม่': 'Chiang Mai',
+  // 德国
+  'München': 'Munich',
+  'Köln': 'Cologne',
+  // 奥地利
+  'Wien': 'Vienna',
+  // 意大利
+  'Roma': 'Rome',
+  'Milano': 'Milan',
+  'Firenze': 'Florence',
+  'Venezia': 'Venice',
+  'Napoli': 'Naples',
+  // 西班牙
+  'Sevilla': 'Seville',
+  // 中国
+  '北京': 'Beijing',
+  '上海': 'Shanghai',
+  '香港': 'Hong Kong',
+  // 韩国
+  '서울': 'Seoul',
+  '부산': 'Busan',
+};
+
+// 转换城市名称为英文
+function normalizeCity(city: string): string {
+  if (!city) return city;
+  return cityNameMapping[city] || city;
+}
+
 interface PlaceData {
   googlePlaceId: string;
   name: string;
@@ -135,7 +180,7 @@ class GoogleMapsService {
       return {
         googlePlaceId: place.place_id || placeId,
         name: place.name || '',
-        city: city || 'Unknown',
+        city: normalizeCity(city) || 'Unknown',
         country: country || 'Unknown',
         latitude: place.geometry?.location?.lat || 0,
         longitude: place.geometry?.location?.lng || 0,

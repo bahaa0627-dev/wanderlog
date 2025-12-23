@@ -160,13 +160,19 @@ class SearchPlaceResult {
   factory SearchPlaceResult.fromJson(Map<String, dynamic> json) {
     List<String> parseStringList(dynamic value) {
       if (value == null) return [];
-      if (value is List) return value.cast<String>();
+      if (value is List) return value.map((e) => e.toString()).toList();
       if (value is String) {
         try {
-          final decoded = value.startsWith('[') ? value : '[$value]';
-          return (decoded as List).cast<String>();
+          // 尝试解析 JSON 字符串
+          if (value.startsWith('[')) {
+            final decoded = List<dynamic>.from(
+              (value as dynamic) is String ? [] : value as List,
+            );
+            return decoded.map((e) => e.toString()).toList();
+          }
+          return [value];
         } catch (_) {
-          return [];
+          return [value];
         }
       }
       return [];

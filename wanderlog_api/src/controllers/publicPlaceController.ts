@@ -19,19 +19,55 @@ function parseJsonField(value: any): any[] {
   return [];
 }
 
+// 标签替换映射
+const tagReplacements: Record<string, string> = {
+  'coffee': 'Cafe',
+  'Coffee': 'Cafe',
+};
+
+// 格式化标签：首字母大写，特殊替换
+function formatTag(tag: string): string {
+  if (!tag) return tag;
+  
+  // 检查是否有特殊替换
+  if (tagReplacements[tag]) {
+    return tagReplacements[tag];
+  }
+  
+  // 首字母大写
+  return tag.charAt(0).toUpperCase() + tag.slice(1).toLowerCase();
+}
+
+// 格式化标签数组
+function formatTags(tags: any[]): string[] {
+  return tags.map(tag => typeof tag === 'string' ? formatTag(tag) : tag);
+}
+
+// 格式化 category
+function formatCategory(category: string | null): string | null {
+  if (!category) return category;
+  return formatTag(category);
+}
+
 // 转换 place 对象，解析 JSON 字符串字段，确保必填字段不为 null
 function transformPlace(place: any): any {
   if (!place) return place;
   const images = parseJsonField(place.images);
   const coverImage = place.coverImage || (images.length > 0 ? images[0] : null);
+  
+  // 格式化标签和分类
+  const rawTags = parseJsonField(place.tags || place.aiTags);
+  const rawAiTags = parseJsonField(place.aiTags);
+  
   return {
     ...place,
     // 确保 placeId 不为空，优先使用 placeId，其次 googlePlaceId，最后 id
     placeId: place.placeId || place.googlePlaceId || place.id,
     images,
     coverImage,
-    tags: parseJsonField(place.tags || place.aiTags),
-    aiTags: parseJsonField(place.aiTags),
+    category: formatCategory(place.category),
+    tags: formatTags(rawTags),
+    aiTags: formatTags(rawAiTags),
   };
 }
 

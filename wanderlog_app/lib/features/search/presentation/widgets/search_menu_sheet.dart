@@ -1,0 +1,396 @@
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/shared/widgets/ui_components.dart';
+import 'package:wanderlog/shared/widgets/custom_toast.dart';
+import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
+import 'package:wanderlog/features/search/presentation/pages/search_results_map_page.dart';
+
+/// 搜索菜单组件 - 从搜索框下方弹出
+class SearchMenuOverlay extends ConsumerStatefulWidget {
+  const SearchMenuOverlay({
+    super.key,
+    required this.searchBoxKey,
+    required this.onClose,
+  });
+
+  final GlobalKey searchBoxKey;
+  final VoidCallback onClose;
+
+  @override
+  ConsumerState<SearchMenuOverlay> createState() => _SearchMenuOverlayState();
+}
+
+class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
+  String? _selectedCountry;
+  String? _selectedCity;
+  final Set<String> _selectedTags = {};
+
+  // 兴趣标签分类（根据图片）
+  static const Map<String, List<String>> _interestCategories = {
+    'Things to do': ['museum', 'attractions', 'store'],
+    'Nature': ['park', 'cemetery', 'hiking'],
+    'Arts': ['architecture', 'pilgrimage', 'knitting'],
+    'Food': ['cafe', 'bread', 'brunch', 'restaurant'],
+  };
+
+  List<String> get _countries {
+    final data = ref.watch(countriesCitiesProvider);
+    return data.keys.toList()..sort();
+  }
+
+  List<String> get _availableCities {
+    if (_selectedCountry == null) return [];
+    final data = ref.watch(countriesCitiesProvider);
+    return data[_selectedCountry] ?? [];
+  }
+
+  void _toggleTag(String tag) {
+    setState(() {
+      if (_selectedTags.contains(tag)) {
+        _selectedTags.remove(tag);
+      } else {
+        _selectedTags.add(tag);
+      }
+    });
+  }
+
+  void _handleSearch() {
+    if (_selectedCity == null) {
+      CustomToast.showInfo(context, 'Please select a city first');
+      return;
+    }
+
+    widget.onClose();
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => SearchResultsMapPage(
+          city: _selectedCity!,
+          country: _selectedCountry!,
+          selectedTags: _selectedTags.toList(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 获取搜索框位置
+    final RenderBox? searchBox = widget.searchBoxKey.currentContext?.findRenderObject() as RenderBox?;
+    final searchBoxPosition = searchBox?.localToGlobal(Offset.zero) ?? Offset.zero;
+    final searchBoxSize = searchBox?.size ?? ui.Size.zero;
+    
+    final topOffset = searchBoxPosition.dy + searchBoxSize.height + 8;
+    
+    return Stack(
+      children: [
+        // 背景遮罩
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: widget.onClose,
+            child: Container(color: Colors.transparent),
+          ),
+        ),
+        // 菜单内容
+        Positioned(
+          top: topOffset,
+          left: 16,
+          right: 16,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height - topOffset - 100,
+              ),
+              decoration: BoxDecoration(
+                color: AppTheme.white,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                border: Border.all(color: AppTheme.black, width: AppTheme.borderThick),
+                boxShadow: AppTheme.strongShadow,
+              ),
+              child: _buildContent(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 可滚动内容
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // City Section
+                _buildSectionTitle('🏙 City'),
+                const SizedBox(height: 12),
+                _buildDropdownRow(),
+                const SizedBox(height: 24),
+                
+                // Interests Section
+                _buildSectionTitle('🌟 Interests'),
+                const SizedBox(height: 12),
+                ..._interestCategories.entries.map((entry) => 
+                  _buildInterestCategory(entry.key, entry.value),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Search Button
+        _buildSearchButton(),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: AppTheme.headlineMedium(context).copyWith(fontSize: 22),
+    );
+  }
+
+  Widget _buildDropdownRow() {
+    return Row(
+      children: [
+        // Country dropdown
+        Expanded(
+          child: _buildCompactDropdown(
+            value: _selectedCountry,
+            hint: 'Country',
+            items: _countries,
+            onChanged: (value) {
+              setState(() {
+                _selectedCountry = value;
+                _selectedCity = null;
+              });
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        // City dropdown - 始终可点击
+        Expanded(
+          child: _buildCityDropdown(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactDropdown({
+    required String? value,
+    required String hint,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppTheme.black, width: 1.5),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          hint: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Text(
+              hint,
+              style: AppTheme.bodyMedium(context).copyWith(
+                color: AppTheme.mediumGray,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          isExpanded: true,
+          icon: const Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: Icon(Icons.keyboard_arrow_down, color: AppTheme.black, size: 20),
+          ),
+          selectedItemBuilder: (context) => items.map((item) {
+            return Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  item,
+                  style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            );
+          }).toList(),
+          items: items.map((item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              child: Text(
+                item,
+                style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
+              ),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCityDropdown() {
+    final hasCountry = _selectedCountry != null;
+    final cities = _availableCities;
+    
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppTheme.black, width: 1.5),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedCity,
+          hint: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Text(
+              'City',
+              style: AppTheme.bodyMedium(context).copyWith(
+                color: AppTheme.mediumGray,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          isExpanded: true,
+          icon: const Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: Icon(Icons.keyboard_arrow_down, color: AppTheme.black, size: 20),
+          ),
+          selectedItemBuilder: hasCountry ? (context) => cities.map((item) {
+            return Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  item,
+                  style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            );
+          }).toList() : null,
+          items: hasCountry
+              ? cities.map((item) {
+                  return DropdownMenuItem<String>(
+                    value: item,
+                    child: Text(
+                      item,
+                      style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
+                    ),
+                  );
+                }).toList()
+              : [
+                  DropdownMenuItem<String>(
+                    enabled: false,
+                    child: Text(
+                      'Choose country first',
+                      style: AppTheme.bodyMedium(context).copyWith(
+                        color: AppTheme.mediumGray,
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+          onChanged: hasCountry ? (value) {
+            setState(() {
+              _selectedCity = value;
+            });
+          } : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInterestCategory(String category, List<String> tags) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            category,
+            style: AppTheme.titleMedium(context).copyWith(fontSize: 15),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: tags.map((tag) => _buildTagChip(tag)).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTagChip(String tag) {
+    final isSelected = _selectedTags.contains(tag);
+    
+    return GestureDetector(
+      onTap: () => _toggleTag(tag),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryYellow : AppTheme.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.black, width: 1.5),
+        ),
+        child: Text(
+          tag,
+          style: AppTheme.labelMedium(context).copyWith(fontSize: 13),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchButton() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: PrimaryButton(
+        text: 'AI Search & Customize',
+        onPressed: _handleSearch,
+      ),
+    );
+  }
+}
+
+/// 搜索菜单底部弹出组件（保留兼容）
+class SearchMenuSheet extends ConsumerStatefulWidget {
+  const SearchMenuSheet({super.key});
+
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const SearchMenuSheet(),
+    );
+  }
+
+  @override
+  ConsumerState<SearchMenuSheet> createState() => _SearchMenuSheetState();
+}
+
+class _SearchMenuSheetState extends ConsumerState<SearchMenuSheet> {
+  @override
+  Widget build(BuildContext context) {
+    return Container();
+  }
+}

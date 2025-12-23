@@ -469,6 +469,107 @@ class PublicPlaceController {
       });
     }
   }
+
+  /**
+   * 获取国家和城市列表（按国家分组）
+   * GET /api/public-places/countries-cities
+   */
+  async getCountriesAndCities(_req: Request, res: Response): Promise<void> {
+    try {
+      const data = await publicPlaceService.getCountriesAndCities();
+
+      res.json({
+        success: true,
+        data,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * 按城市和标签筛选地点
+   * GET /api/public-places/search-by-filters
+   */
+  async searchByFilters(req: Request, res: Response): Promise<void> {
+    try {
+      const { city, country, tags, limit } = req.query;
+
+      if (!city || !country) {
+        res.status(400).json({
+          success: false,
+          error: 'city and country are required',
+        });
+        return;
+      }
+
+      const tagsArray = tags 
+        ? (tags as string).split(',').map(t => t.trim()).filter(Boolean)
+        : undefined;
+
+      const result = await publicPlaceService.searchByFilters({
+        city: city as string,
+        country: country as string,
+        tags: tagsArray,
+        limit: limit ? parseInt(limit as string) : 50,
+      });
+
+      res.json({
+        success: true,
+        data: result.places.map(transformPlace),
+        total: result.total,
+        isAiGenerated: result.isAiGenerated,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * 使用 AI 生成地点
+   * POST /api/public-places/ai-generate
+   */
+  async aiGeneratePlaces(req: Request, res: Response): Promise<void> {
+    try {
+      const { city, country, tags, maxPerCategory } = req.body;
+
+      if (!city || !country || !tags || !Array.isArray(tags)) {
+        res.status(400).json({
+          success: false,
+          error: 'city, country, and tags array are required',
+        });
+        return;
+      }
+
+      console.log(`🤖 AI generating places for ${city}, ${country} with tags: ${tags.join(', ')}`);
+
+      const places = await aiService.generatePlacesForCity({
+        city,
+        country,
+        tags,
+        maxPerCategory: maxPerCategory || 10,
+      });
+
+      res.json({
+        success: true,
+        data: places.map(transformPlace),
+        total: places.length,
+        isAiGenerated: true,
+      });
+    } catch (error: any) {
+      console.error('Error generating places with AI:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
   
   /**
    * 手动创建地点

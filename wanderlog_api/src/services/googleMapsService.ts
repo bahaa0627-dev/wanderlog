@@ -72,7 +72,6 @@ class GoogleMapsService {
             'price_level',
             'types',
             'opening_hours',
-            'utc_offset_minutes',
             'website',
             'formatted_phone_number',
             'photos',
@@ -205,22 +204,34 @@ class GoogleMapsService {
    */
   async textSearch(query: string, location?: { lat: number; lng: number }) {
     try {
-      const response = await client.textSearch({
-        params: {
-          query,
-          location,
-          key: this.apiKey
-        }
-      });
+      console.log(`🔍 Text search: "${query}"`);
+      
+      // 构建参数，只有当 location 有效时才包含它
+      const params: any = {
+        query,
+        key: this.apiKey
+      };
+      
+      if (location && typeof location.lat === 'number' && typeof location.lng === 'number') {
+        params.location = location;
+      }
+      
+      const response = await client.textSearch({ params });
 
-      if (response.data.status !== 'OK') {
-        console.error('Text search error:', response.data.status);
+      console.log(`📍 Text search status: ${response.data.status}, results: ${response.data.results?.length || 0}`);
+
+      // ZERO_RESULTS 也是有效的响应，只是没有找到结果
+      if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
+        console.error('Text search error:', response.data.status, response.data.error_message);
         return [];
       }
 
       return response.data.results || [];
-    } catch (error) {
-      console.error('Error in text search:', error);
+    } catch (error: any) {
+      console.error('Error in text search:', error.message);
+      if (error.response?.data) {
+        console.error('Response data:', error.response.data);
+      }
       return [];
     }
   }

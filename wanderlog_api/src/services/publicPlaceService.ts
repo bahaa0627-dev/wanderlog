@@ -40,7 +40,6 @@ class PublicPlaceService {
 
       const placeData = {
         googlePlaceId: data.placeId,
-        placeId: data.placeId, // 兼容旧字段
         name: data.name,
         latitude: data.latitude,
         longitude: data.longitude,
@@ -334,16 +333,21 @@ class PublicPlaceService {
       updateData.customFields = updates.customFields ? (typeof updates.customFields === 'string' ? JSON.parse(updates.customFields) : updates.customFields) : null;
     }
     
-    // 先尝试按数据库 ID 更新
-    const existingById = await prisma.place.findUnique({ where: { id: placeId } });
-    if (existingById) {
-      return await prisma.place.update({
-        where: { id: placeId },
-        data: updateData,
-      });
+    // 检查 placeId 是否是 UUID 格式（用于数据库 ID）还是 Google Place ID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(placeId);
+    
+    if (isUUID) {
+      // 按数据库 ID 更新
+      const existingById = await prisma.place.findUnique({ where: { id: placeId } });
+      if (existingById) {
+        return await prisma.place.update({
+          where: { id: placeId },
+          data: updateData,
+        });
+      }
     }
     
-    // 如果按 ID 没找到，尝试按 googlePlaceId 更新
+    // 按 googlePlaceId 更新
     return await prisma.place.update({
       where: { googlePlaceId: placeId },
       data: updateData,
@@ -355,12 +359,16 @@ class PublicPlaceService {
    * 支持通过数据库 ID 或 googlePlaceId 删除
    */
   async deletePlace(placeId: string) {
-    // 先尝试通过数据库 ID 查找，再尝试 googlePlaceId
-    const existingById = await prisma.place.findUnique({ where: { id: placeId } });
-    if (existingById) {
-      return await prisma.place.delete({
-        where: { id: placeId }
-      });
+    // 检查 placeId 是否是 UUID 格式
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(placeId);
+    
+    if (isUUID) {
+      const existingById = await prisma.place.findUnique({ where: { id: placeId } });
+      if (existingById) {
+        return await prisma.place.delete({
+          where: { id: placeId }
+        });
+      }
     }
     
     return await prisma.place.delete({
@@ -524,6 +532,161 @@ class PublicPlaceService {
       bySource,
       topCategories: byCategory,
       topCountries: byCountry
+    };
+  }
+
+  /**
+   * 获取国家和城市列表（按国家分组，按字母排序）
+   * 返回数据库中实际存在的国家和城市（保留原始大小写）
+   */
+  async getCountriesAndCities() {
+    const places = await prisma.place.findMany({
+      select: { country: true, city: true },
+      distinct: ['country', 'city'],
+    });
+
+    // 已知的有效国家列表（不区分大小写匹配）
+    const validCountriesLower = new Set([
+      'japan', 'thailand', 'denmark', 'france', 'austria', 
+      'germany', 'indonesia', 'italy', 'spain', 'united kingdom',
+      'south korea', 'taiwan', 'china', 'vietnam', 'singapore',
+      'malaysia', 'philippines', 'australia', 'new zealand'
+    ]);
+
+    // 按国家分组，保留原始大小写
+    const countryCityMap: Record<string, Set<string>> = {};
+    // 用于存储国家的规范化名称到原始名称的映射
+    const countryNameMap: Record<string, string> = {};
+    
+    for (const place of places) {
+      if (!place.country || !place.city) continue;
+      const country = place.country.trim();
+      const city = place.city.trim();
+      if (!country || !city) continue;
+      
+      const countryLower = country.toLowerCase();
+      
+      // 只接受有效的国家，跳过城市被误标为国家的情况
+      if (!validCountriesLower.has(countryLower)) continue;
+      
+      // 跳过国家和城市相同的情况（不区分大小写）
+      if (countryLower === city.toLowerCase()) continue;
+      
+      // 使用小写作为 key，但保留第一次遇到的原始大小写
+      if (!countryNameMap[countryLower]) {
+        countryNameMap[countryLower] = country;
+        countryCityMap[countryLower] = new Set();
+      }
+      countryCityMap[countryLower].add(city);
+    }
+
+    // 转换为排序后的结果，使用原始大小写
+    const result: Record<string, string[]> = {};
+    const sortedCountryKeys = Object.keys(countryCityMap).sort();
+    
+    for (const countryKey of sortedCountryKeys) {
+      const originalCountryName = countryNameMap[countryKey];
+      result[originalCountryName] = Array.from(countryCityMap[countryKey]).sort();
+    }
+
+    return result;
+  }
+
+  /**
+   * 按城市和标签筛选地点（不区分大小写）
+   */
+  async searchByFilters(options: {
+    city: string;
+    country: string;
+    tags?: string[];
+    limit?: number;
+  }) {
+    const { city, country, tags, limit = 50 } = options;
+
+    // 城市和国家使用不区分大小写的匹配
+    const where: any = {
+      city: { equals: city, mode: 'insensitive' },
+      country: { equals: country, mode: 'insensitive' },
+    };
+
+    // 如果有标签，使用 OR 条件匹配任意标签（不区分大小写）
+    if (tags && tags.length > 0) {
+      where.OR = tags.flatMap(tag => [
+        // 对于 category 字段（字符串），使用 contains + insensitive
+        { category: { contains: tag, mode: 'insensitive' } },
+      ]);
+    }
+
+    const places = await prisma.place.findMany({
+      where,
+      take: limit * 2, // 取更多以便内存过滤后仍有足够数据
+      orderBy: [
+        { rating: 'desc' },
+        { ratingCount: 'desc' },
+      ],
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        country: true,
+        latitude: true,
+        longitude: true,
+        address: true,
+        rating: true,
+        ratingCount: true,
+        category: true,
+        aiSummary: true,
+        aiTags: true,
+        tags: true,
+        coverImage: true,
+        images: true,
+      },
+    });
+
+    // 如果有标签，在内存中进一步过滤 aiTags 和 tags 字段（不区分大小写）
+    let filteredPlaces = places;
+    if (tags && tags.length > 0) {
+      const tagsLower = tags.map(t => t.toLowerCase());
+      
+      filteredPlaces = places.filter(place => {
+        // 检查 category（不区分大小写）
+        if (place.category) {
+          const categoryLower = place.category.toLowerCase();
+          if (tagsLower.some(tag => categoryLower.includes(tag))) {
+            return true;
+          }
+        }
+        
+        // 检查 aiTags (JSON 数组，不区分大小写)
+        if (place.aiTags) {
+          const aiTagsArray = Array.isArray(place.aiTags) ? place.aiTags : [];
+          if (aiTagsArray.some((aiTag: string) => {
+            const aiTagLower = aiTag.toLowerCase();
+            return tagsLower.some(tag => aiTagLower.includes(tag));
+          })) {
+            return true;
+          }
+        }
+        
+        // 检查 tags (JSON 数组，不区分大小写)
+        if (place.tags) {
+          const tagsArray = Array.isArray(place.tags) ? place.tags : [];
+          if (tagsArray.some((t: string) => {
+            const tLower = t.toLowerCase();
+            return tagsLower.some(tag => tLower.includes(tag));
+          })) {
+            return true;
+          }
+        }
+        
+        return false;
+      });
+    }
+
+    return {
+      places: filteredPlaces.slice(0, limit),
+      total: filteredPlaces.length,
+      isAiGenerated: false,
     };
   }
 }

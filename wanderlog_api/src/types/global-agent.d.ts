@@ -1,2 +1,3 @@
-declare module 'global-agent';
-
+declare module 'global-agent' {
+  export function bootstrap(): void;
+}

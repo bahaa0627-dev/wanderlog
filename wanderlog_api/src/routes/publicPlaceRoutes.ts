@@ -9,8 +9,17 @@ router.get('/', publicPlaceController.getAllPlaces.bind(publicPlaceController));
 // 获取统计信息
 router.get('/stats', publicPlaceController.getStats.bind(publicPlaceController));
 
+// 获取国家和城市列表（按国家分组）
+router.get('/countries-cities', publicPlaceController.getCountriesAndCities.bind(publicPlaceController));
+
 // 获取城市列表（用于添加 trip）
 router.get('/cities', publicPlaceController.getCities.bind(publicPlaceController));
+
+// 按城市和标签筛选地点
+router.get('/search-by-filters', publicPlaceController.searchByFilters.bind(publicPlaceController));
+
+// AI 生成地点
+router.post('/ai-generate', publicPlaceController.aiGeneratePlaces.bind(publicPlaceController));
 
 // 搜索地点
 router.get('/search', publicPlaceController.searchPlaces.bind(publicPlaceController));

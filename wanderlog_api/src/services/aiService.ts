@@ -127,7 +127,7 @@ class AIService {
       }
 
       const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.config.geminiApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.config.geminiApiKey}`,
         {
           contents: [
             {
@@ -406,6 +406,185 @@ class AIService {
       console.error('Error generating tags:', error.response?.data || error.message);
       throw new Error('Failed to generate AI tags');
     }
+  }
+
+  /**
+   * 使用 AI 生成城市的推荐地点
+   * 当数据库中没有匹配的地点时调用
+   * 会尝试 Gemini 和 OpenAI 两种 API，一个失败会自动切换到另一个
+   * 为了省钱，只生成 1 个地点
+   */
+  async generatePlacesForCity(options: {
+    city: string;
+    country: string;
+    tags: string[];
+    maxPerCategory?: number;
+  }): Promise<any[]> {
+    const { city, country, tags } = options;
+    
+    // 为了省钱，只让 AI 生成 1 个地点
+    const maxPlaces = 1;
+
+    const prompt = `You are a travel expert. Recommend exactly 1 real, specific place in ${city}, ${country} that matches these interests: ${tags.join(', ')}.
+
+Return ONLY a JSON array with exactly 1 place:
+[
+  {
+    "name": "Exact place name",
+    "category": "Category name",
+    "tags": ["tag1", "tag2"],
+    "description": "Brief description"
+  }
+]
+
+Important:
+- Only include a REAL place that actually exists
+- Use exact, searchable name
+- Return exactly 1 place`;
+
+    const errors: string[] = [];
+
+    // 尝试 Gemini
+    if (this.config.geminiApiKey) {
+      try {
+        console.log('Trying Gemini API (1 place only to save cost)...');
+        const response = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.config.geminiApiKey}`,
+          {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 500, // 减少 token 数量
+            }
+          }
+        );
+        
+        const content = response.data.candidates[0].content.parts[0].text;
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) throw new Error('Failed to parse Gemini response');
+        
+        const aiPlaces = JSON.parse(jsonMatch[0]).slice(0, maxPlaces); // 确保只取 1 个
+        console.log(`Gemini generated ${aiPlaces.length} place(s)`);
+        return await this.processAIGeneratedPlaces(aiPlaces, city, country, maxPlaces);
+      } catch (error: any) {
+        const errorMsg = error.response?.data?.error?.message || error.message;
+        console.error('Gemini API failed:', errorMsg);
+        errors.push(`Gemini: ${errorMsg}`);
+      }
+    }
+
+    // 尝试 OpenAI
+    if (this.config.openaiApiKey && this.config.openaiApiKey !== 'your_openai_api_key') {
+      try {
+        console.log('Trying OpenAI API (1 place only to save cost)...');
+        const response = await axios.post(
+          'https://api.openai.com/v1/chat/completions',
+          {
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: 'You are a travel expert. Return only valid JSON with exactly 1 place.' },
+              { role: 'user', content: prompt }
+            ],
+            max_tokens: 500, // 减少 token 数量
+            temperature: 0.7,
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${this.config.openaiApiKey}`,
+            },
+          }
+        );
+
+        const content = response.data.choices[0].message.content;
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) throw new Error('Failed to parse OpenAI response');
+        
+        const aiPlaces = JSON.parse(jsonMatch[0]).slice(0, maxPlaces); // 确保只取 1 个
+        console.log(`OpenAI generated ${aiPlaces.length} place(s)`);
+        return await this.processAIGeneratedPlaces(aiPlaces, city, country, maxPlaces);
+      } catch (error: any) {
+        const errorMsg = error.response?.data?.error?.message || error.message;
+        console.error('OpenAI API failed:', errorMsg);
+        errors.push(`OpenAI: ${errorMsg}`);
+      }
+    }
+
+    // 两个 API 都失败了
+    if (errors.length === 0) {
+      throw new Error('No AI API key configured. Please set GEMINI_API_KEY or OPENAI_API_KEY in .env');
+    }
+    
+    throw new Error(`All AI providers failed: ${errors.join('; ')}`);
+  }
+
+  /**
+   * 处理 AI 生成的地点，通过 Google Maps API 获取详细信息并保存到数据库
+   * maxPlaces 参数限制最多处理多少个地点（省钱）
+   */
+  private async processAIGeneratedPlaces(
+    aiPlaces: Array<{ name: string; category: string; tags: string[]; description: string }>,
+    city: string,
+    country: string,
+    maxPlaces: number = 1
+  ): Promise<any[]> {
+    const results: any[] = [];
+    
+    // 限制最多处理 maxPlaces 个地点（省钱）
+    const placesToProcess = aiPlaces.slice(0, maxPlaces);
+    
+    for (const aiPlace of placesToProcess) {
+      if (results.length >= maxPlaces) break;
+      
+      try {
+        // 搜索 Google Maps 获取 place_id（只取第一个结果）
+        const searchQuery = `${aiPlace.name} ${city} ${country}`;
+        const searchResults = await googleMapsService.textSearch(searchQuery);
+        
+        if (!searchResults || searchResults.length === 0) {
+          console.warn(`Place not found in Google Maps: ${aiPlace.name}`);
+          continue;
+        }
+
+        // 只取第一个搜索结果（省钱）
+        const googlePlaceId = searchResults[0].place_id;
+        if (!googlePlaceId) continue;
+
+        // 添加到数据库
+        const place = await publicPlaceService.addByPlaceId(
+          googlePlaceId,
+          'ai_chat',
+          {
+            aiGenerated: true,
+            aiCategory: aiPlace.category,
+            aiTags: aiPlace.tags,
+            aiDescription: aiPlace.description,
+            timestamp: new Date(),
+          }
+        );
+
+        // 更新 AI 标签
+        if (aiPlace.tags && aiPlace.tags.length > 0) {
+          await publicPlaceService.updatePlace(googlePlaceId, {
+            aiTags: aiPlace.tags,
+            aiDescription: aiPlace.description,
+          } as any);
+        }
+
+        results.push(place);
+        
+        // 已经获取到足够的地点，停止处理
+        if (results.length >= maxPlaces) {
+          console.log(`Reached max places limit (${maxPlaces}), stopping`);
+          break;
+        }
+      } catch (error) {
+        console.error(`Error processing AI place ${aiPlace.name}:`, error);
+        // 继续处理下一个
+      }
+    }
+
+    return results;
   }
 }
 

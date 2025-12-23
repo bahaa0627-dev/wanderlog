@@ -13,6 +13,8 @@ import 'package:wanderlog/features/trips/presentation/widgets/trips_bottom_nav.d
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
 import 'package:wanderlog/features/map/providers/places_cache_provider.dart';
+import 'package:wanderlog/features/search/presentation/widgets/search_menu_sheet.dart';
+import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -25,8 +27,11 @@ class _HomePageState extends ConsumerState<HomePage> {
   int _selectedIndex = 0;
   int _selectedTab = 0; // 0: Collection, 1: Map
   bool _isMapFullscreen = false;
+  bool _showSearchMenu = false;
   List<Map<String, dynamic>> _recommendations = [];
   bool _isLoadingRecommendations = false;
+  
+  final GlobalKey _searchBoxKey = GlobalKey();
 
   bool _asBool(dynamic value) {
     if (value is bool) return value;
@@ -39,10 +44,11 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     _loadRecommendations();
-    // 预加载 Map 数据和合集数据
+    // 预加载 Map 数据、合集数据和国家城市数据
     Future.microtask(() {
       ref.read(placesCacheProvider.notifier).preloadPlaces();
       ref.read(collectionsCacheProvider.notifier).preloadCollections();
+      ref.read(countriesCitiesProvider.notifier).preload();
     });
   }
 
@@ -92,63 +98,68 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
     setState(() => _isMapFullscreen = isFullscreen);
   }
+  
+  void _toggleSearchMenu() {
+    setState(() {
+      _showSearchMenu = !_showSearchMenu;
+    });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppTheme.background,
-        body: SafeArea(
-          top: !_isMapFullscreen,
-          bottom: !_isMapFullscreen,
-          child: Column(
-            children: [
-              if (!_isMapFullscreen) ...[
-                _Header(ref: ref),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: SearchBox(
-                    hintText: 'Where you wanna go?',
-                    readOnly: true,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Search coming soon')),
-                      );
-                    },
-                    trailingIcon: Icons.photo_library_outlined,
-                    onTrailingIconTap: () {
-                      AIRecognitionIntroSheet.show(context);
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _TabSwitcher(
-                  selectedTab: _selectedTab,
-                  onTabChanged: (index) {
-                    setState(() {
-                      _selectedTab = index;
-                      if (index != 1) {
-                        _isMapFullscreen = false;
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-              ],
-              Expanded(
-                child: _selectedTab == 0
-                    ? (_isLoadingRecommendations
-                        ? const Center(child: CircularProgressIndicator())
-                        : _recommendations.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text('No recommendations available'),
-                                    const SizedBox(height: 16),
-                                    Text('Loaded: ${_recommendations.length} recommendations'),
-                                    TextButton(
-                                      onPressed: _loadRecommendations,
-                                      child: const Text('Retry'),
+        body: Stack(
+          children: [
+            SafeArea(
+              top: !_isMapFullscreen,
+              bottom: !_isMapFullscreen,
+              child: Column(
+                children: [
+                  if (!_isMapFullscreen) ...[
+                    _Header(ref: ref),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SearchBox(
+                        key: _searchBoxKey,
+                        hintText: 'Where you wanna go?',
+                        readOnly: true,
+                        onTap: _toggleSearchMenu,
+                        trailingIcon: Icons.photo_library_outlined,
+                        onTrailingIconTap: () {
+                          AIRecognitionIntroSheet.show(context);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _TabSwitcher(
+                      selectedTab: _selectedTab,
+                      onTabChanged: (index) {
+                        setState(() {
+                          _selectedTab = index;
+                          if (index != 1) {
+                            _isMapFullscreen = false;
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  Expanded(
+                    child: _selectedTab == 0
+                        ? (_isLoadingRecommendations
+                            ? const Center(child: CircularProgressIndicator())
+                            : _recommendations.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Text('No recommendations available'),
+                                        const SizedBox(height: 16),
+                                        Text('Loaded: ${_recommendations.length} recommendations'),
+                                        TextButton(
+                                          onPressed: _loadRecommendations,
+                                          child: const Text('Retry'),
                                     ),
                                   ],
                                 ),
@@ -352,7 +363,15 @@ class _HomePageState extends ConsumerState<HomePage> {
             ],
           ),
         ),
-      );
+        // 搜索菜单 overlay
+        if (_showSearchMenu)
+          SearchMenuOverlay(
+            searchBoxKey: _searchBoxKey,
+            onClose: () => setState(() => _showSearchMenu = false),
+          ),
+      ],
+    ),
+  );
 }
 
 class _Header extends ConsumerWidget {

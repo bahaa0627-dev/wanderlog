@@ -233,7 +233,7 @@ class CollectionController {
 
       const collections = await prisma.collection.findMany({
         where: includeAll ? undefined : whereClause,
-        orderBy: { id: 'desc' }, // 使用主键排序更快
+        orderBy: { createdAt: 'desc' }, // 按创建时间倒序，最新的在前面
         select: selectConfig,
       });
 

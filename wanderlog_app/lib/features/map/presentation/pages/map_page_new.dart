@@ -937,20 +937,33 @@ class _MapPageState extends ConsumerState<MapPage> {
       return;
     }
 
-    // 如果缓存正在加载，等待它完成
+    // 如果缓存正在加载，等待它完成（最多等待 10 秒）
     if (cacheState.isLoading) {
       // 监听缓存状态变化
       final completer = Completer<void>();
       late final ProviderSubscription<PlacesCacheState> subscription;
+      
+      // 添加超时机制
+      Timer? timeoutTimer;
+      timeoutTimer = Timer(const Duration(seconds: 10), () {
+        if (!completer.isCompleted) {
+          subscription.close();
+          _loadDirectly(); // 超时后直接加载
+          completer.complete();
+        }
+      });
+      
       subscription = ref.listenManual(placesCacheProvider, (previous, next) {
         if (!next.isLoading && next.hasData) {
+          timeoutTimer?.cancel();
           subscription.close();
           _loadFromCache(next);
-          completer.complete();
+          if (!completer.isCompleted) completer.complete();
         } else if (!next.isLoading && next.error != null) {
+          timeoutTimer?.cancel();
           subscription.close();
           _loadDirectly(); // 缓存加载失败，直接加载
-          completer.complete();
+          if (!completer.isCompleted) completer.complete();
         }
       });
       await completer.future;

@@ -143,27 +143,40 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       }
 
       final selectedId = widget.selectedSpot?.id;
+      
+      // 限制一次添加的标记数量，避免卡顿
+      final spotsToAdd = spots.length > 50 ? spots.take(50).toList() : spots;
+      print('📍 [共享地图] 将添加 ${spotsToAdd.length} 个标记（总共 ${spots.length} 个）');
 
       // 先添加未选中的标记
-      for (final spot in spots.where((s) => s.id != selectedId)) {
-        final annotation = await _createAnnotation(spot, isSelected: false);
+      for (final spot in spotsToAdd.where((s) => s.id != selectedId)) {
         if (generation != _markerGeneration) return;
-        _annotationsBySpotId[spot.id] = annotation;
-        _spotByAnnotationId[annotation.id] = spot;
+        try {
+          final annotation = await _createAnnotation(spot, isSelected: false);
+          _annotationsBySpotId[spot.id] = annotation;
+          _spotByAnnotationId[annotation.id] = spot;
+        } catch (e) {
+          print('⚠️ [共享地图] 添加标记失败: ${spot.name} - $e');
+        }
       }
 
       // 再添加选中标记，确保在最上层
       if (selectedId != null) {
-        final selectedSpot =
-            spots.firstWhere((s) => s.id == selectedId, orElse: () => spots[0]);
-        final selectedAnnotation =
-            await _createAnnotation(selectedSpot, isSelected: true);
-        if (generation != _markerGeneration) return;
-        _annotationsBySpotId[selectedSpot.id] = selectedAnnotation;
-        _spotByAnnotationId[selectedAnnotation.id] = selectedSpot;
+        final selectedSpot = spotsToAdd.firstWhere(
+          (s) => s.id == selectedId,
+          orElse: () => spots.firstWhere((s) => s.id == selectedId, orElse: () => spots[0]),
+        );
+        try {
+          final selectedAnnotation = await _createAnnotation(selectedSpot, isSelected: true);
+          if (generation != _markerGeneration) return;
+          _annotationsBySpotId[selectedSpot.id] = selectedAnnotation;
+          _spotByAnnotationId[selectedAnnotation.id] = selectedSpot;
+        } catch (e) {
+          print('⚠️ [共享地图] 添加选中标记失败: $e');
+        }
       }
 
-      print('✅ [共享地图] 已添加 ${spots.length} 个原生标记');
+      print('✅ [共享地图] 已添加 ${_annotationsBySpotId.length} 个原生标记');
 
       // 设置点击监听
       if (!_markerClickListenerAttached) {

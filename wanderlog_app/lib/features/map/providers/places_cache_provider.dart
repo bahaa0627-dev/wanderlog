@@ -61,7 +61,27 @@ class PlacesCacheNotifier extends StateNotifier<PlacesCacheState> {
       final repository = _ref.read(publicPlaceRepositoryProvider);
       
       // 获取城市列表
-      final cities = await repository.fetchCities();
+      List<String> cities;
+      try {
+        cities = await repository.fetchCities().timeout(
+          const Duration(seconds: 10),
+        );
+      } catch (e) {
+        print('⚠️ Timeout or error fetching cities: $e');
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Failed to load cities',
+        );
+        return;
+      }
+      
+      if (cities.isEmpty) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'No cities found',
+        );
+        return;
+      }
       
       // 并行加载所有城市的数据
       final Map<String, List<PublicPlaceDto>> placesByCity = {};
@@ -73,7 +93,7 @@ class PlacesCacheNotifier extends StateNotifier<PlacesCacheState> {
               city: city,
               limit: 200,
               minRating: 0.0,
-            );
+            ).timeout(const Duration(seconds: 15));
             if (places.isNotEmpty) {
               placesByCity[city] = places;
             }

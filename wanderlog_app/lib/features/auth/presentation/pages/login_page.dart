@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:wanderlog/core/supabase/supabase_config.dart';
 import 'package:wanderlog/features/auth/services/google_auth_service.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
@@ -18,6 +20,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isGoogleLoading = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -28,21 +31,43 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _onLogin() async {
     if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _isLoading = true);
       try {
-        await ref.read(authProvider.notifier).login(
-              _emailController.text,
-              _passwordController.text,
-            );
-        if (mounted) {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop(true);
-          } else {
-            context.go('/home');
+        // 直接使用 Supabase Auth 登录
+        final response = await SupabaseConfig.auth.signInWithPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+        
+        if (response.user != null) {
+          if (mounted) {
+            CustomToast.showSuccess(context, '登录成功');
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop(true);
+            } else {
+              context.go('/home');
+            }
           }
+        }
+      } on AuthException catch (e) {
+        if (mounted) {
+          String message = '登录失败';
+          if (e.message.contains('Invalid login credentials')) {
+            message = '邮箱或密码错误';
+          } else if (e.message.contains('Email not confirmed')) {
+            message = '请先验证邮箱';
+          } else {
+            message = e.message;
+          }
+          CustomToast.showError(context, message);
         }
       } catch (e) {
         if (mounted) {
           CustomToast.showError(context, e.toString());
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
         }
       }
     }
@@ -111,9 +136,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-    final isLoading = authState.isLoading;
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -205,8 +227,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
-                              onPressed: isLoading ? null : _onLogin,
-                              child: isLoading
+                              onPressed: _isLoading ? null : _onLogin,
+                              child: _isLoading
                                   ? const SizedBox(
                                       height: 20,
                                       width: 20,

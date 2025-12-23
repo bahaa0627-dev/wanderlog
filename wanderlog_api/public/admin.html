@@ -921,11 +921,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>合集名称 *</label>
-                        <input id="colName" type="text" placeholder="如：哥本哈根必去咖啡馆">
+                        <input id="colName" type="text" placeholder="如：哥本哈根必去咖啡馆" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label>描述</label>
-                        <input id="colDesc" type="text" placeholder="一句话描述">
+                        <input id="colDesc" type="text" placeholder="一句话描述" autocomplete="off">
                     </div>
                 </div>
                 <div class="form-row">
@@ -945,20 +945,20 @@
                     <div class="form-row">
                         <div class="form-group dropdown">
                             <label>地点名称（输入字母进行模糊匹配搜索）</label>
-                            <input id="spotSearchInput" type="text" placeholder="输入地点名称、地址或城市进行搜索..." oninput="handleSpotSearch(this.value)">
+                            <input id="spotSearchInput" type="text" placeholder="输入地点名称、地址或城市进行搜索..." oninput="handleSpotSearch(this.value)" autocomplete="off">
                             <div id="spotSearchDropdown" class="dropdown-list" style="display:none;"></div>
                         </div>
                         <div class="form-group">
                             <label>纬度</label>
-                            <input id="spotLat" type="number" step="0.000001" placeholder="如 55.6761">
+                            <input id="spotLat" type="number" step="0.000001" placeholder="如 55.6761" autocomplete="off">
                         </div>
                         <div class="form-group">
                             <label>经度</label>
-                            <input id="spotLng" type="number" step="0.000001" placeholder="如 12.5683">
+                            <input id="spotLng" type="number" step="0.000001" placeholder="如 12.5683" autocomplete="off">
                         </div>
                         <div class="form-group">
                             <label>&nbsp;</label>
-                            <button class="btn btn-secondary" onclick="searchByLatLng()">按经纬度查找</button>
+                            <button class="btn btn-secondary" type="button" onclick="searchByLatLng()">按经纬度查找</button>
                         </div>
                     </div>
                     <div id="selectedSpots" class="chip-list"></div>
@@ -1019,7 +1019,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>推荐名称 *</label>
-                        <input id="recommendationName" type="text" placeholder="如：巴黎必游推荐">
+                        <input id="recommendationName" type="text" placeholder="如：巴黎必游推荐" autocomplete="off">
                     </div>
                 </div>
                 <div class="form-card" style="margin:0; margin-top:8px;">
@@ -1027,15 +1027,15 @@
                     <div class="form-row">
                         <div class="form-group dropdown" style="flex: 1;">
                             <label>合集名称（输入进行模糊匹配搜索）</label>
-                            <input id="collectionSearchInput" type="text" placeholder="输入合集名称进行搜索..." oninput="handleCollectionSearch(this.value)">
+                            <input id="collectionSearchInput" type="text" placeholder="输入合集名称进行搜索..." oninput="handleCollectionSearch(this.value)" autocomplete="off">
                             <div id="collectionSearchDropdown" class="dropdown-list" style="display:none;"></div>
                         </div>
                     </div>
                     <div id="selectedCollections" class="chip-list" style="min-height: 100px;"></div>
                 </div>
                 <div class="form-actions">
-                    <button class="btn btn-primary" id="saveRecommendationBtn" onclick="saveRecommendation()">保存</button>
-                    <button class="btn btn-secondary" onclick="cancelEditRecommendation()">取消</button>
+                    <button class="btn btn-primary" id="saveRecommendationBtn" type="button" onclick="saveRecommendation()">保存</button>
+                    <button class="btn btn-secondary" type="button" onclick="cancelEditRecommendation()">取消</button>
                 </div>
             </div>
 
@@ -1063,19 +1063,21 @@
     <div class="modal-backdrop" id="loginModal">
         <div class="modal">
             <h3>管理员登录</h3>
+            <form autocomplete="off" onsubmit="event.preventDefault(); adminLogin(true);">
             <div class="form-group">
                 <label>管理员邮箱</label>
-                <input id="adminEmail" type="email" placeholder="admin@example.com" value="admin@vago.to">
+                <input id="adminEmail" type="email" placeholder="admin@example.com" value="admin@vago.to" autocomplete="off">
             </div>
             <div class="form-group">
                 <label>管理员密码</label>
-                <input id="adminPassword" type="password" placeholder="••••••••" value="dxr920627">
+                <input id="adminPassword" type="password" placeholder="••••••••" value="dxr920627" autocomplete="new-password">
             </div>
             <div class="login-status" id="loginStatusModal">未登录</div>
             <div class="modal-actions">
-                <button class="btn btn-primary" type="button" onclick="adminLogin(true)">登录</button>
+                <button class="btn btn-primary" type="submit">登录</button>
                 <button class="btn btn-secondary" type="button" onclick="closeLoginModal()">取消</button>
             </div>
+            </form>
         </div>
     </div>
     
@@ -1083,92 +1085,93 @@
     <div class="modal-backdrop" id="placeModal" style="display:none;">
         <div class="modal" style="width:700px;max-width:95vw;max-height:90vh;overflow-y:auto;">
             <h3 id="placeModalTitle">编辑地点</h3>
+            <form autocomplete="off" onsubmit="event.preventDefault(); savePlaceData();">
             <input type="hidden" id="editPlaceId">
             
             <div class="form-row">
                 <div class="form-group">
                     <label>地点名称 *</label>
-                    <input id="placeName" type="text" placeholder="如：东京塔">
+                    <input id="placeName" type="text" placeholder="如：东京塔" autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label>分类</label>
-                    <input id="placeCategory" type="text" placeholder="如：Landmark, Restaurant">
+                    <input id="placeCategory" type="text" placeholder="如：Landmark, Restaurant" autocomplete="off">
                 </div>
             </div>
             
             <div class="form-row">
                 <div class="form-group">
                     <label>城市</label>
-                    <input id="placeCity" type="text" placeholder="如：Tokyo">
+                    <input id="placeCity" type="text" placeholder="如：Tokyo" autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label>国家</label>
-                    <input id="placeCountry" type="text" placeholder="如：Japan">
+                    <input id="placeCountry" type="text" placeholder="如：Japan" autocomplete="off">
                 </div>
             </div>
             
             <div class="form-row">
                 <div class="form-group">
                     <label>纬度 *</label>
-                    <input id="placeLat" type="number" step="0.000001" placeholder="如：35.6586">
+                    <input id="placeLat" type="number" step="0.000001" placeholder="如：35.6586" autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label>经度 *</label>
-                    <input id="placeLng" type="number" step="0.000001" placeholder="如：139.7454">
+                    <input id="placeLng" type="number" step="0.000001" placeholder="如：139.7454" autocomplete="off">
                 </div>
             </div>
             
             <div class="form-group">
                 <label>地址</label>
-                <input id="placeAddress" type="text" placeholder="详细地址" style="width:100%;">
+                <input id="placeAddress" type="text" placeholder="详细地址" style="width:100%;" autocomplete="off">
             </div>
             
             <div class="form-group">
                 <label>描述</label>
-                <textarea id="placeDescription" rows="3" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="地点描述..."></textarea>
+                <textarea id="placeDescription" rows="3" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="地点描述..." autocomplete="off"></textarea>
             </div>
             
             <div class="form-row">
                 <div class="form-group">
                     <label>评分 (0-5)</label>
-                    <input id="placeRating" type="number" step="0.1" min="0" max="5" placeholder="4.5">
+                    <input id="placeRating" type="number" step="0.1" min="0" max="5" placeholder="4.5" autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label>评分数量</label>
-                    <input id="placeRatingCount" type="number" placeholder="1000">
+                    <input id="placeRatingCount" type="number" placeholder="1000" autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label>价格等级 (0-4)</label>
-                    <input id="placePriceLevel" type="number" min="0" max="4" placeholder="2">
+                    <input id="placePriceLevel" type="number" min="0" max="4" placeholder="2" autocomplete="off">
                 </div>
             </div>
             
             <div class="form-row">
                 <div class="form-group">
                     <label>网站</label>
-                    <input id="placeWebsite" type="url" placeholder="https://...">
+                    <input id="placeWebsite" type="url" placeholder="https://..." autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label>电话</label>
-                    <input id="placePhone" type="text" placeholder="+81-3-1234-5678">
+                    <input id="placePhone" type="text" placeholder="+81-3-1234-5678" autocomplete="off">
                 </div>
             </div>
             
             <div class="form-group">
                 <label>营业时间（每行一天，如：Monday: 9:00 AM – 5:00 PM）</label>
-                <textarea id="placeOpeningHours" rows="4" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Monday: 9:00 AM – 5:00 PM&#10;Tuesday: 9:00 AM – 5:00 PM&#10;..."></textarea>
+                <textarea id="placeOpeningHours" rows="4" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Monday: 9:00 AM – 5:00 PM&#10;Tuesday: 9:00 AM – 5:00 PM&#10;..." autocomplete="off"></textarea>
             </div>
             
             <div class="form-group">
                 <label>标签（用逗号分隔，如：Culture, Shopping, Landmark）</label>
-                <input id="placeTags" type="text" placeholder="Culture, Shopping, Landmark" style="width:100%;">
+                <input id="placeTags" type="text" placeholder="Culture, Shopping, Landmark" style="width:100%;" autocomplete="off">
             </div>
             
             <div class="form-card" style="margin:8px 0;">
                 <div class="section-title">图片管理</div>
                 <div class="form-group">
                     <label>封面图 URL</label>
-                    <input id="placeCoverImage" type="text" placeholder="https://..." style="width:100%;">
+                    <input id="placeCoverImage" type="text" placeholder="https://..." style="width:100%;" autocomplete="off">
                     <div id="coverImagePreview" style="margin-top:8px;"></div>
                 </div>
                 <div class="form-group">
@@ -1194,9 +1197,10 @@
             </div>
             
             <div class="modal-actions" style="margin-top:16px;">
-                <button class="btn btn-primary" onclick="savePlaceData()">保存</button>
-                <button class="btn btn-secondary" onclick="closePlaceModal()">取消</button>
+                <button class="btn btn-primary" type="submit">保存</button>
+                <button class="btn btn-secondary" type="button" onclick="closePlaceModal()">取消</button>
             </div>
+            </form>
         </div>
     </div>
 
@@ -1738,7 +1742,7 @@
                 
                 // 描述/摘要 - 支持折行展示
                 let description = '-';
-                const descText = place.aiSummary || place.description || '';
+                const descText = place.description || place.aiSummary || '';
                 if (descText) {
                     description = descText.length > 100 ? descText.substring(0, 100) + '...' : descText;
                 }
@@ -2763,7 +2767,7 @@
                 document.getElementById('placeLat').value = place.latitude || '';
                 document.getElementById('placeLng').value = place.longitude || '';
                 document.getElementById('placeAddress').value = place.address || '';
-                document.getElementById('placeDescription').value = place.aiSummary || place.description || '';
+                document.getElementById('placeDescription').value = place.description || place.aiSummary || '';
                 document.getElementById('placeRating').value = place.rating || '';
                 document.getElementById('placeRatingCount').value = place.ratingCount || '';
                 document.getElementById('placePriceLevel').value = place.priceLevel ?? '';
@@ -3045,13 +3049,13 @@
                 const editId = document.getElementById('editPlaceId').value;
                 const isEdit = !!editId;
                 
-                // 解析营业时间
+                // 解析营业时间 - 直接保存为字符串数组
                 const openingHoursText = document.getElementById('placeOpeningHours').value.trim();
                 let openingHours = null;
                 if (openingHoursText) {
                     const lines = openingHoursText.split('\n').filter(l => l.trim());
                     if (lines.length > 0) {
-                        openingHours = { weekday_text: lines };
+                        openingHours = lines; // 直接保存数组，不再嵌套在 weekday_text 里
                     }
                 }
                 
@@ -3079,7 +3083,7 @@
                     country: document.getElementById('placeCountry').value.trim() || undefined,
                     address: document.getElementById('placeAddress').value.trim() || undefined,
                     category: document.getElementById('placeCategory').value.trim() || undefined,
-                    aiSummary: document.getElementById('placeDescription').value.trim() || undefined,
+                    description: document.getElementById('placeDescription').value.trim() || undefined,
                     rating: ratingVal ? parseFloat(ratingVal) : undefined,
                     ratingCount: document.getElementById('placeRatingCount').value ? parseInt(document.getElementById('placeRatingCount').value) : undefined,
                     priceLevel: priceLevelVal ? parseInt(priceLevelVal) : undefined,
@@ -3117,6 +3121,10 @@
                 if (res.ok && result.success) {
                     alert(isEdit ? '更新成功' : '创建成功');
                     closePlaceModal();
+                    // 创建新地点后回到第一页，确保能看到新创建的
+                    if (!isEdit) {
+                        currentPage = 1;
+                    }
                     await loadPlaces();
                     // 更新缓存
                     loadAllPlaces().then(() => updateFilterOptions());

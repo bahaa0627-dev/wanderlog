@@ -146,8 +146,11 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    // 普通用户登录 - 使用 Supabase Auth（暂不支持，返回错误）
-    return res.status(400).json({ message: 'Invalid credentials. Use admin account for backend access.' });
+    // 普通用户登录 - 请使用 Supabase Auth（Flutter 端直接调用）
+    return res.status(400).json({ 
+      message: 'Please use Supabase Auth for user login. The app should call Supabase directly.',
+      hint: 'Use supabase.auth.signInWithPassword() in Flutter'
+    });
   } catch (error) {
     logger.error('Login error:', error);
     console.error('Login error details:', error);

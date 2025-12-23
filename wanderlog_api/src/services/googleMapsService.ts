@@ -126,15 +126,12 @@ class GoogleMapsService {
       // 生成AI总结（基于评论）
       const aiSummary = this.generateAISummary(place.reviews || []);
 
-      const utcOffsetMinutes = (place as any).utc_offset_minutes ?? (place as any).utc_offset;
-      const openingHoursPayload = place.opening_hours
-        ? {
-            ...place.opening_hours,
-            ...(utcOffsetMinutes != null
-                ? { utc_offset_minutes: utcOffsetMinutes }
-                : {}),
-          }
-        : undefined;
+      // 简化营业时间：只保留 weekday_text 数组
+      // 格式: ["Monday: 9:00 AM – 5:00 PM", "Tuesday: 9:00 AM – 5:00 PM", ...]
+      let openingHoursSimplified: string[] | undefined;
+      if (place.opening_hours?.weekday_text && Array.isArray(place.opening_hours.weekday_text)) {
+        openingHoursSimplified = place.opening_hours.weekday_text;
+      }
 
       return {
         googlePlaceId: place.place_id || placeId,
@@ -145,8 +142,8 @@ class GoogleMapsService {
         longitude: place.geometry?.location?.lng || 0,
         address: place.formatted_address,
         description: place.editorial_summary?.overview,
-        openingHours: openingHoursPayload
-          ? JSON.stringify(openingHoursPayload)
+        openingHours: openingHoursSimplified
+          ? JSON.stringify(openingHoursSimplified)
           : undefined,
         rating: place.rating,
         ratingCount: place.user_ratings_total,

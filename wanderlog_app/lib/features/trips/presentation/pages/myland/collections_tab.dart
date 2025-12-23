@@ -44,6 +44,7 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
   }
 
   Future<void> _loadCollections() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(collectionRepositoryProvider);
@@ -51,20 +52,24 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
       print('📡 Loading collections for myland...');
       final data = await repo.listCollections();
       print('📦 Loaded ${data.length} collections');
-      setState(() {
-        _allCollections
-          ..clear()
-          ..addAll(data);
-        _filterCollections();
-      });
-      print('✅ Filtered to ${_filteredCollections.length} collections');
+      if (mounted) {
+        setState(() {
+          _allCollections
+            ..clear()
+            ..addAll(data);
+          _filterCollections();
+        });
+        print('✅ Filtered to ${_filteredCollections.length} collections');
+      }
     } catch (e, stackTrace) {
       print('❌ Error loading collections: $e');
       print('📋 Stack trace: $stackTrace');
-      setState(() {
-        _allCollections.clear();
-        _filteredCollections = [];
-      });
+      if (mounted) {
+        setState(() {
+          _allCollections.clear();
+          _filteredCollections = [];
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

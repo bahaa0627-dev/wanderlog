@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { createClient } from '@supabase/supabase-js';
 
 // Extend Express Request type to include user
 declare global {
@@ -10,7 +11,12 @@ declare global {
   }
 }
 
-export const authenticateToken = (req: Request, res: Response, next: NextFunction): void | Response => {
+// Initialize Supabase client for token verification
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+export const authenticateToken = async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -18,22 +24,41 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     return res.status(401).json({ message: 'Authentication token required' });
   }
 
-  const secret = process.env.JWT_SECRET || 'default_secret';
-
-  jwt.verify(token, secret, (err: any, user: any) => {
-    if (err) {
-      return res.status(403).json({ message: 'Invalid or expired token' });
+  try {
+    // First try to verify with Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (!error && user) {
+      // Supabase token is valid
+      req.user = {
+        id: user.id,
+        email: user.email,
+        // Include legacy_id from user_metadata if available (for backward compatibility)
+        legacyId: user.user_metadata?.legacy_id,
+      };
+      return next();
     }
-    req.user = user;
-    return next();
-  });
+
+    // Fallback to local JWT verification for backward compatibility
+    const secret = process.env.JWT_SECRET || 'default_secret';
+    jwt.verify(token, secret, (err: any, decoded: any) => {
+      if (err) {
+        return res.status(403).json({ message: 'Invalid or expired token' });
+      }
+      req.user = decoded;
+      return next();
+    });
+  } catch (error) {
+    console.error('Auth error:', error);
+    return res.status(403).json({ message: 'Invalid or expired token' });
+  }
 };
 
 /**
  * Optional auth: if Authorization is present, verify and set req.user; otherwise continue.
  * This lets public endpoints still获取用户上下文（比如收藏状态）而不强制登录。
  */
-export const authenticateTokenIfPresent = (req: Request, _res: Response, next: NextFunction): void => {
+export const authenticateTokenIfPresent = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -41,15 +66,31 @@ export const authenticateTokenIfPresent = (req: Request, _res: Response, next: N
     return next();
   }
 
-  const secret = process.env.JWT_SECRET || 'default_secret';
-
-  jwt.verify(token, secret, (err: any, user: any) => {
-    if (!err) {
-      req.user = user;
+  try {
+    // First try Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (!error && user) {
+      req.user = {
+        id: user.id,
+        email: user.email,
+        legacyId: user.user_metadata?.legacy_id,
+      };
+      return next();
     }
-    // 无论校验成功与否，都继续，不阻断请求（失败只是不带用户信息）
+
+    // Fallback to local JWT
+    const secret = process.env.JWT_SECRET || 'default_secret';
+    jwt.verify(token, secret, (err: any, decoded: any) => {
+      if (!err) {
+        req.user = decoded;
+      }
+      return next();
+    });
+  } catch (error) {
+    // 无论校验成功与否，都继续，不阻断请求
     return next();
-  });
+  }
 };
 
 

@@ -58,6 +58,9 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   String? _lastSelectedSpotId;
   bool _markerClickListenerAttached = false;
   int _markerGeneration = 0;
+  bool _isMapReady = false; // 地图是否已准备好
+  bool _isRefreshingMarker = false; // 是否正在刷新标记
+  String? _pendingSelectedId; // 待处理的选中 ID
 
   Position? get currentCenter => _currentCenter;
   double get currentZoom => _currentZoom;
@@ -73,16 +76,36 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   void didUpdateWidget(MapboxSpotMap oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final hasNewSpots = !identical(oldWidget.spots, widget.spots);
+    // 如果地图还没准备好，跳过更新
+    if (!_isMapReady) {
+      print('📍 [共享地图] 地图未准备好，跳过 didUpdateWidget');
+      return;
+    }
+
+    // 检查 spots 列表是否真的变化了（通过比较 id 列表）
+    final oldSpotIds = oldWidget.spots.map((s) => s.id).toSet();
+    final newSpotIds = widget.spots.map((s) => s.id).toSet();
+    final hasNewSpots = !_setsEqual(oldSpotIds, newSpotIds);
+    
     final selectionChanged =
         oldWidget.selectedSpot?.id != widget.selectedSpot?.id;
 
-    // 仅列表变化时重建；选中变化时只替换前后两个标记，避免闪动
+    // 仅列表真正变化时重建；选中变化时只替换前后两个标记，避免闪动
     if (hasNewSpots) {
+      print('📍 [共享地图] spots 列表变化，重建所有标记');
       _addNativeMarkers();
     } else if (selectionChanged) {
+      print('📍 [共享地图] 选中变化: ${oldWidget.selectedSpot?.id} -> ${widget.selectedSpot?.id}');
       _refreshSelectedMarker();
     }
+  }
+  
+  bool _setsEqual<T>(Set<T> a, Set<T> b) {
+    if (a.length != b.length) return false;
+    for (final item in a) {
+      if (!b.contains(item)) return false;
+    }
+    return true;
   }
 
   Future<void> _enableMapGestures() async {
@@ -214,52 +237,142 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       iconAnchor: IconAnchor.BOTTOM,
       // 略微放大以增大可点击区域
       iconSize: isSelected ? 2.4 : 2.1,
+      // 选中的 marker 使用更高的 sortKey，确保在最上层
+      // sortKey 越大越在上面
+      symbolSortKey: isSelected ? 1000.0 : 0.0,
     );
 
     return manager.create(annotation);
   }
 
+  /// 直接更新选中的 spot，不触发 widget 重建
+  Future<void> updateSelectedSpot(Spot? spot) async {
+    if (spot?.id == _lastSelectedSpotId) return;
+    
+    final newSelectedId = spot?.id;
+    if (newSelectedId == null) return;
+    
+    // 直接调用内部方法更新 marker 样式
+    if (_annotationsBySpotId.isNotEmpty) {
+      await _refreshSelectedMarkerById(newSelectedId);
+    }
+  }
+
   Future<void> _refreshSelectedMarker() async {
     final manager = _pointAnnotationManager;
-    if (manager == null) return;
+    if (manager == null) {
+      print('⚠️ [共享地图] manager 为空，无法刷新选中标记');
+      return;
+    }
     final newSelectedId = widget.selectedSpot?.id;
 
-    if (newSelectedId == null) return;
+    print('📍 [共享地图] 刷新选中标记: lastSelected=$_lastSelectedSpotId, newSelected=$newSelectedId');
+
+    if (newSelectedId == null) {
+      print('⚠️ [共享地图] 新选中 ID 为空');
+      return;
+    }
+    
+    await _refreshSelectedMarkerById(newSelectedId);
+  }
+
+  Future<void> _refreshSelectedMarkerById(String newSelectedId) async {
+    final manager = _pointAnnotationManager;
+    if (manager == null) return;
+    
     if (_annotationsBySpotId.isEmpty) {
+      print('📍 [共享地图] annotations 为空，重新添加所有标记');
       await _addNativeMarkers();
       return;
     }
-
-    // 还原旧的选中标记
-    if (_lastSelectedSpotId != null &&
-        _annotationsBySpotId.containsKey(_lastSelectedSpotId)) {
-      final previousSpot = widget.spots.firstWhere(
-        (s) => s.id == _lastSelectedSpotId,
-        orElse: () => widget.spots.first,
-      );
-      final oldAnnotation = _annotationsBySpotId[_lastSelectedSpotId]!;
-      await manager.delete(oldAnnotation);
-      final restored =
-          await _createAnnotation(previousSpot, isSelected: false);
-      _annotationsBySpotId[_lastSelectedSpotId!] = restored;
-      _spotByAnnotationId.remove(oldAnnotation.id);
-      _spotByAnnotationId[restored.id] = previousSpot;
+    
+    // 如果选中的是同一个，不需要刷新
+    if (_lastSelectedSpotId == newSelectedId) {
+      print('📍 [共享地图] 选中的是同一个，跳过刷新');
+      return;
     }
 
-    // 提升新的选中标记
-    final newSpot = widget.spots
-        .firstWhere((s) => s.id == newSelectedId, orElse: () => widget.spots[0]);
-    final existing = _annotationsBySpotId[newSelectedId];
-    if (existing != null) {
-      await manager.delete(existing);
-      _spotByAnnotationId.remove(existing.id);
+    // 并发控制：如果正在刷新，记录待处理的选中 ID，等当前刷新完成后处理
+    if (_isRefreshingMarker) {
+      print('📍 [共享地图] 正在刷新中，记录待处理: $newSelectedId');
+      _pendingSelectedId = newSelectedId;
+      return;
     }
-    final selectedAnnotation =
-        await _createAnnotation(newSpot, isSelected: true);
-    _annotationsBySpotId[newSelectedId] = selectedAnnotation;
-    _spotByAnnotationId[selectedAnnotation.id] = newSpot;
 
-    _lastSelectedSpotId = newSelectedId;
+    _isRefreshingMarker = true;
+    _pendingSelectedId = null;
+
+    try {
+      await _doRefreshSelectedMarker(newSelectedId);
+    } finally {
+      _isRefreshingMarker = false;
+      
+      // 检查是否有待处理的选中请求
+      final pending = _pendingSelectedId;
+      if (pending != null && pending != _lastSelectedSpotId) {
+        print('📍 [共享地图] 处理待处理的选中: $pending');
+        _pendingSelectedId = null;
+        // 递归调用处理待处理的请求
+        _refreshSelectedMarkerById(pending);
+      }
+    }
+  }
+
+  /// 实际执行标记刷新的内部方法
+  Future<void> _doRefreshSelectedMarker(String newSelectedId) async {
+    final manager = _pointAnnotationManager;
+    if (manager == null) return;
+
+    try {
+      final oldSelectedId = _lastSelectedSpotId;
+      
+      // 先更新状态，防止重复处理
+      _lastSelectedSpotId = newSelectedId;
+
+      // 还原旧的选中标记（删除并重建为普通样式）
+      if (oldSelectedId != null &&
+          oldSelectedId != newSelectedId &&
+          _annotationsBySpotId.containsKey(oldSelectedId)) {
+        final previousSpot = widget.spots.firstWhere(
+          (s) => s.id == oldSelectedId,
+          orElse: () => widget.spots.first,
+        );
+        final oldAnnotation = _annotationsBySpotId[oldSelectedId];
+        
+        if (oldAnnotation != null) {
+          print('📍 [共享地图] 还原旧标记: ${previousSpot.name}');
+          
+          // 删除旧标记并重建为普通样式
+          await manager.delete(oldAnnotation);
+          _spotByAnnotationId.remove(oldAnnotation.id);
+          
+          final restored = await _createAnnotation(previousSpot, isSelected: false);
+          _annotationsBySpotId[oldSelectedId] = restored;
+          _spotByAnnotationId[restored.id] = previousSpot;
+        }
+      }
+
+      // 更新新选中标记的样式并提升到最上层
+      final newSpot = widget.spots
+          .firstWhere((s) => s.id == newSelectedId, orElse: () => widget.spots[0]);
+      final existing = _annotationsBySpotId[newSelectedId];
+      
+      print('📍 [共享地图] 选中新标记: ${newSpot.name}');
+      
+      if (existing != null) {
+        // 删除并重新创建以确保在最上层
+        await manager.delete(existing);
+        _spotByAnnotationId.remove(existing.id);
+      }
+      
+      final selectedAnnotation = await _createAnnotation(newSpot, isSelected: true);
+      _annotationsBySpotId[newSelectedId] = selectedAnnotation;
+      _spotByAnnotationId[selectedAnnotation.id] = newSpot;
+
+      print('✅ [共享地图] 选中标记刷新完成: $newSelectedId');
+    } catch (e) {
+      print('⚠️ [共享地图] 刷新选中标记失败: $e');
+    }
   }
 
   Future<Uint8List> _getMarkerBitmap(
@@ -267,7 +380,9 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     required bool isSelected,
   }) async {
     final isVisited = widget.visitedSpots?[spot.id] ?? false;
-    final cacheKey = '${spot.id}_${isSelected ? 'selected' : 'default'}_${isVisited ? 'visited' : 'normal'}';
+    // 使用名称和类别作为缓存 key，因为相同内容的 marker 可以共享 bitmap
+    final truncatedName = spot.name.length > 10 ? '${spot.name.substring(0, 10)}...' : spot.name;
+    final cacheKey = '${truncatedName}_${spot.category}_${isSelected ? 'selected' : 'default'}_${isVisited ? 'visited' : 'normal'}';
     final cached = _markerBitmapCache[cacheKey];
     if (cached != null) {
       return cached;
@@ -663,6 +778,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
             await _addNativeMarkers();
             await _applyPendingCamera();
 
+            _isMapReady = true; // 标记地图已准备好
             widget.onMapCreated?.call();
           },
           onCameraChangeListener: (cameraChangedEventData) async {

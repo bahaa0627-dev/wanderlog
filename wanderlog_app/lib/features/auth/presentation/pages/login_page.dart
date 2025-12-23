@@ -40,6 +40,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
         
         if (response.user != null) {
+          // 刷新 authProvider 状态
+          await ref.read(authProvider.notifier).refreshAuthState();
+          
           if (mounted) {
             CustomToast.showSuccess(context, '登录成功');
             if (Navigator.of(context).canPop()) {

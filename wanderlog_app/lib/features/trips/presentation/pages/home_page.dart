@@ -30,6 +30,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _showSearchMenu = false;
   List<Map<String, dynamic>> _recommendations = [];
   bool _isLoadingRecommendations = false;
+  int _mapResetKey = 0; // 用于重置 map 选中状态
   
   final GlobalKey _searchBoxKey = GlobalKey();
 
@@ -44,8 +45,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     _loadRecommendations();
-    // 预加载 Map 数据、合集数据和国家城市数据
-    Future.microtask(() {
+    // 使用 addPostFrameCallback 延迟预加载，避免在 widget 构建期间修改 provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(placesCacheProvider.notifier).preloadPlaces();
       ref.read(collectionsCacheProvider.notifier).preloadCollections();
       ref.read(countriesCitiesProvider.notifier).preload();
@@ -53,17 +54,22 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Future<void> _loadRecommendations() async {
+    if (!mounted) return;
     setState(() => _isLoadingRecommendations = true);
     try {
       final repo = ref.read(collectionRepositoryProvider);
       final data = await repo.listRecommendations();
       print('✅ Loaded ${data.length} recommendations');
       print('📦 Recommendations data: $data');
-      setState(() => _recommendations = data);
+      if (mounted) {
+        setState(() => _recommendations = data);
+      }
     } catch (e, stackTrace) {
       print('❌ Error loading recommendations: $e');
       print('📋 Stack trace: $stackTrace');
-      setState(() => _recommendations = []);
+      if (mounted) {
+        setState(() => _recommendations = []);
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoadingRecommendations = false);
@@ -140,14 +146,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                           if (index != 1) {
                             _isMapFullscreen = false;
                           }
+                          // 切换到 map 时递增 key，触发重置选中状态
+                          if (index == 1) {
+                            _mapResetKey++;
+                          }
                         });
                       },
                     ),
                     const SizedBox(height: 16),
                   ],
                   Expanded(
-                    child: _selectedTab == 0
-                        ? (_isLoadingRecommendations
+                    child: IndexedStack(
+                      index: _selectedTab,
+                      children: [
+                        // Tab 0: Collection
+                        _isLoadingRecommendations
                             ? const Center(child: CircularProgressIndicator())
                             : _recommendations.isEmpty
                                 ? Center(
@@ -350,10 +363,15 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     ),
                               );
                             },
-                          ))
-                    : MapPage(
-                        onFullscreenChanged: _handleMapFullscreenChanged,
-                      ), // 显示地图页面
+                          ),
+                        // Tab 1: Map
+                        MapPage(
+                          key: const ValueKey('map-page-default'),
+                          resetSelectionKey: _mapResetKey,
+                          onFullscreenChanged: _handleMapFullscreenChanged,
+                        ),
+                      ],
+                    ),
               ),
               if (!_isMapFullscreen)
                 TripsBottomNav(

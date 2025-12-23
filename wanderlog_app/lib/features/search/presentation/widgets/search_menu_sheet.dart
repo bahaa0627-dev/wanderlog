@@ -38,7 +38,9 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
 
   List<String> get _countries {
     final data = ref.watch(countriesCitiesProvider);
-    return data.keys.toList()..sort();
+    final countries = data.keys.toList()..sort();
+    print('🌍 Countries loaded: ${countries.length} - $countries');
+    return countries;
   }
 
   List<String> get _availableCities {
@@ -87,12 +89,13 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
     final bottomPadding = MediaQuery.of(context).padding.bottom + 80;
     
     return Stack(
+      clipBehavior: Clip.none, // 允许下拉菜单超出边界
       children: [
-        // 背景遮罩
+        // 背景遮罩 - 使用半透明黑色以便能接收点击事件
         Positioned.fill(
           child: GestureDetector(
             onTap: widget.onClose,
-            child: Container(color: Colors.transparent),
+            child: Container(color: Colors.black.withOpacity(0.01)),
           ),
         ),
         // 菜单内容
@@ -192,6 +195,31 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) {
+    // 如果没有数据，显示加载中
+    if (items.isEmpty) {
+      return Container(
+        height: 44,
+        decoration: BoxDecoration(
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppTheme.black, width: 1.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Loading...',
+              style: AppTheme.bodyMedium(context).copyWith(
+                color: AppTheme.mediumGray,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    
     return Container(
       height: 44,
       decoration: BoxDecoration(

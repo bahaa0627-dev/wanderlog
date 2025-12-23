@@ -55,13 +55,16 @@ class SupabasePlaceRepository {
 
   /// 获取城市列表
   Future<List<String>> fetchCities({String? query}) async {
+    print('📍 [SupabasePlaceRepo] fetchCities 开始');
     try {
       final response = await _client
           .from('places')
           .select('city')
           .not('city', 'is', null);
 
-      final cities = (response as List)
+      print('📍 [SupabasePlaceRepo] fetchCities 响应: ${(response as List).length} 条');
+      
+      final cities = (response)
           .map((e) => e['city'] as String?)
           .where((c) => c != null && c.isNotEmpty)
           .cast<String>()
@@ -74,8 +77,10 @@ class SupabasePlaceRepository {
       }
 
       cities.sort();
+      print('📍 [SupabasePlaceRepo] fetchCities 完成: ${cities.length} 个城市');
       return cities;
     } catch (e) {
+      print('❌ [SupabasePlaceRepo] fetchCities 失败: $e');
       throw SupabasePlaceRepositoryException('Failed to load cities: $e');
     }
   }

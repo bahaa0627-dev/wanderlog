@@ -42,6 +42,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   late List<String> _userSelectedTags;
   
   List<Spot> _spots = [];
+  List<Spot> _cachedFilteredSpots = []; // 缓存过滤后的 spots
   Spot? _selectedSpot;
   int _currentCardIndex = 0;
   bool _isLoading = true;
@@ -88,16 +89,25 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   }
 
   /// 获取过滤后的地点
-  List<Spot> get _filteredSpots {
+  List<Spot> get _filteredSpots => _cachedFilteredSpots;
+  
+  /// 更新过滤后的地点缓存
+  void _updateFilteredSpots() {
     // 如果是 AI 生成的结果，不需要再过滤
-    if (_isAiGenerated) return _spots;
+    if (_isAiGenerated) {
+      _cachedFilteredSpots = _spots;
+      return;
+    }
     
-    if (_activeFilterTags.isEmpty) return _spots;
+    if (_activeFilterTags.isEmpty) {
+      _cachedFilteredSpots = _spots;
+      return;
+    }
     
     // 转换为小写进行比较
     final lowerTags = _activeFilterTags.map((t) => t.toLowerCase()).toSet();
     
-    return _spots.where((spot) => 
+    _cachedFilteredSpots = _spots.where((spot) => 
       spot.tags.any((tag) => lowerTags.contains(tag.toLowerCase()))
     ).toList();
   }
@@ -165,12 +175,13 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
         _isAiGenerated = result.isAiGenerated;
         _isLoading = false;
         _computeTagsCounts();
+        _updateFilteredSpots(); // 更新过滤后的缓存
         
         if (_spots.isNotEmpty) {
-          _selectedSpot = _spots.first;
+          _selectedSpot = _cachedFilteredSpots.isNotEmpty ? _cachedFilteredSpots.first : _spots.first;
           _currentMapCenter = Position(
-            _spots.first.longitude,
-            _spots.first.latitude,
+            _selectedSpot!.longitude,
+            _selectedSpot!.latitude,
           );
         } else {
           _currentMapCenter = _getCityDefaultCenter(_currentCity, _currentCountry);
@@ -228,20 +239,36 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     return cityCoordinates[city] ?? Position(0, 0);
   }
 
+  // 标记是否由 marker 点击触发的卡片滚动，避免触发相机移动
+  bool _isMarkerTapScroll = false;
+  // 记录 marker 点击滚动的目标 index，用于在动画过程中持续判断
+  int? _markerTapTargetIndex;
+
   void _handleSpotTap(Spot spot) {
     final filteredSpots = _filteredSpots;
     final index = filteredSpots.indexOf(spot);
     if (index >= 0) {
-      setState(() {
-        _selectedSpot = spot;
-        _currentCardIndex = index;
-      });
+      // 标记这是 marker 点击触发的滚动，记录目标 index
+      _isMarkerTapScroll = true;
+      _markerTapTargetIndex = index;
+      
+      // 更新内部状态但不触发 setState，避免地图重建
+      _selectedSpot = spot;
+      _currentCardIndex = index;
+      
+      // 直接调用地图的方法更新 marker 样式，不触发重建
+      _mapKey.currentState?.updateSelectedSpot(spot);
+      
+      // 只滚动卡片
       _cardPageController.animateToPage(
         index,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
-      );
-      _animateCamera(Position(spot.longitude, spot.latitude));
+      ).then((_) {
+        // 动画完成后重置标记
+        _isMarkerTapScroll = false;
+        _markerTapTargetIndex = null;
+      });
     }
   }
 
@@ -267,7 +294,8 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
       } else {
         _activeFilterTags.add(tag);
       }
-      _selectedSpot = null;
+      _updateFilteredSpots(); // 更新过滤后的缓存
+      _selectedSpot = _cachedFilteredSpots.isNotEmpty ? _cachedFilteredSpots.first : null;
       _currentCardIndex = 0;
     });
     _jumpToPage(0);
@@ -364,10 +392,9 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                 selectedSpot: _selectedSpot,
                 onSpotTap: _handleSpotTap,
                 onCameraMove: (center, zoom) {
-                  setState(() {
-                    _currentMapCenter = center;
-                    _currentZoom = zoom;
-                  });
+                  // 只更新内部状态，不触发 setState 避免重建地图
+                  _currentMapCenter = center;
+                  _currentZoom = zoom;
                 },
               ),
             ),
@@ -514,6 +541,20 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                   onPageChanged: (index) {
                     if (index >= filteredSpots.length) return;
                     final spot = filteredSpots[index];
+                    
+                    // marker 点击触发的滚动，不移动相机，不重建地图
+                    if (_isMarkerTapScroll) {
+                      _currentCardIndex = index;
+                      _selectedSpot = spot;
+                      // 到达目标 index 后才重置标记
+                      if (index == _markerTapTargetIndex) {
+                        _isMarkerTapScroll = false;
+                        _markerTapTargetIndex = null;
+                      }
+                      return;
+                    }
+                    
+                    // 用户手动滑动卡片，移动相机
                     setState(() {
                       _currentCardIndex = index;
                       _selectedSpot = spot;

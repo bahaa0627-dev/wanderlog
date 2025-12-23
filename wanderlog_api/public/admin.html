@@ -909,6 +909,7 @@
 
         <div id="collectionsSection" class="section">
             <div class="collections-actions">
+                <button class="btn btn-secondary" type="button" onclick="refreshCollections()" style="margin-right: 8px;">🔄 刷新</button>
                 <button class="btn btn-primary" type="button" onclick="startCreateCollection()">创建合集</button>
             </div>
             <div id="collectionFormContainer" class="form-card" style="display:none;">
@@ -1007,6 +1008,7 @@
 
         <div id="recommendationsSection" class="section">
             <div class="collections-actions">
+                <button class="btn btn-secondary" type="button" onclick="refreshRecommendations()" style="margin-right: 8px;">🔄 刷新</button>
                 <button class="btn btn-primary" type="button" onclick="startCreateRecommendation()">创建合集推荐</button>
             </div>
             <div id="recommendationFormContainer" class="form-card" style="display:none;">
@@ -1063,7 +1065,7 @@
             <h3>管理员登录</h3>
             <div class="form-group">
                 <label>管理员邮箱</label>
-                <input id="adminEmail" type="email" placeholder="admin@example.com" value="blcubahaa0627@gmail.com">
+                <input id="adminEmail" type="email" placeholder="admin@example.com" value="admin@vago.to">
             </div>
             <div class="form-group">
                 <label>管理员密码</label>
@@ -1199,12 +1201,27 @@
     </div>
 
     <script>
-        // 使用相对路径，避免本地/代理环境下 localhost 解析异常导致请求卡住
-        const API_BASE = '/api/public-places';
-        const SPOT_API_BASE = '/api/spots';
-        const COLLECTION_API_BASE = '/api/collections';
-        const RECOMMENDATION_API_BASE = '/api/collection-recommendations';
-        const FETCH_TIMEOUT = 10000; // 10s 超时，避免请求长时间卡住
+        // 根据当前域名自动选择 API 地址
+        // 本地开发：使用相对路径
+        // 测试环境：api-test.vago.to
+        // 生产环境：api.vago.to
+        const getApiHost = () => {
+            const hostname = window.location.hostname;
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return ''; // 本地开发使用相对路径
+            }
+            if (hostname.includes('test') || hostname.includes('pages.dev')) {
+                return 'https://api-test.vago.to';
+            }
+            return 'https://api.vago.to';
+        };
+        const API_HOST = getApiHost();
+        console.log('API_HOST:', API_HOST, 'hostname:', window.location.hostname);
+        const API_BASE = `${API_HOST}/api/public-places`;
+        const SPOT_API_BASE = `${API_HOST}/api/spots`;
+        const COLLECTION_API_BASE = `${API_HOST}/api/collections`;
+        const RECOMMENDATION_API_BASE = `${API_HOST}/api/collection-recommendations`;
+        const FETCH_TIMEOUT = 30000; // 30s 超时
         let currentPage = 1;
         let totalPages = 1;
         let filters = {};
@@ -1281,7 +1298,7 @@
                 return;
             }
             try {
-                const res = await fetch('/api/auth/login', {
+                const res = await fetch(`${API_HOST}/api/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password }),
@@ -1390,6 +1407,7 @@
             if (section === 'collections') {
                 document.getElementById('collectionsSection').classList.add('active');
                 document.getElementById('tab-collections').classList.add('active');
+                // 只在数据为空时加载，避免重复请求
                 if (collections.length === 0) {
                     await loadCollections();
                 }
@@ -1411,6 +1429,18 @@
                 document.getElementById('placesSection').classList.add('active');
                 document.getElementById('tab-places').classList.add('active');
             }
+        }
+
+        // 强制刷新合集数据（用于创建/编辑后）
+        async function refreshCollections() {
+            collections = [];
+            await loadCollections();
+        }
+
+        // 强制刷新推荐数据
+        async function refreshRecommendations() {
+            recommendations = [];
+            await loadRecommendations();
         }
 
         // 加载所有地点数据（用于筛选器联动）
@@ -1591,7 +1621,7 @@
 
                 const params = new URLSearchParams({
                     page: currentPage,
-                    limit: 50,
+                    limit: 20,
                     ...filters
                 });
 
@@ -1997,11 +2027,8 @@
                 const headers = {};
                 const token = getStoredToken();
                 if (token) headers['Authorization'] = `Bearer ${token}`;
-                else {
-                    document.getElementById('collectionsLoading').textContent = '请先登录管理员后查看合集';
-                    return;
-                }
-                const res = await fetchWithTimeout(`${COLLECTION_API_BASE}?includeAll=true`, { headers });
+                // 即使没有登录也可以查看合集列表，增加超时时间
+                const res = await fetchWithTimeout(`${COLLECTION_API_BASE}?includeAll=true`, { headers }, 30000);
                 const result = await res.json();
                 if (result.success && Array.isArray(result.data)) {
                     collections = result.data;
@@ -2174,14 +2201,14 @@
                     
                     if (isEdit) {
                         // 编辑模式：刷新数据并保持在编辑状态
-                        await loadCollections();
+                        await refreshCollections();
                         const updatedCol = collections.find(c => c.id === editingCollectionId);
                         if (updatedCol) {
                             startEditCollection(editingCollectionId);
                         }
                     } else {
                         // 创建模式：回到合集库列表页
-                        await loadCollections();
+                        await refreshCollections();
                         backToCollectionsList();
                     }
                 } else {
@@ -2207,7 +2234,7 @@
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            await loadCollections();
+            await refreshCollections();
         }
 
         async function unpublishCollection(id) {
@@ -2216,7 +2243,7 @@
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            await loadCollections();
+            await refreshCollections();
         }
 
         function startEditCollection(id) {

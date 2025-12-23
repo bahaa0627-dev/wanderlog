@@ -154,7 +154,14 @@ class CollectionController {
   async list(req: Request, res: Response) {
     try {
       const includeAll = req.query.includeAll === 'true' || req.query.all === 'true';
-      const userId = (req as any).user?.id;
+      let userId = (req as any).user?.id;
+
+      // 验证 userId 是否为有效的 UUID 格式
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (userId && !uuidRegex.test(userId)) {
+        console.warn('Invalid userId format, ignoring:', userId);
+        userId = undefined;
+      }
 
       // 如果用户已登录且不是查看全部，则只返回用户收藏的合集
       let whereClause: any = {};
@@ -174,16 +181,51 @@ class CollectionController {
         }
       }
 
-      const includeConfig: any = {
+      // 优化：先只查询基本信息，不加载所有关联数据
+      const selectConfig: any = {
+        id: true,
+        name: true,
+        coverImage: true,
+        description: true,
+        people: true,
+        works: true,
+        source: true,
+        sortOrder: true,
+        isPublished: true,
+        publishedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: { collectionSpots: true }
+        },
         collectionSpots: {
-          include: {
-            place: true,
+          select: {
+            id: true,
+            placeId: true,
+            city: true,
+            sortOrder: true,
+            place: {
+              select: {
+                id: true,
+                name: true,
+                city: true,
+                country: true,
+                latitude: true,
+                longitude: true,
+                coverImage: true,
+                rating: true,
+                category: true,
+              }
+            }
           },
+          orderBy: { sortOrder: 'asc' },
+          take: 10, // 只加载前10个地点，详情页再加载全部
         },
       };
 
+      // 如果有 userId，添加收藏关系查询
       if (userId) {
-        includeConfig.userCollectionFavorites = {
+        selectConfig.userCollectionFavorites = {
           where: { userId },
           select: { id: true },
         };
@@ -191,12 +233,13 @@ class CollectionController {
 
       const collections = await prisma.collection.findMany({
         where: includeAll ? undefined : whereClause,
-        orderBy: { createdAt: 'desc' },
-        include: includeConfig,
+        orderBy: { id: 'desc' }, // 使用主键排序更快
+        select: selectConfig,
       });
 
       const normalized = (collections as any[]).map((c) => ({
         ...c,
+        spotCount: c._count?.collectionSpots || 0,
         isFavorited: !!(userId && c.userCollectionFavorites && c.userCollectionFavorites.length > 0),
         people: safeParseJson(c.people, []),
         works: safeParseJson(c.works, []),
@@ -205,14 +248,16 @@ class CollectionController {
           return {
             ...cs,
             place,
-            // 兼容前端旧字段：把 place 映射为 spot/spotId，避免前端解析失败
             spotId: cs.placeId,
             spot: place,
           };
         }),
       }));
-      // 移除 userCollectionFavorites，避免返回多余字段
-      normalized.forEach((item: any) => delete item.userCollectionFavorites);
+      // 移除内部字段
+      normalized.forEach((item: any) => {
+        delete item.userCollectionFavorites;
+        delete item._count;
+      });
 
       return res.json({ success: true, data: normalized });
     } catch (error: any) {
@@ -335,8 +380,15 @@ class CollectionController {
    */
   async getFeatured(req: Request, res: Response) {
     try {
-      const userId = (req as any).user?.id;
+      let userId = (req as any).user?.id;
       const limit = parseInt(req.query.limit as string) || 10;
+
+      // 验证 userId 是否为有效的 UUID 格式
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (userId && !uuidRegex.test(userId)) {
+        console.warn('Invalid userId format in getFeatured, ignoring:', userId);
+        userId = undefined;
+      }
 
       const includeConfig: any = {
         collectionSpots: {
@@ -391,7 +443,14 @@ class CollectionController {
   async getById(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const userId = (req as any).user?.id;
+      let userId = (req as any).user?.id;
+
+      // 验证 userId 是否为有效的 UUID 格式
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (userId && !uuidRegex.test(userId)) {
+        console.warn('Invalid userId format in getById, ignoring:', userId);
+        userId = undefined;
+      }
 
       const collection = await prisma.collection.findUnique({
         where: { id },

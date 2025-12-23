@@ -124,65 +124,34 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    // Check user
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user || !user.password) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // Check if email is verified
-    if (!user.isEmailVerified) {
-      return res.status(403).json({ 
-        error: 'Email not verified',
-        message: 'Please verify your email address before logging in. Check your inbox for the verification code.'
+    // 管理员登录（简单验证，用于后台管理）
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    
+    if (adminEmail && adminPassword && email === adminEmail && password === adminPassword) {
+      // 生成管理员 token
+      const token = jwt.sign(
+        { id: 'admin', email: adminEmail, role: 'admin' },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+      return res.json({
+        token,
+        user: {
+          id: 'admin',
+          email: adminEmail,
+          name: 'Admin',
+          role: 'admin',
+        },
       });
     }
 
-    // Generate access token
-    const token = signAccessToken({
-      id: user.id,
-      email: user.email,
-      verified: user.isEmailVerified,
-      version: user.tokenVersion,
-    });
-
-    // Generate refresh token
-    const refreshToken = signRefreshToken({
-      id: user.id,
-      version: user.tokenVersion,
-    });
-
-    // Save refresh token to database
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { refreshToken },
-    });
-
-    return res.json({
-      token,
-      refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        avatarUrl: user.avatarUrl,
-        isEmailVerified: user.isEmailVerified,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
-    });
+    // 普通用户登录 - 使用 Supabase Auth（暂不支持，返回错误）
+    return res.status(400).json({ message: 'Invalid credentials. Use admin account for backend access.' });
   } catch (error) {
     logger.error('Login error:', error);
-    return res.status(500).json({ message: 'Server error during login' });
+    console.error('Login error details:', error);
+    return res.status(500).json({ message: 'Server error during login', error: String(error) });
   }
 };
 

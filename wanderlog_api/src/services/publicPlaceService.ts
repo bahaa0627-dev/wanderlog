@@ -176,7 +176,7 @@ class PublicPlaceService {
     tag?: string;
   }) {
     const page = options?.page || 1;
-    const limit = options?.limit || 50;
+    const limit = Math.min(options?.limit || 50, 100); // 限制最大100条
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -187,11 +187,11 @@ class PublicPlaceService {
     if (options?.category) where.category = options.category;
     if (options?.source) where.source = options.source;
 
-    // 名称搜索（模糊匹配）
+    // 名称搜索（模糊匹配）- 使用 mode: 'insensitive' 提高兼容性
     if (options?.search) {
       where.OR = [
-        { name: { contains: options.search } },
-        { address: { contains: options.search } }
+        { name: { contains: options.search, mode: 'insensitive' } },
+        { address: { contains: options.search, mode: 'insensitive' } }
       ];
     }
 
@@ -215,12 +215,39 @@ class PublicPlaceService {
       }
     }
 
+    // 并行执行查询和计数，只选择必要字段提高性能
     const [places, total] = await Promise.all([
       prisma.place.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { id: 'desc' }, // 使用主键排序更快
+        select: {
+          id: true,
+          name: true,
+          city: true,
+          country: true,
+          latitude: true,
+          longitude: true,
+          address: true,
+          description: true,
+          openingHours: true,
+          rating: true,
+          ratingCount: true,
+          category: true,
+          aiSummary: true,
+          aiDescription: true,
+          tags: true,
+          aiTags: true,
+          coverImage: true,
+          images: true,
+          priceLevel: true,
+          website: true,
+          phoneNumber: true,
+          googlePlaceId: true,
+          source: true,
+          createdAt: true,
+        }
       }),
       prisma.place.count({ where })
     ]);

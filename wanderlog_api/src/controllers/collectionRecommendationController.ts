@@ -79,20 +79,35 @@ class CollectionRecommendationController {
   async list(req: Request, res: Response) {
     try {
       console.log('📋 CollectionRecommendationController.list called');
-      console.log('📋 Request headers:', req.headers);
+      // 优化：只查询必要字段，减少数据传输
       const recommendations = await prisma.collectionRecommendation.findMany({
-        include: {
+        select: {
+          id: true,
+          name: true,
+          sortOrder: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: {
+            select: { items: true }
+          },
           items: {
-            include: {
+            select: {
+              id: true,
+              sortOrder: true,
+              collectionId: true,
               collection: {
-                include: {
-                  collectionSpots: {
-                    include: {
-                      place: true,
-                    },
-                  },
-                },
-              },
+                select: {
+                  id: true,
+                  name: true,
+                  coverImage: true,
+                  description: true,
+                  isPublished: true,
+                  _count: {
+                    select: { collectionSpots: true }
+                  }
+                }
+              }
             },
             orderBy: { sortOrder: 'asc' },
           },
@@ -100,8 +115,22 @@ class CollectionRecommendationController {
         orderBy: { sortOrder: 'asc' },
       });
 
+      // 格式化返回数据
+      const formatted = recommendations.map(r => ({
+        ...r,
+        itemCount: r._count?.items || 0,
+        items: r.items.map(item => ({
+          ...item,
+          collection: {
+            ...item.collection,
+            spotCount: item.collection._count?.collectionSpots || 0,
+          }
+        }))
+      }));
+      formatted.forEach((r: any) => delete r._count);
+
       console.log(`✅ Found ${recommendations.length} recommendations`);
-      return res.json({ success: true, data: recommendations });
+      return res.json({ success: true, data: formatted });
     } catch (error: any) {
       console.error('获取合集推荐列表错误:', error);
       return res.status(500).json({ success: false, message: error.message || '获取失败' });

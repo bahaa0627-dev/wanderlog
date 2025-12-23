@@ -42,6 +42,7 @@ app.use((req, _res, next) => {
 const publicPath = path.join(__dirname, '..', 'public');
 console.log(`📁 Static files path: ${publicPath}`);
 app.use('/admin', express.static(publicPath));
+app.use(express.static(publicPath)); // 也允许根路径访问静态文件
 
 // Health check
 app.get('/health', (_req, res) => {

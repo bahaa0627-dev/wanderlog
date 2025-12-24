@@ -603,6 +603,47 @@ class _SpotCardOverlayState extends State<_SpotCardOverlay> {
     return Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => placeholder);
   }
 
+  void _showToast(String message) {
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        bottom: MediaQuery.of(context).padding.bottom + 100,
+        left: 24,
+        right: 24,
+        child: Material(
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.black, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 20),
+                  const SizedBox(width: 8),
+                  Text(message, style: const TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(overlayEntry);
+    Future.delayed(const Duration(seconds: 2), () => overlayEntry.remove());
+  }
+
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: () => showModalBottomSheet<void>(
@@ -641,17 +682,22 @@ class _SpotCardOverlayState extends State<_SpotCardOverlay> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Tags - 64% white background, 20% black border, 48% black text
                     if (widget.spot.tags.isNotEmpty)
                       Wrap(
-                        spacing: 4, runSpacing: 4,
+                        spacing: 6, runSpacing: 6,
                         children: widget.spot.tags.take(3).map((tag) => Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AppTheme.black, width: 1),
+                            color: Colors.white.withOpacity(0.64),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.black.withOpacity(0.2), width: 1),
                           ),
-                          child: Text(tag, style: AppTheme.bodySmall(context).copyWith(fontSize: 10, fontWeight: FontWeight.w600)),
+                          child: Text(tag, style: AppTheme.bodySmall(context).copyWith(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black.withOpacity(0.48),
+                          )),
                         )).toList(),
                       ),
                     const SizedBox(height: 8),
@@ -671,23 +717,44 @@ class _SpotCardOverlayState extends State<_SpotCardOverlay> {
                   ],
                 ),
               ),
+              // Neo brutalism style favorite button - circular
               Positioned(
                 top: 12, right: 12,
                 child: GestureDetector(
                   onTap: () {
                     setState(() => _isInWishlist = !_isInWishlist);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(_isInWishlist ? 'Added to Wishlist' : 'Removed from Wishlist'),
-                      duration: const Duration(seconds: 1)));
+                    _showToast(_isInWishlist ? 'Added to Wishlist' : 'Removed from Wishlist');
                   },
                   child: Container(
-                    width: 36, height: 36,
+                    width: 40, height: 40,
                     decoration: BoxDecoration(
-                      color: Colors.white, shape: BoxShape.circle,
+                      color: _isInWishlist ? AppTheme.primaryYellow : Colors.white,
+                      shape: BoxShape.circle,
                       border: Border.all(color: AppTheme.black, width: 2),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppTheme.black,
+                          offset: Offset(2, 2),
+                          blurRadius: 0,
+                        ),
+                      ],
                     ),
-                    child: Icon(_isInWishlist ? Icons.favorite : Icons.favorite_border,
-                      size: 20, color: _isInWishlist ? Colors.red : AppTheme.black),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Heart icon with stroke effect using two icons
+                        Icon(
+                          Icons.favorite,
+                          size: 22,
+                          color: _isInWishlist ? AppTheme.primaryYellow : Colors.white,
+                        ),
+                        Icon(
+                          Icons.favorite_border,
+                          size: 22,
+                          color: AppTheme.black,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

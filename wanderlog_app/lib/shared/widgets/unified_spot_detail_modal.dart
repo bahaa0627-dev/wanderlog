@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
@@ -12,6 +13,7 @@ import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpotStatus, SpotPriority;
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
+import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
 
 /// Unified Spot Detail Modal - used by all entry points
@@ -55,6 +57,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   int? _userRating;
   String? _userNotes;
   List<String> _userPhotos = [];
+  bool _isOpeningHoursExpanded = false;
 
   // Adapter methods to handle different Spot types
   String get _spotId {
@@ -104,10 +107,8 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   String? get _spotDescription {
     try {
       if (widget.spot is Spot) {
-        // Spot model doesn't have aiSummary, check if it has description
-        return null; // Spot model doesn't have description field in the model
+        return null;
       }
-      // For map_page.Spot, try aiSummary first
       final aiSummary = (widget.spot as dynamic).aiSummary as String?;
       if (aiSummary != null && aiSummary.isNotEmpty) return aiSummary;
       return (widget.spot as dynamic).description as String?;
@@ -157,6 +158,39 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       return (widget.spot as dynamic).images as List<String>? ?? <String>[];
     } catch (e) {
       return <String>[];
+    }
+  }
+
+  Map<String, dynamic>? get _spotOpeningHours {
+    if (widget.spot is Spot) {
+      return (widget.spot as Spot).openingHours;
+    }
+    try {
+      return (widget.spot as dynamic).openingHours as Map<String, dynamic>?;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  String? get _spotPhoneNumber {
+    if (widget.spot is Spot) {
+      return (widget.spot as Spot).phoneNumber;
+    }
+    try {
+      return (widget.spot as dynamic).phoneNumber as String?;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  String? get _spotWebsite {
+    if (widget.spot is Spot) {
+      return (widget.spot as Spot).website;
+    }
+    try {
+      return (widget.spot as dynamic).website as String?;
+    } catch (e) {
+      return null;
     }
   }
 
@@ -221,7 +255,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
 
   Widget _buildPlaceholder() => Container(
       decoration: const BoxDecoration(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         color: AppTheme.lightGray,
       ),
       child: const Center(
@@ -263,12 +297,10 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
             _destinationId = detail.id;
             if (mounted) {
               setState(() {
-                // Check if spot is in wishlist (any status means it's saved)
                 _isWishlist = tripSpot.status != null;
                 _isMustGo = tripSpot.priority == SpotPriority.mustGo;
                 _isTodaysPlan = tripSpot.status == TripSpotStatus.todaysPlan;
                 _isVisited = tripSpot.status == TripSpotStatus.visited;
-                // Load check-in info regardless of wishlist status
                 _visitDate = tripSpot.visitDate;
                 _userRating = tripSpot.userRating;
                 _userNotes = tripSpot.userNotes;
@@ -280,6 +312,11 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         } catch (_) {}
       }
     } catch (_) {}
+  }
+
+  void _copyToClipboard(String text, String label) {
+    Clipboard.setData(ClipboardData(text: text));
+    CustomToast.showSuccess(context, '复制成功');
   }
 
   Widget _buildCheckInButton() => GestureDetector(
@@ -310,6 +347,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         ),
       ),
     );
+
 
   Future<void> _handleCheckIn() async {
     final authed = await requireAuth(context, ref);
@@ -358,7 +396,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
             ref.invalidate(tripsProvider);
             if (mounted) {
               setState(() {
-                // Check-in creates a tripSpot entry, so it's technically "saved"
                 _isWishlist = true;
                 _isVisited = true;
                 _visitDate = visitDate;
@@ -423,12 +460,10 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
               userNotes: notes,
             );
             ref.invalidate(tripsProvider);
-            // Reload check-in info to get latest data
             await _loadWishlistStatus();
             if (mounted) {
               CustomToast.showSuccess(context, 'Check-in updated');
               widget.onStatusChanged?.call(_spotId, isVisited: true, needsReload: true);
-              // Don't pop here - CheckInDialog will close itself, and we want to stay on detail page
             }
           } catch (e) {
             CustomToast.showError(context, 'Error: $e');
@@ -533,7 +568,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
               Expanded(
                 child: Text('Your Visit', style: AppTheme.headlineMedium(context).copyWith(fontWeight: FontWeight.bold)),
               ),
-              // Edit icon
               GestureDetector(
                 onTap: _handleEditCheckIn,
                 child: Container(
@@ -547,7 +581,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                 ),
               ),
               const SizedBox(width: 8),
-              // Delete icon
               GestureDetector(
                 onTap: _handleDeleteCheckIn,
                 child: Container(
@@ -602,6 +635,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         ],
       ),
     );
+
 
   Future<bool> _handleAddWishlist() async {
     setState(() => _isActionLoading = true);
@@ -750,6 +784,120 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     'source': 'app_wishlist',
   };
 
+  // Check if opening hours is 24/7
+  bool _is24Hours() {
+    final raw = _spotOpeningHours;
+    if (raw == null) return false;
+    final periods = raw['periods'] as List?;
+    if (periods == null || periods.length != 1) return false;
+    final period = periods.first as Map<String, dynamic>?;
+    if (period == null) return false;
+    final openInfo = period['open'] as Map<String, dynamic>?;
+    if (openInfo == null) return false;
+    final time = openInfo['time']?.toString().replaceAll(':', '') ?? '';
+    final hasClose = period['close'] != null;
+    return time == '0000' && !hasClose;
+  }
+
+  // Get weekday text for 7 days display
+  List<String>? _getWeekdayText() {
+    final raw = _spotOpeningHours;
+    if (raw == null) return null;
+    final weekdayText = raw['weekday_text'];
+    if (weekdayText is List && weekdayText.isNotEmpty) {
+      return weekdayText.map((e) => e?.toString() ?? '').toList();
+    }
+    return null;
+  }
+
+  Widget _buildOpeningHoursSection() {
+    final raw = _spotOpeningHours;
+    if (raw == null) return const SizedBox.shrink();
+
+    final eval = OpeningHoursUtils.evaluate(raw);
+    if (eval == null) return const SizedBox.shrink();
+
+    final is24h = _is24Hours();
+    final weekdayText = _getWeekdayText();
+    final canExpand = !is24h && weekdayText != null && weekdayText.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: canExpand ? () => setState(() => _isOpeningHoursExpanded = !_isOpeningHoursExpanded) : null,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.access_time, size: 18, color: AppTheme.black.withOpacity(0.48)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  eval.summaryText,
+                  style: AppTheme.bodyMedium(context).copyWith(
+                    color: eval.isOpen ? const Color(0xFF4CAF50) : AppTheme.error,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (canExpand)
+                Icon(
+                  _isOpeningHoursExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  size: 20,
+                  color: AppTheme.black.withOpacity(0.48),
+                ),
+            ],
+          ),
+        ),
+        if (_isOpeningHoursExpanded && weekdayText != null) ...[
+          const SizedBox(height: 12),
+          ...weekdayText.map((dayText) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4, left: 26),
+              child: Text(
+                dayText,
+                style: AppTheme.bodySmall(context).copyWith(
+                  color: AppTheme.black.withOpacity(0.48),
+                ),
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String text,
+    VoidCallback? onCopy,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: AppTheme.black.withOpacity(0.48)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.black.withOpacity(0.48),
+            ),
+          ),
+        ),
+        if (onCopy != null)
+          GestureDetector(
+            onTap: onCopy,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Icon(Icons.copy, size: 16, color: AppTheme.black.withOpacity(0.48)),
+            ),
+          ),
+      ],
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) => Container(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -760,7 +908,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       ),
       child: Column(
       children: [
-        // Image section with check-in button
+        // 1. Image section with close button and check-in button
         Stack(
           children: [
             SizedBox(
@@ -776,7 +924,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                           final bytes = _decodeBase64Image(imageSource);
                           if (bytes != null) {
                             return ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
                               child: Image.memory(
                                 bytes,
                                 fit: BoxFit.cover,
@@ -790,16 +938,13 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                           return _buildPlaceholder();
                         }
                         return ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(24),
-                          ),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
                           child: Image.network(
                             imageSource,
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: double.infinity,
                             gaplessPlayback: true,
-                            // Avoid fade/jump during quick rebuilds (e.g. toggling Today's Plan)
                             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                               if (wasSynchronouslyLoaded) return child;
                               return child;
@@ -849,77 +994,124 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Tags
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: _effectiveTags().map((tag) => Padding(
+                // 2. Title - max 2 lines with ellipsis
+                Text(
+                  _spotName,
+                  style: AppTheme.headlineLarge(context),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 12),
+                // 3. Tags - max 3 tags, no scroll
+                if (_effectiveTags().isNotEmpty) ...[
+                  Row(
+                    children: _effectiveTags().take(3).map((tag) => Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryYellow.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                          border: Border.all(color: AppTheme.black, width: 2),
+                          color: const Color(0xFFF2F2F2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
                         ),
-                        child: Text(tag, style: AppTheme.labelMedium(context)),
+                        child: Text(
+                          tag,
+                          style: AppTheme.labelSmall(context).copyWith(
+                            color: AppTheme.black.withOpacity(0.48),
+                          ),
+                        ),
                       ),
                     )).toList(),
                   ),
-                ),
-                const SizedBox(height: 16),
-                // 2. Name
-                Text(_spotName, style: AppTheme.headlineLarge(context), maxLines: 2, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 16),
-                // 3. Description
-                if (_spotDescription != null && _spotDescription!.isNotEmpty) ...[
-                  Text(_spotDescription!, style: AppTheme.bodyLarge(context).copyWith(color: AppTheme.darkGray)),
                   const SizedBox(height: 16),
                 ],
-                // 4. Address
-                if (_spotAddress != null && _spotAddress!.isNotEmpty) ...[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.location_on_outlined, size: 18, color: AppTheme.mediumGray),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(_spotAddress!, style: AppTheme.bodyMedium(context).copyWith(color: AppTheme.darkGray))),
-                    ],
+                // 4. Description - max 3 lines with ellipsis
+                if (_spotDescription != null && _spotDescription!.isNotEmpty) ...[
+                  Text(
+                    _spotDescription!,
+                    style: AppTheme.bodyMedium(context).copyWith(color: AppTheme.darkGray),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 16),
                 ],
-                // 5. Official Rating
+                // 5. Rating - number, stars, count
                 if (_spotRating != null) ...[
                   Row(
                     children: [
-                      Text('$_spotRating', style: AppTheme.headlineMedium(context).copyWith(fontWeight: FontWeight.bold)),
+                      Text(
+                        _spotRating!.toStringAsFixed(1),
+                        style: AppTheme.headlineMedium(context).copyWith(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(width: 8),
                       ...List.generate(5, (index) => Icon(
                         index < _spotRating!.floor() ? Icons.star : (index < _spotRating! ? Icons.star_half : Icons.star_border),
                         color: AppTheme.primaryYellow,
-                        size: 24,
+                        size: 20,
                       )),
                       if (_spotRatingCount != null) ...[
                         const SizedBox(width: 8),
-                        Text('($_spotRatingCount)', style: AppTheme.bodyMedium(context).copyWith(color: AppTheme.mediumGray)),
+                        Text(
+                          '($_spotRatingCount)',
+                          style: AppTheme.bodySmall(context).copyWith(color: AppTheme.mediumGray),
+                        ),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                 ],
-                // 6. User Check-in Info
-                if (_isVisited && _visitDate != null) _buildUserCheckInInfo(),
+                // 6. Other info: opening hours, address, phone, website
+                // Opening hours with expand/collapse
+                _buildOpeningHoursSection(),
+                if (_spotOpeningHours != null) const SizedBox(height: 12),
+                // Address with copy
+                if (_spotAddress != null && _spotAddress!.isNotEmpty) ...[
+                  _buildInfoRow(
+                    icon: Icons.location_on_outlined,
+                    text: _spotAddress!,
+                    onCopy: () => _copyToClipboard(_spotAddress!, 'Address'),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                // Phone with copy
+                if (_spotPhoneNumber != null && _spotPhoneNumber!.isNotEmpty) ...[
+                  _buildInfoRow(
+                    icon: Icons.phone_outlined,
+                    text: _spotPhoneNumber!,
+                    onCopy: () => _copyToClipboard(_spotPhoneNumber!, 'Phone'),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                // Website with copy
+                if (_spotWebsite != null && _spotWebsite!.isNotEmpty) ...[
+                  _buildInfoRow(
+                    icon: Icons.language,
+                    text: _spotWebsite!,
+                    onCopy: () => _copyToClipboard(_spotWebsite!, 'Website'),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                // 7. User Check-in Info
+                if (_isVisited && _visitDate != null) ...[
+                  const SizedBox(height: 8),
+                  _buildUserCheckInInfo(),
+                ],
               ],
             ),
           ),
         ),
-        // 7. Fixed bottom bar with SaveSpotButton
+        // 8. Fixed bottom bar with SaveSpotButton
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border(top: BorderSide(color: AppTheme.black, width: AppTheme.borderMedium)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 8,
+                offset: const Offset(0, -4),
+              ),
+            ],
           ),
           child: SafeArea(
             top: false,
@@ -979,4 +1171,3 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     ),
     );
 }
-

@@ -105,9 +105,13 @@ class _ToastWidgetState extends State<_ToastWidget>
   }
 
   Color get _backgroundColor {
+    return Colors.white;
+  }
+
+  Color get _iconColor {
     switch (widget.type) {
       case ToastType.success:
-        return AppTheme.accentGreen;
+        return const Color(0xFF4CAF50);
       case ToastType.error:
         return AppTheme.error;
       case ToastType.info:
@@ -137,37 +141,47 @@ class _ToastWidgetState extends State<_ToastWidget>
             position: _slideAnimation,
             child: Material(
               color: Colors.transparent,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: _backgroundColor.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppTheme.black,
-                    width: 2,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
                   ),
-                  boxShadow: AppTheme.cardShadow,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _icon,
-                      color: AppTheme.white,
-                      size: 24,
+                  decoration: BoxDecoration(
+                    color: _backgroundColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppTheme.black,
+                      width: 2,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        widget.message,
-                        style: AppTheme.bodyMedium(context).copyWith(
-                          color: AppTheme.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _icon,
+                        color: _iconColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          widget.message,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.black,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

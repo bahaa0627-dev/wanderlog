@@ -48,9 +48,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   bool _isMustGo = false;
   bool _isTodaysPlan = false;
   bool _isVisited = false;
-  bool _isActionLoading = false;
-  bool _isMustGoLoading = false;
-  bool _isTodaysPlanLoading = false;
   String? _destinationId;
   bool _hasStatusChanged = false;
   DateTime? _visitDate;
@@ -304,7 +301,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                 _visitDate = tripSpot.visitDate;
                 _userRating = tripSpot.userRating;
                 _userNotes = tripSpot.userNotes;
-                _userPhotos = tripSpot.userPhotos;
+                _userPhotos = tripSpot.userPhotos ?? [];
               });
             }
             return;
@@ -638,12 +635,19 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
 
 
   Future<bool> _handleAddWishlist() async {
-    setState(() => _isActionLoading = true);
+    // Optimistic update - change state immediately
+    setState(() => _isWishlist = true);
+    CustomToast.showSuccess(context, 'Saved');
+    
     try {
       final authed = await requireAuth(context, ref);
-      if (!authed) return false;
+      if (!authed) {
+        setState(() => _isWishlist = false);
+        return false;
+      }
       final destId = await ensureDestinationForCity(ref, _spotCity ?? '');
       if (destId == null) {
+        setState(() => _isWishlist = false);
         _showError('Failed to create destination');
         return false;
       }
@@ -656,24 +660,25 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       );
       ref.invalidate(tripsProvider);
       if (mounted) {
-        setState(() {
-          _isWishlist = true;
-          _hasStatusChanged = true;
-        });
-        return true;
+        setState(() => _hasStatusChanged = true);
       }
-      return false;
+      return true;
     } catch (e) {
+      // Revert on error
+      if (mounted) setState(() => _isWishlist = false);
       _showError('Error: $e');
       return false;
-    } finally {
-      if (mounted) setState(() => _isActionLoading = false);
     }
   }
 
   Future<bool> _handleRemoveWishlist() async {
     if (_destinationId == null) return false;
-    setState(() => _isActionLoading = true);
+    
+    // Optimistic update - change state immediately
+    setState(() => _isWishlist = false);
+    CustomToast.showSuccess(context, 'Removed from Wishlist');
+    widget.onStatusChanged?.call(_spotId, isRemoved: true);
+    
     try {
       await ref.read(tripRepositoryProvider).manageTripSpot(
         tripId: _destinationId!,
@@ -682,19 +687,15 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       );
       ref.invalidate(tripsProvider);
       if (mounted) {
-        setState(() {
-          _isWishlist = false;
-          _hasStatusChanged = true;
-        });
-        widget.onStatusChanged?.call(_spotId, isRemoved: true);
-        return true;
+        setState(() => _hasStatusChanged = true);
       }
-      return false;
+      return true;
     } catch (e) {
+      // Revert on error
+      if (mounted) setState(() => _isWishlist = true);
+      widget.onStatusChanged?.call(_spotId, isRemoved: false);
       _showError('Error: $e');
       return false;
-    } finally {
-      if (mounted) setState(() => _isActionLoading = false);
     }
   }
 
@@ -704,7 +705,12 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       if (destId == null) return false;
       _destinationId = destId;
     }
-    setState(() => _isMustGoLoading = true);
+    
+    // Optimistic update - change state immediately
+    final wasChecked = _isMustGo;
+    setState(() => _isMustGo = isChecked);
+    widget.onStatusChanged?.call(_spotId, isMustGo: isChecked);
+    
     try {
       await ref.read(tripRepositoryProvider).manageTripSpot(
         tripId: _destinationId!,
@@ -714,19 +720,15 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       );
       ref.invalidate(tripsProvider);
       if (mounted) {
-        setState(() {
-          _isMustGo = isChecked;
-          _hasStatusChanged = true;
-        });
-        widget.onStatusChanged?.call(_spotId, isMustGo: isChecked);
-        return true;
+        setState(() => _hasStatusChanged = true);
       }
-      return false;
+      return true;
     } catch (e) {
+      // Revert on error
+      if (mounted) setState(() => _isMustGo = wasChecked);
+      widget.onStatusChanged?.call(_spotId, isMustGo: wasChecked);
       _showError('Error: $e');
       return false;
-    } finally {
-      if (mounted) setState(() => _isMustGoLoading = false);
     }
   }
 
@@ -736,7 +738,12 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       if (destId == null) return false;
       _destinationId = destId;
     }
-    setState(() => _isTodaysPlanLoading = true);
+    
+    // Optimistic update - change state immediately
+    final wasChecked = _isTodaysPlan;
+    setState(() => _isTodaysPlan = isChecked);
+    widget.onStatusChanged?.call(_spotId, isTodaysPlan: isChecked);
+    
     try {
       await ref.read(tripRepositoryProvider).manageTripSpot(
         tripId: _destinationId!,
@@ -745,19 +752,15 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       );
       ref.invalidate(tripsProvider);
       if (mounted) {
-        setState(() {
-          _isTodaysPlan = isChecked;
-          _hasStatusChanged = true;
-        });
-        widget.onStatusChanged?.call(_spotId, isTodaysPlan: isChecked);
-        return true;
+        setState(() => _hasStatusChanged = true);
       }
-      return false;
+      return true;
     } catch (e) {
+      // Revert on error
+      if (mounted) setState(() => _isTodaysPlan = wasChecked);
+      widget.onStatusChanged?.call(_spotId, isTodaysPlan: wasChecked);
       _showError('Error: $e');
       return false;
-    } finally {
-      if (mounted) setState(() => _isTodaysPlanLoading = false);
     }
   }
 
@@ -1120,14 +1123,10 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                     isSaved: true,
                     isMustGo: _isMustGo,
                     isTodaysPlan: _isTodaysPlan,
-                    isLoading: _isActionLoading,
-                    isMustGoLoading: _isMustGoLoading,
-                    isTodaysPlanLoading: _isTodaysPlanLoading,
                     onSave: () async => true,
                     onUnsave: () async {
                       final ok = await _handleRemoveWishlist();
                       if (ok && context.mounted) {
-                        CustomToast.showSuccess(context, 'Removed from wishlist');
                         if (!widget.keepOpenOnAction) {
                           Navigator.pop(context);
                         }
@@ -1138,11 +1137,8 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                     onToggleTodaysPlan: (isChecked) async => await _handleToggleTodaysPlan(isChecked),
                   )
                 : GestureDetector(
-                    onTap: _isActionLoading ? null : () async {
-                      final success = await _handleAddWishlist();
-                      if (success && context.mounted) {
-                        CustomToast.showSuccess(context, 'Saved');
-                      }
+                    onTap: () async {
+                      await _handleAddWishlist();
                     },
                     child: Container(
                       width: double.infinity,
@@ -1153,9 +1149,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                         border: Border.all(color: AppTheme.black, width: 2),
                         boxShadow: AppTheme.cardShadow,
                       ),
-                      child: _isActionLoading
-                          ? const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.black)))
-                          : Row(
+                      child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 const Icon(Icons.favorite_border, color: AppTheme.black, size: 24),

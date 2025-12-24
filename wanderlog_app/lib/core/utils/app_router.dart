@@ -61,9 +61,13 @@ class AppRouter {
           GoRoute(
             path: '/home',
             name: 'home',
-            pageBuilder: (context, state) => _noTransitionPage(
-              const HomePage(),
-            ),
+            pageBuilder: (context, state) {
+              final tabParam = state.uri.queryParameters['tab'];
+              final initialTab = tabParam == 'profile' ? 2 : 0;
+              return _noTransitionPage(
+                HomePage(initialTabIndex: initialTab),
+              );
+            },
           ),
           GoRoute(
             path: '/map',

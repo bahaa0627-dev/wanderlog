@@ -7,6 +7,7 @@ class AIRecognitionHistory {
     required this.timestamp,
     required this.imageUrls,
     required this.result,
+    this.queryText,
   });
 
   /// 从JSON创建
@@ -17,14 +18,15 @@ class AIRecognitionHistory {
     return AIRecognitionHistory(
       id: json['id'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String),
-      imageUrls: (json['imageUrls'] as List<dynamic>).cast<String>(),
+      imageUrls: (json['imageUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       result: AIRecognitionResult(
         message: resultData['message'] as String? ?? '',
         spots: spotsData.map((spotJson) => 
           AIRecognitionResult.spotFromJson(spotJson as Map<String, dynamic>),
         ).toList(),
-        imageUrls: (json['imageUrls'] as List<dynamic>).cast<String>(),
+        imageUrls: (json['imageUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       ),
+      queryText: json['queryText'] as String?,
     );
   }
 
@@ -39,12 +41,19 @@ class AIRecognitionHistory {
   
   /// 识别结果
   final AIRecognitionResult result;
+  
+  /// 文本搜索查询（如果是文本搜索）
+  final String? queryText;
+  
+  /// 是否是文本搜索
+  bool get isTextQuery => queryText != null && queryText!.isNotEmpty;
 
   /// 转换为JSON
   Map<String, dynamic> toJson() => {
       'id': id,
       'timestamp': timestamp.toIso8601String(),
       'imageUrls': imageUrls,
+      'queryText': queryText,
       'result': {
         'message': result.message,
         'spots': result.spots.map((spot) => {
@@ -60,6 +69,7 @@ class AIRecognitionHistory {
           'images': spot.images,
           'tags': spot.tags,
           'aiSummary': spot.aiSummary,
+          'isFromAI': spot.isFromAI,
         },).toList(),
       },
     };

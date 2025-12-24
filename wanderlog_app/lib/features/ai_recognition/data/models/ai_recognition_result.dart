@@ -6,6 +6,7 @@ class AIRecognitionResult {
     required this.message,
     required this.spots,
     required this.imageUrls,
+    this.needsLocationPermission = false,
   }); // 上传的图片URL列表
 
   factory AIRecognitionResult.fromJson(Map<String, dynamic> json) => AIRecognitionResult(
@@ -16,11 +17,13 @@ class AIRecognitionResult {
           [],
       imageUrls:
           (json['imageUrls'] as List?)?.map((e) => e as String).toList() ?? [],
+      needsLocationPermission: json['needsLocationPermission'] as bool? ?? false,
     );
 
   final String message; // AI返回的文案描述
   final List<Spot> spots; // 识别到的地点列表
   final List<String> imageUrls;
+  final bool needsLocationPermission; // 是否需要请求定位权限
 
   static Spot spotFromJson(Map<String, dynamic> json) => Spot(
       id: json['id'] as String,
@@ -35,12 +38,14 @@ class AIRecognitionResult {
       images: (json['images'] as List?)?.map((e) => e as String).toList() ?? [],
       tags: (json['tags'] as List?)?.map((e) => e as String).toList() ?? [],
       aiSummary: json['aiSummary'] as String?,
+      isFromAI: json['isFromAI'] as bool? ?? false,
     );
 
   Map<String, dynamic> toJson() => {
         'message': message,
         'spots': spots.map(_spotToJson).toList(),
         'imageUrls': imageUrls,
+        'needsLocationPermission': needsLocationPermission,
       };
 
   static Map<String, dynamic> _spotToJson(Spot spot) => {
@@ -56,5 +61,6 @@ class AIRecognitionResult {
         'images': spot.images,
         'tags': spot.tags,
         'aiSummary': spot.aiSummary,
+        'isFromAI': spot.isFromAI,
       };
 }

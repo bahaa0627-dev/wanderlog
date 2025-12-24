@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_result.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
@@ -157,9 +158,7 @@ class AIRecognitionIntroSheet extends StatelessWidget {
       if (images.isEmpty) {
         print('未选择图片');
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未选择图片')),
-        );
+        DialogUtils.showInfoSnackBar(context, '未选择图片');
         return;
       }
 
@@ -182,9 +181,7 @@ class AIRecognitionIntroSheet extends StatelessWidget {
       print('选择图片错误: $e');
       if (context.mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('选择图片失败: $e')),
-        );
+        DialogUtils.showErrorSnackBar(context, '选择图片失败: $e');
       }
     }
   }
@@ -568,15 +565,9 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
                       setState(() {
                         _isInWishlist = !_isInWishlist;
                       });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            _isInWishlist
-                                ? '已添加到 Wishlist'
-                                : '已从 Wishlist 移除',
-                          ),
-                          duration: const Duration(seconds: 1),
-                        ),
+                      DialogUtils.showSuccessSnackBar(
+                        context,
+                        _isInWishlist ? '已添加到心愿单' : '已从心愿单移除',
                       );
                     },
                     child: Container(

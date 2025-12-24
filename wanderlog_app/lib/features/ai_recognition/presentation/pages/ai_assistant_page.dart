@@ -11,7 +11,7 @@ import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_h
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/chatgpt_service.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' show Spot;
-import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
+import 'package:wanderlog/core/utils/dialog_utils.dart';
 
 /// 聊天消息模型
 class _ChatMessage {
@@ -122,9 +122,7 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
 
   Future<void> _handleAddMore() async {
     if (_selectedImages.length >= 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('最多只能选择5张图片')),
-      );
+      DialogUtils.showInfoSnackBar(context, '最多只能选择5张图片');
       return;
     }
 
@@ -684,9 +682,7 @@ class _SpotCardOverlayState extends State<_SpotCardOverlay> {
                 child: GestureDetector(
                   onTap: () {
                     setState(() => _isInWishlist = !_isInWishlist);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(_isInWishlist ? 'Added to Wishlist' : 'Removed from Wishlist'),
-                      duration: const Duration(seconds: 1)));
+                    DialogUtils.showSuccessSnackBar(context, _isInWishlist ? '已添加到心愿单' : '已从心愿单移除');
                   },
                   child: Container(
                     width: 36, height: 36,

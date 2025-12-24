@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' hide Spot;
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
@@ -559,9 +560,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
           IconButtonCustom(
             icon: Icons.share,
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Share coming soon')),
-              );
+              DialogUtils.showInfoSnackBar(context, '分享功能即将上线');
             },
             backgroundColor: Colors.white,
           ),
@@ -1027,9 +1026,7 @@ class _LinkChip extends StatelessWidget {
       onTap: url == null
           ? null
           : () async {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Open: $url')),
-              );
+              DialogUtils.showInfoSnackBar(context, '打开: $url');
             },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

@@ -10,11 +10,11 @@ const toCamelCase = (row: any) => {
     userId: row.user_id,
     name: row.name,
     city: row.city,
-    startDate: row.start_date,
-    endDate: row.end_date,
+    startDate: row.start_date ? new Date(row.start_date).toISOString() : null,
+    endDate: row.end_date ? new Date(row.end_date).toISOString() : null,
     status: row.status,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
     spotCount: row.spot_count || 0,
   };
 };
@@ -28,12 +28,12 @@ const tripSpotToCamelCase = (row: any) => {
     spotId: row.place_id, // Frontend expects spotId
     status: row.status,
     priority: row.priority,
-    visitDate: row.visit_date,
+    visitDate: row.visit_date ? new Date(row.visit_date).toISOString() : null,
     userRating: row.user_rating,
     userNotes: row.user_notes,
     userPhotos: row.user_photos || [],
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
   };
 };
 
@@ -112,15 +112,21 @@ export const getTripById = async (req: Request, res: Response) => {
       ORDER BY created_at DESC
     `;
 
-    // Load places for each trip spot
+    // Load places for each trip spot (use raw SQL to avoid DateTime issues)
     const normalizedTripSpots = await Promise.all(
       (tripSpots as any[]).map(async (ts: any) => {
         const placeId = ts.place_id;
-        const dbPlace = placeId
-          ? await prismaAny.place.findUnique({ where: { id: placeId } })
-          : null;
+        let normalizedPlace = null;
         
-        const normalizedPlace = dbPlace ? normalizePlace(dbPlace) : null;
+        if (placeId) {
+          const places = await prismaAny.$queryRaw`
+            SELECT * FROM places WHERE id = ${placeId}::uuid LIMIT 1
+          `;
+          if (places && places.length > 0) {
+            normalizedPlace = normalizePlace(places[0]);
+          }
+        }
+        
         const tripSpotData = tripSpotToCamelCase(ts);
 
         return {
@@ -173,37 +179,47 @@ export const manageTripSpot = async (req: Request, res: Response) => {
       return res.json({ success: true, removed: true, spotId: targetPlaceId });
     }
 
-    // Ensure place exists
-    const existingPlace = await prismaAny.place.findUnique({ where: { id: targetPlaceId } });
+    // Ensure place exists (use raw SQL to avoid DateTime conversion issues)
+    const existingPlaces = await prismaAny.$queryRaw`
+      SELECT * FROM places WHERE id = ${targetPlaceId}::uuid LIMIT 1
+    `;
+    const existingPlace = existingPlaces && existingPlaces.length > 0 ? existingPlaces[0] : null;
+    
     if (!existingPlace) {
       if (!spot || !spot.name || !spot.city || spot.latitude === undefined || spot.longitude === undefined) {
         return res.status(400).json({ message: 'Place not found and insufficient data to create' });
       }
-      // Create place using Prisma (places table uses Prisma schema)
-      await prismaAny.place.create({
-        data: {
-          id: targetPlaceId,
-          name: spot.name,
-          city: spot.city,
-          country: spot.country ?? 'Unknown',
-          latitude: spot.latitude,
-          longitude: spot.longitude,
-          address: spot.address || null,
-          description: spot.description || null,
-          openingHours: spot.openingHours || null,
-          rating: spot.rating || null,
-          ratingCount: spot.ratingCount || null,
-          category: spot.category || null,
-          aiSummary: spot.aiSummary || null,
-          tags: spot.tags ? JSON.stringify(spot.tags) : null,
-          coverImage: spot.coverImage || null,
-          images: spot.images ? JSON.stringify(spot.images) : null,
-          priceLevel: spot.priceLevel || null,
-          website: spot.website || null,
-          phoneNumber: spot.phoneNumber || null,
-          source: spot.source ?? 'user_import',
-        },
-      });
+      // Create place using raw SQL to avoid DateTime issues
+      const tagsJson = spot.tags ? JSON.stringify(spot.tags) : '[]';
+      const imagesJson = spot.images ? JSON.stringify(spot.images) : '[]';
+      
+      await prismaAny.$executeRaw`
+        INSERT INTO places (id, name, city, country, latitude, longitude, address, description, opening_hours, rating, rating_count, category, ai_summary, tags, cover_image, images, price_level, website, phone_number, source, created_at, updated_at)
+        VALUES (
+          ${targetPlaceId}::uuid, 
+          ${spot.name}, 
+          ${spot.city}, 
+          ${spot.country ?? 'Unknown'}, 
+          ${spot.latitude}::float, 
+          ${spot.longitude}::float, 
+          ${spot.address || null}, 
+          ${spot.description || null}, 
+          ${spot.openingHours || null}, 
+          ${spot.rating || null}::float, 
+          ${spot.ratingCount || null}::int, 
+          ${spot.category || null}, 
+          ${spot.aiSummary || null}, 
+          ${tagsJson}::jsonb, 
+          ${spot.coverImage || null}, 
+          ${imagesJson}::jsonb, 
+          ${spot.priceLevel || null}::int, 
+          ${spot.website || null}, 
+          ${spot.phoneNumber || null}, 
+          ${spot.source ?? 'user_import'},
+          NOW(),
+          NOW()
+        )
+      `;
     }
 
     // Check if trip spot exists
@@ -240,9 +256,11 @@ export const manageTripSpot = async (req: Request, res: Response) => {
       tripSpot = results[0];
     }
 
-    // Load place for response
-    const dbPlace = await prismaAny.place.findUnique({ where: { id: targetPlaceId } });
-    const normalizedPlace = dbPlace ? normalizePlace(dbPlace) : null;
+    // Load place for response (use raw SQL to avoid DateTime issues)
+    const dbPlaces = await prismaAny.$queryRaw`
+      SELECT * FROM places WHERE id = ${targetPlaceId}::uuid LIMIT 1
+    `;
+    const normalizedPlace = dbPlaces && dbPlaces.length > 0 ? normalizePlace(dbPlaces[0]) : null;
     const tripSpotData = tripSpotToCamelCase(tripSpot);
 
     return res.json({
@@ -300,25 +318,27 @@ const normalizePlace = (dbPlace: any) => {
     name: dbPlace.name,
     city: dbPlace.city,
     country: dbPlace.country,
-    latitude: dbPlace.latitude,
-    longitude: dbPlace.longitude,
+    latitude: dbPlace.latitude != null ? Number(dbPlace.latitude) : null,
+    longitude: dbPlace.longitude != null ? Number(dbPlace.longitude) : null,
     address: dbPlace.address,
     description: dbPlace.description,
-    openingHours: dbPlace.openingHours,
-    rating: dbPlace.rating,
-    ratingCount: dbPlace.ratingCount,
+    openingHours: dbPlace.openingHours || dbPlace.opening_hours,
+    rating: dbPlace.rating != null ? Number(dbPlace.rating) : null,
+    ratingCount: dbPlace.ratingCount != null ? Number(dbPlace.ratingCount) : (dbPlace.rating_count != null ? Number(dbPlace.rating_count) : null),
     category: dbPlace.category,
-    aiSummary: dbPlace.aiSummary,
-    aiDescription: dbPlace.aiDescription,
+    aiSummary: dbPlace.aiSummary || dbPlace.ai_summary,
+    aiDescription: dbPlace.aiDescription || dbPlace.ai_description,
     tags: mergedTags,
     aiTags: parsedAiTags,
-    coverImage: dbPlace.coverImage,
+    coverImage: dbPlace.coverImage || dbPlace.cover_image,
     images: parsedImages,
-    priceLevel: dbPlace.priceLevel,
+    priceLevel: dbPlace.priceLevel != null ? Number(dbPlace.priceLevel) : (dbPlace.price_level != null ? Number(dbPlace.price_level) : null),
     website: dbPlace.website,
-    phoneNumber: dbPlace.phoneNumber,
-    googlePlaceId: dbPlace.googlePlaceId,
+    phoneNumber: dbPlace.phoneNumber || dbPlace.phone_number,
+    googlePlaceId: dbPlace.googlePlaceId || dbPlace.google_place_id,
     source: dbPlace.source,
+    createdAt: dbPlace.created_at ? new Date(dbPlace.created_at).toISOString() : null,
+    updatedAt: dbPlace.updated_at ? new Date(dbPlace.updated_at).toISOString() : null,
   };
 };
 

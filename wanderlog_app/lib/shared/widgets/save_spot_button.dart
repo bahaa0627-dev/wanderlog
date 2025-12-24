@@ -13,17 +13,11 @@ typedef ToggleOptionCallback = Future<bool> Function(bool isChecked);
 class SaveSpotButton extends StatefulWidget {
   const SaveSpotButton({
     required this.isSaved, required this.isMustGo, required this.isTodaysPlan, required this.onSave, required this.onUnsave, required this.onToggleMustGo, required this.onToggleTodaysPlan, super.key,
-    this.isLoading = false,
-    this.isMustGoLoading = false,
-    this.isTodaysPlanLoading = false,
   });
 
   final bool isSaved;
   final bool isMustGo;
   final bool isTodaysPlan;
-  final bool isLoading; // For save/unsave operations only
-  final bool isMustGoLoading; // For MustGo toggle only
-  final bool isTodaysPlanLoading; // For Today's Plan toggle only
   final SaveSpotCallback onSave;
   final SaveSpotCallback onUnsave;
   final ToggleOptionCallback onToggleMustGo;
@@ -34,71 +28,34 @@ class SaveSpotButton extends StatefulWidget {
 }
 
 class _SaveSpotButtonState extends State<SaveSpotButton> {
-  bool _isProcessing = false;
-
   Future<void> _handleSaveTap() async {
-    if (_isProcessing || widget.isLoading) return;
-    
-    setState(() => _isProcessing = true);
-    
-    try {
-      if (widget.isSaved) {
-        await widget.onUnsave();
-      } else {
-        await widget.onSave();
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
+    if (widget.isSaved) {
+      await widget.onUnsave();
+    } else {
+      await widget.onSave();
     }
   }
 
   Future<void> _handleMustGoToggle() async {
-    if (_isProcessing || widget.isLoading || widget.isMustGoLoading) return;
-    
-    setState(() => _isProcessing = true);
-    try {
-      await widget.onToggleMustGo(!widget.isMustGo);
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
-    }
+    await widget.onToggleMustGo(!widget.isMustGo);
   }
 
   Future<void> _handleTodaysPlanToggle() async {
-    if (_isProcessing || widget.isLoading || widget.isTodaysPlanLoading) return;
-    
-    setState(() => _isProcessing = true);
-    try {
-      await widget.onToggleTodaysPlan(!widget.isTodaysPlan);
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
-    }
+    await widget.onToggleTodaysPlan(!widget.isTodaysPlan);
   }
 
   @override
-  Widget build(BuildContext context) {
-    // Save button only shows loading for save/unsave operations
-    final saveButtonLoading = widget.isLoading || (_isProcessing && !widget.isMustGoLoading && !widget.isTodaysPlanLoading);
-    // Options panel shows loading for respective operations
-    final optionsLoading = widget.isMustGoLoading || widget.isTodaysPlanLoading || _isProcessing;
-    
-    return Row(
+  Widget build(BuildContext context) => Row(
       children: [
         // Left: Save/Unsave circle button
-        _buildSaveCircleButton(saveButtonLoading),
+        _buildSaveCircleButton(),
         const SizedBox(width: 12),
         // Right: Options panel with MustGo and Today's Plan
-        Expanded(child: _buildOptionsPanel(optionsLoading)),
+        Expanded(child: _buildOptionsPanel()),
       ],
     );
-  }
 
-  Widget _buildSaveCircleButton(bool isLoading) => GestureDetector(
+  Widget _buildSaveCircleButton() => GestureDetector(
       onTap: _handleSaveTap,
       child: Container(
         width: 48,
@@ -112,23 +69,15 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
           ),
           boxShadow: AppTheme.cardShadow,
         ),
-        child: isLoading
-            ? const Padding(
-                padding: EdgeInsets.all(12),
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppTheme.black,
-                ),
-              )
-            : Icon(
-                widget.isSaved ? Icons.favorite : Icons.favorite_border,
-                color: AppTheme.black,
-                size: 24,
-              ),
+        child: Icon(
+          widget.isSaved ? Icons.favorite : Icons.favorite_border,
+          color: AppTheme.black,
+          size: 24,
+        ),
       ),
     );
 
-  Widget _buildOptionsPanel(bool isLoading) => Container(
+  Widget _buildOptionsPanel() => Container(
       height: 48,
       decoration: BoxDecoration(
         color: AppTheme.white,
@@ -147,7 +96,6 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
               label: 'MustGo',
               icon: Icons.star,
               isChecked: widget.isMustGo,
-              isLoading: widget.isMustGoLoading || (_isProcessing && !widget.isTodaysPlanLoading),
               isEnabled: widget.isSaved,
               activeColor: AppTheme.primaryYellow,
               onTap: widget.isSaved ? _handleMustGoToggle : null,
@@ -165,7 +113,6 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
               label: "Today's Plan",
               icon: Icons.today,
               isChecked: widget.isTodaysPlan,
-              isLoading: widget.isTodaysPlanLoading || (_isProcessing && !widget.isMustGoLoading),
               isEnabled: widget.isSaved,
               activeColor: AppTheme.accentBlue,
               onTap: widget.isSaved ? _handleTodaysPlanToggle : null,
@@ -181,7 +128,6 @@ class _OptionCheckbox extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.isChecked,
-    required this.isLoading,
     required this.isEnabled,
     required this.activeColor,
     required this.onTap,
@@ -190,7 +136,6 @@ class _OptionCheckbox extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool isChecked;
-  final bool isLoading;
   final bool isEnabled;
   final Color activeColor;
   final VoidCallback? onTap;
@@ -200,7 +145,7 @@ class _OptionCheckbox extends StatelessWidget {
     final effectiveOpacity = isEnabled ? 1.0 : 0.4;
     
     return GestureDetector(
-      onTap: (isLoading || !isEnabled) ? null : onTap,
+      onTap: isEnabled ? onTap : null,
       behavior: HitTestBehavior.opaque,
       child: Opacity(
         opacity: effectiveOpacity,

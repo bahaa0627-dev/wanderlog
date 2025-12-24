@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/features/trips/data/trip_repository.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
@@ -277,18 +278,11 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Status updated')),
-        );
+        DialogUtils.showSuccessSnackBar(context, '状态已更新');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        DialogUtils.showErrorSnackBar(context, '操作失败: $e');
       }
     } finally {
       if (mounted) {
@@ -322,12 +316,7 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        DialogUtils.showErrorSnackBar(context, '操作失败: $e');
       }
     } finally {
       if (mounted) {
@@ -459,18 +448,11 @@ class _CheckInDialogState extends State<_CheckInDialog> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Checked in successfully!')),
-        );
+        DialogUtils.showSuccessSnackBar(context, '打卡成功！');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        DialogUtils.showErrorSnackBar(context, '操作失败: $e');
       }
     } finally {
       if (mounted) {

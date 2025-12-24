@@ -4,7 +4,7 @@ class AppConstants {
   AppConstants._();
 
   // App Info
-  static const String appName = 'Wanderlog';
+  static const String appName = 'VAGO';
   static const String appVersion = '1.0.0';
   
   // Colors

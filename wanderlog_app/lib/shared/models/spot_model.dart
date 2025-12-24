@@ -9,7 +9,14 @@ class Spot {
 
   Spot({
     required this.id,
-    required this.name, required this.latitude, required this.longitude, required this.tags, required this.images, required this.createdAt, required this.updatedAt, this.googlePlaceId,
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+    this.tags = const [],
+    this.images = const [],
+    this.createdAt,
+    this.updatedAt,
+    this.googlePlaceId,
     this.city,
     this.country,
     this.address,
@@ -41,8 +48,8 @@ class Spot {
   final int? priceLevel;
   final String? website;
   final String? phoneNumber;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
   Map<String, dynamic> toJson() => _$SpotToJson(this);
 
   Spot copyWith({
@@ -109,7 +116,3 @@ Map<String, dynamic>? _openingHoursFromJson(dynamic value) {
 }
 
 Map<String, dynamic>? _openingHoursToJson(Map<String, dynamic>? value) => value;
-
-
-
-

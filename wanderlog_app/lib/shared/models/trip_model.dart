@@ -19,7 +19,10 @@ class Trip {
     required this.id,
     required this.userId,
     required this.name,
-    required this.status, required this.createdAt, required this.updatedAt, this.city,
+    this.status,
+    this.createdAt,
+    this.updatedAt,
+    this.city,
     this.startDate,
     this.endDate,
     this.coverImage,
@@ -35,9 +38,9 @@ class Trip {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? coverImage;
-  final TripStatus status;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final TripStatus? status;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
   final List<TripSpot>? tripSpots;
   
   @JsonKey(name: '_count')

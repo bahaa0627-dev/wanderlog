@@ -499,9 +499,6 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                   isSaved: _isWishlist,
                   isMustGo: _isMustGo,
                   isTodaysPlan: _isTodaysPlan,
-                  isLoading: _isActionLoading,
-                  isMustGoLoading: _isMustGoLoading,
-                  isTodaysPlanLoading: _isTodaysPlanLoading,
                   onSave: () async => true,
                   onUnsave: () async {
                     final ok = await _handleRemoveWishlist();
@@ -544,7 +541,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                 _visitDate = tripSpot.visitDate;
                 _userRating = tripSpot.userRating;
                 _userNotes = tripSpot.userNotes;
-                _userPhotos = tripSpot.userPhotos;
+                _userPhotos = tripSpot.userPhotos ?? [];
               });
             }
             return;

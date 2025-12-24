@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
@@ -280,18 +281,11 @@ class _SpotBottomSheetState extends ConsumerState<SpotBottomSheet> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Added to wishlist!')),
-        );
+        DialogUtils.showSuccessSnackBar(context, '已添加到心愿单');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        DialogUtils.showErrorSnackBar(context, '操作失败: $e');
       }
     } finally {
       if (mounted) {

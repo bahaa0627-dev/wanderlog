@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/spot_card.dart';
@@ -274,9 +275,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         spot: spot,
         onCheckIn: (visitDate, rating, notes) async {
           setState(() => _selectedSubTab = 3);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Checked in to ${spot.name}')),
-          );
+          DialogUtils.showSuccessSnackBar(context, '已打卡 ${spot.name}');
         },
       ),
     );
@@ -717,11 +716,12 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       final destinations = await repo.getMyTrips();
       if (!mounted) return;
       destinations.sort(
-        (a, b) => b.createdAt.compareTo(a.createdAt),
+        (a, b) => (b.createdAt ?? DateTime.now()).compareTo(a.createdAt ?? DateTime.now()),
       );
 
       final entries = <_SpotEntry>[];
 
+      // Process destinations and collect city info first
       for (final destination in destinations) {
         final city = destination.city?.trim();
         if (city == null || city.isEmpty) continue;
@@ -731,42 +731,41 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           (existing) => existing.toLowerCase() == city.toLowerCase(),
         );
         _userCityHistory.insert(0, city);
+      }
 
-        // load spots for this destination
-        try {
-          final detail = await repo.getTripById(destination.id);
-          final tripSpots = detail.tripSpots ?? const <TripSpot>[];
-          for (final ts in tripSpots) {
-            final s = ts.spot;
-            if (s == null) continue;
-            // Use spot.city for city grouping
-            // City list = manually added destinations + cities of saved spots
-            final cityName = (s.city ?? 'Unknown').trim().isEmpty
-                ? 'Unknown'
-                : s.city!.trim();
-            final spotSlug = _ensureCitySlug(cityName);
-            final isMustGo = ts.priority == SpotPriority.mustGo;
-            final isTodaysPlan = ts.status == TripSpotStatus.todaysPlan;
-            final entry = _SpotEntry(
-              city: cityName,
-              citySlug: spotSlug,
-              spot: s,
-              addedAt: ts.createdAt,
-              isMustGo: isMustGo,
-              isTodaysPlan: isTodaysPlan,
-              isVisited: ts.status == TripSpotStatus.visited,
-              // Use updatedAt as the check time for sorting
-              mustGoCheckedAt: isMustGo ? ts.updatedAt : null,
-              todaysPlanCheckedAt: isTodaysPlan ? ts.updatedAt : null,
-              visitDate: ts.visitDate,
-              userRating: ts.userRating,
-              userNotes: ts.userNotes,
-              userPhotos: ts.userPhotos,
-            );
-            entries.add(entry);
-          }
-        } catch (_) {
-          // ignore detail fetch errors per destination
+      // Load all destination details in parallel for speed
+      final detailFutures = destinations
+          .where((d) => d.city?.trim().isNotEmpty == true)
+          .map((d) => repo.getTripById(d.id).catchError((_) => d));
+      final details = await Future.wait(detailFutures);
+
+      for (final detail in details) {
+        final tripSpots = detail.tripSpots ?? const <TripSpot>[];
+        for (final ts in tripSpots) {
+          final s = ts.spot;
+          if (s == null) continue;
+          final cityName = (s.city ?? 'Unknown').trim().isEmpty
+              ? 'Unknown'
+              : s.city!.trim();
+          final spotSlug = _ensureCitySlug(cityName);
+          final isMustGo = ts.priority == SpotPriority.mustGo;
+          final isTodaysPlan = ts.status == TripSpotStatus.todaysPlan;
+          final entry = _SpotEntry(
+            city: cityName,
+            citySlug: spotSlug,
+            spot: s,
+            addedAt: ts.createdAt ?? DateTime.now(),
+            isMustGo: isMustGo,
+            isTodaysPlan: isTodaysPlan,
+            isVisited: ts.status == TripSpotStatus.visited,
+            mustGoCheckedAt: isMustGo ? ts.updatedAt : null,
+            todaysPlanCheckedAt: isTodaysPlan ? ts.updatedAt : null,
+            visitDate: ts.visitDate,
+            userRating: ts.userRating,
+            userNotes: ts.userNotes,
+            userPhotos: ts.userPhotos ?? [],
+          );
+          entries.add(entry);
         }
       }
 

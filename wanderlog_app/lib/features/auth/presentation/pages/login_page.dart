@@ -44,7 +44,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           await ref.read(authProvider.notifier).refreshAuthState();
           
           if (mounted) {
-            CustomToast.showSuccess(context, '登录成功');
+            CustomToast.showSuccess(context, 'Login successful');
             if (Navigator.of(context).canPop()) {
               Navigator.of(context).pop(true);
             } else {
@@ -54,11 +54,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         }
       } on AuthException catch (e) {
         if (mounted) {
-          String message = '登录失败';
+          String message = 'Login failed';
           if (e.message.contains('Invalid login credentials')) {
-            message = '邮箱或密码错误';
+            message = 'Invalid email or password';
           } else if (e.message.contains('Email not confirmed')) {
-            message = '请先验证邮箱';
+            message = 'Please verify your email first';
           } else {
             message = e.message;
           }
@@ -101,7 +101,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           _isGoogleLoading = false;
         });
         if (mounted) {
-          CustomToast.showError(context, 'Google 登录失败：无法获取 ID Token');
+          CustomToast.showError(context, 'Google login failed: Unable to get ID Token');
         }
         return;
       }
@@ -115,7 +115,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       });
       
       if (mounted) {
-        CustomToast.showSuccess(context, 'Google 登录成功');
+        CustomToast.showSuccess(context, 'Google login successful');
         await Future<void>.delayed(const Duration(milliseconds: 300));
         if (mounted) {
           if (Navigator.of(context).canPop()) {
@@ -132,7 +132,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       });
       debugPrint('Google Login Error: $e');
       if (mounted) {
-        CustomToast.showError(context, 'Google 登录失败：${e.toString()}');
+        CustomToast.showError(context, 'Google login failed: ${e.toString()}');
       }
     }
   }
@@ -164,7 +164,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               children: [
                 const SizedBox(height: 16),
                 const Text(
-                  'WanderLog',
+                  'VAGO',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 32,
@@ -270,7 +270,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     )
                                   : const Icon(Icons.account_circle_outlined),
                               onPressed: _isGoogleLoading ? null : _onGoogleLogin,
-                              label: Text(_isGoogleLoading ? 'Google 登录中...' : 'Continue with Google'),
+                              label: Text(_isGoogleLoading ? 'Signing in...' : 'Continue with Google'),
                             ),
                           ),
                         ],

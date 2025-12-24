@@ -47,8 +47,14 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>We need access to your photo library to let you select images for AI location recognition.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need permission to save QR code images to your photo library.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>We need access to your camera to take photos for AI location recognition.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to find great places near you.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We need your location to find great places near you.</string>
 	<key>MBXAccessToken</key>
 	<string>pk.eyJ1IjoibW9yaWJhaGFhIiwiYSI6ImNtaXp0MzM5NjAxamgzZXB0dnI3MTl4dzIifQ.sHnu6-JSac2YGSwEhkK8ag</string>
 	<!-- Google Sign-In 配置 -->

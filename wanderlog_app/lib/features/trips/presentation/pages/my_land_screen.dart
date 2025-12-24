@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/features/trips/presentation/pages/myland/spots_tab.dart';
 import 'package:wanderlog/features/trips/presentation/pages/myland/collections_tab.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/trips_bottom_nav.dart';
@@ -59,11 +60,11 @@ class _MyLandScreenState extends State<MyLandScreen> {
         context.go('/home');
         break;
       case 1:
+        // Already on VAGO/MyLand
         break;
       case 2:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile page coming soon')),
-        );
+        // Go to Profile/Settings - 使用 go 而不是 push，保持底部导航一致
+        context.go('/home?tab=profile');
         break;
     }
   }
@@ -113,10 +114,12 @@ class _MyLandScreenState extends State<MyLandScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
       backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Container(
+      body: Column(
+        children: [
+          // 顶部安全区域
+          SafeArea(
+            bottom: false,
+            child: Container(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
               color: AppTheme.white,
               child: Row(
@@ -145,8 +148,9 @@ class _MyLandScreenState extends State<MyLandScreen> {
                 ],
               ),
             ),
-            Expanded(
-              child: IndexedStack(
+          ),
+          Expanded(
+            child: IndexedStack(
                 index: _selectedTabIndex,
                 children: [
                   SpotsTab(
@@ -167,7 +171,6 @@ class _MyLandScreenState extends State<MyLandScreen> {
             ),
           ],
         ),
-      ),
     );
 }
 

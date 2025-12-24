@@ -32,7 +32,7 @@ class TripsBottomNav extends StatelessWidget {
               onTap: () => onItemTapped(0),
             ),
             _NavItem(
-              label: 'MyLand',
+              label: 'VAGO',
               active: selectedIndex == 1,
               onTap: () => onItemTapped(1),
             ),

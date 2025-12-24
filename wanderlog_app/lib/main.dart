@@ -38,7 +38,7 @@ class WanderlogApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
-      title: 'WanderLog',
+      title: 'VAGO',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.themeData,
       routerConfig: AppRouter.createRouter(ref),

@@ -16,10 +16,7 @@ class PlaceRepository {
     int page = 1,
     int pageSize = 20,
   }) async {
-    var query = _client
-        .from('places')
-        .select()
-        .order('rating', ascending: false);
+    var query = _client.from('places').select();
 
     if (city != null && city.isNotEmpty) {
       query = query.eq('city', city);
@@ -31,7 +28,9 @@ class PlaceRepository {
     final start = (page - 1) * pageSize;
     final end = start + pageSize - 1;
 
-    final response = await query.range(start, end);
+    final response = await query
+        .order('rating', ascending: false)
+        .range(start, end);
     return (response as List).map((e) => PlaceModel.fromJson(e)).toList();
   }
 

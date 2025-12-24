@@ -40,6 +40,7 @@ class Spot {
     required this.images,
     required this.tags,
     this.aiSummary,
+    this.isFromAI = false,
   });
 
   final String id;
@@ -54,6 +55,7 @@ class Spot {
   final List<String> images;
   final List<String> tags;
   final String? aiSummary;
+  final bool isFromAI;
 }
 
 class MapPageSnapshot {
@@ -1860,9 +1862,6 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
   bool _isMustGo = false;
   bool _isTodaysPlan = false;
   bool _isVisited = false; // Check-in status
-  bool _isActionLoading = false; // Only for save/unsave operations
-  bool _isMustGoLoading = false; // Separate loading for MustGo
-  bool _isTodaysPlanLoading = false; // Separate loading for Today's Plan
   String? _destinationId;
   bool _hasStatusChanged = false; // Track if any status changed
 
@@ -2151,13 +2150,22 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                     if (!_isWishlist)
                       // 未收藏状态：显示大的收藏按钮
                       GestureDetector(
-                        onTap: _isActionLoading
-                            ? null
-                            : () async {
+                        onTap: () async {
+                                // Optimistic UI: update state immediately
+                                setState(() {
+                                  _isWishlist = true;
+                                  _hasStatusChanged = true;
+                                });
+                                CustomToast.showSuccess(context, 'Saved');
+                                // Then do API call in background
                                 final success = await _handleAddWishlist();
-                                if (success && context.mounted) {
-                                  CustomToast.showSuccess(
-                                      context, 'Saved',);
+                                if (!success && mounted) {
+                                  // Revert on failure
+                                  setState(() {
+                                    _isWishlist = false;
+                                    _hasStatusChanged = true;
+                                  });
+                                  CustomToast.showError(context, 'Failed to save');
                                 }
                               },
                         child: Container(
@@ -2170,18 +2178,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                             border: Border.all(color: AppTheme.black, width: 2),
                             boxShadow: AppTheme.cardShadow,
                           ),
-                          child: _isActionLoading
-                              ? const Center(
-                                  child: SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: AppTheme.black,
-                                    ),
-                                  ),
-                                )
-                              : Row(
+                          child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     const Icon(
@@ -2209,20 +2206,76 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                         isSaved: true,
                         isMustGo: _isMustGo,
                         isTodaysPlan: _isTodaysPlan,
-                        isLoading: _isActionLoading, // Only for save/unsave
-                        isMustGoLoading: _isMustGoLoading,
-                        isTodaysPlanLoading: _isTodaysPlanLoading,
                         onSave: () async => true,
                         onUnsave: () async {
+                          // Optimistic UI: update state immediately
+                          final prevMustGo = _isMustGo;
+                          final prevTodaysPlan = _isTodaysPlan;
+                          setState(() {
+                            _isWishlist = false;
+                            _isMustGo = false;
+                            _isTodaysPlan = false;
+                            _hasStatusChanged = true;
+                          });
+                          CustomToast.showSuccess(context, 'Removed');
+                          // Then do API call in background
                           final ok = await _handleRemoveWishlist();
-                          if (ok && context.mounted) {
-                            CustomToast.showSuccess(
-                                context, 'Removed',);
+                          if (!ok && mounted) {
+                            // Revert on failure
+                            setState(() {
+                              _isWishlist = true;
+                              _isMustGo = prevMustGo;
+                              _isTodaysPlan = prevTodaysPlan;
+                              _hasStatusChanged = true;
+                            });
+                            CustomToast.showError(context, 'Failed to remove');
                           }
                           return ok;
                         },
-                        onToggleMustGo: (isChecked) async => await _handleToggleMustGo(isChecked),
-                        onToggleTodaysPlan: (isChecked) async => await _handleToggleTodaysPlan(isChecked),
+                        onToggleMustGo: (isChecked) async {
+                          // Optimistic UI: update state immediately
+                          setState(() {
+                            _isMustGo = isChecked;
+                            _hasStatusChanged = true;
+                          });
+                          CustomToast.showSuccess(
+                            context,
+                            isChecked ? 'Added to MustGo' : 'Removed from MustGo',
+                          );
+                          // Then do API call in background
+                          final ok = await _handleToggleMustGo(isChecked);
+                          if (!ok && mounted) {
+                            // Revert on failure
+                            setState(() {
+                              _isMustGo = !isChecked;
+                              _hasStatusChanged = true;
+                            });
+                            CustomToast.showError(context, 'Failed to update');
+                          }
+                          return ok;
+                        },
+                        onToggleTodaysPlan: (isChecked) async {
+                          // Optimistic UI: update state immediately
+                          setState(() {
+                            _isTodaysPlan = isChecked;
+                            _hasStatusChanged = true;
+                          });
+                          CustomToast.showSuccess(
+                            context,
+                            isChecked ? "Added to Today's Plan" : "Removed from Today's Plan",
+                          );
+                          // Then do API call in background
+                          final ok = await _handleToggleTodaysPlan(isChecked);
+                          if (!ok && mounted) {
+                            // Revert on failure
+                            setState(() {
+                              _isTodaysPlan = !isChecked;
+                              _hasStatusChanged = true;
+                            });
+                            CustomToast.showError(context, 'Failed to update');
+                          }
+                          return ok;
+                        },
                       ),
                   ],
                 ),
@@ -2233,7 +2286,6 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       );
 
   Future<bool> _handleAddWishlist() async {
-    setState(() => _isActionLoading = true);
     try {
       final authed = await requireAuth(context, ref);
       if (!authed) return false;
@@ -2250,25 +2302,14 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
             spotPayload: _spotPayload(),
           );
       ref.invalidate(tripsProvider);
-      if (mounted) {
-        setState(() {
-          _isWishlist = true;
-          _hasStatusChanged = true;
-        });
-      }
       return true;
     } catch (e) {
       _showError('Error: $e');
       return false;
-    } finally {
-      if (mounted) {
-        setState(() => _isActionLoading = false);
-      }
     }
   }
 
   Future<bool> _handleRemoveWishlist() async {
-    setState(() => _isActionLoading = true);
     try {
       final authed = await requireAuth(context, ref);
       if (!authed) return false;
@@ -2285,22 +2326,10 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
             remove: true,
           );
       ref.invalidate(tripsProvider);
-      if (mounted) {
-        setState(() {
-          _isWishlist = false;
-          _isMustGo = false;
-          _isTodaysPlan = false;
-          _hasStatusChanged = true;
-        });
-      }
       return true;
     } catch (e) {
       _showError('Error: $e');
       return false;
-    } finally {
-      if (mounted) {
-        setState(() => _isActionLoading = false);
-      }
     }
   }
 
@@ -2308,7 +2337,6 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
     required TripSpotStatus status,
     SpotPriority? priority,
   }) async {
-    setState(() => _isActionLoading = true);
     try {
       final authed = await requireAuth(context, ref);
       if (!authed) return;
@@ -2336,15 +2364,10 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       }
     } catch (e) {
       _showError('Error: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isActionLoading = false);
-      }
     }
   }
 
   Future<bool> _handleToggleMustGo(bool isChecked) async {
-    setState(() => _isMustGoLoading = true);
     try {
       final authed = await requireAuth(context, ref);
       if (!authed) return false;
@@ -2365,29 +2388,14 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       );
       
       ref.invalidate(tripsProvider);
-      if (mounted) {
-        setState(() {
-          _isMustGo = isChecked;
-          _hasStatusChanged = true;
-        });
-        CustomToast.showSuccess(
-          context,
-          isChecked ? 'Added to MustGo' : 'Removed from MustGo',
-        );
-      }
       return true;
     } catch (e) {
       _showError('Error: $e');
       return false;
-    } finally {
-      if (mounted) {
-        setState(() => _isMustGoLoading = false);
-      }
     }
   }
 
   Future<bool> _handleToggleTodaysPlan(bool isChecked) async {
-    setState(() => _isTodaysPlanLoading = true);
     try {
       final authed = await requireAuth(context, ref);
       if (!authed) return false;
@@ -2407,24 +2415,10 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       );
       
       ref.invalidate(tripsProvider);
-      if (mounted) {
-        setState(() {
-          _isTodaysPlan = isChecked;
-          _hasStatusChanged = true;
-        });
-        CustomToast.showSuccess(
-          context,
-          isChecked ? "Added to Today's Plan" : "Removed from Today's Plan",
-        );
-      }
       return true;
     } catch (e) {
       _showError('Error: $e');
       return false;
-    } finally {
-      if (mounted) {
-        setState(() => _isTodaysPlanLoading = false);
-      }
     }
   }
 

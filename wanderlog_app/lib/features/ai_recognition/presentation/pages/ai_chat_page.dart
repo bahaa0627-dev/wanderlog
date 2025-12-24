@@ -2,13 +2,22 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/supabase/supabase_config.dart';
+import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_history_service.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/chatgpt_service.dart';
+import 'package:wanderlog/features/auth/presentation/pages/login_page.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpotStatus;
+import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' show Spot;
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 
@@ -46,10 +55,15 @@ class _AIChatPageState extends State<AIChatPage> {
   final _scrollController = ScrollController();
   final _messageController = TextEditingController();
   final _focusNode = FocusNode();
+  
+  // 用户位置
+  double? _userLat;
+  double? _userLng;
 
   final List<_ChatMessage> _messages = [];
   bool _isLoading = true;
   bool _isSendingMessage = false;
+  bool _isCancelled = false;
   final List<XFile> _selectedImages = [];
   CancelToken? _cancelToken;
 
@@ -57,6 +71,104 @@ class _AIChatPageState extends State<AIChatPage> {
   void initState() {
     super.initState();
     _loadHistories();
+    _tryGetUserLocation();
+  }
+
+  /// 取消当前请求
+  void _handleCancelRequest() {
+    if (_cancelToken != null && !_cancelToken!.isCancelled) {
+      _cancelToken!.cancel('User cancelled the request');
+    }
+    setState(() {
+      _isCancelled = true;
+      _isSendingMessage = false;
+      _messages.add(_ChatMessage(
+        id: 'cancelled_${DateTime.now().millisecondsSinceEpoch}',
+        isUser: false,
+        text: 'Cancelled answering.',
+        timestamp: DateTime.now(),
+      ));
+    });
+    _scrollToBottom(animated: true);
+  }
+
+  /// 尝试获取用户位置（不强制，只是预先获取）
+  Future<void> _tryGetUserLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || 
+          permission == LocationPermission.deniedForever) {
+        return; // 没有权限，不获取
+      }
+      
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _userLat = position.latitude;
+          _userLng = position.longitude;
+        });
+        print('📍 Got user location: $_userLat, $_userLng');
+      }
+    } catch (e) {
+      print('⚠️ Could not get user location: $e');
+    }
+  }
+
+  /// 请求定位权限（会弹出系统权限对话框）
+  Future<bool> _requestLocationPermission() async {
+    try {
+      // 检查定位服务是否开启
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        // 定位服务未开启，提示用户
+        if (mounted) {
+          DialogUtils.showInfoSnackBar(context, '请在设备设置中开启定位服务');
+        }
+        return false;
+      }
+
+      // 检查当前权限状态
+      var permission = await Geolocator.checkPermission();
+      
+      if (permission == LocationPermission.denied) {
+        // 请求权限（会弹出系统对话框）
+        permission = await Geolocator.requestPermission();
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        // 权限被永久拒绝，引导用户去设置
+        if (mounted) {
+          DialogUtils.showInfoSnackBar(context, '需要定位权限，请在设置中开启');
+          Geolocator.openAppSettings();
+        }
+        return false;
+      }
+      
+      if (permission == LocationPermission.whileInUse || 
+          permission == LocationPermission.always) {
+        // 权限已授予，获取位置
+        final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+        );
+        
+        if (mounted) {
+          setState(() {
+            _userLat = position.latitude;
+            _userLng = position.longitude;
+          });
+          print('📍 Got user location after permission: $_userLat, $_userLng');
+        }
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      print('❌ Error requesting location permission: $e');
+      return false;
+    }
   }
 
   Future<void> _loadHistories() async {
@@ -65,7 +177,17 @@ class _AIChatPageState extends State<AIChatPage> {
     final reversedHistories = histories.reversed.toList();
 
     for (final history in reversedHistories) {
-      if (history.imageUrls.isNotEmpty) {
+      // 文本搜索历史
+      if (history.isTextQuery) {
+        _messages.add(_ChatMessage(
+          id: '${history.id}_user_text',
+          isUser: true,
+          text: history.queryText,
+          timestamp: history.timestamp,
+        ));
+      }
+      // 图片识别历史
+      else if (history.imageUrls.isNotEmpty) {
         _messages.add(_ChatMessage(
           id: '${history.id}_user_img',
           isUser: true,
@@ -74,12 +196,16 @@ class _AIChatPageState extends State<AIChatPage> {
           timestamp: history.timestamp,
         ));
       }
+      
+      // AI 回复消息
       _messages.add(_ChatMessage(
         id: '${history.id}_ai_text',
         isUser: false,
         text: history.result.message,
         timestamp: history.timestamp,
       ));
+      
+      // AI 返回的地点卡片
       if (history.result.spots.isNotEmpty) {
         _messages.add(_ChatMessage(
           id: '${history.id}_ai_spots',
@@ -91,23 +217,25 @@ class _AIChatPageState extends State<AIChatPage> {
     }
 
     setState(() => _isLoading = false);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    // 延迟滚动确保列表完全渲染
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _scrollToBottom();
+    });
   }
 
   void _scrollToBottom({bool animated = false}) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        if (animated) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        } else {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-      }
-    });
+    if (!_scrollController.hasClients) return;
+    
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (animated) {
+      _scrollController.animateTo(
+        maxExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    } else {
+      _scrollController.jumpTo(maxExtent);
+    }
   }
 
   @override
@@ -120,9 +248,7 @@ class _AIChatPageState extends State<AIChatPage> {
 
   Future<void> _handleAddMore() async {
     if (_selectedImages.length >= 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('最多只能选择5张图片')),
-      );
+      DialogUtils.showInfoSnackBar(context, '最多只能选择5张图片');
       return;
     }
 
@@ -200,9 +326,31 @@ class _AIChatPageState extends State<AIChatPage> {
 
   bool _isSendEnabled() => _selectedImages.isNotEmpty || _messageController.text.trim().isNotEmpty;
 
+  /// 检查用户是否已登录，未登录则跳转登录页
+  Future<bool> _checkLoginAndNavigate() async {
+    if (SupabaseConfig.isAuthenticated) {
+      return true;
+    }
+    
+    // 未登录，跳转到登录页
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+    );
+    
+    // 返回登录结果
+    return result == true;
+  }
+
   Future<void> _handleSendMessage() async {
     final message = _messageController.text.trim();
     if (_selectedImages.isEmpty && message.isEmpty) return;
+
+    // 检查登录状态
+    final isLoggedIn = await _checkLoginAndNavigate();
+    if (!isLoggedIn) {
+      // 用户未登录或取消登录，保留输入内容，不清空
+      return;
+    }
 
     final imagesToSend = List<XFile>.from(_selectedImages);
     final textToSend = message;
@@ -224,6 +372,7 @@ class _AIChatPageState extends State<AIChatPage> {
         _messages.add(_ChatMessage(id: userMessageId, isUser: true, text: textToSend, timestamp: DateTime.now()));
       }
       _isSendingMessage = true;
+      _isCancelled = false;
       _cancelToken = CancelToken();
     });
     _scrollToBottom(animated: true);
@@ -235,13 +384,19 @@ class _AIChatPageState extends State<AIChatPage> {
         await _handleTextChat(textToSend);
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _messages.add(_ChatMessage(
-            id: 'error_${DateTime.now().millisecondsSinceEpoch}',
-            isUser: false, text: '抱歉，处理消息时出错了：$e', timestamp: DateTime.now(),
-          ));
-        });
+      if (mounted && !_isCancelled) {
+        // 检查是否是取消导致的错误
+        final isCancelError = e.toString().contains('cancel') || 
+                              e.toString().contains('Cancel') ||
+                              (e is DioException && e.type == DioExceptionType.cancel);
+        if (!isCancelError) {
+          setState(() {
+            _messages.add(_ChatMessage(
+              id: 'error_${DateTime.now().millisecondsSinceEpoch}',
+              isUser: false, text: 'Sorry, something went wrong: $e', timestamp: DateTime.now(),
+            ));
+          });
+        }
       }
     } finally {
       if (mounted && _isSendingMessage) setState(() { _isSendingMessage = false; _cancelToken = null; });
@@ -278,14 +433,58 @@ class _AIChatPageState extends State<AIChatPage> {
   }
 
   Future<void> _handleTextChat(String message) async {
-    final response = await _chatGPTService.sendMessage(message);
+    // 使用新的搜索方法：先查数据库，没有再调 AI + Google Maps
+    // 传入用户位置（如果有的话）和取消令牌
+    var result = await _aiService.searchByQuery(
+      message,
+      userLat: _userLat,
+      userLng: _userLng,
+      cancelToken: _cancelToken,
+    );
+    
+    // 检查是否已取消
+    if (_isCancelled) return;
+    
+    // 如果需要定位权限，请求权限并重试
+    if (result.needsLocationPermission) {
+      final granted = await _requestLocationPermission();
+      if (_isCancelled) return;
+      
+      if (granted && _userLat != null && _userLng != null) {
+        // 权限已授予，重新搜索
+        result = await _aiService.searchByQuery(
+          message,
+          userLat: _userLat,
+          userLng: _userLng,
+          cancelToken: _cancelToken,
+        );
+        if (_isCancelled) return;
+      }
+    }
+    
     if (mounted) {
       setState(() {
         _messages.add(_ChatMessage(
           id: 'ai_text_${DateTime.now().millisecondsSinceEpoch}',
-          isUser: false, text: response, timestamp: DateTime.now(),
+          isUser: false, text: result.message, timestamp: DateTime.now(),
         ));
+        if (result.spots.isNotEmpty) {
+          _messages.add(_ChatMessage(
+            id: 'ai_spots_${DateTime.now().millisecondsSinceEpoch}',
+            isUser: false, spots: result.spots.cast<Spot>(), timestamp: DateTime.now(),
+          ));
+        }
       });
+
+      // 保存文本搜索历史
+      final history = AIRecognitionHistory(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+        imageUrls: [],
+        result: result,
+        queryText: message,
+      );
+      await _historyService.saveHistory(history);
     }
   }
 
@@ -530,15 +729,30 @@ class _AIChatPageState extends State<AIChatPage> {
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: _isSendEnabled() ? _handleSendMessage : null,
+              onTap: _isSendingMessage 
+                  ? _handleCancelRequest 
+                  : (_isSendEnabled() ? _handleSendMessage : null),
               child: Container(
                 width: 44, height: 44,
                 decoration: BoxDecoration(
-                  color: _isSendEnabled() ? AppTheme.primaryYellow : AppTheme.lightGray,
+                  color: _isSendingMessage 
+                      ? AppTheme.background
+                      : (_isSendEnabled() ? AppTheme.primaryYellow : AppTheme.lightGray),
                   shape: BoxShape.circle,
-                  border: Border.all(color: _isSendEnabled() ? AppTheme.black : AppTheme.lightGray, width: 1.5),
+                  border: Border.all(
+                    color: _isSendingMessage 
+                        ? AppTheme.black 
+                        : (_isSendEnabled() ? AppTheme.black : AppTheme.lightGray), 
+                    width: 1.5,
+                  ),
                 ),
-                child: Icon(Icons.arrow_forward, color: _isSendEnabled() ? AppTheme.black : AppTheme.mediumGray, size: 20),
+                child: Icon(
+                  _isSendingMessage ? Icons.stop : Icons.arrow_forward, 
+                  color: _isSendingMessage 
+                      ? AppTheme.black 
+                      : (_isSendEnabled() ? AppTheme.black : AppTheme.mediumGray), 
+                  size: 20,
+                ),
               ),
             ),
           ],
@@ -552,40 +766,229 @@ class _AIChatPageState extends State<AIChatPage> {
     height: 80,
     child: ListView.separated(
       scrollDirection: Axis.horizontal,
-      itemCount: _selectedImages.length,
+      itemCount: _selectedImages.length + (_selectedImages.length < 5 ? 1 : 0),
       separatorBuilder: (_, __) => const SizedBox(width: 8),
-      itemBuilder: (context, index) => Stack(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.file(File(_selectedImages[index].path), width: 80, height: 80, fit: BoxFit.cover),
-          ),
-          Positioned(
-            top: 4, right: 4,
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedImages.removeAt(index)),
-              child: Container(
-                width: 20, height: 20,
-                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                child: const Icon(Icons.close, color: Colors.white, size: 14),
+      itemBuilder: (context, index) {
+        // 最后一个是添加按钮（如果图片数量小于5）
+        if (index == _selectedImages.length && _selectedImages.length < 5) {
+          return GestureDetector(
+            onTap: _handleAddMore,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppTheme.lightGray,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.mediumGray, width: 1),
+              ),
+              child: const Icon(Icons.add, color: AppTheme.mediumGray, size: 32),
+            ),
+          );
+        }
+        
+        return Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.file(File(_selectedImages[index].path), width: 80, height: 80, fit: BoxFit.cover),
+            ),
+            Positioned(
+              top: 4, right: 4,
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedImages.removeAt(index)),
+                child: Container(
+                  width: 20, height: 20,
+                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                  child: const Icon(Icons.close, color: Colors.white, size: 14),
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     ),
   );
 }
 
-class _SpotCardOverlay extends StatefulWidget {
+class _SpotCardOverlay extends ConsumerStatefulWidget {
   const _SpotCardOverlay({required this.spot});
   final Spot spot;
+  
+  // Static cache to prevent repeated API calls
+  static final Map<String, bool> _wishlistCache = {};
+  static final Map<String, String?> _destinationCache = {};
+  static bool _isLoadingCache = false;
+  static DateTime? _lastCacheLoad;
+  
   @override
-  State<_SpotCardOverlay> createState() => _SpotCardOverlayState();
+  ConsumerState<_SpotCardOverlay> createState() => _SpotCardOverlayState();
 }
 
-class _SpotCardOverlayState extends State<_SpotCardOverlay> {
+class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
   bool _isInWishlist = false;
+  String? _destinationId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWishlistStatus();
+  }
+
+  Future<void> _loadWishlistStatus() async {
+    // Check cache first
+    final spotId = widget.spot.id;
+    if (_SpotCardOverlay._wishlistCache.containsKey(spotId)) {
+      if (mounted) {
+        setState(() {
+          _isInWishlist = _SpotCardOverlay._wishlistCache[spotId] ?? false;
+          _destinationId = _SpotCardOverlay._destinationCache[spotId];
+        });
+      }
+      return;
+    }
+    
+    // Prevent concurrent cache loads
+    if (_SpotCardOverlay._isLoadingCache) {
+      // Wait a bit and check cache again
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (_SpotCardOverlay._wishlistCache.containsKey(spotId)) {
+        if (mounted) {
+          setState(() {
+            _isInWishlist = _SpotCardOverlay._wishlistCache[spotId] ?? false;
+            _destinationId = _SpotCardOverlay._destinationCache[spotId];
+          });
+        }
+      }
+      return;
+    }
+    
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) return;
+    
+    // Only reload cache if it's been more than 30 seconds
+    final now = DateTime.now();
+    if (_SpotCardOverlay._lastCacheLoad != null && 
+        now.difference(_SpotCardOverlay._lastCacheLoad!).inSeconds < 30) {
+      return;
+    }
+    
+    _SpotCardOverlay._isLoadingCache = true;
+    _SpotCardOverlay._lastCacheLoad = now;
+    
+    try {
+      final repo = ref.read(tripRepositoryProvider);
+      final trips = await repo.getMyTrips();
+      for (final t in trips) {
+        try {
+          final detail = await repo.getTripById(t.id);
+          for (final ts in detail.tripSpots ?? []) {
+            _SpotCardOverlay._wishlistCache[ts.spotId] = true;
+            _SpotCardOverlay._destinationCache[ts.spotId] = detail.id;
+          }
+        } catch (_) {}
+      }
+      
+      // Check if current spot is in wishlist
+      if (mounted && _SpotCardOverlay._wishlistCache.containsKey(spotId)) {
+        setState(() {
+          _isInWishlist = true;
+          _destinationId = _SpotCardOverlay._destinationCache[spotId];
+        });
+      }
+    } catch (_) {}
+    finally {
+      _SpotCardOverlay._isLoadingCache = false;
+    }
+  }
+
+  Future<void> _handleWishlistToggle() async {
+    // 检查登录状态
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) {
+      // 跳转登录
+      final result = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+      if (result != true) return;
+    }
+    
+    // Optimistic UI update - change state immediately
+    final wasInWishlist = _isInWishlist;
+    final oldDestinationId = _destinationId;
+    
+    if (wasInWishlist) {
+      // Optimistically remove
+      setState(() => _isInWishlist = false);
+      _SpotCardOverlay._wishlistCache.remove(widget.spot.id);
+      _showToast('已从心愿单移除');
+    } else {
+      // Optimistically add
+      setState(() => _isInWishlist = true);
+      _SpotCardOverlay._wishlistCache[widget.spot.id] = true;
+      _showToast('已添加到心愿单');
+    }
+    
+    // Do the actual API call in background
+    try {
+      final repo = ref.read(tripRepositoryProvider);
+      
+      if (wasInWishlist && oldDestinationId != null) {
+        // 取消收藏
+        await repo.manageTripSpot(
+          tripId: oldDestinationId,
+          spotId: widget.spot.id,
+          remove: true,
+        );
+        _SpotCardOverlay._destinationCache.remove(widget.spot.id);
+        ref.invalidate(tripsProvider);
+      } else {
+        // 添加收藏
+        final destId = await ensureDestinationForCity(ref, widget.spot.city);
+        if (destId == null) {
+          // Revert on failure
+          if (mounted) setState(() => _isInWishlist = false);
+          _SpotCardOverlay._wishlistCache.remove(widget.spot.id);
+          _showToast('保存失败');
+          return;
+        }
+        _destinationId = destId;
+        
+        await repo.manageTripSpot(
+          tripId: destId,
+          spotId: widget.spot.id,
+          status: TripSpotStatus.wishlist,
+          spotPayload: {
+            'name': widget.spot.name,
+            'city': widget.spot.city,
+            'country': widget.spot.city,
+            'latitude': widget.spot.latitude,
+            'longitude': widget.spot.longitude,
+            'rating': widget.spot.rating,
+            'ratingCount': widget.spot.ratingCount,
+            'category': widget.spot.category,
+            'tags': widget.spot.tags,
+            'coverImage': widget.spot.coverImage,
+            'images': widget.spot.images,
+            'googlePlaceId': widget.spot.id,
+            'source': 'ai_search',
+          },
+        );
+        _SpotCardOverlay._destinationCache[widget.spot.id] = destId;
+        ref.invalidate(tripsProvider);
+      }
+    } catch (e) {
+      // Revert on error
+      if (mounted) {
+        setState(() => _isInWishlist = wasInWishlist);
+        if (wasInWishlist) {
+          _SpotCardOverlay._wishlistCache[widget.spot.id] = true;
+        } else {
+          _SpotCardOverlay._wishlistCache.remove(widget.spot.id);
+        }
+      }
+      _showToast('操作失败: $e');
+    }
+  }
 
   Uint8List? _decodeBase64Image(String dataUri) {
     try { return base64Decode(dataUri.split(',').last); } catch (_) { return null; }
@@ -604,44 +1007,7 @@ class _SpotCardOverlayState extends State<_SpotCardOverlay> {
   }
 
   void _showToast(String message) {
-    final overlay = Overlay.of(context);
-    final overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        bottom: MediaQuery.of(context).padding.bottom + 100,
-        left: 24,
-        right: 24,
-        child: Material(
-          color: Colors.transparent,
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.black, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 20),
-                  const SizedBox(width: 8),
-                  Text(message, style: const TextStyle(fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    overlay.insert(overlayEntry);
-    Future.delayed(const Duration(seconds: 2), () => overlayEntry.remove());
+    DialogUtils.showToast(context, message);
   }
 
   @override
@@ -676,6 +1042,30 @@ class _SpotCardOverlayState extends State<_SpotCardOverlay> {
                   ),
                 ),
               ),
+              // AI badge - top left (subtle style) - only show for AI results
+              if (widget.spot.isFromAI)
+                Positioned(
+                  top: 12, left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.85),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('✨', style: TextStyle(fontSize: 9)),
+                        const SizedBox(width: 2),
+                        Text('AI', style: AppTheme.bodySmall(context).copyWith(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.black.withOpacity(0.6),
+                        )),
+                      ],
+                    ),
+                  ),
+                ),
               Positioned(
                 left: 12, right: 12, bottom: 12,
                 child: Column(
@@ -721,10 +1111,7 @@ class _SpotCardOverlayState extends State<_SpotCardOverlay> {
               Positioned(
                 top: 12, right: 12,
                 child: GestureDetector(
-                  onTap: () {
-                    setState(() => _isInWishlist = !_isInWishlist);
-                    _showToast(_isInWishlist ? 'Added to Wishlist' : 'Removed from Wishlist');
-                  },
+                  onTap: _handleWishlistToggle,
                   child: Container(
                     width: 40, height: 40,
                     decoration: BoxDecoration(

@@ -26,7 +26,12 @@ class TripSpot {
     required this.id,
     required this.tripId,
     required this.spotId,
-    required this.status, required this.priority, required this.userPhotos, required this.createdAt, required this.updatedAt, this.spot,
+    this.status,
+    this.priority,
+    this.userPhotos,
+    this.createdAt,
+    this.updatedAt,
+    this.spot,
     this.visitDate,
     this.userRating,
     this.userNotes,
@@ -38,14 +43,14 @@ class TripSpot {
   final String tripId;
   final String spotId;
   final Spot? spot;
-  final TripSpotStatus status;
-  final SpotPriority priority;
+  final TripSpotStatus? status;
+  final SpotPriority? priority;
   final DateTime? visitDate;
   final int? userRating;
   final String? userNotes;
-  final List<String> userPhotos;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final List<String>? userPhotos;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
   Map<String, dynamic> toJson() => _$TripSpotToJson(this);
 
   TripSpot copyWith({

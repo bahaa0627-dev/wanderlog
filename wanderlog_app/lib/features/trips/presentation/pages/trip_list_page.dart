@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 
@@ -174,18 +175,11 @@ class TripListPage extends ConsumerWidget {
                       );
                   if (context.mounted) {
                     Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Trip created!')),
-                    );
+                    DialogUtils.showSuccessSnackBar(context, '行程创建成功！');
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
+                    DialogUtils.showErrorSnackBar(context, '创建失败: $e');
                   }
                 }
               }
@@ -334,7 +328,7 @@ class _TripCard extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor(TripStatus status) {
+  Color _getStatusColor(TripStatus? status) {
     switch (status) {
       case TripStatus.planning:
         return Colors.blue;
@@ -342,10 +336,12 @@ class _TripCard extends StatelessWidget {
         return Colors.green;
       case TripStatus.completed:
         return Colors.grey;
+      case null:
+        return Colors.grey;
     }
   }
 
-  String _getStatusLabel(TripStatus status) {
+  String _getStatusLabel(TripStatus? status) {
     switch (status) {
       case TripStatus.planning:
         return 'Planning';
@@ -353,6 +349,8 @@ class _TripCard extends StatelessWidget {
         return 'Active';
       case TripStatus.completed:
         return 'Completed';
+      case null:
+        return 'Unknown';
     }
   }
 }

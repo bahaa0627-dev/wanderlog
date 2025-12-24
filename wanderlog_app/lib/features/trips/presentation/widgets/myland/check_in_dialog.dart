@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 
 /// Check-in 对话框 - 用户打卡时填写信息
@@ -309,9 +310,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
               GestureDetector(
                 onTap: () {
                   // TODO: 实现照片上传
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Photo upload coming soon')),
-                  );
+                  DialogUtils.showInfoSnackBar(context, '照片上传功能即将上线');
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(

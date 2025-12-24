@@ -212,20 +212,34 @@ class SupabaseCollectionRepository {
         .eq('id', id)
         .single();
 
+    // 获取关联的合集，包含 collectionSpots 和 place 信息
     final items = await _client
         .from('collection_recommendation_items')
-        .select('*, collection:collections(*)')
+        .select('*, collection:collections(*, collectionSpots:collection_spots(*, place:places(*)))')
         .eq('recommendation_id', id)
-        .order('sort_order');
+        .order('sort_order', ascending: true);
 
-    final collections = items
+    // 过滤出已发布的合集并转换字段名（与 listRecommendations 保持一致）
+    final filteredItems = items
         .where((item) => item['collection']?['is_published'] == true)
-        .map((item) => item['collection'] as Map<String, dynamic>)
+        .map((item) {
+          final collection = item['collection'] as Map<String, dynamic>?;
+          if (collection == null) return item;
+          
+          // 转换 collection 字段名
+          final convertedCollection = _convertCollectionFields(collection);
+          return {
+            ...item,
+            'collection': convertedCollection,
+          };
+        })
         .toList();
 
     return {
-      ...rec,
-      'collections': collections,
+      'id': rec['id'],
+      'name': rec['name'],
+      'order': rec['sort_order'],
+      'items': filteredItems,
     };
   }
 

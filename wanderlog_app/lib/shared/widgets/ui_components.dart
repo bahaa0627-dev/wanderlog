@@ -238,6 +238,8 @@ class SearchBox extends StatelessWidget {
     this.readOnly = false,
     this.trailingIcon,
     this.onTrailingIconTap,
+    this.trailingIconColor,
+    this.trailingWidget,
   });
 
   final String hintText;
@@ -247,9 +249,35 @@ class SearchBox extends StatelessWidget {
   final bool readOnly;
   final IconData? trailingIcon;
   final VoidCallback? onTrailingIconTap;
+  final Color? trailingIconColor;
+  final Widget? trailingWidget;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    Widget? suffixWidget;
+    if (trailingWidget != null) {
+      suffixWidget = trailingWidget;
+    } else if (trailingIcon != null) {
+      suffixWidget = GestureDetector(
+        onTap: onTrailingIconTap,
+        child: Container(
+          margin: const EdgeInsets.only(right: 8),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: trailingIconColor ?? AppTheme.primaryYellow,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            trailingIcon,
+            color: AppTheme.black,
+            size: 18,
+          ),
+        ),
+      );
+    }
+
+    // 使用 Stack 来分离搜索框主体和 trailing widget 的点击区域
+    return Container(
       decoration: BoxDecoration(
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
@@ -259,40 +287,54 @@ class SearchBox extends StatelessWidget {
         ),
         boxShadow: AppTheme.searchBoxShadow,
       ),
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        onTap: onTap,
-        readOnly: readOnly,
-        style: AppTheme.bodyMedium(context),
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: AppTheme.bodySmall(context).copyWith(
-            color: AppTheme.mediumGray,
-          ),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: AppTheme.mediumGray,
-            size: 20,
-          ),
-          suffixIcon: trailingIcon != null
-              ? IconButton(
-                  icon: Icon(
-                    trailingIcon,
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          // 搜索框主体 - 使用 GestureDetector 处理点击
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: readOnly ? onTap : null,
+            child: AbsorbPointer(
+              absorbing: readOnly,
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                onTap: readOnly ? null : onTap,
+                readOnly: readOnly,
+                style: AppTheme.bodyMedium(context),
+                decoration: InputDecoration(
+                  hintText: hintText,
+                  hintStyle: AppTheme.bodySmall(context).copyWith(
+                    color: AppTheme.mediumGray,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
                     color: AppTheme.mediumGray,
                     size: 20,
                   ),
-                  onPressed: onTrailingIconTap,
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 16,
+                  // 为 suffixIcon 预留空间但不显示
+                  suffixIcon: suffixWidget != null 
+                      ? const SizedBox(width: 80) 
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
+          // Trailing widget 独立处理点击
+          if (suffixWidget != null)
+            Positioned(
+              right: 0,
+              child: suffixWidget,
+            ),
+        ],
       ),
     );
+  }
 }
 
 /// 标签芯片

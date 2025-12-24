@@ -8,7 +8,7 @@ import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
-import 'package:wanderlog/features/ai_recognition/presentation/widgets/ai_recognition_sheets_new.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_chat_page.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/trips_bottom_nav.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
@@ -106,6 +106,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
   
   void _toggleSearchMenu() {
+    print('📍 Search box tapped! _showSearchMenu: $_showSearchMenu');
     setState(() {
       _showSearchMenu = !_showSearchMenu;
     });
@@ -131,10 +132,38 @@ class _HomePageState extends ConsumerState<HomePage> {
                         hintText: 'Where you wanna go?',
                         readOnly: true,
                         onTap: _toggleSearchMenu,
-                        trailingIcon: Icons.photo_library_outlined,
-                        onTrailingIconTap: () {
-                          AIRecognitionIntroSheet.show(context);
-                        },
+                        trailingWidget: GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (context) => const AIChatPage(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppTheme.black, width: 1.5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('✨', style: TextStyle(fontSize: 14)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'AI',
+                                  style: AppTheme.labelSmall(context).copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -229,8 +258,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                   },
                                                   child: Text(
                                                     'more >',
-                                                    style: AppTheme.bodyMedium(context).copyWith(
-                                                      color: AppTheme.mediumGray,
+                                                    style: AppTheme.labelSmall(context).copyWith(
+                                                      fontWeight: FontWeight.w400,
+                                                      color: AppTheme.textSecondary,
                                                     ),
                                                   ),
                                                 ),

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
@@ -33,6 +34,7 @@ class CollectionSpotsMapPage extends ConsumerStatefulWidget {
     this.coverImage,
     this.people = const [],
     this.works = const [],
+    this.preloadedSpots,
     super.key,
   });
 
@@ -44,6 +46,7 @@ class CollectionSpotsMapPage extends ConsumerStatefulWidget {
   final String? coverImage;
   final List<LinkItem> people;
   final List<LinkItem> works;
+  final List<Map<String, dynamic>>? preloadedSpots; // 预加载的地点数据
 
   @override
   ConsumerState<CollectionSpotsMapPage> createState() => _CollectionSpotsMapPageState();
@@ -58,7 +61,6 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   map_page.Spot? _selectedSpot;
   bool _isFavorite = false;
   bool _isFavLoading = false;
-  bool _isDescExpanded = false;
   bool _shouldRefreshCollections = false;
   bool _skipNextRecenter = false;
 
@@ -236,12 +238,55 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   }
 
   Future<void> _loadCitySpots() async {
-    // 如果有collectionId，始终从 API 获取最新数据
+    // 优先使用预加载的数据
+    if (widget.preloadedSpots != null && widget.preloadedSpots!.isNotEmpty) {
+      print('🚀 使用预加载的地点数据，数量: ${widget.preloadedSpots!.length}');
+      final List<map_page.Spot> spots = [];
+      
+      for (final cs in widget.preloadedSpots!) {
+        final spotData = cs['spot'] as Map<String, dynamic>?;
+        if (spotData == null) continue;
+        
+        try {
+          final coverImg = spotData['coverImage']?.toString() ?? spotData['cover_image']?.toString() ?? '';
+          final imagesList = _parseTagsList(spotData['images'] ?? []);
+          
+          final spot = map_page.Spot(
+            id: spotData['id']?.toString() ?? '',
+            name: spotData['name']?.toString() ?? '',
+            latitude: (spotData['latitude'] as num?)?.toDouble() ?? 0.0,
+            longitude: (spotData['longitude'] as num?)?.toDouble() ?? 0.0,
+            city: spotData['city']?.toString() ?? '',
+            coverImage: coverImg,
+            rating: (spotData['rating'] as num?)?.toDouble() ?? 0.0,
+            ratingCount: (spotData['ratingCount'] as num?)?.toInt() ?? (spotData['rating_count'] as num?)?.toInt() ?? 0,
+            category: spotData['category']?.toString() ?? 'place',
+            tags: _parseTagsList(spotData['tags'] ?? spotData['aiTags'] ?? spotData['ai_tags']),
+            images: imagesList.isNotEmpty ? imagesList : (coverImg.isNotEmpty ? [coverImg] : []),
+            aiSummary: spotData['aiSummary']?.toString() ?? spotData['ai_summary']?.toString(),
+          );
+          spots.add(spot);
+        } catch (e) {
+          print('⚠️ 解析预加载地点失败: $e');
+        }
+      }
+      
+      if (spots.isNotEmpty && mounted) {
+        setState(() {
+          _citySpots = spots;
+          _selectedSpot = spots[0];
+        });
+        print('✅ 预加载数据设置完成，共 ${spots.length} 个地点');
+        return;
+      }
+    }
+    
+    // 如果有collectionId，从 API 获取数据
     if (widget.collectionId != null) {
       try {
         print('🔍 开始加载合集数据，collectionId: ${widget.collectionId}');
         
-        // 始终从 API 获取最新数据，确保编辑后能看到更新
+        // 从 API 获取最新数据
         final repo = ref.read(collectionRepositoryProvider);
         final collection = await repo.getCollection(widget.collectionId!);
         
@@ -452,7 +497,12 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildAppBar(),
-                  if (_hasMeta) _buildDescription(),
+                  if (_hasMeta)
+                    _CollectionMetaCard(
+                      description: widget.description,
+                      people: widget.people,
+                      works: widget.works,
+                    ),
                 ],
               ),
             ),
@@ -460,6 +510,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
             // 底部地点卡片滑动列表
             if (_citySpots.isNotEmpty)
               Positioned(
+                key: const ValueKey('bottom-cards'),
                 bottom: 40,
                 left: 0,
                 right: 0,
@@ -492,7 +543,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => UnifiedSpotDetailModal(spot: spot),
+      builder: (_) => UnifiedSpotDetailModal(spot: spot, hideCollectionEntry: true),
     );
   }
 
@@ -561,63 +612,6 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
     );
   }
 
-  Widget _buildDescription() {
-    final desc = widget.description ?? '';
-    final hasExtra = desc.isNotEmpty;
-    if (!hasExtra) return const SizedBox.shrink();
-
-    final text = Text(
-      desc,
-      maxLines: _isDescExpanded ? null : 2,
-      overflow: _isDescExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
-      style: AppTheme.bodyMedium(context).copyWith(
-        color: AppTheme.black.withOpacity(0.75),
-      ),
-    );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.94),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AnimatedSize(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            child: text,
-          ),
-          if (desc.length > 80)
-            TextButton(
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const ui.Size(0, 32),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: () =>
-                  setState(() => _isDescExpanded = !_isDescExpanded),
-              child: Text(
-                _isDescExpanded ? '收起' : '展开',
-                style: AppTheme.labelMedium(context).copyWith(
-                  color: AppTheme.primaryYellow,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   bool _isTargetNearCenter(Position target) {
     final currentCenter = _mapKey.currentState?.currentCenter;
     if (currentCenter == null || !mounted) return false;
@@ -634,16 +628,18 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
     const double cardHeight = 280; // 宽:高 = 3:4
 
     return SizedBox(
-      height: cardHeight, // 固定高度
+      height: cardHeight + 8, // 固定高度 + 阴影空间
       child: PageView.builder(
         controller: _cardPageController,
         padEnds: true,
+        clipBehavior: Clip.none,
         itemCount: _citySpots.length,
         itemBuilder: (context, index) {
           final spot = _citySpots[index];
           final isCenter = index == _currentCardIndex;
 
           return AnimatedScale(
+            key: ValueKey('card-${spot.id}'),
             scale: isCenter ? 1.0 : 0.9,
             duration: const Duration(milliseconds: 220),
             child: Center(
@@ -651,6 +647,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
                 height: cardHeight,
                 width: cardWidth,
                 child: _BottomSpotCard(
+                  key: ValueKey('spot-card-${spot.id}'),
                   spot: spot,
                   onTap: () {
                     if (index == _currentCardIndex) {
@@ -777,6 +774,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
 /// 底部地点卡片组件
 class _BottomSpotCard extends StatefulWidget {
   const _BottomSpotCard({
+    super.key,
     required this.spot,
     required this.onTap,
   });
@@ -1015,6 +1013,42 @@ class LinkItem {
   final String? link;
   final String? avatarUrl;
   final String? coverImage;
+
+  /// 安全解析 people 或 works 字段（可能是 List、JSON 字符串或 null）
+  static List<LinkItem> parseList(dynamic value, {bool isPeople = true}) {
+    if (value == null) return [];
+    
+    List<dynamic> list;
+    
+    if (value is List) {
+      list = value;
+    } else if (value is String) {
+      if (value.isEmpty) return [];
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List) {
+          list = decoded;
+        } else {
+          return [];
+        }
+      } catch (e) {
+        return [];
+      }
+    } else {
+      return [];
+    }
+    
+    return list.map((item) {
+      if (item is! Map) return null;
+      final map = item as Map<String, dynamic>;
+      return LinkItem(
+        name: map['name'] as String? ?? '',
+        link: map['link'] as String?,
+        avatarUrl: isPeople ? map['avatarUrl'] as String? : null,
+        coverImage: isPeople ? null : map['coverImage'] as String?,
+      );
+    }).whereType<LinkItem>().where((item) => item.name.isNotEmpty).toList();
+  }
 }
 
 class _LinkChip extends StatelessWidget {
@@ -1060,5 +1094,291 @@ class _LinkChip extends StatelessWidget {
         ),
       ),
     );
+}
+
+/// 合集元信息卡片 - 独立组件，状态变化不影响父组件
+class _CollectionMetaCard extends StatefulWidget {
+  const _CollectionMetaCard({
+    this.description,
+    this.people = const [],
+    this.works = const [],
+  });
+
+  final String? description;
+  final List<LinkItem> people;
+  final List<LinkItem> works;
+
+  @override
+  State<_CollectionMetaCard> createState() => _CollectionMetaCardState();
+}
+
+class _CollectionMetaCardState extends State<_CollectionMetaCard> {
+  bool _isExpanded = false;
+
+  bool get _hasMeta =>
+      (widget.description?.isNotEmpty ?? false) ||
+      widget.people.isNotEmpty ||
+      widget.works.isNotEmpty;
+
+  int get _metaLineCount {
+    int count = 0;
+    if (widget.description?.isNotEmpty ?? false) count++;
+    if (widget.people.isNotEmpty) count++;
+    if (widget.works.isNotEmpty) count++;
+    return count;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_hasMeta) return const SizedBox.shrink();
+
+    final hasDesc = widget.description?.isNotEmpty ?? false;
+    final hasPeople = widget.people.isNotEmpty;
+    final hasWorks = widget.works.isNotEmpty;
+    final needsExpand = _metaLineCount > 1 || widget.people.length > 1 || widget.works.length > 1;
+
+    // 构建内容列表 - 优先级：描述 > 作品 > 人物
+    final List<Widget> contentItems = [];
+
+    if (hasDesc) {
+      contentItems.add(_buildDescriptionRow(widget.description!));
+    }
+    if (hasWorks) {
+      contentItems.add(_buildWorkRow(widget.works.first));
+    }
+    if (hasPeople) {
+      contentItems.add(_buildPersonRow(widget.people.first));
+    }
+
+    // 展开状态下显示所有作品和人物
+    final List<Widget> expandedItems = [];
+    if (_isExpanded) {
+      for (int i = 1; i < widget.works.length; i++) {
+        expandedItems.add(_buildWorkRow(widget.works[i]));
+      }
+      for (int i = 1; i < widget.people.length; i++) {
+        expandedItems.add(_buildPersonRow(widget.people[i]));
+      }
+    }
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      alignment: Alignment.topCenter,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.94),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: contentItems.isNotEmpty ? contentItems.first : const SizedBox.shrink(),
+                ),
+                if (needsExpand)
+                  GestureDetector(
+                    onTap: () => setState(() => _isExpanded = !_isExpanded),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: AnimatedRotation(
+                        turns: _isExpanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: const Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 22,
+                          color: AppTheme.darkGray,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            if (_isExpanded) ...[
+              if (contentItems.length > 1) ...[
+                const SizedBox(height: 12),
+                ...contentItems.skip(1).expand((w) => [w, const SizedBox(height: 12)]).take(contentItems.length * 2 - 3),
+              ],
+              if (expandedItems.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ...expandedItems.expand((w) => [w, const SizedBox(height: 12)]).take(expandedItems.length * 2 - 1),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonRow(LinkItem person) {
+    String? compressedAvatarUrl;
+    if (person.avatarUrl?.isNotEmpty == true) {
+      final url = person.avatarUrl!;
+      if (url.contains('supabase') || url.contains('storage')) {
+        compressedAvatarUrl = url.contains('?') 
+            ? '$url&width=48&height=48' 
+            : '$url?width=48&height=48';
+      } else {
+        compressedAvatarUrl = url;
+      }
+    }
+
+    return GestureDetector(
+      onTap: person.link != null ? () => _openLink(person.link!) : null,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: ClipOval(
+              child: compressedAvatarUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: compressedAvatarUrl,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 48,
+                      memCacheHeight: 48,
+                      placeholder: (_, __) => _buildDefaultAvatar(),
+                      errorWidget: (_, __, ___) => _buildDefaultAvatar(),
+                    )
+                  : _buildDefaultAvatar(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              person.name,
+              style: AppTheme.bodyMedium(context).copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: AppTheme.black,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (person.link != null)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Profile',
+                  style: AppTheme.bodyMedium(context).copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: AppTheme.darkGray,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 10,
+                  color: AppTheme.darkGray,
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDefaultAvatar() {
+    return Container(
+      color: AppTheme.lightGray,
+      child: const Icon(
+        Icons.person,
+        size: 12,
+        color: AppTheme.mediumGray,
+      ),
+    );
+  }
+
+  Widget _buildWorkRow(LinkItem work) {
+    return GestureDetector(
+      onTap: work.link != null ? () => _openLink(work.link!) : null,
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 20,
+            child: Text('🎬', style: TextStyle(fontSize: 14)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              work.name,
+              style: AppTheme.bodyMedium(context).copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: AppTheme.black,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (work.link != null)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Details',
+                  style: AppTheme.bodyMedium(context).copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: AppTheme.darkGray,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 10,
+                  color: AppTheme.darkGray,
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescriptionRow(String description) {
+    return Text(
+      description,
+      style: AppTheme.bodyMedium(context).copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: AppTheme.black.withOpacity(0.75),
+      ),
+      maxLines: _isExpanded ? null : 1,
+      overflow: _isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+    );
+  }
+
+  Future<void> _openLink(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          CustomToast.showError(context, '无法打开链接');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomToast.showError(context, '链接格式错误');
+      }
+    }
+  }
 }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,7 @@ import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
+import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 
 class SpotsTabController {
   _SpotsTabState? _state;
@@ -281,7 +283,22 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     );
   }
 
-  void _handleSpotTap(_SpotEntry entry) {
+  void _handleSpotTap(_SpotEntry entry) async {
+    // 先加载合集数据
+    Map<String, dynamic>? linkedCollection;
+    try {
+      final repo = ref.read(collectionRepositoryProvider);
+      final collections = await repo.getCollectionsForPlace(entry.spot.id);
+      if (collections.isNotEmpty) {
+        final random = math.Random();
+        linkedCollection = collections[random.nextInt(collections.length)];
+      }
+    } catch (e) {
+      // 静默失败
+    }
+    
+    if (!mounted) return;
+    
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -291,6 +308,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         initialIsSaved: true,
         initialIsMustGo: entry.isMustGo,
         initialIsTodaysPlan: entry.isTodaysPlan,
+        linkedCollection: linkedCollection,
         onStatusChanged: (spotId, {isMustGo, isTodaysPlan, isVisited, isRemoved, needsReload}) {
           if (needsReload ?? false) {
             // Reload all data from server to get updated check-in info

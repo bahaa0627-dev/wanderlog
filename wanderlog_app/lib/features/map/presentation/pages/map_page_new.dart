@@ -28,6 +28,7 @@ import 'package:wanderlog/shared/widgets/save_spot_button.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
 import 'package:wanderlog/shared/models/spot_model.dart' as spot_model;
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
+import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 
 class Spot {
   Spot({
@@ -943,12 +944,30 @@ class _MapPageState extends ConsumerState<MapPage> {
     }
   }
 
-  void _showSpotDetail(Spot spot) {
+  void _showSpotDetail(Spot spot) async {
+    // 先加载合集数据
+    Map<String, dynamic>? linkedCollection;
+    try {
+      final repo = ref.read(collectionRepositoryProvider);
+      final collections = await repo.getCollectionsForPlace(spot.id);
+      if (collections.isNotEmpty) {
+        final random = math.Random();
+        linkedCollection = collections[random.nextInt(collections.length)];
+      }
+    } catch (e) {
+      // 静默失败
+    }
+    
+    if (!mounted) return;
+    
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => UnifiedSpotDetailModal(spot: spot),
+      builder: (context) => UnifiedSpotDetailModal(
+        spot: spot,
+        linkedCollection: linkedCollection,
+      ),
     );
   }
 

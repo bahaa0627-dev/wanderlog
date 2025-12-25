@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -16,6 +17,7 @@ import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 import 'package:wanderlog/features/search/presentation/widgets/search_menu_sheet.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
+import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 
 /// 搜索结果地图页面
 class SearchResultsMapPage extends ConsumerStatefulWidget {
@@ -280,12 +282,30 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     _mapKey.currentState?.animateCamera(target, zoom: zoom);
   }
 
-  void _showSpotDetail(Spot spot) {
+  void _showSpotDetail(Spot spot) async {
+    // 先加载合集数据
+    Map<String, dynamic>? linkedCollection;
+    try {
+      final repo = ref.read(collectionRepositoryProvider);
+      final collections = await repo.getCollectionsForPlace(spot.id);
+      if (collections.isNotEmpty) {
+        final random = math.Random();
+        linkedCollection = collections[random.nextInt(collections.length)];
+      }
+    } catch (e) {
+      // 静默失败
+    }
+    
+    if (!mounted) return;
+    
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => UnifiedSpotDetailModal(spot: spot),
+      builder: (context) => UnifiedSpotDetailModal(
+        spot: spot,
+        linkedCollection: linkedCollection,
+      ),
     );
   }
 

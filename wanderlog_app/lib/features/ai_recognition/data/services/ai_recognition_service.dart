@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_result.dart';
@@ -235,30 +236,33 @@ class AIRecognitionService {
       print('📋 Parsed intent: $intent');
       checkCancelled();
 
-      // 步骤2：检查用户位置（每次搜索都需要，用于 AI 推荐时限定地理范围）
-      // 如果用户没有开启定位，引导开启
-      if (userLat == null || userLng == null) {
-        // 如果用户明确说"我附近"，必须有定位
-        if (intent.wantsNearMe) {
-          return AIRecognitionResult(
-            message: 'To find places near you, I need access to your location. Tap the button below to enable it! 📍',
-            spots: [],
-            imageUrls: [],
-            needsLocationPermission: true,
-          );
-        }
-        // 其他搜索也建议开启定位，但不强制（返回标志让 UI 层处理）
-        // 如果用户没有指定城市，提示开启定位以获得更好的推荐
-        if (intent.city == null || intent.city!.isEmpty) {
-          print('⚠️ No user location and no city specified, will prompt for location');
-          return AIRecognitionResult(
-            message: 'For better recommendations, I\'d love to know where you are! Enable location access or tell me which city you\'re interested in. 📍',
-            spots: [],
-            imageUrls: [],
-            needsLocationPermission: true,
-          );
-        }
-      } else {
+      // 步骤2：检查用户位置（用于"我附近"搜索或没有指定城市时的推荐）
+      // 如果用户明确说"我附近"，必须有定位
+      if (intent.wantsNearMe && (userLat == null || userLng == null)) {
+        return AIRecognitionResult(
+          message: 'To find places near you, I need access to your location. Tap the button below to enable it! 📍',
+          spots: [],
+          imageUrls: [],
+          needsLocationPermission: true,
+        );
+      }
+      
+      // 如果用户没有指定城市，也没有定位，提示开启定位
+      if ((intent.city == null || intent.city!.isEmpty) && 
+          intent.nearbyLocation == null && 
+          !intent.wantsNearMe &&
+          intent.specificPlaceName == null &&
+          (userLat == null || userLng == null)) {
+        print('⚠️ No user location and no city specified, will prompt for location');
+        return AIRecognitionResult(
+          message: 'For better recommendations, I\'d love to know where you are! Enable location access or tell me which city you\'re interested in. 📍',
+          spots: [],
+          imageUrls: [],
+          needsLocationPermission: true,
+        );
+      }
+      
+      if (userLat != null && userLng != null) {
         print('📍 User location available: $userLat, $userLng');
       }
 
@@ -631,8 +635,12 @@ class AIRecognitionService {
   /// 用 AI 解析用户查询意图
   Future<QueryIntent> _parseQueryIntent(String query, {CancelToken? cancelToken}) async {
     final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    debugPrint('🔑 GEMINI_API_KEY present: ${apiKey.isNotEmpty}');
+    debugPrint('🔑 GEMINI_API_KEY length: ${apiKey.length}');
+    
     if (apiKey.isEmpty) {
       // 如果没有 API key，返回简单解析
+      debugPrint('⚠️ No GEMINI_API_KEY, using simple parsing');
       return QueryIntent(tags: [query]);
     }
 
@@ -641,6 +649,7 @@ class AIRecognitionService {
       HttpOverrides.global = _ProxyHttpOverrides(proxyUrl);
     }
 
+    debugPrint('🤖 Creating Gemini model with gemini-2.5-flash...');
     final model = GenerativeModel(
       model: 'gemini-2.5-flash',
       apiKey: apiKey,
@@ -652,11 +661,11 @@ Analyze this travel search query and extract the user's intent:
 
 Return a JSON object with these fields:
 {
-  "city": "city name if mentioned (e.g., Copenhagen, Tokyo, Chiang Mai)",
-  "country": "country name if mentioned",
+  "city": "city name in English (e.g., Rome, Copenhagen, Tokyo, Chiang Mai)",
+  "country": "country name in English if mentioned",
   "category": "place category if mentioned (e.g., cafe, restaurant, museum, park, landmark)",
   "tags": ["relevant tags to search for, including movie names, themes, styles"],
-  "limit": number of places requested (default null, extract if user says "two", "3", etc.),
+  "limit": number of places requested (default 5, extract if user says "two", "3", etc.),
   "wants_popular": true if user wants popular/famous/best places,
   "wants_random": true if user wants random/interesting/surprising places,
   "specific_place_name": "exact place name if user is looking for a specific place",
@@ -665,30 +674,41 @@ Return a JSON object with these fields:
 }
 
 Examples:
-- "help me find two cafe shop in copenhagen" → {"city": "Copenhagen", "category": "cafe", "limit": 2}
+- "罗马的咖啡馆" → {"city": "Rome", "country": "Italy", "category": "cafe", "limit": 5}
+- "help me find two cafe shop in copenhagen" → {"city": "Copenhagen", "country": "Denmark", "category": "cafe", "limit": 2}
+- "巴黎的餐厅" → {"city": "Paris", "country": "France", "category": "restaurant", "limit": 5}
+- "东京的博物馆" → {"city": "Tokyo", "country": "Japan", "category": "museum", "limit": 5}
 - "cafes near Wudaokou" → {"nearby_location": "Wudaokou", "category": "cafe"}
 - "五道口附近的景点" → {"nearby_location": "五道口", "category": "tourist_attraction"}
 - "places near Eiffel Tower" → {"nearby_location": "Eiffel Tower"}
 - "restaurants near me" → {"wants_near_me": true, "category": "restaurant"}
 - "我附近有什么好吃的" → {"wants_near_me": true, "category": "restaurant"}
 - "help me find the place of movie Perfect Days" → {"tags": ["PerfectDays", "Perfect Days"]}
-- "best restaurants in Tokyo" → {"city": "Tokyo", "category": "restaurant", "wants_popular": true}
-- "where is Eiffel Tower" → {"specific_place_name": "Eiffel Tower"}
+- "best restaurants in Tokyo" → {"city": "Tokyo", "country": "Japan", "category": "restaurant", "wants_popular": true}
+- "where is Eiffel Tower" → {"specific_place_name": "Eiffel Tower", "city": "Paris", "country": "France"}
 
 Important:
-- Extract city names accurately (Copenhagen, not copenhagen)
+- ALWAYS translate city names to English (罗马 → Rome, 巴黎 → Paris, 东京 → Tokyo)
+- ALWAYS include the country when you can infer it from the city
+- Extract city names accurately with proper capitalization (Rome, not rome)
 - For "near X" or "X附近" queries, extract X as nearby_location (NOT as city)
 - If user says "near me" or "我附近" without a location, set wants_near_me to true
 - For movie-related queries, include the movie name as a tag
-- If user mentions a number, extract it as limit
+- If user mentions a number, extract it as limit; if not mentioned, default to 5
 - Return valid JSON only
 ''';
 
     try {
-      final response = await model.generateContent([Content.text(prompt)]);
+      debugPrint('🚀 Calling Gemini API for intent parsing...');
+      final response = await model.generateContent([Content.text(prompt)])
+          .timeout(const Duration(seconds: 30), onTimeout: () {
+        debugPrint('⏰ Gemini API call timed out after 30 seconds');
+        throw Exception('Gemini API timeout');
+      });
       final text = response.text ?? '';
       
-      print('AI intent response: $text');
+      debugPrint('✅ AI intent response received: ${text.length} chars');
+      debugPrint('AI intent response: $text');
       
       var jsonText = text.trim();
       if (jsonText.contains('```json')) {
@@ -709,8 +729,9 @@ Important:
       
       final parsed = jsonDecode(jsonText) as Map<String, dynamic>;
       return QueryIntent.fromJson(parsed);
-    } catch (e) {
-      print('Intent parsing failed: $e');
+    } catch (e, stackTrace) {
+      print('❌ Intent parsing failed: $e');
+      print('📋 Stack trace: $stackTrace');
       return QueryIntent(tags: [query]);
     }
   }
@@ -873,31 +894,42 @@ Important:
     final prompt = '''
 Based on this query: "$query"
 
-Recommend exactly $aiLimit specific, real places$locationHint$categoryHint.
+Recommend exactly $aiLimit specific, real, well-known places$locationHint$categoryHint.
 
-${searchCity != null ? 'IMPORTANT: All places MUST be located in or near $searchCity. Do NOT recommend places from other cities or countries.' : ''}
+${searchCity != null ? 'CRITICAL: All places MUST be located in $searchCity, ${searchCountry ?? 'the country'}. Do NOT recommend places from other cities or countries.' : ''}
 
 Return JSON:
 {
   "locations": [
     {
-      "name": "Exact place name",
-      "city": "City name",
-      "country": "Country name",
-      "type": "Place type",
+      "name": "Exact place name (use the official name that can be found on Google Maps)",
+      "city": "$searchCity",
+      "country": "${searchCountry ?? 'Country name'}",
+      "type": "Place type (cafe, restaurant, museum, etc.)",
       "tags": ["tag1", "tag2"]
     }
   ]
 }
 
 Rules:
-- Only real, existing places
-- Use exact, searchable names
+- ONLY recommend real, existing, well-established places that can be found on Google Maps
+- Use the EXACT official name of the place (e.g., "Caffè Sant'Eustachio" not "Sant Eustachio Coffee")
+- For cafes: recommend famous, historic, or highly-rated cafes that tourists would enjoy
+- For restaurants: recommend well-known local restaurants with good reviews
 - Maximum $aiLimit places
-${searchCity != null ? '- ALL places must be in $searchCity or very close by' : ''}
+${searchCity != null ? '- ALL $aiLimit places must be in $searchCity - this is mandatory' : ''}
 - Tags MUST be from this list ONLY: Museum, Attractions, Park, Cemetery, Hiking, Cafe, Bakery, Vintage, Secondhand, Store, Brunch, Restaurant, Knitting, Art, Architecture, Historical, Landmark, Vegetarian, Buddhism, Church, Temple, Shopping, Poet, Musician, Philosopher, Entertainment
 - Maximum 3 tags per place
 - Do NOT include tags that match the place type
+
+Example for "罗马的咖啡馆" (cafes in Rome):
+{
+  "locations": [
+    {"name": "Caffè Sant'Eustachio", "city": "Rome", "country": "Italy", "type": "Cafe", "tags": ["Historical", "Landmark"]},
+    {"name": "Tazza d'Oro", "city": "Rome", "country": "Italy", "type": "Cafe", "tags": ["Historical"]},
+    {"name": "Antico Caffè Greco", "city": "Rome", "country": "Italy", "type": "Cafe", "tags": ["Historical", "Art", "Landmark"]}
+  ]
+}
 ''';
 
     try {

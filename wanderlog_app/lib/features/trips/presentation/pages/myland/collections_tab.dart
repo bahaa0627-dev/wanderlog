@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
@@ -123,6 +124,8 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
       itemBuilder: (context, index) {
         final collection = _filteredCollections[index];
         final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
+        // 使用 API 返回的 spotCount，如果没有则使用 collectionSpots 数组长度
+        final count = collection['spotCount'] as int? ?? spots.length;
         // 兼容 place 和 spot 两种字段名
         final firstSpot = spots.isNotEmpty
             ? (spots.first['spot'] as Map<String, dynamic>? ?? 
@@ -131,7 +134,6 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
         final city = (firstSpot?['city'] as String?)?.isNotEmpty ?? false
             ? firstSpot!['city'] as String
             : 'Multi-city';
-        final count = spots.length;
         // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
         final List<dynamic> tagsList = [];
         for (final spot in spots) {
@@ -189,6 +191,7 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
         final cover = collection['coverImage'] as String? ??
             (firstSpot?['coverImage'] as String? ??
                 'https://via.placeholder.com/400x600');
+        
         return _CollectionCard(
           name: collection['name'] as String? ?? 'Collection',
           city: city,
@@ -205,20 +208,8 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
                   initialIsFavorited: collection['isFavorited'] as bool?,
                   description: collection['description'] as String?,
                   coverImage: collection['coverImage'] as String?,
-                  people: (collection['people'] as List<dynamic>? ?? [])
-                      .map((p) => LinkItem(
-                            name: p['name'] as String? ?? '',
-                            link: p['link'] as String?,
-                            avatarUrl: p['avatarUrl'] as String?,
-                          ),)
-                      .toList(),
-                  works: (collection['works'] as List<dynamic>? ?? [])
-                      .map((w) => LinkItem(
-                            name: w['name'] as String? ?? '',
-                            link: w['link'] as String?,
-                            coverImage: w['coverImage'] as String?,
-                          ),)
-                      .toList(),
+                  people: LinkItem.parseList(collection['people'], isPeople: true),
+                  works: LinkItem.parseList(collection['works'], isPeople: false),
                 ),
               ),
             );
@@ -283,7 +274,7 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
 }
 
 /// 合集卡片组件
-class _CollectionCard extends StatelessWidget {
+class _CollectionCard extends StatefulWidget {
   const _CollectionCard({
     required this.name,
     required this.city,
@@ -300,6 +291,14 @@ class _CollectionCard extends StatelessWidget {
   final List<String> tags;
   final VoidCallback onTap;
 
+  @override
+  State<_CollectionCard> createState() => _CollectionCardState();
+}
+
+class _CollectionCardState extends State<_CollectionCard> {
+  Color _dominantColor = Colors.black;
+  bool _colorExtracted = false;
+
   // 解码 base64 图片
   static Uint8List _decodeBase64Image(String dataUrl) {
     try {
@@ -311,13 +310,63 @@ class _CollectionCard extends StatelessWidget {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _extractDominantColor();
+  }
+
+  @override
+  void didUpdateWidget(_CollectionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.image != widget.image) {
+      _extractDominantColor();
+    }
+  }
+
+  Future<void> _extractDominantColor() async {
+    if (widget.image.isEmpty) return;
+    
+    try {
+      final ImageProvider imageProvider;
+      if (widget.image.startsWith('data:image/')) {
+        imageProvider = MemoryImage(_decodeBase64Image(widget.image));
+      } else {
+        imageProvider = NetworkImage(widget.image);
+      }
+      
+      final paletteGenerator = await PaletteGenerator.fromImageProvider(
+        imageProvider,
+        size: const Size(100, 100),
+        maximumColorCount: 5,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _dominantColor = paletteGenerator.dominantColor?.color ??
+              paletteGenerator.darkMutedColor?.color ??
+              paletteGenerator.darkVibrantColor?.color ??
+              Colors.black;
+          _colorExtracted = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _dominantColor = Colors.black;
+          _colorExtracted = true;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     const double cardRadius = AppTheme.radiusLarge;
     const double innerRadius = cardRadius - AppTheme.borderThick;
 
     return RepaintBoundary(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(cardRadius),
@@ -334,8 +383,8 @@ class _CollectionCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 // 背景图片 - 支持 DataURL (base64) 和网络图片
-                if (image.startsWith('data:image/')) Image.memory(
-                        _decodeBase64Image(image),
+                if (widget.image.startsWith('data:image/')) Image.memory(
+                        _decodeBase64Image(widget.image),
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
                         filterQuality: FilterQuality.low,
@@ -349,7 +398,7 @@ class _CollectionCard extends StatelessWidget {
                           ),
                         ),
                       ) else Image.network(
-                        image,
+                        widget.image,
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
                         filterQuality: FilterQuality.low,
@@ -364,7 +413,7 @@ class _CollectionCard extends StatelessWidget {
                         ),
                       ),
 
-                // 底部黑色渐变蒙层
+                // 底部渐变蒙层 - 使用提取的主色
                 Positioned(
                   left: 0,
                   right: 0,
@@ -377,9 +426,11 @@ class _CollectionCard extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.7),
-                          Colors.black.withOpacity(0.9),
+                          _dominantColor.withOpacity(0.3),
+                          _dominantColor.withOpacity(0.6),
+                          _dominantColor.withOpacity(0.85),
                         ],
+                        stops: const [0.0, 0.3, 0.6, 1.0],
                       ),
                     ),
                   ),
@@ -412,9 +463,9 @@ class _CollectionCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  spotsCount.toString(),
+                                  widget.spotsCount.toString(),
                                   style: AppTheme.labelSmall(context).copyWith(
-                                    fontSize: 10,
+                                    fontSize: 12,
                                     color: AppTheme.black,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -440,9 +491,9 @@ class _CollectionCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              city.toLowerCase(),
+                              widget.city,
                               style: AppTheme.labelSmall(context).copyWith(
-                                fontSize: 10,
+                                fontSize: 12,
                                 color: AppTheme.black,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -455,7 +506,7 @@ class _CollectionCard extends StatelessWidget {
 
                       // 底部标题和标签
                       Text(
-                        name,
+                        widget.name,
                         style: AppTheme.headlineMedium(context).copyWith(
                           fontSize: 16,
                           color: AppTheme.white,
@@ -473,13 +524,13 @@ class _CollectionCard extends StatelessWidget {
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: tags
+                        children: widget.tags
                             .take(2)
                             .map(
                               (tag) => Text(
                                 tag,
                                 style: AppTheme.labelSmall(context).copyWith(
-                                  fontSize: 10,
+                                  fontSize: 12,
                                   color: AppTheme.white.withOpacity(0.9),
                                 ),
                               ),

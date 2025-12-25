@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { logger } from '../utils/logger';
 
 /**
  * Safely parse JSON-like fields that may already be objects/arrays or invalid JSON strings.
@@ -156,6 +157,9 @@ class CollectionController {
       const includeAll = req.query.includeAll === 'true' || req.query.all === 'true';
       let userId = (req as any).user?.id;
 
+      console.log('[Collections.list] includeAll:', includeAll);
+      console.log('[Collections.list] userId from req.user:', userId);
+
       // 验证 userId 是否为有效的 UUID 格式
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (userId && !uuidRegex.test(userId)) {
@@ -168,6 +172,7 @@ class CollectionController {
       if (!includeAll) {
         if (userId) {
           // 返回用户收藏的合集（无论是否发布，用户收藏了就应该能在 MyLand 看到）
+          console.log('[Collections.list] Filtering by user favorites for userId:', userId);
           whereClause = {
             userCollectionFavorites: {
               some: {
@@ -176,9 +181,15 @@ class CollectionController {
             },
           };
         } else {
-          // 未登录用户只看到已发布的合集（但不包括收藏关系）
-          whereClause = { isPublished: true };
+          // 未登录用户在 MyLand 页面（includeAll=false）应该看到空列表
+          // 这样可以提示用户登录后才能看到收藏的合集
+          console.log('[Collections.list] No userId and includeAll=false, returning empty array for MyLand');
+          return res.json({ success: true, data: [] });
         }
+      } else {
+        // includeAll=true 时返回所有已发布的合集（用于 explore 页面）
+        console.log('[Collections.list] includeAll=true, returning all published collections');
+        whereClause = { isPublished: true };
       }
 
       // 优化查询：分两步加载，先加载基本信息，再并行加载关联数据
@@ -552,6 +563,16 @@ class CollectionController {
       const userId = req.user.id;
       const { id } = req.params;
 
+      // 确保用户的 Profile 存在
+      await prisma.profile.upsert({
+        where: { id: userId },
+        update: {},
+        create: {
+          id: userId,
+          name: req.user.email?.split('@')[0] || null,
+        },
+      });
+
       await prisma.userCollectionFavorite.upsert({
         where: { userId_collectionId: { userId, collectionId: id } },
         update: {},
@@ -563,6 +584,7 @@ class CollectionController {
 
       return res.json({ isFavorited: true });
     } catch (error: any) {
+      logger.error('Favorite collection error:', error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }

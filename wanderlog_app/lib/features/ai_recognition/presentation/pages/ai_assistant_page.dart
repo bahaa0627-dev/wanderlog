@@ -613,7 +613,7 @@ class _SpotCardOverlayState extends State<_SpotCardOverlay> {
   Widget build(BuildContext context) => GestureDetector(
     onTap: () => showModalBottomSheet<void>(
       context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
-      builder: (context) => UnifiedSpotDetailModal(spot: widget.spot, keepOpenOnAction: true),
+      builder: (context) => UnifiedSpotDetailModal(spot: widget.spot, keepOpenOnAction: true, hideCollectionEntry: true),
     ),
     child: AspectRatio(
       aspectRatio: 4 / 3,

@@ -5,15 +5,83 @@ class SupabaseCollectionRepository {
   final _client = SupabaseConfig.client;
 
   /// 获取合集列表
+  /// [includeAll] = true: 返回所有已发布的合集（用于 explore 页面）
+  /// [includeAll] = false: 返回当前用户收藏的合集（用于 MyLand 页面）
   Future<List<Map<String, dynamic>>> listCollections({bool includeAll = false}) async {
-    var query = _client.from('collections').select();
-    
-    if (!includeAll) {
-      query = query.eq('is_published', true);
+    if (includeAll) {
+      // 返回所有已发布的合集
+      final response = await _client
+          .from('collections')
+          .select('*, collection_spots(*, place:places(*))')
+          .eq('is_published', true)
+          .order('sort_order');
+      
+      return _convertCollectionsList(response);
+    } else {
+      // 返回当前用户收藏的合集
+      final userId = SupabaseConfig.currentUser?.id;
+      if (userId == null) {
+        print('📭 No user logged in, returning empty collections');
+        return [];
+      }
+      
+      print('📡 Loading favorites for user: $userId');
+      
+      // 先获取用户收藏的合集 ID
+      final favorites = await _client
+          .from('user_collection_favorites')
+          .select('collection_id')
+          .eq('user_id', userId);
+      
+      if (favorites.isEmpty) {
+        print('📭 User has no favorites');
+        return [];
+      }
+      
+      final collectionIds = favorites.map((f) => f['collection_id'] as String).toList();
+      print('📦 Found ${collectionIds.length} favorite collection IDs');
+      
+      // 获取这些合集的详细信息
+      final response = await _client
+          .from('collections')
+          .select('*, collection_spots(*, place:places(*))')
+          .inFilter('id', collectionIds)
+          .order('sort_order');
+      
+      return _convertCollectionsList(response);
     }
-    
-    final response = await query.order('sort_order');
-    return List<Map<String, dynamic>>.from(response);
+  }
+  
+  /// 转换合集列表，添加 spotCount 和转换字段名
+  List<Map<String, dynamic>> _convertCollectionsList(List<dynamic> collections) {
+    return collections.map((collection) {
+      final spots = collection['collection_spots'] as List<dynamic>? ?? [];
+      final convertedSpots = spots.map((spot) {
+        final place = spot['place'] as Map<String, dynamic>?;
+        return {
+          'id': spot['id'],
+          'collectionId': spot['collection_id'],
+          'spotId': spot['place_id'],
+          'placeId': spot['place_id'],
+          'city': spot['city'],
+          'sortOrder': spot['sort_order'],
+          'spot': place != null ? _convertPlaceToSpot(place) : null,
+          'place': place != null ? _convertPlaceFields(place) : null,
+        };
+      }).toList();
+      
+      return {
+        'id': collection['id'],
+        'name': collection['name'],
+        'coverImage': collection['cover_image'],
+        'description': collection['description'],
+        'people': collection['people'],
+        'works': collection['works'],
+        'isPublished': collection['is_published'],
+        'spotCount': spots.length,
+        'collectionSpots': convertedSpots,
+      };
+    }).toList().cast<Map<String, dynamic>>();
   }
 
   /// 获取单个合集详情（含地点）- 单次查询优化
@@ -49,6 +117,19 @@ class SupabaseCollectionRepository {
       };
     }).toList();
 
+    // 检查当前用户是否收藏了这个合集
+    bool isFavorited = false;
+    final userId = SupabaseConfig.currentUser?.id;
+    if (userId != null) {
+      final favorites = await _client
+          .from('user_collection_favorites')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('collection_id', id)
+          .maybeSingle();
+      isFavorited = favorites != null;
+    }
+
     return {
       'id': collection['id'],
       'name': collection['name'],
@@ -57,6 +138,8 @@ class SupabaseCollectionRepository {
       'people': collection['people'],
       'works': collection['works'],
       'isPublished': collection['is_published'],
+      'isFavorited': isFavorited,
+      'spotCount': spots.length,
       'collectionSpots': convertedSpots,
     };
   }
@@ -264,5 +347,68 @@ class SupabaseCollectionRepository {
         .delete()
         .eq('user_id', userId)
         .eq('collection_id', id);
+  }
+
+  /// 获取地点关联的合集列表（只返回已发布的合集）
+  /// 用于在地点详情页显示合集入口，同时预加载合集详情数据
+  Future<List<Map<String, dynamic>>> getCollectionsForPlace(String placeId) async {
+    try {
+      // 查询 collection_spots 表，获取包含该地点的所有合集，同时获取合集的完整信息
+      final response = await _client
+          .from('collection_spots')
+          .select('collection:collections(id, name, cover_image, description, people, works, is_published, collection_spots(*, place:places(*)))')
+          .eq('place_id', placeId);
+
+      // 获取当前用户的收藏状态
+      final userId = SupabaseConfig.currentUser?.id;
+      Set<String> favoritedIds = {};
+      if (userId != null) {
+        final favorites = await _client
+            .from('user_collection_favorites')
+            .select('collection_id')
+            .eq('user_id', userId);
+        favoritedIds = favorites.map((f) => f['collection_id'] as String).toSet();
+      }
+
+      // 过滤出已发布的合集并转换格式
+      final collections = <Map<String, dynamic>>[];
+      for (final item in response) {
+        final collection = item['collection'] as Map<String, dynamic>?;
+        if (collection != null && collection['is_published'] == true) {
+          final collectionId = collection['id'] as String;
+          
+          // 转换 spots 数据
+          final spots = collection['collection_spots'] as List<dynamic>? ?? [];
+          final convertedSpots = spots.map((spot) {
+            final place = spot['place'] as Map<String, dynamic>?;
+            return {
+              'id': spot['id'],
+              'collectionId': spot['collection_id'],
+              'spotId': spot['place_id'],
+              'placeId': spot['place_id'],
+              'city': spot['city'],
+              'sortOrder': spot['sort_order'],
+              'spot': place != null ? _convertPlaceToSpot(place) : null,
+            };
+          }).toList();
+
+          collections.add({
+            'id': collectionId,
+            'name': collection['name'],
+            'coverImage': collection['cover_image'],
+            'description': collection['description'],
+            'people': collection['people'],
+            'works': collection['works'],
+            'isFavorited': favoritedIds.contains(collectionId),
+            'collectionSpots': convertedSpots,
+          });
+        }
+      }
+
+      return collections;
+    } catch (e) {
+      print('❌ Error getting collections for place: $e');
+      return [];
+    }
   }
 }

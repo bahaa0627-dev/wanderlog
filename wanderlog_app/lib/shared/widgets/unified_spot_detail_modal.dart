@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,8 @@ import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
+import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
 
 /// Unified Spot Detail Modal - used by all entry points
 /// Supports both spot_model.Spot and map_page.Spot (via adapter)
@@ -27,6 +30,8 @@ class UnifiedSpotDetailModal extends ConsumerStatefulWidget {
     this.initialIsTodaysPlan,
     this.onStatusChanged,
     this.keepOpenOnAction = false,
+    this.hideCollectionEntry = false,
+    this.linkedCollection,
     super.key,
   });
 
@@ -37,6 +42,8 @@ class UnifiedSpotDetailModal extends ConsumerStatefulWidget {
   final bool? initialIsTodaysPlan;
   final void Function(String spotId, {bool? isMustGo, bool? isTodaysPlan, bool? isVisited, bool? isRemoved, bool? needsReload})? onStatusChanged;
   final bool keepOpenOnAction; // If true, don't close modal after actions
+  final bool hideCollectionEntry; // If true, don't show collection entry card (e.g. when opened from collection page)
+  final Map<String, dynamic>? linkedCollection; // 预加载的关联合集数据
 
   @override
   ConsumerState<UnifiedSpotDetailModal> createState() => _UnifiedSpotDetailModalState();
@@ -56,6 +63,11 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   String? _userNotes;
   List<String> _userPhotos = [];
   bool _isOpeningHoursExpanded = false;
+  
+  // 关联的合集（随机选择一个展示）
+  Map<String, dynamic>? _linkedCollection;
+  // 合集数据是否已加载完成
+  bool _isCollectionLoaded = false;
 
   // Adapter methods to handle different Spot types
   String get _spotId {
@@ -234,6 +246,19 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       _isTodaysPlan = widget.initialIsTodaysPlan ?? false;
     }
     _loadWishlistStatus();
+    
+    // 处理合集入口数据
+    if (widget.hideCollectionEntry) {
+      // 不需要显示合集入口，标记为已加载
+      _isCollectionLoaded = true;
+    } else if (widget.linkedCollection != null) {
+      // 使用预加载的数据
+      _linkedCollection = widget.linkedCollection;
+      _isCollectionLoaded = true;
+    } else {
+      // 需要异步加载
+      _loadLinkedCollection();
+    }
   }
 
   @override
@@ -310,6 +335,38 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         } catch (_) {}
       }
     } catch (_) {}
+  }
+
+  /// 加载地点关联的合集（随机选择一个展示）
+  Future<void> _loadLinkedCollection() async {
+    try {
+      final repo = ref.read(collectionRepositoryProvider);
+      final collections = await repo.getCollectionsForPlace(_spotId);
+      
+      if (mounted) {
+        if (collections.isNotEmpty) {
+          // 随机选择一个合集展示
+          final random = math.Random();
+          final selectedCollection = collections[random.nextInt(collections.length)];
+          setState(() {
+            _linkedCollection = selectedCollection;
+            _isCollectionLoaded = true;
+          });
+        } else {
+          setState(() {
+            _isCollectionLoaded = true;
+          });
+        }
+      }
+    } catch (e) {
+      // 静默失败，标记为已加载
+      print('⚠️ Failed to load linked collection: $e');
+      if (mounted) {
+        setState(() {
+          _isCollectionLoaded = true;
+        });
+      }
+    }
   }
 
   void _copyToClipboard(String text, String label) {
@@ -904,9 +961,101 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     );
   }
 
+  /// 构建合集入口卡片 - 封面图左上角，宽度自适应
+  Widget _buildCollectionEntryCard() {
+    final collection = _linkedCollection;
+    if (collection == null) return const SizedBox.shrink();
+
+    final collectionName = collection['name'] as String? ?? '';
+
+    return GestureDetector(
+      onTap: () => _navigateToCollection(collection),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('📚', style: TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.5,
+              ),
+              child: Text(
+                collectionName,
+                style: AppTheme.labelSmall(context).copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.black,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(
+              Icons.chevron_right,
+              size: 16,
+              color: AppTheme.black,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 跳转到合集地图页
+  void _navigateToCollection(Map<String, dynamic> collection) {
+    final collectionId = collection['id'] as String?;
+    final collectionName = collection['name'] as String? ?? '';
+    final coverImage = collection['coverImage'] as String?;
+    final description = collection['description'] as String?;
+    final collectionSpots = collection['collectionSpots'] as List<dynamic>?;
+    final isFavorited = collection['isFavorited'] as bool?;
+
+    if (collectionId == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => CollectionSpotsMapPage(
+          city: _spotCity ?? '',
+          collectionTitle: collectionName,
+          collectionId: collectionId,
+          initialIsFavorited: isFavorited,
+          coverImage: coverImage,
+          description: description,
+          people: LinkItem.parseList(collection['people'], isPeople: true),
+          works: LinkItem.parseList(collection['works'], isPeople: false),
+          preloadedSpots: collectionSpots?.cast<Map<String, dynamic>>(),
+        ),
+      ),
+    );
+  }
+
 
   @override
-  Widget build(BuildContext context) => Stack(
+  Widget build(BuildContext context) {
+    // 如果需要显示合集入口但数据还没加载完，显示加载态
+    if (!widget.hideCollectionEntry && !_isCollectionLoaded) {
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(color: AppTheme.black, width: 2),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(
+            color: AppTheme.primaryYellow,
+          ),
+        ),
+      );
+    }
+    
+    return Stack(
     clipBehavior: Clip.none,
     children: [
       // Main modal content
@@ -919,7 +1068,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       ),
       child: Column(
       children: [
-        // 1. Image section (no close button here)
+        // 1. Image section with close button and collection entry
         Stack(
           children: [
             SizedBox(
@@ -986,10 +1135,33 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                   )),
                 ),
               ),
+            // 合集入口卡片 - 封面图左上角
+            if (_linkedCollection != null && !widget.hideCollectionEntry)
+              Positioned(
+                top: 16,
+                left: 16,
+                child: _buildCollectionEntryCard(),
+              ),
+            // 关闭按钮 - 封面图右上角
             Positioned(
               top: 16,
               right: 16,
-              child: Container(), // Placeholder - close button moved outside
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context, _hasStatusChanged),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: AppTheme.mediumGray,
+                    size: 22,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -1172,28 +1344,9 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       ],
     ),
     ),
-      // Close button outside the modal (top right, above the modal)
-      Positioned(
-        top: -50,
-        right: 16,
-        child: GestureDetector(
-          onTap: () => Navigator.pop(context, _hasStatusChanged),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: Colors.transparent,
-            ),
-            child: const Icon(
-              Icons.close,
-              color: AppTheme.mediumGray,
-              size: 32,
-            ),
-          ),
-        ),
-      ),
     ],
     );
+  }
 
   Widget _buildAddressRowWithNavigation() {
     return Row(

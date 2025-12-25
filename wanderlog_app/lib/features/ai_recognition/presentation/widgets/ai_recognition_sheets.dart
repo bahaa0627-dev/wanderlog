@@ -530,6 +530,7 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
           builder: (context) => UnifiedSpotDetailModal(
             spot: widget.spot,
             keepOpenOnAction: true,
+            hideCollectionEntry: true,
           ),
         );
       },

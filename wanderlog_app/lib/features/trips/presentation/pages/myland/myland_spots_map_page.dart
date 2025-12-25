@@ -13,6 +13,7 @@ import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
+import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 
 /// MyLand 地点地图页面 - 展示 MustGo 或 Today's Plan 中的地点
 class MyLandSpotsMapPage extends ConsumerStatefulWidget {
@@ -233,10 +234,25 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     }
   }
 
-  void _showSpotDetail(map_page.Spot spot) {
+  void _showSpotDetail(map_page.Spot spot) async {
     // Provide optimistic initial state to avoid flicker; modal will reconcile with API.
     final isMustGo = widget.tabLabel == 'MustGo';
     final isTodaysPlan = widget.tabLabel == "Today's Plan";
+
+    // 先加载合集数据
+    Map<String, dynamic>? linkedCollection;
+    try {
+      final repo = ref.read(collectionRepositoryProvider);
+      final collections = await repo.getCollectionsForPlace(spot.id);
+      if (collections.isNotEmpty) {
+        final random = math.Random();
+        linkedCollection = collections[random.nextInt(collections.length)];
+      }
+    } catch (e) {
+      // 静默失败
+    }
+    
+    if (!mounted) return;
 
     showModalBottomSheet<bool>(
       context: context,
@@ -247,6 +263,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         initialIsSaved: true,
         initialIsMustGo: isMustGo,
         initialIsTodaysPlan: isTodaysPlan,
+        linkedCollection: linkedCollection,
       ),
     ).then((hasChanged) {
       // Only refresh if status actually changed
@@ -735,10 +752,11 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     const double cardHeight = 280; // 宽:高 = 3:4
 
     return SizedBox(
-      height: cardHeight, // 固定高度
+      height: cardHeight + 8, // 固定高度 + 阴影空间
       child: PageView.builder(
           controller: _cardPageController,
           padEnds: true,
+          clipBehavior: Clip.none,
           itemCount: spots.length,
           itemBuilder: (context, index) {
             final spot = spots[index];

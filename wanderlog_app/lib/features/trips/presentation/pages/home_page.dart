@@ -245,13 +245,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                                             ),
                                           ),
                                           const SizedBox(height: 8), // 合集标题距离合集卡片 8px
-                                          // 横向滚动的合集列表
+                                          // 横向滚动的合集列表 - 增加高度以容纳阴影
                                           SizedBox(
-                                            height: 250, // 卡片高度 250px
+                                            height: 258, // 卡片高度 250px + 阴影偏移 4px + 边距 4px
                                             child: ListView.builder(
                                               scrollDirection: Axis.horizontal,
                                               clipBehavior: Clip.none,
-                                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                                              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
                                               itemCount: displayItems.length,
                                               itemBuilder: (context, itemIndex) {
                                                 final item = displayItems[itemIndex];
@@ -346,8 +346,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                           initialIsFavorited: false,
                                                           description: collection['description'] as String?,
                                                           coverImage: collection['coverImage'] as String?,
-                                                          people: const [],
-                                                          works: const [],
+                                                          people: LinkItem.parseList(collection['people'], isPeople: true),
+                                                          works: LinkItem.parseList(collection['works'], isPeople: false),
                                     ),
                                   ),
                                 );

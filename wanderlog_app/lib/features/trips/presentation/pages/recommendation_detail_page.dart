@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
@@ -174,8 +175,8 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
                   initialIsFavorited: false,
                   description: collection['description'] as String?,
                   coverImage: collection['coverImage'] as String?,
-                  people: const [],
-                  works: const [],
+                  people: LinkItem.parseList(collection['people'], isPeople: true),
+                  works: LinkItem.parseList(collection['works'], isPeople: false),
                 ),
               ),
             );
@@ -195,7 +196,7 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
   }
 }
 
-class _TripCard extends StatelessWidget {
+class _TripCard extends StatefulWidget {
   const _TripCard({
     required this.city,
     required this.count,
@@ -213,13 +214,71 @@ class _TripCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_TripCard> createState() => _TripCardState();
+}
+
+class _TripCardState extends State<_TripCard> {
+  Color _dominantColor = Colors.black;
+  bool _colorExtracted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _extractDominantColor();
+  }
+
+  @override
+  void didUpdateWidget(_TripCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _extractDominantColor();
+    }
+  }
+
+  Future<void> _extractDominantColor() async {
+    if (widget.imageUrl.isEmpty) return;
+    
+    try {
+      final ImageProvider imageProvider;
+      if (widget.imageUrl.startsWith('data:image/')) {
+        imageProvider = MemoryImage(_decodeBase64Image(widget.imageUrl));
+      } else {
+        imageProvider = NetworkImage(widget.imageUrl);
+      }
+      
+      final paletteGenerator = await PaletteGenerator.fromImageProvider(
+        imageProvider,
+        size: const Size(100, 100),
+        maximumColorCount: 5,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _dominantColor = paletteGenerator.dominantColor?.color ??
+              paletteGenerator.darkMutedColor?.color ??
+              paletteGenerator.darkVibrantColor?.color ??
+              Colors.black;
+          _colorExtracted = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _dominantColor = Colors.black;
+          _colorExtracted = true;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     const double cardRadius = AppTheme.radiusLarge;
     const double innerRadius = cardRadius - AppTheme.borderThick;
 
     return RepaintBoundary(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(cardRadius),
@@ -236,8 +295,8 @@ class _TripCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 // 背景图片
-                if (imageUrl.startsWith('data:image/')) Image.memory(
-                        _decodeBase64Image(imageUrl),
+                if (widget.imageUrl.startsWith('data:image/')) Image.memory(
+                        _decodeBase64Image(widget.imageUrl),
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
                         filterQuality: FilterQuality.low,
@@ -251,7 +310,7 @@ class _TripCard extends StatelessWidget {
                           ),
                         ),
                       ) else Image.network(
-                        imageUrl,
+                        widget.imageUrl,
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
                         filterQuality: FilterQuality.low,
@@ -266,7 +325,7 @@ class _TripCard extends StatelessWidget {
                         ),
                       ),
 
-                // 底部黑色渐变蒙层
+                // 底部渐变蒙层 - 使用提取的主色
                 Positioned(
                   left: 0,
                   right: 0,
@@ -279,9 +338,11 @@ class _TripCard extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.7),
-                          Colors.black.withOpacity(0.9),
+                          _dominantColor.withOpacity(0.3),
+                          _dominantColor.withOpacity(0.6),
+                          _dominantColor.withOpacity(0.85),
                         ],
+                        stops: const [0.0, 0.3, 0.6, 1.0],
                       ),
                     ),
                   ),
@@ -314,9 +375,9 @@ class _TripCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  count.toString(),
+                                  widget.count.toString(),
                                   style: AppTheme.labelSmall(context).copyWith(
-                                    fontSize: 10,
+                                    fontSize: 12,
                                     color: AppTheme.black,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -342,9 +403,9 @@ class _TripCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              city.toLowerCase(),
+                              widget.city,
                               style: AppTheme.labelSmall(context).copyWith(
-                                fontSize: 10,
+                                fontSize: 12,
                                 color: AppTheme.black,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -357,7 +418,7 @@ class _TripCard extends StatelessWidget {
 
                       // 底部标题和标签
                       Text(
-                        title,
+                        widget.title,
                         style: AppTheme.headlineMedium(context).copyWith(
                           fontSize: 16,
                           color: AppTheme.white,
@@ -375,13 +436,13 @@ class _TripCard extends StatelessWidget {
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: tags
+                        children: widget.tags
                             .take(2)
                             .map(
                               (tag) => Text(
                                 tag,
                                 style: AppTheme.labelSmall(context).copyWith(
-                                  fontSize: 10,
+                                  fontSize: 12,
                                   color: AppTheme.white.withOpacity(0.9),
                                 ),
                               ),

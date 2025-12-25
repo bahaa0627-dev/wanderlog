@@ -79,7 +79,8 @@ class CollectionRecommendationController {
   async list(req: Request, res: Response) {
     try {
       console.log('📋 CollectionRecommendationController.list called');
-      // 优化：只查询必要字段，减少数据传输
+      
+      // 第一步：只查询推荐基本信息（快速）
       const recommendations = await prisma.collectionRecommendation.findMany({
         select: {
           id: true,
@@ -88,46 +89,73 @@ class CollectionRecommendationController {
           isActive: true,
           createdAt: true,
           updatedAt: true,
-          _count: {
-            select: { items: true }
-          },
-          items: {
-            select: {
-              id: true,
-              sortOrder: true,
-              collectionId: true,
-              collection: {
-                select: {
-                  id: true,
-                  name: true,
-                  coverImage: true,
-                  description: true,
-                  isPublished: true,
-                  _count: {
-                    select: { collectionSpots: true }
-                  }
-                }
-              }
-            },
-            orderBy: { sortOrder: 'asc' },
-          },
         },
         orderBy: { sortOrder: 'asc' },
+      });
+
+      const recommendationIds = recommendations.map(r => r.id);
+
+      // 第二步：并行加载关联数据
+      const [itemCounts, items] = await Promise.all([
+        // 获取每个推荐的项目数量
+        prisma.collectionRecommendationItem.groupBy({
+          by: ['recommendationId'],
+          where: { recommendationId: { in: recommendationIds } },
+          _count: true,
+        }),
+        // 获取所有推荐项目及其合集信息
+        prisma.collectionRecommendationItem.findMany({
+          where: { recommendationId: { in: recommendationIds } },
+          select: {
+            id: true,
+            recommendationId: true,
+            sortOrder: true,
+            collectionId: true,
+            collection: {
+              select: {
+                id: true,
+                name: true,
+                coverImage: true,
+                description: true,
+                isPublished: true,
+              }
+            }
+          },
+          orderBy: { sortOrder: 'asc' },
+        }),
+      ]);
+
+      // 获取合集的地点数量
+      const collectionIds = [...new Set(items.map(i => i.collectionId))];
+      const spotCounts = await prisma.collectionSpot.groupBy({
+        by: ['collectionId'],
+        where: { collectionId: { in: collectionIds } },
+        _count: true,
+      });
+
+      // 构建查找映射
+      const itemCountMap = new Map(itemCounts.map(i => [i.recommendationId, i._count]));
+      const spotCountMap = new Map(spotCounts.map(s => [s.collectionId, s._count]));
+      const itemsMap = new Map<string, any[]>();
+      items.forEach(item => {
+        if (!itemsMap.has(item.recommendationId)) {
+          itemsMap.set(item.recommendationId, []);
+        }
+        itemsMap.get(item.recommendationId)!.push({
+          ...item,
+          collection: {
+            ...item.collection,
+            spotCount: spotCountMap.get(item.collectionId) || 0,
+          }
+        });
       });
 
       // 格式化返回数据
       const formatted = recommendations.map(r => ({
         ...r,
-        itemCount: r._count?.items || 0,
-        items: r.items.map(item => ({
-          ...item,
-          collection: {
-            ...item.collection,
-            spotCount: item.collection._count?.collectionSpots || 0,
-          }
-        }))
+        itemCount: itemCountMap.get(r.id) || 0,
+        items: itemsMap.get(r.id) || [],
       }));
-      formatted.forEach((r: any) => delete r._count);
 
       console.log(`✅ Found ${recommendations.length} recommendations`);
       return res.json({ success: true, data: formatted });

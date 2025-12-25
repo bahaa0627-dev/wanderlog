@@ -181,26 +181,43 @@ class CollectionController {
         }
       }
 
-      // 优化：先只查询基本信息，不加载所有关联数据
-      const selectConfig: any = {
-        id: true,
-        name: true,
-        coverImage: true,
-        description: true,
-        people: true,
-        works: true,
-        source: true,
-        sortOrder: true,
-        isPublished: true,
-        publishedAt: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: { collectionSpots: true }
+      // 优化查询：分两步加载，先加载基本信息，再并行加载关联数据
+      // 第一步：只查询合集基本信息（快速）
+      const collections = await prisma.collection.findMany({
+        where: includeAll ? undefined : whereClause,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          coverImage: true,
+          description: true,
+          people: true,
+          works: true,
+          source: true,
+          sortOrder: true,
+          isPublished: true,
+          publishedAt: true,
+          createdAt: true,
+          updatedAt: true,
         },
-        collectionSpots: {
+      });
+
+      // 第二步：并行加载关联数据
+      const collectionIds = collections.map(c => c.id);
+      
+      const [spotCounts, collectionSpots, userFavorites] = await Promise.all([
+        // 获取每个合集的地点数量
+        prisma.collectionSpot.groupBy({
+          by: ['collectionId'],
+          where: { collectionId: { in: collectionIds } },
+          _count: true,
+        }),
+        // 获取每个合集的前5个地点（简化查询）
+        prisma.collectionSpot.findMany({
+          where: { collectionId: { in: collectionIds } },
           select: {
             id: true,
+            collectionId: true,
             placeId: true,
             city: true,
             sortOrder: true,
@@ -219,31 +236,35 @@ class CollectionController {
             }
           },
           orderBy: { sortOrder: 'asc' },
-          take: 10, // 只加载前10个地点，详情页再加载全部
-        },
-      };
+        }),
+        // 获取用户收藏状态
+        userId ? prisma.userCollectionFavorite.findMany({
+          where: { userId, collectionId: { in: collectionIds } },
+          select: { collectionId: true },
+        }) : Promise.resolve([]),
+      ]);
 
-      // 如果有 userId，添加收藏关系查询
-      if (userId) {
-        selectConfig.userCollectionFavorites = {
-          where: { userId },
-          select: { id: true },
-        };
-      }
-
-      const collections = await prisma.collection.findMany({
-        where: includeAll ? undefined : whereClause,
-        orderBy: { createdAt: 'desc' }, // 按创建时间倒序，最新的在前面
-        select: selectConfig,
+      // 构建查找映射
+      const spotCountMap = new Map(spotCounts.map(s => [s.collectionId, s._count]));
+      const spotsMap = new Map<string, any[]>();
+      collectionSpots.forEach(cs => {
+        if (!spotsMap.has(cs.collectionId)) {
+          spotsMap.set(cs.collectionId, []);
+        }
+        const spots = spotsMap.get(cs.collectionId)!;
+        if (spots.length < 10) { // 只保留前10个
+          spots.push(cs);
+        }
       });
+      const favoritedSet = new Set(userFavorites.map(f => f.collectionId));
 
-      const normalized = (collections as any[]).map((c) => ({
+      const normalized = collections.map((c) => ({
         ...c,
-        spotCount: c._count?.collectionSpots || 0,
-        isFavorited: !!(userId && c.userCollectionFavorites && c.userCollectionFavorites.length > 0),
+        spotCount: spotCountMap.get(c.id) || 0,
+        isFavorited: favoritedSet.has(c.id),
         people: safeParseJson(c.people, []),
         works: safeParseJson(c.works, []),
-        collectionSpots: (c.collectionSpots as any[]).map((cs: any) => {
+        collectionSpots: (spotsMap.get(c.id) || []).map((cs: any) => {
           const place = normalizePlace(cs.place);
           return {
             ...cs,
@@ -253,11 +274,6 @@ class CollectionController {
           };
         }),
       }));
-      // 移除内部字段
-      normalized.forEach((item: any) => {
-        delete item.userCollectionFavorites;
-        delete item._count;
-      });
 
       return res.json({ success: true, data: normalized });
     } catch (error: any) {
@@ -304,34 +320,56 @@ class CollectionController {
       const normalizedPeople = people ? JSON.stringify(people) : undefined;
       const normalizedWorks = works ? JSON.stringify(works) : undefined;
 
-      const updated = await prisma.collection.update({
-        where: { id },
-        data: {
-          name,
-          coverImage,
-          description,
-          people: normalizedPeople,
-          works: normalizedWorks,
-          collectionSpots: {
-            deleteMany: {}, // remove old links
-            create: places.map((p) => ({
-              placeId: p.id,
-              city: p.city ?? undefined,
-            })),
-          },
-        },
-        include: {
-          collectionSpots: {
-            include: {
-              place: true,
+      // Use transaction to ensure atomicity
+      const updated = await prisma.$transaction(async (tx) => {
+        // First, delete all existing collection spots
+        await tx.collectionSpot.deleteMany({
+          where: { collectionId: id },
+        });
+
+        // Then update the collection and create new spots
+        return tx.collection.update({
+          where: { id },
+          data: {
+            name,
+            coverImage,
+            description: description || null,
+            people: normalizedPeople,
+            works: normalizedWorks,
+            collectionSpots: {
+              create: places.map((p, index) => ({
+                placeId: p.id,
+                city: p.city ?? undefined,
+                sortOrder: index,
+              })),
             },
           },
-        },
+          include: {
+            collectionSpots: {
+              include: {
+                place: true,
+              },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+        });
       });
 
-      return res.json({ success: true, data: updated });
+      const normalized = {
+        ...updated,
+        people: safeParseJson(updated.people, []),
+        works: safeParseJson(updated.works, []),
+        collectionSpots: updated.collectionSpots.map((cs: any) => ({
+          ...cs,
+          place: normalizePlace(cs.place),
+        })),
+      };
+
+      return res.json({ success: true, data: normalized });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message });
+      console.error('更新合集错误:', error);
+      const errorMessage = error?.message || (typeof error === 'string' ? error : 'Unknown error');
+      return res.status(500).json({ success: false, message: errorMessage });
     }
   }
 

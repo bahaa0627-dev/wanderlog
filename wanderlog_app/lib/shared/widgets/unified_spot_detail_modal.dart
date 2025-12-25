@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
@@ -319,25 +320,24 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   Widget _buildCheckInButton() => GestureDetector(
       onTap: _isVisited ? null : _handleCheckIn,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: _isVisited ? AppTheme.background : AppTheme.primaryYellow,
+          color: AppTheme.white,
           borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
           border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-          boxShadow: _isVisited ? null : AppTheme.cardShadow,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_isVisited) ...[
-              const Text('✓', style: TextStyle(fontSize: 16)),
-              const SizedBox(width: 6),
+              const Text('✓', style: TextStyle(fontSize: 14)),
+              const SizedBox(width: 4),
             ],
             Text(
               _isVisited ? 'Checked in' : 'Check in',
-              style: AppTheme.labelMedium(context).copyWith(
+              style: AppTheme.labelSmall(context).copyWith(
                 color: AppTheme.black,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -823,6 +823,10 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     final is24h = _is24Hours();
     final weekdayText = _getWeekdayText();
     final canExpand = !is24h && weekdayText != null && weekdayText.isNotEmpty;
+    
+    // Only show red if closing within 2 hours
+    final isClosingSoon = eval.isClosingSoon;
+    final textColor = isClosingSoon ? AppTheme.error : AppTheme.black;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -832,13 +836,13 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.access_time, size: 18, color: AppTheme.black.withOpacity(0.48)),
+              const Icon(Icons.access_time, size: 18, color: AppTheme.black),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   eval.summaryText,
                   style: AppTheme.bodyMedium(context).copyWith(
-                    color: eval.isOpen ? const Color(0xFF4CAF50) : AppTheme.error,
+                    color: textColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -847,7 +851,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                 Icon(
                   _isOpeningHoursExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                   size: 20,
-                  color: AppTheme.black.withOpacity(0.48),
+                  color: AppTheme.black,
                 ),
             ],
           ),
@@ -860,7 +864,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
               child: Text(
                 dayText,
                 style: AppTheme.bodySmall(context).copyWith(
-                  color: AppTheme.black.withOpacity(0.48),
+                  color: AppTheme.black.withOpacity(0.6),
                 ),
               ),
             );
@@ -876,15 +880,15 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     VoidCallback? onCopy,
   }) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(icon, size: 18, color: AppTheme.black.withOpacity(0.48)),
+        Icon(icon, size: 18, color: AppTheme.black),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
             style: AppTheme.bodyMedium(context).copyWith(
-              color: AppTheme.black.withOpacity(0.48),
+              color: AppTheme.black,
             ),
           ),
         ),
@@ -893,7 +897,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
             onTap: onCopy,
             child: Padding(
               padding: const EdgeInsets.only(left: 8),
-              child: Icon(Icons.copy, size: 16, color: AppTheme.black.withOpacity(0.48)),
+              child: const Icon(Icons.copy, size: 18, color: AppTheme.black),
             ),
           ),
       ],
@@ -902,7 +906,11 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
 
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Stack(
+    clipBehavior: Clip.none,
+    children: [
+      // Main modal content
+      Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -911,7 +919,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       ),
       child: Column(
       children: [
-        // 1. Image section with close button and check-in button
+        // 1. Image section (no close button here)
         Stack(
           children: [
             SizedBox(
@@ -981,13 +989,8 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
             Positioned(
               top: 16,
               right: 16,
-              child: IconButtonCustom(
-                icon: Icons.close,
-                onPressed: () => Navigator.pop(context, _hasStatusChanged),
-                backgroundColor: Colors.white,
-              ),
+              child: Container(), // Placeholder - close button moved outside
             ),
-            Positioned(bottom: 16, right: 16, child: _buildCheckInButton()),
           ],
         ),
         // Scrollable content
@@ -1038,7 +1041,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                   ),
                   const SizedBox(height: 16),
                 ],
-                // 5. Rating - number, stars, count
+                // 5. Rating with Check-in button on the right
                 if (_spotRating != null) ...[
                   Row(
                     children: [
@@ -1059,7 +1062,16 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                           style: AppTheme.bodySmall(context).copyWith(color: AppTheme.mediumGray),
                         ),
                       ],
+                      const Spacer(),
+                      _buildCheckInButton(),
                     ],
+                  ),
+                  const SizedBox(height: 16),
+                ] else ...[
+                  // Show check-in button even without rating
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [_buildCheckInButton()],
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -1067,13 +1079,9 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                 // Opening hours with expand/collapse
                 _buildOpeningHoursSection(),
                 if (_spotOpeningHours != null) const SizedBox(height: 12),
-                // Address with copy
+                // Address with navigation button
                 if (_spotAddress != null && _spotAddress!.isNotEmpty) ...[
-                  _buildInfoRow(
-                    icon: Icons.location_on_outlined,
-                    text: _spotAddress!,
-                    onCopy: () => _copyToClipboard(_spotAddress!, 'Address'),
-                  ),
+                  _buildAddressRowWithNavigation(),
                   const SizedBox(height: 12),
                 ],
                 // Phone with copy
@@ -1163,5 +1171,204 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         ),
       ],
     ),
+    ),
+      // Close button outside the modal (top right, above the modal)
+      Positioned(
+        top: -50,
+        right: 16,
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context, _hasStatusChanged),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: Colors.transparent,
+            ),
+            child: const Icon(
+              Icons.close,
+              color: AppTheme.mediumGray,
+              size: 32,
+            ),
+          ),
+        ),
+      ),
+    ],
     );
+
+  Widget _buildAddressRowWithNavigation() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Icon(Icons.location_on_outlined, size: 18, color: AppTheme.black),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            _spotAddress!,
+            style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.black,
+            ),
+          ),
+        ),
+        GestureDetector(
+          onTap: _showNavigationOptions,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: const Icon(Icons.navigation_outlined, size: 18, color: AppTheme.black),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showNavigationOptions() {
+    final lat = _getLatitude();
+    final lng = _getLongitude();
+    final name = Uri.encodeComponent(_spotName);
+    
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Open in Maps',
+                style: AppTheme.headlineMedium(context).copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              // Google Maps
+              _buildMapOption(
+                icon: '🗺️',
+                title: 'Google Maps',
+                onTap: () {
+                  Navigator.pop(context);
+                  _openGoogleMaps(lat, lng, name);
+                },
+              ),
+              const SizedBox(height: 12),
+              // Amap (高德地图)
+              _buildMapOption(
+                icon: '🧭',
+                title: '高德地图',
+                onTap: () {
+                  Navigator.pop(context);
+                  _openAmap(lat, lng, name);
+                },
+              ),
+              const SizedBox(height: 12),
+              // Apple Maps
+              _buildMapOption(
+                icon: '🍎',
+                title: 'Apple Maps',
+                onTap: () {
+                  Navigator.pop(context);
+                  _openAppleMaps(lat, lng, name);
+                },
+              ),
+              const SizedBox(height: 16),
+              // Cancel button - white with black border
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.white,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    border: Border.all(color: AppTheme.black, width: 2),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Cancel',
+                      style: AppTheme.labelLarge(context).copyWith(
+                        color: AppTheme.black,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapOption({
+    required String icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          border: Border.all(color: AppTheme.black, width: 2),
+          boxShadow: const [
+            BoxShadow(
+              color: AppTheme.black,
+              offset: Offset(2, 3),
+              blurRadius: 0,
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: AppTheme.bodyLarge(context).copyWith(fontWeight: FontWeight.w500),
+            ),
+            const Spacer(),
+            const Icon(Icons.chevron_right, color: AppTheme.black),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openGoogleMaps(double lat, double lng, String name) async {
+    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng&query_place_id=$name');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      CustomToast.showError(context, 'Cannot open Google Maps');
+    }
+  }
+
+  Future<void> _openAmap(double lat, double lng, String name) async {
+    // Try to open Amap app first, fallback to web
+    final appUrl = Uri.parse('amapuri://route/plan/?dlat=$lat&dlon=$lng&dname=$name&dev=0&t=0');
+    final webUrl = Uri.parse('https://uri.amap.com/marker?position=$lng,$lat&name=$name');
+    
+    if (await canLaunchUrl(appUrl)) {
+      await launchUrl(appUrl);
+    } else if (await canLaunchUrl(webUrl)) {
+      await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+    } else {
+      CustomToast.showError(context, 'Cannot open Amap');
+    }
+  }
+
+  Future<void> _openAppleMaps(double lat, double lng, String name) async {
+    final url = Uri.parse('https://maps.apple.com/?q=$name&ll=$lat,$lng');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      CustomToast.showError(context, 'Cannot open Apple Maps');
+    }
+  }
 }

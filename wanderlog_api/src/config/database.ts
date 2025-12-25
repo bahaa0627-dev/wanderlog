@@ -19,13 +19,29 @@ if (!databaseUrl) {
   console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('SUPABASE')));
 }
 
-const prisma = new PrismaClient({
+// 使用单例模式确保只创建一个 Prisma 客户端实例
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+const prisma = globalForPrisma.prisma ?? new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   datasources: {
     db: {
       url: databaseUrl,
     },
   },
+});
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
+
+// 预热连接
+prisma.$connect().then(() => {
+  console.log('✅ Database connection established');
+}).catch((err) => {
+  console.error('❌ Database connection failed:', err.message);
 });
 
 export default prisma;

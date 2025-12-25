@@ -149,18 +149,13 @@ class _OptionCheckbox extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Opacity(
         opacity: effectiveOpacity,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: isChecked ? activeColor.withOpacity(0.2) : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppTheme.radiusSmall - 2),
-          ),
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Checkbox indicator
+              // Checkbox indicator - only this changes color
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: 20,
@@ -181,21 +176,15 @@ class _OptionCheckbox extends StatelessWidget {
                       )
                     : null,
               ),
-              const SizedBox(width: 6),
-              // Icon
-              Icon(
-                icon,
-                size: 16,
-                color: isChecked ? activeColor : AppTheme.mediumGray,
-              ),
-              const SizedBox(width: 4),
-              // Label
+              const SizedBox(width: 8),
+              // Label - always black, slightly larger
               Flexible(
                 child: Text(
                   label,
-                  style: AppTheme.labelSmall(context).copyWith(
-                    color: isChecked ? AppTheme.black : AppTheme.mediumGray,
-                    fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
+                  style: AppTheme.labelMedium(context).copyWith(
+                    color: AppTheme.black,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),

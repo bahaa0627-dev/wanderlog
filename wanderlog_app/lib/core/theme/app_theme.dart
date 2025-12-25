@@ -5,7 +5,7 @@ class AppTheme {
     static const Color markerGray = Color(0xFFCCCCCC); // #cccccc
     static const Color markerLabelGray = Color(0xFF8D8D8D); // #8d8d8d
   // 主题色 - 明亮黄色系列
-  static const Color primaryYellow = Color(0xFFFFF200); // 用于实心按钮、tab、标签等
+  static const Color primaryYellow = Color(0xFFFFE500); // 用于实心按钮、tab、标签等
   static const Color borderYellow = Color(0xFFC7BD00); // 用于边框和文字按钮
   static const Color lightYellow = Color(0xFFFFF4D6);
   static const Color darkYellow = Color(0xFF8E8600);

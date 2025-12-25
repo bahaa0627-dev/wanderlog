@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' hide Spot;
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
@@ -729,15 +731,12 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     );
 
   Widget _buildBottomCards(List<map_page.Spot> spots, {double extraHeight = 0}) {
-    // 与 map_page_new.dart 保持一致：卡片高度 240，底部 padding 16 用于阴影
-    const double cardHeight = 240;
-    const double shadowPadding = 16; // 阴影空间
+    const double cardWidth = 210;
+    const double cardHeight = 280; // 宽:高 = 3:4
 
     return SizedBox(
-      height: cardHeight + shadowPadding,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: shadowPadding),
-        child: PageView.builder(
+      height: cardHeight, // 固定高度
+      child: PageView.builder(
           controller: _cardPageController,
           padEnds: true,
           itemCount: spots.length,
@@ -748,30 +747,35 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
             return AnimatedScale(
               scale: isCenter ? 1.0 : 0.92,
               duration: const Duration(milliseconds: 220),
-              child: _BottomSpotCard(
-                spot: spot,
-                onTap: () {
-                  if (index == _currentCardIndex) {
-                    _showSpotDetail(spot);
-                  } else {
-                    _cardPageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  }
-                },
+              child: Center(
+                child: SizedBox(
+                  width: cardWidth,
+                  height: cardHeight,
+                  child: _BottomSpotCard(
+                    spot: spot,
+                    onTap: () {
+                      if (index == _currentCardIndex) {
+                        _showSpotDetail(spot);
+                      } else {
+                        _cardPageController.animateToPage(
+                          index,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      }
+                    },
+                  ),
+                ),
               ),
             );
           },
         ),
-      ),
     );
   }
 }
 
-/// 底部地点卡片组件 - 无标签版本
-class _BottomSpotCard extends StatelessWidget {
+/// 底部地点卡片组件 - 带取色功能
+class _BottomSpotCard extends StatefulWidget {
   const _BottomSpotCard({
     required this.spot,
     required this.onTap,
@@ -779,6 +783,59 @@ class _BottomSpotCard extends StatelessWidget {
 
   final map_page.Spot spot;
   final VoidCallback onTap;
+
+  @override
+  State<_BottomSpotCard> createState() => _BottomSpotCardState();
+}
+
+class _BottomSpotCardState extends State<_BottomSpotCard> {
+  Color _dominantColor = Colors.black;
+
+  @override
+  void initState() {
+    super.initState();
+    _extractDominantColor();
+  }
+
+  @override
+  void didUpdateWidget(_BottomSpotCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.spot.coverImage != widget.spot.coverImage) {
+      _extractDominantColor();
+    }
+  }
+
+  Future<void> _extractDominantColor() async {
+    if (widget.spot.coverImage.isEmpty) return;
+    
+    try {
+      final ImageProvider imageProvider;
+      if (widget.spot.coverImage.startsWith('data:image/')) {
+        imageProvider = MemoryImage(_decodeBase64Image(widget.spot.coverImage));
+      } else {
+        imageProvider = NetworkImage(widget.spot.coverImage);
+      }
+      
+      final paletteGenerator = await PaletteGenerator.fromImageProvider(
+        imageProvider,
+        size: const ui.Size(100, 100),
+        maximumColorCount: 5,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _dominantColor = paletteGenerator.dominantColor?.color ??
+              paletteGenerator.darkMutedColor?.color ??
+              paletteGenerator.darkVibrantColor?.color ??
+              Colors.black;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _dominantColor = Colors.black);
+      }
+    }
+  }
 
   static Uint8List _decodeBase64Image(String dataUrl) {
     try {
@@ -791,7 +848,7 @@ class _BottomSpotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
@@ -807,16 +864,25 @@ class _BottomSpotCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 _buildCover(),
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black26,
-                        Colors.black87,
-                      ],
+                // 底部渐变蒙层 - 使用提取的主色
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: 140, // 卡片高度 280 的一半
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          _dominantColor.withOpacity(0.3),
+                          _dominantColor.withOpacity(0.6),
+                          _dominantColor.withOpacity(0.85),
+                        ],
+                        stops: const [0.0, 0.3, 0.6, 1.0],
+                      ),
                     ),
                   ),
                 ),
@@ -828,7 +894,7 @@ class _BottomSpotCard extends StatelessWidget {
                       const Spacer(),
                       // 地点名称
                       Text(
-                        spot.name,
+                        widget.spot.name,
                         style: AppTheme.bodyLarge(context).copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -840,8 +906,8 @@ class _BottomSpotCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       // 评分
                       _RatingRow(
-                        rating: spot.rating,
-                        ratingCount: spot.ratingCount,
+                        rating: widget.spot.rating,
+                        ratingCount: widget.spot.ratingCount,
                       ),
                     ],
                   ),
@@ -862,9 +928,9 @@ class _BottomSpotCard extends StatelessWidget {
       ),
     );
 
-    if (spot.coverImage.isEmpty) return placeholder;
-    if (spot.coverImage.startsWith('data:image/')) {
-      final data = _decodeBase64Image(spot.coverImage);
+    if (widget.spot.coverImage.isEmpty) return placeholder;
+    if (widget.spot.coverImage.startsWith('data:image/')) {
+      final data = _decodeBase64Image(widget.spot.coverImage);
       if (data.isEmpty) return placeholder;
       return Image.memory(
         data,
@@ -874,7 +940,7 @@ class _BottomSpotCard extends StatelessWidget {
     }
 
     return Image.network(
-      spot.coverImage,
+      widget.spot.coverImage,
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) => placeholder,
     );

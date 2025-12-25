@@ -240,6 +240,8 @@ class SearchBox extends StatelessWidget {
     this.onTrailingIconTap,
     this.trailingIconColor,
     this.trailingWidget,
+    this.prefixIcon,
+    this.borderRadius,
   });
 
   final String hintText;
@@ -251,6 +253,8 @@ class SearchBox extends StatelessWidget {
   final VoidCallback? onTrailingIconTap;
   final Color? trailingIconColor;
   final Widget? trailingWidget;
+  final Widget? prefixIcon;
+  final double? borderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -276,11 +280,16 @@ class SearchBox extends StatelessWidget {
       );
     }
 
+    // 计算完全圆角的半径（基于高度）
+    const double height = 48.0;
+    final radius = borderRadius ?? (height / 2);
+
     // 使用 Stack 来分离搜索框主体和 trailing widget 的点击区域
     return Container(
+      height: height,
       decoration: BoxDecoration(
         color: AppTheme.white,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        borderRadius: BorderRadius.circular(radius),
         border: Border.all(
           color: AppTheme.black,
           width: AppTheme.borderMedium,
@@ -296,32 +305,42 @@ class SearchBox extends StatelessWidget {
             onTap: readOnly ? onTap : null,
             child: AbsorbPointer(
               absorbing: readOnly,
-              child: TextField(
-                controller: controller,
-                onChanged: onChanged,
-                onTap: readOnly ? null : onTap,
-                readOnly: readOnly,
-                style: AppTheme.bodyMedium(context),
-                decoration: InputDecoration(
-                  hintText: hintText,
-                  hintStyle: AppTheme.bodySmall(context).copyWith(
-                    color: AppTheme.mediumGray,
+              child: Row(
+                children: [
+                  // 前缀图标 - 垂直居中
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16),
+                    child: prefixIcon ?? const Icon(
+                      Icons.search,
+                      color: AppTheme.mediumGray,
+                      size: 20,
+                    ),
                   ),
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: AppTheme.mediumGray,
-                    size: 20,
+                  const SizedBox(width: 8),
+                  // 输入框
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      onChanged: onChanged,
+                      onTap: readOnly ? null : onTap,
+                      readOnly: readOnly,
+                      style: AppTheme.bodyMedium(context),
+                      decoration: InputDecoration(
+                        hintText: hintText,
+                        hintStyle: AppTheme.bodySmall(context).copyWith(
+                          color: AppTheme.mediumGray,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                        ),
+                        isDense: true,
+                      ),
+                    ),
                   ),
-                  // 为 suffixIcon 预留空间但不显示
-                  suffixIcon: suffixWidget != null 
-                      ? const SizedBox(width: 80) 
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                ),
+                  // 为 suffixIcon 预留空间
+                  if (suffixWidget != null) const SizedBox(width: 80),
+                ],
               ),
             ),
           ),

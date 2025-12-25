@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show File;
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' as picker;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
 import 'package:wanderlog/features/map/data/supabase_place_repository.dart';
@@ -690,11 +693,10 @@ class _MapPageState extends ConsumerState<MapPage> {
                 bottom: 32,
                 left: 0,
                 right: 0,
-                child: SizedBox(
-                  height: 250, // 增加高度避免 overflow
-                  child: PageView.builder(
+                height: 280, // 固定高度
+                child: PageView.builder(
                     controller: _cardPageController,
-                    clipBehavior: Clip.none, // 允许卡片超出边界
+                    clipBehavior: Clip.none,
                     onPageChanged: (index) {
                       if (index >= carouselSpots.length) {
                         return;
@@ -715,14 +717,19 @@ class _MapPageState extends ConsumerState<MapPage> {
                       return AnimatedScale(
                         scale: isCenter ? 1.0 : 0.92,
                         duration: const Duration(milliseconds: 250),
-                        child: _BottomSpotCard(
-                          spot: spot,
-                          onTap: () => _showSpotDetail(spot),
+                        child: Center(
+                          child: SizedBox(
+                            width: 210,
+                            height: 280, // 宽:高 = 3:4
+                            child: _BottomSpotCard(
+                              spot: spot,
+                              onTap: () => _showSpotDetail(spot),
+                            ),
+                          ),
                         ),
                       );
                     },
                   ),
-                ),
               ),
             if (_isLoadingSpots && !hasAnySpots)
               Positioned.fill(
@@ -1689,7 +1696,7 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
 }
 
 /// 底部地点卡片组件 - 全图+渐变覆盖样式（无收藏按钮，收藏在详情页）
-class _BottomSpotCard extends StatelessWidget {
+class _BottomSpotCard extends StatefulWidget {
   const _BottomSpotCard({
     required this.spot,
     required this.onTap,
@@ -1697,6 +1704,61 @@ class _BottomSpotCard extends StatelessWidget {
 
   final Spot spot;
   final VoidCallback onTap;
+
+  @override
+  State<_BottomSpotCard> createState() => _BottomSpotCardState();
+}
+
+class _BottomSpotCardState extends State<_BottomSpotCard> {
+  Color _dominantColor = Colors.black;
+
+  @override
+  void initState() {
+    super.initState();
+    _extractDominantColor();
+  }
+
+  @override
+  void didUpdateWidget(_BottomSpotCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.spot.coverImage != widget.spot.coverImage) {
+      _extractDominantColor();
+    }
+  }
+
+  Future<void> _extractDominantColor() async {
+    if (widget.spot.coverImage.isEmpty) return;
+    
+    try {
+      final ImageProvider imageProvider;
+      if (widget.spot.coverImage.startsWith('data:')) {
+        final base64Data = widget.spot.coverImage.split(',').last;
+        final bytes = base64Decode(base64Data);
+        imageProvider = MemoryImage(Uint8List.fromList(bytes));
+      } else {
+        imageProvider = NetworkImage(widget.spot.coverImage);
+      }
+      
+      final paletteGenerator = await PaletteGenerator.fromImageProvider(
+        imageProvider,
+        size: const ui.Size(100, 100),
+        maximumColorCount: 5,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _dominantColor = paletteGenerator.dominantColor?.color ??
+              paletteGenerator.darkMutedColor?.color ??
+              paletteGenerator.darkVibrantColor?.color ??
+              Colors.black;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _dominantColor = Colors.black);
+      }
+    }
+  }
 
   /// Build image widget that handles both data URIs and network URLs
   Widget _buildCover() {
@@ -1709,15 +1771,15 @@ class _BottomSpotCard extends StatelessWidget {
       ),
     );
 
-    if (spot.coverImage.isEmpty) return placeholder;
+    if (widget.spot.coverImage.isEmpty) return placeholder;
 
     // Handle data URI format (data:image/jpeg;base64,...)
-    if (spot.coverImage.startsWith('data:')) {
+    if (widget.spot.coverImage.startsWith('data:')) {
       try {
-        final base64Data = spot.coverImage.split(',').last;
+        final base64Data = widget.spot.coverImage.split(',').last;
         final bytes = base64Decode(base64Data);
         return Image.memory(
-          bytes,
+          Uint8List.fromList(bytes),
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => placeholder,
         );
@@ -1727,7 +1789,7 @@ class _BottomSpotCard extends StatelessWidget {
     }
     // Handle regular network URLs
     return Image.network(
-      spot.coverImage,
+      widget.spot.coverImage,
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) => placeholder,
     );
@@ -1735,7 +1797,7 @@ class _BottomSpotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
@@ -1751,16 +1813,25 @@ class _BottomSpotCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               _buildCover(),
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black26,
-                      Colors.black87,
-                    ],
+              // 底部渐变蒙层 - 使用提取的主色
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  height: 140, // 卡片高度 280 的一半
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        _dominantColor.withOpacity(0.3),
+                        _dominantColor.withOpacity(0.6),
+                        _dominantColor.withOpacity(0.85),
+                      ],
+                      stops: const [0.0, 0.3, 0.6, 1.0],
+                    ),
                   ),
                 ),
               ),
@@ -1771,7 +1842,7 @@ class _BottomSpotCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      spot.name,
+                      widget.spot.name,
                       style: AppTheme.bodyLarge(context).copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -1782,8 +1853,8 @@ class _BottomSpotCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     _RatingRow(
-                      rating: spot.rating,
-                      ratingCount: spot.ratingCount,
+                      rating: widget.spot.rating,
+                      ratingCount: widget.spot.ratingCount,
                     ),
                   ],
                 ),

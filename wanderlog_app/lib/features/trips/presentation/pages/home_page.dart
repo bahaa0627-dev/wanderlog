@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
@@ -129,50 +130,29 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: Column(
                   children: [
                     if (!_isMapFullscreen) ...[
-                      _Header(ref: ref),
-                      const SizedBox(height: 16),
+                      _Header(
+                        ref: ref,
+                        onAskAITap: () {
+                          Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (context) => const AIChatPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12), // 描述距离搜索框 12px
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: SearchBox(
                           key: _searchBoxKey,
-                          hintText: 'Where you wanna go?',
+                          hintText: 'Find city and spot here',
+                          prefixIcon: const Text('🌏', style: TextStyle(fontSize: 18)),
+                          borderRadius: 24, // 大圆角
                           readOnly: true,
                           onTap: _toggleSearchMenu,
-                          trailingWidget: GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).push<void>(
-                                MaterialPageRoute<void>(
-                                  builder: (context) => const AIChatPage(),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppTheme.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppTheme.black, width: 1.5),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text('✨', style: TextStyle(fontSize: 14)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'ask AI',
-                                    style: AppTheme.labelSmall(context).copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppTheme.black,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24), // 搜索框距离下面 24px
                       _TabSwitcher(
                         selectedTab: _selectedTab,
                         onTabChanged: (index) {
@@ -187,7 +167,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           });
                         },
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12), // collection 切换底部距离合集推荐标题 12px
                     ],
                     Expanded(
                       child: IndexedStack(
@@ -212,7 +192,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   ),
                                 )
                               : ListView.builder(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding: const EdgeInsets.symmetric(vertical: 0),
                                   itemCount: _recommendations.length,
                                   itemBuilder: (context, recommendationIndex) {
                                     final recommendation = _recommendations[recommendationIndex];
@@ -222,26 +202,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     final displayItems = items.take(5).toList();
                                     
                                     return Padding(
-                                      padding: const EdgeInsets.only(bottom: 24),
+                                      padding: EdgeInsets.only(
+                                        bottom: recommendationIndex < _recommendations.length - 1 ? 16 : 0, // 合集推荐之间间距 16px
+                                      ),
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          // 推荐标题行
+                                          // 推荐标题行 - 不要黄色竖杠
                                           Padding(
                                             padding: const EdgeInsets.symmetric(horizontal: 16),
                                             child: Row(
                                               children: [
-                                                // 黄色竖杠
-                                                Container(
-                                                  width: 4,
-                                                  height: 20,
-                                                  decoration: BoxDecoration(
-                                                    color: AppTheme.primaryYellow,
-                                                    borderRadius: BorderRadius.circular(2),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                // 推荐名称
+                                                // 推荐名称 - 直接展示
                                                 Expanded(
                                                   child: Text(
                                                     recommendationName,
@@ -272,10 +244,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                                               ],
                                             ),
                                           ),
-                                          const SizedBox(height: 12),
+                                          const SizedBox(height: 8), // 合集标题距离合集卡片 8px
                                           // 横向滚动的合集列表
                                           SizedBox(
-                                            height: 224,
+                                            height: 250, // 卡片高度 250px
                                             child: ListView.builder(
                                               scrollDirection: Axis.horizontal,
                                               clipBehavior: Clip.none,
@@ -356,8 +328,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     right: itemIndex < displayItems.length - 1 ? 12 : 0,
                                                   ),
                                                   child: SizedBox(
-                                                    width: 168,
-                                                    height: 224,
+                                                    width: 167,
+                                                    height: 250,
                                                     child: _TripCard(
                               city: city,
                               count: count,
@@ -436,36 +408,76 @@ class _HomePageState extends ConsumerState<HomePage> {
 }
 
 class _Header extends ConsumerWidget {
-  const _Header({required this.ref});
+  const _Header({required this.ref, this.onAskAITap});
   final WidgetRef ref;
+  final VoidCallback? onAskAITap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center, // 垂直居中
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'VAGO',
-              style: AppTheme.displayLarge(context).copyWith(
-                fontSize: 36,
-                height: 1.0,
-              ),
+          // 左侧标题和描述
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Text(
+                  'VAGO',
+                  style: AppTheme.displayLarge(context).copyWith(
+                    fontSize: 48,
+                    height: 1.0,
+                    fontWeight: FontWeight.w700, // 改细一档
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Your own personalized flaneur guide',
+                  style: AppTheme.bodySmall(context).copyWith(
+                    fontSize: 16,
+                    color: AppTheme.mediumGray,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Your own personalized flaneur guide',
-              style: AppTheme.bodySmall(context).copyWith(
-                color: AppTheme.mediumGray,
-              ),
+          // 右上角 ask AI 按钮 - emoji 和文字分开，下划线只在文字下方
+          GestureDetector(
+            onTap: onAskAITap,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text('✨', style: TextStyle(fontSize: 14)),
+                const SizedBox(width: 4),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'ask AI',
+                      style: AppTheme.labelSmall(context).copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.black,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    // 黄色下划线 - 只在文字下方
+                    Container(
+                      height: 2,
+                      width: 38, // 仅文字宽度
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryYellow,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -488,13 +500,13 @@ class _TabSwitcher extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            _UnderlineTab(
+            _PillTab(
               label: 'Collection',
               active: selectedTab == 0,
               onTap: () => onTabChanged(0),
             ),
-            const SizedBox(width: 24),
-            _UnderlineTab(
+            const SizedBox(width: 8), // 选中时间距 8px
+            _PillTab(
               label: 'Map',
               active: selectedTab == 1,
               onTap: () => onTabChanged(1),
@@ -504,8 +516,8 @@ class _TabSwitcher extends StatelessWidget {
       );
 }
 
-class _UnderlineTab extends StatelessWidget {
-  const _UnderlineTab({
+class _PillTab extends StatelessWidget {
+  const _PillTab({
     required this.label,
     required this.active,
     required this.onTap,
@@ -517,40 +529,29 @@ class _UnderlineTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = AppTheme.black;
-    final inactiveColor = AppTheme.black.withValues(alpha: 0.35);
-
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: AppTheme.headlineMedium(context).copyWith(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: active ? activeColor : inactiveColor,
-            ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? AppTheme.primaryYellow : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: AppTheme.bodyMedium(context).copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: active ? AppTheme.black : AppTheme.mediumGray,
           ),
-          const SizedBox(height: 4),
-          Container(
-            height: 3,
-            width: 32,
-            decoration: BoxDecoration(
-              color: active ? AppTheme.primaryYellow : Colors.transparent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _TripCard extends StatelessWidget {
+class _TripCard extends StatefulWidget {
   const _TripCard({
     required this.city,
     required this.count,
@@ -568,13 +569,73 @@ class _TripCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_TripCard> createState() => _TripCardState();
+}
+
+class _TripCardState extends State<_TripCard> {
+  Color _dominantColor = Colors.black;
+  bool _colorExtracted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _extractDominantColor();
+  }
+
+  @override
+  void didUpdateWidget(_TripCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _extractDominantColor();
+    }
+  }
+
+  Future<void> _extractDominantColor() async {
+    if (widget.imageUrl.isEmpty) return;
+    
+    try {
+      final ImageProvider imageProvider;
+      if (widget.imageUrl.startsWith('data:image/')) {
+        imageProvider = MemoryImage(_decodeBase64Image(widget.imageUrl));
+      } else {
+        imageProvider = NetworkImage(widget.imageUrl);
+      }
+      
+      final paletteGenerator = await PaletteGenerator.fromImageProvider(
+        imageProvider,
+        size: const Size(100, 100), // 使用小尺寸提高性能
+        maximumColorCount: 5,
+      );
+      
+      if (mounted) {
+        setState(() {
+          // 优先使用主色，如果没有则使用暗色调或默认黑色
+          _dominantColor = paletteGenerator.dominantColor?.color ??
+              paletteGenerator.darkMutedColor?.color ??
+              paletteGenerator.darkVibrantColor?.color ??
+              Colors.black;
+          _colorExtracted = true;
+        });
+      }
+    } catch (e) {
+      // 取色失败时使用默认黑色
+      if (mounted) {
+        setState(() {
+          _dominantColor = Colors.black;
+          _colorExtracted = true;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     const double cardRadius = AppTheme.radiusLarge;
     const double innerRadius = cardRadius - AppTheme.borderThick;
 
     return RepaintBoundary(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(cardRadius),
@@ -591,8 +652,8 @@ class _TripCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 // 背景图片 - 支持 DataURL (base64) 和网络图片
-                if (imageUrl.startsWith('data:image/')) Image.memory(
-                        _decodeBase64Image(imageUrl),
+                if (widget.imageUrl.startsWith('data:image/')) Image.memory(
+                        _decodeBase64Image(widget.imageUrl),
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
                         filterQuality: FilterQuality.low,
@@ -606,7 +667,7 @@ class _TripCard extends StatelessWidget {
                           ),
                         ),
                       ) else Image.network(
-                        imageUrl,
+                        widget.imageUrl,
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
                         filterQuality: FilterQuality.low,
@@ -621,22 +682,24 @@ class _TripCard extends StatelessWidget {
                         ),
                       ),
 
-                // 底部黑色渐变蒙层
+                // 底部渐变蒙层 - 使用提取的主色
                 Positioned(
                   left: 0,
                   right: 0,
                   bottom: 0,
                   child: Container(
-                    height: 150,
+                    height: 125, // 卡片高度 250 的一半
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.7),
-                          Colors.black.withOpacity(0.9),
+                          _dominantColor.withOpacity(0.3),
+                          _dominantColor.withOpacity(0.6),
+                          _dominantColor.withOpacity(0.85),
                         ],
+                        stops: const [0.0, 0.3, 0.6, 1.0],
                       ),
                     ),
                   ),
@@ -651,68 +714,101 @@ class _TripCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 顶部标签 - 右侧对齐
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          // 地点数量 - 64% 白色背景，黑色文字，在左侧
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.white.withOpacity(0.64),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  count.toString(),
-                                  style: AppTheme.labelSmall(context).copyWith(
-                                    fontSize: 10,
-                                    color: AppTheme.black,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                const Icon(
-                                  Icons.location_on,
-                                  size: 12,
-                                  color: AppTheme.black,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // 城市名称 - 白色背景，黑色文字，在右侧
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.white,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              city.toLowerCase(),
+                      // 顶部标签 - 右侧对齐，使用 LayoutBuilder 检测空间
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          // 计算城市名称需要的宽度
+                          final cityTextPainter = TextPainter(
+                            text: TextSpan(
+                              text: widget.city,
                               style: AppTheme.labelSmall(context).copyWith(
-                                fontSize: 10,
-                                color: AppTheme.black,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                        ],
+                            maxLines: 1,
+                            textDirection: TextDirection.ltr,
+                          )..layout();
+                          
+                          // 城市标签宽度 = 文字宽度 + padding (12 * 2)
+                          final cityTagWidth = cityTextPainter.width + 24;
+                          // 数量标签宽度约 42 (padding 10*2 + 数字约10 + icon 12)
+                          final countTagWidth = 42.0;
+                          final spacing = 8.0;
+                          final totalNeeded = cityTagWidth + countTagWidth + spacing;
+                          
+                          // 如果空间不够，只显示城市名
+                          final showCount = totalNeeded <= constraints.maxWidth;
+                          
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (showCount) ...[
+                                // 地点数量 - 64% 白色背景，黑色文字
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.white.withOpacity(0.64),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        widget.count.toString(),
+                                        style: AppTheme.labelSmall(context).copyWith(
+                                          fontSize: 12,
+                                          color: AppTheme.black,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 2),
+                                      const Icon(
+                                        Icons.location_on,
+                                        size: 12,
+                                        color: AppTheme.black,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              // 城市名称 - 白色背景，黑色文字
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    widget.city,
+                                    style: AppTheme.labelSmall(context).copyWith(
+                                      fontSize: 12,
+                                      color: AppTheme.black,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
 
                       const Spacer(),
 
                       // 底部标题和标签
                       Text(
-                        title,
+                        widget.title,
                         style: AppTheme.headlineMedium(context).copyWith(
                           fontSize: 16,
                           color: AppTheme.white,
@@ -730,13 +826,13 @@ class _TripCard extends StatelessWidget {
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: tags
+                        children: widget.tags
                             .take(2)
                             .map(
                               (tag) => Text(
                                 tag,
                                 style: AppTheme.labelSmall(context).copyWith(
-                                  fontSize: 10,
+                                  fontSize: 12,
                                   color: AppTheme.white.withOpacity(0.9),
                                 ),
                               ),

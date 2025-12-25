@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
@@ -638,11 +639,11 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   }
 
   Widget _buildBottomCards() {
-    const double cardHeight = 270; // 更矮的高度
-    const double cardWidth = cardHeight * 3 / 4; // 竖向 4:3 封面比例
+    const double cardWidth = 210;
+    const double cardHeight = 280; // 宽:高 = 3:4
 
     return SizedBox(
-      height: cardHeight + 20,
+      height: cardHeight, // 固定高度
       child: PageView.builder(
         controller: _cardPageController,
         padEnds: true,
@@ -783,7 +784,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
 }
 
 /// 底部地点卡片组件
-class _BottomSpotCard extends StatelessWidget {
+class _BottomSpotCard extends StatefulWidget {
   const _BottomSpotCard({
     required this.spot,
     required this.onTap,
@@ -792,49 +793,63 @@ class _BottomSpotCard extends StatelessWidget {
   final map_page.Spot spot;
   final VoidCallback onTap;
 
-  List<String> _effectiveTags() {
-    if (spot.tags.isNotEmpty) return spot.tags;
-    if (spot.category.trim().isNotEmpty) return [spot.category];
-    return const [];
+  @override
+  State<_BottomSpotCard> createState() => _BottomSpotCardState();
+}
+
+class _BottomSpotCardState extends State<_BottomSpotCard> {
+  Color _dominantColor = Colors.black;
+
+  @override
+  void initState() {
+    super.initState();
+    _extractDominantColor();
   }
 
-  IconData _getCategoryIconForSpot(String category) {
-    switch (category.toLowerCase()) {
-      case 'restaurant':
-        return Icons.restaurant;
-      case 'museum':
-        return Icons.museum;
-      case 'park':
-        return Icons.park;
-      case 'landmark':
-        return Icons.location_city;
-      case 'cafe':
-        return Icons.local_cafe;
-      case 'bakery':
-        return Icons.bakery_dining;
-      case 'shopping':
-        return Icons.shopping_bag;
-      case 'church':
-        return Icons.church;
-      case 'theater':
-        return Icons.theater_comedy;
-      case 'waterfront':
-        return Icons.water;
-      case 'library':
-        return Icons.local_library;
-      case 'architecture':
-        return Icons.apartment;
-      case 'neighborhood':
-        return Icons.location_on;
-      case 'bar':
-        return Icons.local_bar;
-      case 'zoo':
-        return Icons.pets;
-      case 'aquarium':
-        return Icons.water;
-      default:
-        return Icons.place;
+  @override
+  void didUpdateWidget(_BottomSpotCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.spot.coverImage != widget.spot.coverImage) {
+      _extractDominantColor();
     }
+  }
+
+  Future<void> _extractDominantColor() async {
+    if (widget.spot.coverImage.isEmpty) return;
+    
+    try {
+      final ImageProvider imageProvider;
+      if (widget.spot.coverImage.startsWith('data:image/')) {
+        imageProvider = MemoryImage(_decodeBase64Image(widget.spot.coverImage));
+      } else {
+        imageProvider = NetworkImage(widget.spot.coverImage);
+      }
+      
+      final paletteGenerator = await PaletteGenerator.fromImageProvider(
+        imageProvider,
+        size: const ui.Size(100, 100),
+        maximumColorCount: 5,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _dominantColor = paletteGenerator.dominantColor?.color ??
+              paletteGenerator.darkMutedColor?.color ??
+              paletteGenerator.darkVibrantColor?.color ??
+              Colors.black;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _dominantColor = Colors.black);
+      }
+    }
+  }
+
+  List<String> _effectiveTags() {
+    if (widget.spot.tags.isNotEmpty) return widget.spot.tags;
+    if (widget.spot.category.trim().isNotEmpty) return [widget.spot.category];
+    return const [];
   }
 
   // 解码 base64 图片
@@ -849,7 +864,7 @@ class _BottomSpotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
@@ -865,16 +880,25 @@ class _BottomSpotCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 _buildCover(),
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black54,
-                        Colors.black38,
-                        Colors.black87,
-                      ],
+                // 底部渐变蒙层 - 使用提取的主色，高度约为卡片一半
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: 140, // 卡片高度 280 的一半
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          _dominantColor.withOpacity(0.3),
+                          _dominantColor.withOpacity(0.6),
+                          _dominantColor.withOpacity(0.85),
+                        ],
+                        stops: const [0.0, 0.3, 0.6, 1.0],
+                      ),
                     ),
                   ),
                 ),
@@ -885,7 +909,7 @@ class _BottomSpotCard extends StatelessWidget {
                     children: [
                       const Spacer(),
                       Text(
-                        spot.name,
+                        widget.spot.name,
                         style: AppTheme.bodyLarge(context).copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -896,8 +920,8 @@ class _BottomSpotCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       _RatingRow(
-                        rating: spot.rating,
-                        ratingCount: spot.ratingCount,
+                        rating: widget.spot.rating,
+                        ratingCount: widget.spot.ratingCount,
                       ),
                     ],
                   ),
@@ -918,15 +942,12 @@ class _BottomSpotCard extends StatelessWidget {
       ),
     );
 
-    if (spot.coverImage.isEmpty) {
-      print('🖼️ [${spot.name}] coverImage 为空');
+    if (widget.spot.coverImage.isEmpty) {
       return placeholder;
     }
     
-    print('🖼️ [${spot.name}] coverImage: ${spot.coverImage.substring(0, spot.coverImage.length > 80 ? 80 : spot.coverImage.length)}...');
-    
-    if (spot.coverImage.startsWith('data:image/')) {
-      final data = _decodeBase64Image(spot.coverImage);
+    if (widget.spot.coverImage.startsWith('data:image/')) {
+      final data = _decodeBase64Image(widget.spot.coverImage);
       if (data.isEmpty) return placeholder;
       return Image.memory(
         data,
@@ -935,9 +956,8 @@ class _BottomSpotCard extends StatelessWidget {
       );
     }
 
-    // 直接使用原始 URL
     return CachedNetworkImage(
-      imageUrl: spot.coverImage,
+      imageUrl: widget.spot.coverImage,
       fit: BoxFit.cover,
       placeholder: (_, __) => const Center(
         child: SizedBox(
@@ -946,11 +966,7 @@ class _BottomSpotCard extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
       ),
-      errorWidget: (_, url, error) {
-        print('❌ [${spot.name}] 图片加载失败: $error');
-        print('❌ URL: $url');
-        return placeholder;
-      },
+      errorWidget: (_, url, error) => placeholder,
     );
   }
 }

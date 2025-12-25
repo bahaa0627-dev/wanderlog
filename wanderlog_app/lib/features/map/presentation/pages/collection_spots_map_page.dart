@@ -15,7 +15,6 @@ import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as 
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
-import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
@@ -237,22 +236,14 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   }
 
   Future<void> _loadCitySpots() async {
-    // 如果有collectionId，优先从缓存获取数据
+    // 如果有collectionId，始终从 API 获取最新数据
     if (widget.collectionId != null) {
       try {
         print('🔍 开始加载合集数据，collectionId: ${widget.collectionId}');
         
-        // 优先从缓存获取
-        final cacheState = ref.read(collectionsCacheProvider);
-        Map<String, dynamic>? collection = cacheState.collectionsById[widget.collectionId];
-        
-        if (collection != null) {
-          print('⚡ 从缓存获取合集数据');
-        } else {
-          print('📡 缓存未命中，从 API 获取');
-          final repo = ref.read(collectionRepositoryProvider);
-          collection = await repo.getCollection(widget.collectionId!);
-        }
+        // 始终从 API 获取最新数据，确保编辑后能看到更新
+        final repo = ref.read(collectionRepositoryProvider);
+        final collection = await repo.getCollection(widget.collectionId!);
         
         print('📦 获取到合集数据: ${collection.keys}');
         

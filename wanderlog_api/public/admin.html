@@ -756,6 +756,7 @@
         .draggable-recommendation {
             cursor: move;
             user-select: none;
+            transition: background-color 0.2s;
         }
 
         .draggable-recommendation:hover {
@@ -764,6 +765,7 @@
 
         .draggable-recommendation.dragging {
             opacity: 0.5;
+            background: #e3f2fd;
         }
 
         .section-title {
@@ -799,9 +801,60 @@
             font-weight: 600;
             color: #444;
         }
+
+        /* Toast 提示样式 */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: toastIn 0.3s ease-out;
+            max-width: 300px;
+        }
+
+        .toast.success {
+            background: #28a745;
+        }
+
+        .toast.error {
+            background: #dc3545;
+        }
+
+        .toast.info {
+            background: #17a2b8;
+        }
+
+        .toast.fadeOut {
+            animation: toastOut 0.3s ease-in forwards;
+        }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(100%); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(100%); }
+        }
     </style>
 </head>
 <body>
+    <!-- Toast 容器 -->
+    <div id="toastContainer" class="toast-container"></div>
+    
     <div class="container">
         <div class="header">
             <div class="top-actions">
@@ -1240,6 +1293,24 @@
         let editingRecommendationId = null;
         let peopleListData = [];
         let worksListData = [];
+        
+        // Toast 提示函数
+        function showToast(message, type = 'info', duration = 2500) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('fadeOut');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+        
+        // 用于跟踪原始数据，检测是否有修改
+        let originalCollectionData = null;
+        let originalRecommendationData = null;
 
         // --- 管理员登录 ---
         function setLoginStatus(text, success = false) {
@@ -2113,6 +2184,15 @@
         function startCreateCollection() {
             clearCollectionForm();
             editingCollectionId = null; // 确保是创建模式
+            // 初始化原始数据为空（创建模式）
+            originalCollectionData = {
+                name: '',
+                description: '',
+                coverImage: '',
+                spotIds: '',
+                people: '[]',
+                works: '[]'
+            };
             document.getElementById('collectionFormHeader').style.display = 'block';
             document.getElementById('editModeTitle').textContent = '创建合集';
             document.getElementById('saveCollectionBtn').textContent = '保存';
@@ -2201,20 +2281,9 @@
                 }
                 
                 if (result.success) {
-                    alert(isEdit ? '保存成功' : '创建成功（默认下线状态，需手动上线）');
-                    
-                    if (isEdit) {
-                        // 编辑模式：刷新数据并保持在编辑状态
-                        await refreshCollections();
-                        const updatedCol = collections.find(c => c.id === editingCollectionId);
-                        if (updatedCol) {
-                            startEditCollection(editingCollectionId);
-                        }
-                    } else {
-                        // 创建模式：回到合集库列表页
-                        await refreshCollections();
-                        backToCollectionsList();
-                    }
+                    // 直接刷新数据并返回列表，不弹窗
+                    await refreshCollections();
+                    backToCollectionsList();
                 } else {
                     let errorMsg = '创建失败';
                     if (result.message) {
@@ -2234,20 +2303,68 @@
 
         async function publishCollection(id) {
             const token = getTokenOrAlert();
-            await fetch(`${COLLECTION_API_BASE}/${id}/publish`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            await refreshCollections();
+            if (!token) return;
+            
+            // 乐观更新：先更新本地状态
+            const col = collections.find(c => c.id === id);
+            if (col) {
+                col.isPublished = true;
+                renderCollections(); // 立即更新UI
+            }
+            
+            try {
+                const res = await fetch(`${COLLECTION_API_BASE}/${id}/publish`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await res.json();
+                
+                if (res.ok && result.success) {
+                    showToast('上线成功', 'success');
+                } else {
+                    throw new Error(result.message || '上线失败');
+                }
+            } catch (e) {
+                // 失败时回滚状态
+                if (col) {
+                    col.isPublished = false;
+                    renderCollections();
+                }
+                showToast('上线失败: ' + e.message, 'error');
+            }
         }
 
         async function unpublishCollection(id) {
             const token = getTokenOrAlert();
-            await fetch(`${COLLECTION_API_BASE}/${id}/unpublish`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            await refreshCollections();
+            if (!token) return;
+            
+            // 乐观更新：先更新本地状态
+            const col = collections.find(c => c.id === id);
+            if (col) {
+                col.isPublished = false;
+                renderCollections(); // 立即更新UI
+            }
+            
+            try {
+                const res = await fetch(`${COLLECTION_API_BASE}/${id}/unpublish`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await res.json();
+                
+                if (res.ok && result.success) {
+                    showToast('下线成功', 'success');
+                } else {
+                    throw new Error(result.message || '下线失败');
+                }
+            } catch (e) {
+                // 失败时回滚状态
+                if (col) {
+                    col.isPublished = true;
+                    renderCollections();
+                }
+                showToast('下线失败: ' + e.message, 'error');
+            }
         }
 
         function startEditCollection(id) {
@@ -2298,19 +2415,31 @@
             }));
             renderSelectedSpots();
 
-            // 设置人物
-            try {
-                peopleListData = col.people ? JSON.parse(col.people) : [];
-            } catch { 
-                peopleListData = []; 
+            // 设置人物 - API 返回的已经是数组，不需要 JSON.parse
+            if (Array.isArray(col.people)) {
+                peopleListData = col.people;
+            } else if (typeof col.people === 'string' && col.people) {
+                try {
+                    peopleListData = JSON.parse(col.people);
+                } catch { 
+                    peopleListData = []; 
+                }
+            } else {
+                peopleListData = [];
             }
             renderPeople();
             
-            // 设置作品
-            try {
-                worksListData = col.works ? JSON.parse(col.works) : [];
-            } catch { 
-                worksListData = []; 
+            // 设置作品 - API 返回的已经是数组，不需要 JSON.parse
+            if (Array.isArray(col.works)) {
+                worksListData = col.works;
+            } else if (typeof col.works === 'string' && col.works) {
+                try {
+                    worksListData = JSON.parse(col.works);
+                } catch { 
+                    worksListData = []; 
+                }
+            } else {
+                worksListData = [];
             }
             renderWorks();
             
@@ -2318,19 +2447,58 @@
             showSection('collections');
             hideCollectionsList();
             
+            // 保存原始数据用于检测是否有修改
+            originalCollectionData = {
+                name: col.name || '',
+                description: col.description || '',
+                coverImage: col.coverImage || '',
+                spotIds: selectedSpots.map(s => s.id).sort().join(','),
+                people: JSON.stringify(peopleListData),
+                works: JSON.stringify(worksListData)
+            };
+            
             // 滚动到表单顶部
             document.getElementById('collectionsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         
         function cancelEdit() {
-            if (confirm('确定要取消吗？未保存的修改将丢失。')) {
+            // 检测是否有修改
+            const hasChanges = checkCollectionFormChanges();
+            if (hasChanges) {
+                if (confirm('确定要取消吗？未保存的修改将丢失。')) {
+                    backToCollectionsList();
+                }
+            } else {
+                // 没有修改，直接返回
                 backToCollectionsList();
             }
+        }
+        
+        // 检测合集表单是否有修改
+        function checkCollectionFormChanges() {
+            if (!originalCollectionData) return false;
+            
+            const currentData = {
+                name: document.getElementById('colName').value || '',
+                description: document.getElementById('colDesc').value || '',
+                coverImage: document.getElementById('colCover').value || '',
+                spotIds: selectedSpots.map(s => s.id).sort().join(','),
+                people: JSON.stringify(peopleListData),
+                works: JSON.stringify(worksListData)
+            };
+            
+            return currentData.name !== originalCollectionData.name ||
+                   currentData.description !== originalCollectionData.description ||
+                   currentData.coverImage !== originalCollectionData.coverImage ||
+                   currentData.spotIds !== originalCollectionData.spotIds ||
+                   currentData.people !== originalCollectionData.people ||
+                   currentData.works !== originalCollectionData.works;
         }
         
         // 返回合集库列表页，恢复 tab 栏和列表显示
         function backToCollectionsList() {
             editingCollectionId = null;
+            originalCollectionData = null; // 清空原始数据
             // 恢复顶部 tab 栏和创建按钮
             document.querySelector('.nav-tabs').style.display = 'flex';
             document.querySelector('.collections-actions').style.display = 'flex';
@@ -2743,17 +2911,13 @@
         // 打开编辑地点弹窗
         async function openEditPlaceModal(id) {
             try {
-                // 从缓存或API获取地点数据
-                let place = allPlaces.find(p => p.id === id);
-                if (!place) {
-                    const res = await fetch(`${API_BASE}/${id}`);
-                    const result = await res.json();
-                    if (result.success) {
-                        place = result.data;
-                    } else {
-                        throw new Error('获取地点数据失败');
-                    }
+                // 始终从 API 获取最新数据，确保编辑时显示最新内容
+                const res = await fetch(`${API_BASE}/${id}`);
+                const result = await res.json();
+                if (!result.success || !result.data) {
+                    throw new Error('获取地点数据失败');
                 }
+                const place = result.data;
                 
                 currentEditPlace = place;
                 document.getElementById('placeModalTitle').textContent = '编辑地点';
@@ -3119,15 +3283,15 @@
                 const result = await res.json();
                 
                 if (res.ok && result.success) {
-                    alert(isEdit ? '更新成功' : '创建成功');
                     closePlaceModal();
                     // 创建新地点后回到第一页，确保能看到新创建的
                     if (!isEdit) {
                         currentPage = 1;
                     }
                     await loadPlaces();
-                    // 更新缓存
-                    loadAllPlaces().then(() => updateFilterOptions());
+                    // 更新缓存并等待完成
+                    await loadAllPlaces();
+                    updateFilterOptions();
                 } else {
                     throw new Error(result.message || result.error || '操作失败');
                 }
@@ -3260,6 +3424,11 @@
         function startCreateRecommendation() {
             clearRecommendationForm();
             editingRecommendationId = null;
+            // 初始化原始数据为空（创建模式）
+            originalRecommendationData = {
+                name: '',
+                collectionIds: ''
+            };
             document.getElementById('recommendationFormHeader').style.display = 'block';
             document.getElementById('editRecommendationModeTitle').textContent = '创建合集推荐';
             document.getElementById('saveRecommendationBtn').textContent = '保存';
@@ -3302,6 +3471,12 @@
                     description: item.collection.description,
                 }));
                 renderSelectedCollections();
+                
+                // 保存原始数据用于检测是否有修改
+                originalRecommendationData = {
+                    name: rec.name || '',
+                    collectionIds: selectedCollections.map(c => c.id).sort().join(',')
+                };
             } catch (e) {
                 console.error('加载推荐详情失败:', e);
                 alert('加载推荐详情失败: ' + e.message);
@@ -3310,12 +3485,35 @@
 
         // 取消编辑
         function cancelEditRecommendation() {
-            backToRecommendationsList();
+            // 检测是否有修改
+            const hasChanges = checkRecommendationFormChanges();
+            if (hasChanges) {
+                if (confirm('确定要取消吗？未保存的修改将丢失。')) {
+                    backToRecommendationsList();
+                }
+            } else {
+                // 没有修改，直接返回
+                backToRecommendationsList();
+            }
+        }
+        
+        // 检测推荐表单是否有修改
+        function checkRecommendationFormChanges() {
+            if (!originalRecommendationData) return false;
+            
+            const currentData = {
+                name: document.getElementById('recommendationName').value || '',
+                collectionIds: selectedCollections.map(c => c.id).sort().join(',')
+            };
+            
+            return currentData.name !== originalRecommendationData.name ||
+                   currentData.collectionIds !== originalRecommendationData.collectionIds;
         }
 
         // 返回合集推荐列表
         function backToRecommendationsList() {
             editingRecommendationId = null;
+            originalRecommendationData = null; // 清空原始数据
             clearRecommendationForm();
             showRecommendationsList(true);
             document.querySelector('.nav-tabs').style.display = 'flex';
@@ -3376,7 +3574,7 @@
                     throw new Error(result.message || '保存失败');
                 }
 
-                alert(isEdit ? '更新成功' : '创建成功');
+                // 直接刷新数据并返回列表，不弹窗
                 await loadRecommendations();
                 backToRecommendationsList();
             } catch (e) {
@@ -3565,62 +3763,81 @@
 
         // 设置推荐列表的拖拽排序
         function setupRecommendationsDragAndDrop() {
-            const rows = document.querySelectorAll('.draggable-recommendation');
+            const tbody = document.getElementById('recommendationsBody');
             let draggedElement = null;
+            let draggedIndex = -1;
 
-            rows.forEach(row => {
-                row.addEventListener('dragstart', (e) => {
-                    draggedElement = row;
-                    row.style.opacity = '0.5';
-                    e.dataTransfer.effectAllowed = 'move';
-                });
+            tbody.addEventListener('dragstart', (e) => {
+                const row = e.target.closest('.draggable-recommendation');
+                if (!row) return;
+                draggedElement = row;
+                draggedIndex = Array.from(tbody.children).indexOf(row);
+                row.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
 
-                row.addEventListener('dragend', () => {
-                    row.style.opacity = '1';
-                    draggedElement = null;
-                });
+            tbody.addEventListener('dragend', (e) => {
+                const row = e.target.closest('.draggable-recommendation');
+                if (row) {
+                    row.classList.remove('dragging');
+                }
+                draggedElement = null;
+                draggedIndex = -1;
+            });
 
-                row.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    if (draggedElement && draggedElement !== row) {
-                        const allRows = Array.from(rows);
-                        const draggedIndex = allRows.indexOf(draggedElement);
-                        const targetIndex = allRows.indexOf(row);
-                        if (draggedIndex !== targetIndex) {
-                            const tbody = document.getElementById('recommendationsBody');
-                            if (draggedIndex < targetIndex) {
-                                tbody.insertBefore(draggedElement, row.nextSibling);
-                            } else {
-                                tbody.insertBefore(draggedElement, row);
-                            }
-                            // 更新数组顺序
-                            const [moved] = recommendations.splice(draggedIndex, 1);
-                            recommendations.splice(targetIndex, 0, moved);
-                            
-                            // 立即保存新顺序（在重新渲染之前）
-                            const recommendationIds = recommendations.map(r => r.id);
-                            console.log('拖拽后新的顺序:', recommendationIds.map((id, idx) => {
-                                const rec = recommendations.find(r => r.id === id);
-                                return { id, name: rec?.name, order: idx };
-                            }));
-                            
-                            saveRecommendationsOrderWithIds(recommendationIds).then(() => {
-                                // 保存成功后再重新渲染以更新索引
-                                console.log('保存成功，重新渲染');
-                                renderRecommendations();
-                            }).catch((error) => {
-                                // 保存失败时显示错误并重新加载列表以恢复原始顺序
-                                console.error('保存失败:', error);
-                                alert('保存顺序失败: ' + (error.message || '未知错误'));
-                                loadRecommendations();
-                            });
-                        }
-                    }
-                });
+            tbody.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                
+                if (!draggedElement) return;
+                
+                const row = e.target.closest('.draggable-recommendation');
+                if (!row || row === draggedElement) return;
+                
+                const rows = Array.from(tbody.children);
+                const targetIndex = rows.indexOf(row);
+                const currentDraggedIndex = rows.indexOf(draggedElement);
+                
+                if (currentDraggedIndex === targetIndex) return;
+                
+                // 移动 DOM 元素
+                if (currentDraggedIndex < targetIndex) {
+                    tbody.insertBefore(draggedElement, row.nextSibling);
+                } else {
+                    tbody.insertBefore(draggedElement, row);
+                }
+            });
 
-                row.addEventListener('drop', (e) => {
-                    e.preventDefault();
+            tbody.addEventListener('drop', (e) => {
+                e.preventDefault();
+                
+                if (!draggedElement) return;
+                
+                // 获取新的顺序
+                const rows = Array.from(tbody.children);
+                const newOrder = rows.map(row => row.getAttribute('data-id'));
+                
+                console.log('拖拽完成，新顺序:', newOrder);
+                
+                // 更新 recommendations 数组顺序
+                const reorderedRecommendations = newOrder.map(id => 
+                    recommendations.find(r => r.id === id)
+                ).filter(Boolean);
+                
+                recommendations.length = 0;
+                recommendations.push(...reorderedRecommendations);
+                
+                // 保存新顺序到服务器
+                saveRecommendationsOrderWithIds(newOrder).then(() => {
+                    console.log('保存成功');
+                    showToast('顺序已保存', 'success');
+                    // 重新渲染以更新索引显示
+                    renderRecommendations();
+                }).catch((error) => {
+                    console.error('保存失败:', error);
+                    showToast('保存顺序失败: ' + (error.message || '未知错误'), 'error');
+                    // 重新加载以恢复原始顺序
+                    loadRecommendations();
                 });
             });
         }

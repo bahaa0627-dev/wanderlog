@@ -137,3 +137,59 @@ model CollectionRecommendationItem {
   @@index([recommendationId, sortOrder])
   @@map("collection_recommendation_items")
 }
+
+// 用户行程
+model Trip {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  name        String
+  city        String?
+  description String?
+  coverImage  String?   @map("cover_image")
+  startDate   DateTime? @map("start_date")
+  endDate     DateTime? @map("end_date")
+  status      String    @default("PLANNING")
+  isPublic    Boolean   @default(false) @map("is_public")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @map("updated_at")
+
+  tripSpots TripSpot[]
+
+  @@index([userId])
+  @@map("trips")
+}
+
+// 行程中的地点
+model TripSpot {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tripId     String    @map("trip_id") @db.Uuid
+  trip       Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  placeId    String    @map("place_id") @db.Uuid
+  dayNumber  Int?      @map("day_number")
+  sortOrder  Int       @default(0) @map("sort_order")
+  notes      String?
+  visitDate  DateTime? @map("visit_date")
+  status     String    @default("WISHLIST") // WISHLIST, TODAYS_PLAN, VISITED
+  priority   String    @default("OPTIONAL") // MUST_GO, OPTIONAL
+  userRating Int?      @map("user_rating")
+  userNotes  String?   @map("user_notes")
+  userPhotos Json?     @default("[]") @map("user_photos")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @map("updated_at")
+
+  @@unique([tripId, placeId])
+  @@index([tripId, dayNumber])
+  @@map("trip_spots")
+}
+
+// 应用配置
+model AppConfig {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique
+  value       Json
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  @@map("app_configs")
+}

@@ -317,8 +317,9 @@ class CollectionController {
         return res.status(400).json({ success: false, message: `Invalid spotIds: ${missing.join(',')}` });
       }
 
-      const normalizedPeople = people ? JSON.stringify(people) : undefined;
-      const normalizedWorks = works ? JSON.stringify(works) : undefined;
+      // 处理 people 和 works - 即使为空数组也要保存
+      const normalizedPeople = people !== undefined ? JSON.stringify(people) : null;
+      const normalizedWorks = works !== undefined ? JSON.stringify(works) : null;
 
       // Use transaction to ensure atomicity
       const updated = await prisma.$transaction(async (tx) => {

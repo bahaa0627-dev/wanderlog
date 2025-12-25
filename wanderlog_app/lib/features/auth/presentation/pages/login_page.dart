@@ -93,8 +93,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         return;
       }
 
+      // 在 google_sign_in 7.x 中，authentication 是一个 getter
       final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
+      
+      // 获取 accessToken 需要通过 authorizationClient
+      final authorization = await googleUser.authorizationClient.authorizationForScopes(
+        const ['email', 'profile'],
+      );
+      final accessToken = authorization?.accessToken;
 
       if (idToken == null) {
         setState(() {
@@ -106,24 +113,48 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         return;
       }
 
-      // 使用 ID Token 调用后端 API
-      await ref.read(authProvider.notifier).loginWithGoogle(idToken);
+      // 使用 Supabase Auth 进行 Google 登录
+      final response = await SupabaseConfig.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
+      );
 
-      // 登录成功
+      if (response.user != null) {
+        // 刷新 authProvider 状态
+        await ref.read(authProvider.notifier).refreshAuthState();
+        
+        // 登录成功
+        setState(() {
+          _isGoogleLoading = false;
+        });
+        
+        if (mounted) {
+          CustomToast.showSuccess(context, 'Google login successful');
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          if (mounted) {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop(true);
+            } else {
+              context.go('/home');
+            }
+          }
+        }
+      } else {
+        setState(() {
+          _isGoogleLoading = false;
+        });
+        if (mounted) {
+          CustomToast.showError(context, 'Google login failed');
+        }
+      }
+    } on AuthException catch (e) {
       setState(() {
         _isGoogleLoading = false;
       });
-      
+      debugPrint('Google Login Auth Error: $e');
       if (mounted) {
-        CustomToast.showSuccess(context, 'Google login successful');
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-        if (mounted) {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop(true);
-          } else {
-            context.go('/home');
-          }
-        }
+        CustomToast.showError(context, 'Google login failed: ${e.message}');
       }
     } catch (e) {
       // 捕获所有异常，防止应用崩溃

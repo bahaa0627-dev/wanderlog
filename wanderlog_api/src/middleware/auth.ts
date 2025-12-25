@@ -20,6 +20,8 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
+  console.log('[Auth] Token present:', !!token);
+
   if (!token) {
     return res.status(401).json({ message: 'Authentication token required' });
   }
@@ -27,6 +29,9 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
   try {
     // First try to verify with Supabase
     const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    console.log('[Auth] Supabase user:', user?.id, user?.email);
+    console.log('[Auth] Supabase error:', error?.message);
     
     if (!error && user) {
       // Supabase token is valid
@@ -36,6 +41,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
         // Include legacy_id from user_metadata if available (for backward compatibility)
         legacyId: user.user_metadata?.legacy_id,
       };
+      console.log('[Auth] User authenticated via Supabase:', req.user.id);
       return next();
     }
 
@@ -43,9 +49,11 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     const secret = process.env.JWT_SECRET || 'default_secret';
     jwt.verify(token, secret, (err: any, decoded: any) => {
       if (err) {
+        console.log('[Auth] JWT verification failed:', err.message);
         return res.status(403).json({ message: 'Invalid or expired token' });
       }
       req.user = decoded;
+      console.log('[Auth] User authenticated via JWT:', req.user.id);
       return next();
     });
   } catch (error) {

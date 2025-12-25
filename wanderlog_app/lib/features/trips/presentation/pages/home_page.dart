@@ -355,6 +355,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     if (result != null && mounted) {
                                                       if ((result is Map && result['shouldRefresh'] == true) ||
                                                           (result is bool && result)) {
+                                                        // 同时刷新缓存，确保下次进入详情页时获取最新数据
+                                                        ref.read(collectionsCacheProvider.notifier).refresh();
                                                         _loadRecommendations();
                                                       }
                                                     }

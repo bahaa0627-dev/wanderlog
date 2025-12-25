@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
@@ -244,6 +245,8 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
 
             // 如果返回 true，表示需要刷新列表（取消或重新收藏了）
             if (needRefresh && mounted) {
+              // 同时刷新缓存，确保下次进入详情页时获取最新数据
+              ref.read(collectionsCacheProvider.notifier).refresh();
               _loadCollections();
             }
           },

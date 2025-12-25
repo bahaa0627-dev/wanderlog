@@ -91,16 +91,22 @@ export const getTripById = async (req: Request, res: Response) => {
     const { id } = req.params;
     const userId = req.user.id;
 
+    logger.info(`getTripById: tripId=${id}, userId=${userId}`);
+
     // Get trip
     const trips = await prismaAny.$queryRaw`
       SELECT * FROM trips WHERE id = ${id}::uuid LIMIT 1
     `;
+
+    logger.info(`getTripById: found ${trips?.length || 0} trips`);
 
     if (!trips || trips.length === 0) {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
     const trip = trips[0];
+    logger.info(`getTripById: trip.user_id=${trip.user_id}, userId=${userId}`);
+    
     if (trip.user_id !== userId) {
       return res.status(403).json({ message: 'Not authorized' });
     }
@@ -111,6 +117,8 @@ export const getTripById = async (req: Request, res: Response) => {
       WHERE trip_id = ${id}::uuid
       ORDER BY created_at DESC
     `;
+    
+    logger.info(`getTripById: found ${tripSpots?.length || 0} trip_spots`);
 
     // Load places for each trip spot (use raw SQL to avoid DateTime issues)
     const normalizedTripSpots = await Promise.all(

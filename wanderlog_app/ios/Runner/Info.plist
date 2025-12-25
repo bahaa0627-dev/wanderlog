@@ -57,6 +57,14 @@
 	<string>We need your location to find great places near you.</string>
 	<key>MBXAccessToken</key>
 	<string>pk.eyJ1IjoibW9yaWJhaGFhIiwiYSI6ImNtaXp0MzM5NjAxamgzZXB0dnI3MTl4dzIifQ.sHnu6-JSac2YGSwEhkK8ag</string>
+	<!-- App Transport Security - 允许本地 HTTP 连接 -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<!-- Google Sign-In 配置 -->
 	<key>GIDClientID</key>
 	<string>791447495976-rd5pp61vq7t61hp8sn2i3421kq7b18qi.apps.googleusercontent.com</string>

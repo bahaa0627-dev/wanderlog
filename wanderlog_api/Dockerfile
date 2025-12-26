@@ -4,14 +4,14 @@ FROM node:20-alpine
 WORKDIR /app
 
 # 破坏缓存用的时间戳（每次修改这行）
-RUN echo "CACHE_BUST=2025-12-26-v3"
+RUN echo "CACHE_BUST=2025-12-26-v4"
 
 # 复制 package 文件和 prisma schema
 COPY package*.json ./
 COPY prisma ./prisma/
 
 # 安装所有依赖
-RUN npm ci
+RUN npm install
 
 # 生成 Prisma Client
 RUN npx prisma generate

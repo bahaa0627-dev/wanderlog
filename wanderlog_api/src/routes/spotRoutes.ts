@@ -9,7 +9,9 @@ import {
   getOrCreatePlaceFromPublicPlace,
   getOrCreatePlacesFromPublicPlaces,
   parseQueryIntent,
-  getAIRecommendations
+  getAIRecommendations,
+  searchGoogleMaps,
+  getGooglePlaceDetails
 } from '../controllers/placeController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -27,6 +29,10 @@ router.post('/from-public-places', getOrCreatePlacesFromPublicPlaces);
 // AI routes (通过后端代理调用 Gemini API)
 router.post('/ai/parse-intent', parseQueryIntent);
 router.post('/ai/recommend', getAIRecommendations);
+
+// Google Maps proxy routes (通过后端代理调用 Google Maps API)
+router.post('/google/search', searchGoogleMaps);
+router.post('/google/details', getGooglePlaceDetails);
 
 // Protected routes (导入和同步需要登录)
 router.post('/import', authenticateToken, importSpots);

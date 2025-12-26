@@ -208,6 +208,52 @@ class AIRecognitionService {
   /// 附近搜索的最大距离（10km）
   static const double _nearbyMaxDistanceKm = 10.0;
 
+  /// 获取后端 API 基础 URL
+  String get _apiBaseUrl => dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000/api';
+
+  /// 通过后端代理搜索 Google Maps
+  Future<Map<String, dynamic>?> _searchGoogleMapsViaBackend(String query, {String? city, CancelToken? cancelToken}) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_apiBaseUrl/places/google/search',
+        data: {
+          'query': query,
+          'city': city,
+        },
+        cancelToken: cancelToken,
+      );
+
+      if (response.data?['success'] == true) {
+        return response.data?['place'] as Map<String, dynamic>?;
+      }
+      return null;
+    } catch (e) {
+      print('❌ Backend Google Maps search failed: $e');
+      return null;
+    }
+  }
+
+  /// 通过后端代理获取 Google Maps 地点详情
+  Future<Map<String, dynamic>?> _getGooglePlaceDetailsViaBackend(String placeId, {CancelToken? cancelToken}) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_apiBaseUrl/places/google/details',
+        data: {
+          'placeId': placeId,
+        },
+        cancelToken: cancelToken,
+      );
+
+      if (response.data?['success'] == true) {
+        return response.data?['place'] as Map<String, dynamic>?;
+      }
+      return null;
+    } catch (e) {
+      print('❌ Backend Google Maps details failed: $e');
+      return null;
+    }
+  }
+
   /// 通过文本查询搜索地点
   /// 1. 用 AI 解析用户意图
   /// 2. 处理"我附近"场景（引导开启定位）
@@ -1068,32 +1114,50 @@ Important rules:
         final city = location['city'] as String? ?? '';
         final country = location['country'] as String? ?? '';
         
-        // 使用Google Places API搜索地点
+        // 使用Google Places API搜索地点（优先通过后端代理）
         final searchQuery = '$name ${city.isNotEmpty ? city : ''}';
         print('🔍 Searching Google Maps for: $searchQuery');
         
-        final response = await _dio.get<Map<String, dynamic>>(
-          'https://maps.googleapis.com/maps/api/place/findplacefromtext/json',
-          queryParameters: {
-            'input': searchQuery,
-            'inputtype': 'textquery',
-            'fields': 'place_id,name,formatted_address,geometry,rating,user_ratings_total,photos,types',
-            'key': apiKey,
-          },
-          cancelToken: cancelToken,
-        );
+        // 先尝试通过后端代理调用
+        Map<String, dynamic>? searchResult = await _searchGoogleMapsViaBackend(searchQuery, city: city, cancelToken: cancelToken);
+        
+        String? placeId;
+        if (searchResult != null && searchResult['googlePlaceId'] != null) {
+          placeId = searchResult['googlePlaceId'] as String;
+          print('📍 Found place via backend: $placeId');
+        } else {
+          // 后端代理失败，尝试直接调用（可能在国外或有代理）
+          try {
+            final response = await _dio.get<Map<String, dynamic>>(
+              'https://maps.googleapis.com/maps/api/place/findplacefromtext/json',
+              queryParameters: {
+                'input': searchQuery,
+                'inputtype': 'textquery',
+                'fields': 'place_id,name,formatted_address,geometry,rating,user_ratings_total,photos,types',
+                'key': apiKey,
+              },
+              cancelToken: cancelToken,
+            );
 
-        final candidates = response.data?['candidates'] as List?;
-        if (candidates == null || candidates.isEmpty) {
-          print('⚠️ No candidates found for: $searchQuery');
+            final candidates = response.data?['candidates'] as List?;
+            if (candidates == null || candidates.isEmpty) {
+              print('⚠️ No candidates found for: $searchQuery');
+              continue;
+            }
+
+            final place = candidates.first as Map<String, dynamic>;
+            placeId = place['place_id'] as String;
+            print('📍 Found place via direct API: $placeId');
+          } catch (e) {
+            print('⚠️ Direct Google Maps API failed: $e');
+            continue;
+          }
+        }
+        
+        if (placeId == null) {
+          print('⚠️ No place ID found for: $searchQuery');
           continue;
         }
-
-        final place = candidates.first as Map<String, dynamic>;
-        
-        // 获取地点详情 - 包含更多字段
-        final placeId = place['place_id'] as String;
-        print('📍 Found place: $placeId');
         
         // 再次检查是否已取消
         if (cancelToken?.isCancelled ?? false) {
@@ -1101,17 +1165,39 @@ Important rules:
           break;
         }
         
-        final detailsResponse = await _dio.get<Map<String, dynamic>>(
-          'https://maps.googleapis.com/maps/api/place/details/json',
-          queryParameters: {
-            'place_id': placeId,
-            'fields': 'name,formatted_address,geometry,rating,user_ratings_total,photos,types,editorial_summary,opening_hours,formatted_phone_number,website,price_level',
-            'key': apiKey,
-          },
-          cancelToken: cancelToken,
-        );
-
-        final result = detailsResponse.data?['result'] as Map<String, dynamic>?;
+        // 获取地点详情（优先通过后端代理）
+        Map<String, dynamic>? result;
+        
+        // 如果后端搜索已经返回了完整数据，直接使用
+        if (searchResult != null && searchResult['name'] != null) {
+          result = searchResult;
+          print('📍 Using backend search result for details');
+        } else {
+          // 尝试通过后端获取详情
+          final backendDetails = await _getGooglePlaceDetailsViaBackend(placeId, cancelToken: cancelToken);
+          if (backendDetails != null) {
+            result = backendDetails;
+            print('📍 Got details via backend');
+          } else {
+            // 后端失败，尝试直接调用
+            try {
+              final detailsResponse = await _dio.get<Map<String, dynamic>>(
+                'https://maps.googleapis.com/maps/api/place/details/json',
+                queryParameters: {
+                  'place_id': placeId,
+                  'fields': 'name,formatted_address,geometry,rating,user_ratings_total,photos,types,editorial_summary,opening_hours,formatted_phone_number,website,price_level',
+                  'key': apiKey,
+                },
+                cancelToken: cancelToken,
+              );
+              result = detailsResponse.data?['result'] as Map<String, dynamic>?;
+              print('📍 Got details via direct API');
+            } catch (e) {
+              print('⚠️ Direct Google Maps details API failed: $e');
+            }
+          }
+        }
+        
         if (result == null) {
           print('⚠️ No details found for place: $placeId');
           continue;

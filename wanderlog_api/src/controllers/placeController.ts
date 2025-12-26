@@ -464,3 +464,59 @@ Rules:
     return res.status(500).json({ message: 'Failed to get AI recommendations' });
   }
 };
+
+/**
+ * Google Maps 搜索代理
+ * POST /api/places/google/search
+ * 用于 Flutter 端在中国无法直接访问 Google Maps API 的情况
+ */
+export const searchGoogleMaps = async (req: Request, res: Response) => {
+  try {
+    const { query, city } = req.body;
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ message: 'query is required' });
+    }
+
+    const searchQuery = city ? `${query} ${city}` : query;
+    logger.info(`Google Maps search: ${searchQuery}`);
+
+    const result = await googleMapsService.searchPlace(searchQuery);
+
+    if (!result) {
+      return res.json({ success: true, place: null });
+    }
+
+    return res.json({ success: true, place: result });
+  } catch (error: any) {
+    logger.error('Google Maps search error:', error.message);
+    return res.status(500).json({ message: 'Failed to search Google Maps' });
+  }
+};
+
+/**
+ * Google Maps 地点详情代理
+ * POST /api/places/google/details
+ */
+export const getGooglePlaceDetails = async (req: Request, res: Response) => {
+  try {
+    const { placeId } = req.body;
+
+    if (!placeId || typeof placeId !== 'string') {
+      return res.status(400).json({ message: 'placeId is required' });
+    }
+
+    logger.info(`Google Maps details: ${placeId}`);
+
+    const result = await googleMapsService.getPlaceDetails(placeId);
+
+    if (!result) {
+      return res.json({ success: true, place: null });
+    }
+
+    return res.json({ success: true, place: result });
+  } catch (error: any) {
+    logger.error('Google Maps details error:', error.message);
+    return res.status(500).json({ message: 'Failed to get place details' });
+  }
+};

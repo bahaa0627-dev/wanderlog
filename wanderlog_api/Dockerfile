@@ -17,11 +17,18 @@ RUN ./node_modules/.bin/prisma generate
 # 复制源代码
 COPY . .
 
-# 构建 TypeScript（必须成功）
+# 构建 TypeScript
 RUN npm run build
+
+# 验证构建产物存在
+RUN ls -la dist/ && echo "✅ Build artifacts verified"
 
 # 删除 devDependencies 减小镜像体积
 RUN npm prune --omit=dev
+
+# 重新生成 Prisma Client（因为 prune 可能删除了它）
+RUN npm install @prisma/client
+RUN ./node_modules/.bin/prisma generate
 
 # 暴露端口
 EXPOSE 3000

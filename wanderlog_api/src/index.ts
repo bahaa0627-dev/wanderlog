@@ -3,23 +3,28 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
-import { bootstrap } from 'global-agent';
 
-import { errorHandler } from './middleware/errorHandler';
-import { logger } from './utils/logger';
+console.log('🔄 Starting application...');
+console.log('📍 NODE_ENV:', process.env.NODE_ENV);
+console.log('📍 PORT:', process.env.PORT);
 
 // Load environment variables
 dotenv.config();
 
 // Enable global proxy agent if HTTP_PROXY or HTTPS_PROXY is set
-// This allows all HTTP/HTTPS requests (including google-auth-library) to use the proxy
 const proxyUrl = process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.http_proxy || process.env.https_proxy;
 if (proxyUrl) {
   console.log(`🌐 Using proxy: ${proxyUrl}`);
+  const { bootstrap } = require('global-agent');
   bootstrap();
 } else {
   console.log('ℹ️  No proxy configured');
 }
+
+import { errorHandler } from './middleware/errorHandler';
+import { logger } from './utils/logger';
+
+console.log('✅ Core modules loaded');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -44,18 +49,28 @@ console.log(`📁 Static files path: ${publicPath}`);
 app.use('/admin', express.static(publicPath));
 app.use(express.static(publicPath)); // 也允许根路径访问静态文件
 
-// Health check
+// Health check - 放在最前面
 app.get('/health', (_req, res) => {
+  console.log('🏥 Health check requested');
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+console.log('🔄 Loading routes...');
+
 import authRoutes from './routes/authRoutes';
+console.log('  ✅ authRoutes loaded');
 import spotRoutes from './routes/spotRoutes';
+console.log('  ✅ spotRoutes loaded');
 import tripRoutes from './routes/tripRoutes';
+console.log('  ✅ tripRoutes loaded');
 import destinationRoutes from './routes/destinationRoutes';
+console.log('  ✅ destinationRoutes loaded');
 import collectionRoutes from './routes/collectionRoutes';
+console.log('  ✅ collectionRoutes loaded');
 import publicPlaceRoutes from './routes/publicPlaceRoutes';
+console.log('  ✅ publicPlaceRoutes loaded');
 import collectionRecommendationRoutes from './routes/collectionRecommendationRoutes';
+console.log('  ✅ collectionRecommendationRoutes loaded');
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -76,8 +91,8 @@ app.use(errorHandler);
 
 // Start server
 console.log(`🚀 Starting server on port ${PORT}...`);
-app.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`✅ Server is running on 0.0.0.0:${PORT}`);
   console.log(`🏥 Health check available at /health`);
   logger.info(`Server is running on port ${PORT}`);
 });

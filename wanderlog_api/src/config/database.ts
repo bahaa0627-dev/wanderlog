@@ -14,9 +14,11 @@ import { PrismaClient } from '@prisma/client';
 // Ensure DATABASE_URL is set
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
-  console.error('DATABASE_URL is not set!');
+  console.error('❌ DATABASE_URL is not set!');
   console.error('Env path:', envPath);
   console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('SUPABASE')));
+} else {
+  console.log('✅ DATABASE_URL is configured');
 }
 
 // 使用单例模式确保只创建一个 Prisma 客户端实例
@@ -37,18 +39,15 @@ if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
 
-// 预热连接
-prisma.$connect().then(() => {
-  console.log('✅ Database connection established');
-}).catch((err) => {
-  console.error('❌ Database connection failed:', err.message);
-});
+// 异步预热连接（不阻塞启动）
+setTimeout(() => {
+  prisma.$connect()
+    .then(() => {
+      console.log('✅ Database connection established');
+    })
+    .catch((err) => {
+      console.error('❌ Database connection failed:', err.message);
+    });
+}, 100);
 
 export default prisma;
-
-
-
-
-
-
-

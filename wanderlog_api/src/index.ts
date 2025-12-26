@@ -7,6 +7,8 @@ import path from 'path';
 console.log('🔄 Starting application...');
 console.log('📍 NODE_ENV:', process.env.NODE_ENV);
 console.log('📍 PORT:', process.env.PORT);
+console.log("BOOT: index.ts running");
+console.log("PORT =", process.env.PORT);
 
 // Load environment variables
 dotenv.config();

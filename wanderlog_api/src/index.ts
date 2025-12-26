@@ -1,3 +1,4 @@
+console.log('=== BOOT: dist/index.js started ===');
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';

@@ -8,8 +8,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# 安装依赖
-RUN npm ci --only=production
+# 安装依赖（使用 npm install 而不是 npm ci，因为可能没有 package-lock.json）
+RUN npm install --omit=dev
 
 # 生成 Prisma Client
 RUN npx prisma generate

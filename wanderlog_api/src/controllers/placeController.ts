@@ -279,3 +279,169 @@ export const syncPlaceData = async (_req: Request, res: Response) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
+
+/**
+ * AI 解析用户查询意图
+ * POST /api/places/ai/parse-intent
+ */
+export const parseQueryIntent = async (req: Request, res: Response) => {
+  try {
+    const { query } = req.body;
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ message: 'query is required' });
+    }
+
+    const aiService = (await import('../services/aiService')).default;
+    
+    // 使用 Gemini 解析意图
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (!geminiApiKey) {
+      return res.status(500).json({ message: 'GEMINI_API_KEY not configured' });
+    }
+
+    const axios = (await import('axios')).default;
+    
+    const prompt = `
+Analyze this travel search query and extract the user's intent:
+"${query}"
+
+Return a JSON object with these fields:
+{
+  "city": "city name in English (e.g., Rome, Copenhagen, Tokyo, Chiang Mai)",
+  "country": "country name in English if mentioned",
+  "category": "place category if mentioned (e.g., cafe, restaurant, museum, park, landmark)",
+  "tags": ["relevant tags to search for, including movie names, themes, styles"],
+  "limit": number of places requested (default 5, extract if user says "two", "3", etc.),
+  "wants_popular": true if user wants popular/famous/best places,
+  "wants_random": true if user wants random/interesting/surprising places,
+  "specific_place_name": "exact place name if user is looking for a specific place",
+  "nearby_location": "location name if user wants places NEAR a specific place/landmark/area",
+  "wants_near_me": true if user says "near me", "around me", "我附近", "附近" without specifying a location
+}
+
+Important:
+- ALWAYS translate city names to English (罗马 → Rome, 巴黎 → Paris, 东京 → Tokyo)
+- ALWAYS include the country when you can infer it from the city
+- Return valid JSON only
+`;
+
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+      {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 500,
+        }
+      }
+    );
+
+    const content = response.data.candidates[0].content.parts[0].text;
+    
+    // 解析 JSON
+    let jsonText = content.trim();
+    const jsonStart = jsonText.indexOf('{');
+    const jsonEnd = jsonText.lastIndexOf('}');
+    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+      jsonText = jsonText.substring(jsonStart, jsonEnd + 1);
+    }
+    
+    const intent = JSON.parse(jsonText);
+    return res.json({ success: true, intent });
+  } catch (error: any) {
+    logger.error('Parse Intent error:', error.response?.data || error.message);
+    return res.status(500).json({ message: 'Failed to parse query intent' });
+  }
+};
+
+/**
+ * AI 推荐地点
+ * POST /api/places/ai/recommend
+ */
+export const getAIRecommendations = async (req: Request, res: Response) => {
+  try {
+    const { query, city, country, category, tags, limit = 5 } = req.body;
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ message: 'query is required' });
+    }
+
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (!geminiApiKey) {
+      return res.status(500).json({ message: 'GEMINI_API_KEY not configured' });
+    }
+
+    const axios = (await import('axios')).default;
+    
+    const locationHint = city ? ` in ${city}${country ? ', ' + country : ''}` : '';
+    const categoryHint = category ? ` (${category})` : '';
+    const aiLimit = Math.min(limit, 5);
+
+    const prompt = `
+Based on this query: "${query}"
+
+Recommend exactly ${aiLimit} specific, real, well-known places${locationHint}${categoryHint}.
+
+${city ? `CRITICAL: All places MUST be located in ${city}. Do NOT recommend places from other cities.` : ''}
+
+Return JSON:
+{
+  "locations": [
+    {
+      "name": "Exact place name (use the official name that can be found on Google Maps)",
+      "city": "${city || 'City name'}",
+      "country": "${country || 'Country name'}",
+      "type": "Place type (cafe, restaurant, museum, etc.)",
+      "tags": ["tag1", "tag2"]
+    }
+  ]
+}
+
+Rules:
+- ONLY recommend real, existing places that can be found on Google Maps
+- Use the EXACT official name of the place
+- Maximum ${aiLimit} places
+- Tags MUST be from: Museum, Attractions, Park, Cafe, Bakery, Restaurant, Art, Architecture, Historical, Landmark, Church, Temple, Shopping, Entertainment
+- Maximum 3 tags per place
+`;
+
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+      {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 800,
+        }
+      }
+    );
+
+    const content = response.data.candidates[0].content.parts[0].text;
+    
+    // 解析 JSON
+    let jsonText = content.trim();
+    if (jsonText.includes('```json')) {
+      const start = jsonText.indexOf('```json') + 7;
+      const end = jsonText.lastIndexOf('```');
+      if (end > start) jsonText = jsonText.substring(start, end).trim();
+    } else if (jsonText.includes('```')) {
+      const start = jsonText.indexOf('```') + 3;
+      const end = jsonText.lastIndexOf('```');
+      if (end > start) jsonText = jsonText.substring(start, end).trim();
+    }
+    
+    const jsonStart = jsonText.indexOf('{');
+    const jsonEnd = jsonText.lastIndexOf('}');
+    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+      jsonText = jsonText.substring(jsonStart, jsonEnd + 1);
+    }
+    
+    const parsed = JSON.parse(jsonText);
+    return res.json({ success: true, locations: parsed.locations || [] });
+  } catch (error: any) {
+    logger.error('AI Recommend error:', error.response?.data || error.message);
+    return res.status(500).json({ message: 'Failed to get AI recommendations' });
+  }
+};

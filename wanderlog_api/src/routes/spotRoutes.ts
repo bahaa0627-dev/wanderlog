@@ -7,7 +7,9 @@ import {
   getCityCenterPlaces,
   syncPlaceData,
   getOrCreatePlaceFromPublicPlace,
-  getOrCreatePlacesFromPublicPlaces
+  getOrCreatePlacesFromPublicPlaces,
+  parseQueryIntent,
+  getAIRecommendations
 } from '../controllers/placeController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -21,6 +23,10 @@ router.get('/:id', getPlaceById);
 // PublicPlace to Place conversion (不需要登录，因为只是数据转换)
 router.post('/from-public-place', getOrCreatePlaceFromPublicPlace);
 router.post('/from-public-places', getOrCreatePlacesFromPublicPlaces);
+
+// AI routes (通过后端代理调用 Gemini API)
+router.post('/ai/parse-intent', parseQueryIntent);
+router.post('/ai/recommend', getAIRecommendations);
 
 // Protected routes (导入和同步需要登录)
 router.post('/import', authenticateToken, importSpots);

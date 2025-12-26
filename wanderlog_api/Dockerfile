@@ -19,12 +19,17 @@ COPY . .
 
 # 构建 TypeScript
 RUN npm run build
+RUN grep -n "BOOT: index.ts running" dist/index.js || (echo "❌ BOOT string not found in dist/index.js" && head -n 30 dist/index.js && exit 1)
+
 
 # 验证构建产物存在
 RUN ls -la dist/ && echo "✅ Build artifacts verified"
 
 # 删除 devDependencies 减小镜像体积
 RUN npm prune --omit=dev
+RUN node -e "require('express');require('cors');require('helmet');require('dotenv');console.log('✅ runtime deps ok')"
+
+
 
 # 重新生成 Prisma Client（因为 prune 可能删除了它）
 RUN npm install @prisma/client
@@ -34,4 +39,4 @@ RUN ./node_modules/.bin/prisma generate
 EXPOSE 3000
 
 # 启动命令
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "set -ex; pwd; ls -la; ls -la dist || true; node -v; echo PORT=$PORT; head -n 40 dist/index.js; node dist/index.js"]

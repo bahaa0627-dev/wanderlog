@@ -302,6 +302,15 @@ export const parseQueryIntent = async (req: Request, res: Response) => {
     }
 
     const axios = (await import('axios')).default;
+    const { HttpsProxyAgent } = await import('https-proxy-agent');
+    
+    // 配置代理
+    const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy;
+    const axiosConfig: any = {};
+    if (proxyUrl) {
+      axiosConfig.httpsAgent = new HttpsProxyAgent(proxyUrl);
+      logger.info(`Using proxy: ${proxyUrl}`);
+    }
     
     const prompt = `
 Analyze this travel search query and extract the user's intent:
@@ -335,7 +344,8 @@ Important:
           temperature: 0.2,
           maxOutputTokens: 500,
         }
-      }
+      },
+      axiosConfig
     );
 
     const content = response.data.candidates[0].content.parts[0].text;
@@ -374,6 +384,14 @@ export const getAIRecommendations = async (req: Request, res: Response) => {
     }
 
     const axios = (await import('axios')).default;
+    const { HttpsProxyAgent } = await import('https-proxy-agent');
+    
+    // 配置代理
+    const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy;
+    const axiosConfig: any = {};
+    if (proxyUrl) {
+      axiosConfig.httpsAgent = new HttpsProxyAgent(proxyUrl);
+    }
     
     const locationHint = city ? ` in ${city}${country ? ', ' + country : ''}` : '';
     const categoryHint = category ? ` (${category})` : '';
@@ -415,7 +433,8 @@ Rules:
           temperature: 0.7,
           maxOutputTokens: 800,
         }
-      }
+      },
+      axiosConfig
     );
 
     const content = response.data.candidates[0].content.parts[0].text;

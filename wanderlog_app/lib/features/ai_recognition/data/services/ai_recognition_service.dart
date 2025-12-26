@@ -747,35 +747,23 @@ class AIRecognitionService {
       // 场景3：只有标签（如电影名）
       if (intent.tags.isNotEmpty) {
         for (final tag in intent.tags) {
-          // 先搜索 ai_tags
+          // 用名称模糊搜索（最可靠的方式）
           var response = await client
               .from('places')
               .select()
-              .contains('ai_tags', [tag])
-              .order('rating', ascending: false)
-              .limit(limit);
-          
-          if ((response as List).isNotEmpty) {
-            return List<Map<String, dynamic>>.from(response);
-          }
-          
-          // 再搜索 tags
-          response = await client
-              .from('places')
-              .select()
-              .contains('tags', [tag])
-              .order('rating', ascending: false)
-              .limit(limit);
-          
-          if ((response as List).isNotEmpty) {
-            return List<Map<String, dynamic>>.from(response);
-          }
-          
-          // 最后用名称模糊搜索
-          response = await client
-              .from('places')
-              .select()
               .ilike('name', '%$tag%')
+              .order('rating', ascending: false)
+              .limit(limit);
+          
+          if ((response as List).isNotEmpty) {
+            return List<Map<String, dynamic>>.from(response);
+          }
+          
+          // 搜索描述
+          response = await client
+              .from('places')
+              .select()
+              .ilike('description', '%$tag%')
               .order('rating', ascending: false)
               .limit(limit);
           

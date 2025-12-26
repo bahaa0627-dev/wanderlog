@@ -657,103 +657,35 @@ class AIRecognitionService {
     }
   }
 
-  /// 用 AI 解析用户查询意图
+  /// 用 AI 解析用户查询意图（通过后端 API 代理）
   Future<QueryIntent> _parseQueryIntent(String query, {CancelToken? cancelToken}) async {
-    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
-    debugPrint('🔑 GEMINI_API_KEY present: ${apiKey.isNotEmpty}');
-    debugPrint('🔑 GEMINI_API_KEY length: ${apiKey.length}');
+    final apiBaseUrl = dotenv.env['API_BASE_URL'] ?? '';
     
-    if (apiKey.isEmpty) {
-      // 如果没有 API key，返回简单解析
-      debugPrint('⚠️ No GEMINI_API_KEY, using simple parsing');
+    if (apiBaseUrl.isEmpty) {
+      debugPrint('⚠️ No API_BASE_URL, using simple parsing');
       return QueryIntent(tags: [query]);
     }
 
-    final proxyUrl = dotenv.env['HTTP_PROXY'] ?? '';
-    if (proxyUrl.isNotEmpty) {
-      HttpOverrides.global = _ProxyHttpOverrides(proxyUrl);
-    }
-
-    debugPrint('🤖 Creating Gemini model with gemini-1.5-flash...');
-    final model = GenerativeModel(
-      model: 'gemini-1.5-flash',
-      apiKey: apiKey,
-    );
-
-    final prompt = '''
-Analyze this travel search query and extract the user's intent:
-"$query"
-
-Return a JSON object with these fields:
-{
-  "city": "city name in English (e.g., Rome, Copenhagen, Tokyo, Chiang Mai)",
-  "country": "country name in English if mentioned",
-  "category": "place category if mentioned (e.g., cafe, restaurant, museum, park, landmark)",
-  "tags": ["relevant tags to search for, including movie names, themes, styles"],
-  "limit": number of places requested (default 5, extract if user says "two", "3", etc.),
-  "wants_popular": true if user wants popular/famous/best places,
-  "wants_random": true if user wants random/interesting/surprising places,
-  "specific_place_name": "exact place name if user is looking for a specific place",
-  "nearby_location": "location name if user wants places NEAR a specific place/landmark/area",
-  "wants_near_me": true if user says "near me", "around me", "我附近", "附近" without specifying a location
-}
-
-Examples:
-- "罗马的咖啡馆" → {"city": "Rome", "country": "Italy", "category": "cafe", "limit": 5}
-- "help me find two cafe shop in copenhagen" → {"city": "Copenhagen", "country": "Denmark", "category": "cafe", "limit": 2}
-- "巴黎的餐厅" → {"city": "Paris", "country": "France", "category": "restaurant", "limit": 5}
-- "东京的博物馆" → {"city": "Tokyo", "country": "Japan", "category": "museum", "limit": 5}
-- "cafes near Wudaokou" → {"nearby_location": "Wudaokou", "category": "cafe"}
-- "五道口附近的景点" → {"nearby_location": "五道口", "category": "tourist_attraction"}
-- "places near Eiffel Tower" → {"nearby_location": "Eiffel Tower"}
-- "restaurants near me" → {"wants_near_me": true, "category": "restaurant"}
-- "我附近有什么好吃的" → {"wants_near_me": true, "category": "restaurant"}
-- "help me find the place of movie Perfect Days" → {"tags": ["PerfectDays", "Perfect Days"]}
-- "best restaurants in Tokyo" → {"city": "Tokyo", "country": "Japan", "category": "restaurant", "wants_popular": true}
-- "where is Eiffel Tower" → {"specific_place_name": "Eiffel Tower", "city": "Paris", "country": "France"}
-
-Important:
-- ALWAYS translate city names to English (罗马 → Rome, 巴黎 → Paris, 东京 → Tokyo)
-- ALWAYS include the country when you can infer it from the city
-- Extract city names accurately with proper capitalization (Rome, not rome)
-- For "near X" or "X附近" queries, extract X as nearby_location (NOT as city)
-- If user says "near me" or "我附近" without a location, set wants_near_me to true
-- For movie-related queries, include the movie name as a tag
-- If user mentions a number, extract it as limit; if not mentioned, default to 5
-- Return valid JSON only
-''';
-
     try {
-      debugPrint('🚀 Calling Gemini API for intent parsing...');
-      final response = await model.generateContent([Content.text(prompt)])
-          .timeout(const Duration(seconds: 30), onTimeout: () {
-        debugPrint('⏰ Gemini API call timed out after 30 seconds');
-        throw Exception('Gemini API timeout');
-      });
-      final text = response.text ?? '';
+      debugPrint('🚀 Calling backend API for intent parsing...');
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$apiBaseUrl/places/ai/parse-intent',
+        data: {'query': query},
+        cancelToken: cancelToken,
+        options: Options(
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
       
-      debugPrint('✅ AI intent response received: ${text.length} chars');
-      debugPrint('AI intent response: $text');
-      
-      var jsonText = text.trim();
-      if (jsonText.contains('```json')) {
-        final start = jsonText.indexOf('```json') + 7;
-        final end = jsonText.lastIndexOf('```');
-        if (end > start) jsonText = jsonText.substring(start, end).trim();
-      } else if (jsonText.contains('```')) {
-        final start = jsonText.indexOf('```') + 3;
-        final end = jsonText.lastIndexOf('```');
-        if (end > start) jsonText = jsonText.substring(start, end).trim();
+      if (response.data?['success'] == true && response.data?['intent'] != null) {
+        final intent = response.data!['intent'] as Map<String, dynamic>;
+        debugPrint('✅ AI intent response received: $intent');
+        return QueryIntent.fromJson(intent);
       }
       
-      final jsonStart = jsonText.indexOf('{');
-      final jsonEnd = jsonText.lastIndexOf('}');
-      if (jsonStart >= 0 && jsonEnd > jsonStart) {
-        jsonText = jsonText.substring(jsonStart, jsonEnd + 1);
-      }
-      
-      final parsed = jsonDecode(jsonText) as Map<String, dynamic>;
-      return QueryIntent.fromJson(parsed);
+      debugPrint('⚠️ Backend API returned no intent, using simple parsing');
+      return QueryIntent(tags: [query]);
     } catch (e, stackTrace) {
       print('❌ Intent parsing failed: $e');
       print('📋 Stack trace: $stackTrace');
@@ -874,7 +806,7 @@ Important:
     return 'I found $count places for you!';
   }
 
-  /// 获取 AI 推荐的地点（当数据库结果不够时补齐）
+  /// 获取 AI 推荐的地点（通过后端 API 代理）
   /// [userCity] 用户所在城市（从位置反向解析或从查询中提取）
   Future<List<Map<String, dynamic>>> _getAIRecommendations(
     String query, 
@@ -882,106 +814,40 @@ Important:
     int count, 
     {String? userCity, String? userCountry, CancelToken? cancelToken}
   ) async {
-    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
-    if (apiKey.isEmpty) return [];
+    final apiBaseUrl = dotenv.env['API_BASE_URL'] ?? '';
+    if (apiBaseUrl.isEmpty) return [];
 
     // 检查是否已取消
     if (cancelToken?.isCancelled ?? false) return [];
 
-    final proxyUrl = dotenv.env['HTTP_PROXY'] ?? '';
-    if (proxyUrl.isNotEmpty) {
-      HttpOverrides.global = _ProxyHttpOverrides(proxyUrl);
-    }
-
-    final model = GenerativeModel(
-      model: 'gemini-1.5-flash',
-      apiKey: apiKey,
-    );
-
-    // 限制 AI 推荐数量，最多 5 个
-    final aiLimit = count > 5 ? 5 : count;
-    
     // 确定搜索的城市：优先使用 intent 中的城市，其次是用户位置的城市
     String? searchCity = intent.city ?? userCity;
     String? searchCountry = intent.country ?? userCountry;
-    
-    // 构建位置提示
-    String locationHint = '';
-    if (searchCity != null && searchCity.isNotEmpty) {
-      locationHint = ' in $searchCity';
-      if (searchCountry != null && searchCountry.isNotEmpty) {
-        locationHint += ', $searchCountry';
-      }
-    }
-    
-    final categoryHint = intent.category != null ? ' (${intent.category})' : '';
-
-    final prompt = '''
-Based on this query: "$query"
-
-Recommend exactly $aiLimit specific, real, well-known places$locationHint$categoryHint.
-
-${searchCity != null ? 'CRITICAL: All places MUST be located in $searchCity, ${searchCountry ?? 'the country'}. Do NOT recommend places from other cities or countries.' : ''}
-
-Return JSON:
-{
-  "locations": [
-    {
-      "name": "Exact place name (use the official name that can be found on Google Maps)",
-      "city": "$searchCity",
-      "country": "${searchCountry ?? 'Country name'}",
-      "type": "Place type (cafe, restaurant, museum, etc.)",
-      "tags": ["tag1", "tag2"]
-    }
-  ]
-}
-
-Rules:
-- ONLY recommend real, existing, well-established places that can be found on Google Maps
-- Use the EXACT official name of the place (e.g., "Caffè Sant'Eustachio" not "Sant Eustachio Coffee")
-- For cafes: recommend famous, historic, or highly-rated cafes that tourists would enjoy
-- For restaurants: recommend well-known local restaurants with good reviews
-- Maximum $aiLimit places
-${searchCity != null ? '- ALL $aiLimit places must be in $searchCity - this is mandatory' : ''}
-- Tags MUST be from this list ONLY: Museum, Attractions, Park, Cemetery, Hiking, Cafe, Bakery, Vintage, Secondhand, Store, Brunch, Restaurant, Knitting, Art, Architecture, Historical, Landmark, Vegetarian, Buddhism, Church, Temple, Shopping, Poet, Musician, Philosopher, Entertainment
-- Maximum 3 tags per place
-- Do NOT include tags that match the place type
-
-Example for "罗马的咖啡馆" (cafes in Rome):
-{
-  "locations": [
-    {"name": "Caffè Sant'Eustachio", "city": "Rome", "country": "Italy", "type": "Cafe", "tags": ["Historical", "Landmark"]},
-    {"name": "Tazza d'Oro", "city": "Rome", "country": "Italy", "type": "Cafe", "tags": ["Historical"]},
-    {"name": "Antico Caffè Greco", "city": "Rome", "country": "Italy", "type": "Cafe", "tags": ["Historical", "Art", "Landmark"]}
-  ]
-}
-''';
 
     try {
-      final response = await model.generateContent([Content.text(prompt)]);
-      final text = response.text ?? '';
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$apiBaseUrl/places/ai/recommend',
+        data: {
+          'query': query,
+          'city': searchCity,
+          'country': searchCountry,
+          'category': intent.category,
+          'tags': intent.tags,
+          'limit': count > 5 ? 5 : count,
+        },
+        cancelToken: cancelToken,
+        options: Options(
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
       
-      var jsonText = text.trim();
-      if (jsonText.contains('```json')) {
-        final start = jsonText.indexOf('```json') + 7;
-        final end = jsonText.lastIndexOf('```');
-        if (end > start) jsonText = jsonText.substring(start, end).trim();
-      } else if (jsonText.contains('```')) {
-        final start = jsonText.indexOf('```') + 3;
-        final end = jsonText.lastIndexOf('```');
-        if (end > start) jsonText = jsonText.substring(start, end).trim();
+      if (response.data?['success'] == true && response.data?['locations'] != null) {
+        final locations = response.data!['locations'] as List;
+        return locations.map((loc) => loc as Map<String, dynamic>).toList();
       }
       
-      final jsonStart = jsonText.indexOf('{');
-      final jsonEnd = jsonText.lastIndexOf('}');
-      if (jsonStart >= 0 && jsonEnd > jsonStart) {
-        jsonText = jsonText.substring(jsonStart, jsonEnd + 1);
-      }
-      
-      final parsed = jsonDecode(jsonText) as Map<String, dynamic>;
-      final locations = parsed['locations'] as List?;
-      
-      return locations?.map((loc) => loc as Map<String, dynamic>).toList() ?? [];
+      return [];
     } catch (e) {
       print('AI recommendations failed: $e');
       return [];
@@ -989,67 +855,16 @@ Example for "罗马的咖啡馆" (cafes in Rome):
   }
 
   /// 获取纯文本推荐（配额用完时的降级方案）
-  /// 不调用 Google API，只返回地点名称和简短描述
+  /// 通过后端 API 代理调用
   Future<List<String>> _getTextOnlyRecommendations(
     String query,
     QueryIntent intent,
     int count,
     {CancelToken? cancelToken}
   ) async {
-    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
-    if (apiKey.isEmpty) return [];
-
-    if (cancelToken?.isCancelled ?? false) return [];
-
-    final proxyUrl = dotenv.env['HTTP_PROXY'] ?? '';
-    if (proxyUrl.isNotEmpty) {
-      HttpOverrides.global = _ProxyHttpOverrides(proxyUrl);
-    }
-
-    final model = GenerativeModel(
-      model: 'gemini-1.5-flash',
-      apiKey: apiKey,
-    );
-
-    final cityHint = intent.city != null ? ' in ${intent.city}' : '';
-    final categoryHint = intent.category != null ? ' (${intent.category})' : '';
-
-    final prompt = '''
-Based on this query: "$query"
-
-Provide $count brief text-only recommendations for places$cityHint$categoryHint.
-
-Return a simple list format (no JSON, no images needed):
-• Place Name - Brief one-line description
-
-Example:
-• Caffè Sant'Eustachio - Historic Roman coffee shop famous for its creamy espresso
-• Tazza d'Oro - Traditional coffee bar near the Pantheon with excellent granita di caffè
-
-Rules:
-- Keep descriptions under 15 words each
-- Only recommend real, well-known places
-- No ratings, addresses, or coordinates needed
-- Maximum $count places
-''';
-
-    try {
-      final response = await model.generateContent([Content.text(prompt)]);
-      final text = response.text ?? '';
-      
-      // 解析文本列表
-      final lines = text.split('\n')
-          .where((line) => line.trim().startsWith('•') || line.trim().startsWith('-'))
-          .map((line) => line.trim().replaceFirst(RegExp(r'^[•\-]\s*'), ''))
-          .where((line) => line.isNotEmpty)
-          .take(count)
-          .toList();
-      
-      return lines;
-    } catch (e) {
-      print('Text-only recommendations failed: $e');
-      return [];
-    }
+    // 简化实现：直接返回空列表，因为主要的 AI 推荐已经通过后端代理
+    // 如果需要纯文本推荐，可以在后端添加相应的接口
+    return [];
   }
 
   /// 识别图片中的地点

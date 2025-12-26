@@ -1,4 +1,5 @@
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
+import 'package:wanderlog/core/supabase/services/quota_service.dart';
 
 /// AI识别结果模型
 class AIRecognitionResult {
@@ -7,6 +8,9 @@ class AIRecognitionResult {
     required this.spots,
     required this.imageUrls,
     this.needsLocationPermission = false,
+    this.quotaExceeded = false,
+    this.quotaStatus,
+    this.textFallback,
   }); // 上传的图片URL列表
 
   factory AIRecognitionResult.fromJson(Map<String, dynamic> json) => AIRecognitionResult(
@@ -18,12 +22,17 @@ class AIRecognitionResult {
       imageUrls:
           (json['imageUrls'] as List?)?.map((e) => e as String).toList() ?? [],
       needsLocationPermission: json['needsLocationPermission'] as bool? ?? false,
+      quotaExceeded: json['quotaExceeded'] as bool? ?? false,
+      textFallback: (json['textFallback'] as List?)?.map((e) => e as String).toList(),
     );
 
   final String message; // AI返回的文案描述
   final List<Spot> spots; // 识别到的地点列表
   final List<String> imageUrls;
   final bool needsLocationPermission; // 是否需要请求定位权限
+  final bool quotaExceeded; // 配额是否已用完
+  final QuotaStatus? quotaStatus; // 当前配额状态
+  final List<String>? textFallback; // 纯文本降级推荐（配额用完时）
 
   static Spot spotFromJson(Map<String, dynamic> json) => Spot(
       id: json['id'] as String,
@@ -46,6 +55,8 @@ class AIRecognitionResult {
         'spots': spots.map(_spotToJson).toList(),
         'imageUrls': imageUrls,
         'needsLocationPermission': needsLocationPermission,
+        'quotaExceeded': quotaExceeded,
+        'textFallback': textFallback,
       };
 
   static Map<String, dynamic> _spotToJson(Spot spot) => {

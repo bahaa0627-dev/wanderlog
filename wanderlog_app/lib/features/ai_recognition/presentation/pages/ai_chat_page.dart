@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/supabase/supabase_config.dart';
+import 'package:wanderlog/core/supabase/services/quota_service.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_history_service.dart';
@@ -52,6 +53,7 @@ class _AIChatPageState extends State<AIChatPage> {
   final _historyService = AIRecognitionHistoryService();
   final _chatGPTService = ChatGPTService(dio: Dio());
   final _aiService = AIRecognitionService(dio: Dio());
+  final _quotaService = QuotaService();
   final _scrollController = ScrollController();
   final _messageController = TextEditingController();
   final _focusNode = FocusNode();
@@ -59,6 +61,9 @@ class _AIChatPageState extends State<AIChatPage> {
   // 用户位置
   double? _userLat;
   double? _userLng;
+  
+  // 配额状态
+  QuotaStatus? _quotaStatus;
 
   final List<_ChatMessage> _messages = [];
   bool _isLoading = true;
@@ -72,6 +77,21 @@ class _AIChatPageState extends State<AIChatPage> {
     super.initState();
     _loadHistories();
     _tryGetUserLocation();
+    _loadQuotaStatus();
+  }
+
+  /// 加载配额状态
+  Future<void> _loadQuotaStatus() async {
+    if (!SupabaseConfig.isAuthenticated) return;
+    
+    try {
+      final status = await _quotaService.getQuotaStatus();
+      if (mounted) {
+        setState(() => _quotaStatus = status);
+      }
+    } catch (e) {
+      print('⚠️ Failed to load quota status: $e');
+    }
   }
 
   /// 取消当前请求
@@ -462,6 +482,9 @@ class _AIChatPageState extends State<AIChatPage> {
       }
     }
     
+    // 刷新配额状态
+    _loadQuotaStatus();
+    
     if (mounted) {
       setState(() {
         _messages.add(_ChatMessage(
@@ -501,6 +524,9 @@ class _AIChatPageState extends State<AIChatPage> {
         ),
         title: Text('AI Travel Assistant', style: AppTheme.headlineMedium(context).copyWith(fontSize: 18)),
         centerTitle: false,
+        actions: [
+          if (_quotaStatus != null) _buildQuotaIndicator(),
+        ],
       ),
       body: Column(
         children: [
@@ -512,6 +538,188 @@ class _AIChatPageState extends State<AIChatPage> {
           _buildInputArea(),
         ],
       ),
+    );
+  }
+
+  /// 构建配额指示器
+  Widget _buildQuotaIndicator() {
+    final status = _quotaStatus;
+    if (status == null) return const SizedBox.shrink();
+    
+    final isLow = status.isDeepSearchLow;
+    final remaining = status.deepSearchRemaining;
+    final total = QuotaService.deepSearchLimit;
+    
+    return GestureDetector(
+      onTap: _showQuotaDetails,
+      child: Container(
+        margin: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isLow ? AppTheme.error.withOpacity(0.1) : AppTheme.background,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isLow ? AppTheme.error : AppTheme.lightGray,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.bolt,
+              size: 16,
+              color: isLow ? AppTheme.error : AppTheme.mediumGray,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$remaining/$total',
+              style: AppTheme.labelSmall(context).copyWith(
+                color: isLow ? AppTheme.error : AppTheme.mediumGray,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 显示配额详情弹窗
+  void _showQuotaDetails() {
+    final status = _quotaStatus;
+    if (status == null) return;
+    
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Daily Usage',
+                style: AppTheme.headlineMedium(context).copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              _buildQuotaRow(
+                icon: Icons.search,
+                label: 'AI Searches',
+                used: status.deepSearchCount,
+                total: QuotaService.deepSearchLimit,
+                isLow: status.isDeepSearchLow,
+              ),
+              const SizedBox(height: 12),
+              _buildQuotaRow(
+                icon: Icons.visibility,
+                label: 'Detail Views',
+                used: status.detailViewCount,
+                total: QuotaService.detailViewLimit,
+                isLow: status.isDetailViewLow,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.background,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 18, color: AppTheme.mediumGray),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Resets at midnight UTC (${_quotaService.formatResetTime(status.resetTime)})',
+                        style: AppTheme.bodySmall(context).copyWith(color: AppTheme.mediumGray),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryYellow,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    border: Border.all(color: AppTheme.black, width: 2),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Got it',
+                      style: AppTheme.labelLarge(context).copyWith(
+                        color: AppTheme.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuotaRow({
+    required IconData icon,
+    required String label,
+    required int used,
+    required int total,
+    required bool isLow,
+  }) {
+    final remaining = total - used;
+    final progress = used / total;
+    
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: isLow ? AppTheme.error : AppTheme.black),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(label, style: AppTheme.bodyMedium(context)),
+                  Text(
+                    '$remaining left',
+                    style: AppTheme.bodySmall(context).copyWith(
+                      color: isLow ? AppTheme.error : AppTheme.mediumGray,
+                      fontWeight: isLow ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: AppTheme.lightGray,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isLow ? AppTheme.error : AppTheme.primaryYellow,
+                  ),
+                  minHeight: 6,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

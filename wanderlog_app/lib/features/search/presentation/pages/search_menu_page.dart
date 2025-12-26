@@ -5,6 +5,7 @@ import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/features/search/data/search_repository.dart';
 import 'package:wanderlog/features/search/presentation/pages/search_results_map_page.dart';
+import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
 
 /// 搜索菜单页面 - 城市和标签选择
 class SearchMenuPage extends ConsumerStatefulWidget {
@@ -71,6 +72,10 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
   void initState() {
     super.initState();
     _loadCountriesAndCities();
+    // 同时刷新国家城市缓存
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(countriesCitiesProvider.notifier).refresh();
+    });
   }
 
   Future<void> _loadCountriesAndCities() async {

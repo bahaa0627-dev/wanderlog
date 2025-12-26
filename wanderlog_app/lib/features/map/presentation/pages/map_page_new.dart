@@ -974,14 +974,28 @@ class _MapPageState extends ConsumerState<MapPage> {
   Future<void> _loadPublicPlaces() async {
     print('📍 [MapPage] _loadPublicPlaces 开始');
     
-    // 优先使用缓存数据
+    // 每次进入页面都强制刷新数据
+    final cacheNotifier = ref.read(placesCacheProvider.notifier);
     final cacheState = ref.read(placesCacheProvider);
-    print('📍 [MapPage] 缓存状态: hasData=${cacheState.hasData}, isLoading=${cacheState.isLoading}, isInitialLoading=${cacheState.isInitialLoading}');
     
-    if (cacheState.hasData) {
+    // 如果缓存过期或没有数据，强制刷新
+    if (cacheState.isStale || !cacheState.hasData) {
+      print('📍 [MapPage] 缓存过期或无数据，强制刷新');
+      setState(() {
+        _isLoadingSpots = true;
+        _loadingError = null;
+      });
+      await cacheNotifier.refresh();
+    }
+    
+    // 重新读取缓存状态
+    final updatedCacheState = ref.read(placesCacheProvider);
+    print('📍 [MapPage] 缓存状态: hasData=${updatedCacheState.hasData}, isLoading=${updatedCacheState.isLoading}, isInitialLoading=${updatedCacheState.isInitialLoading}');
+    
+    if (updatedCacheState.hasData) {
       // 使用缓存数据
       print('📍 [MapPage] 使用缓存数据');
-      _loadFromCache(cacheState);
+      _loadFromCache(updatedCacheState);
       return;
     }
 

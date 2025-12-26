@@ -49,10 +49,10 @@ class PlacesCacheState {
 
   bool get hasData => placesByCity.isNotEmpty;
   
-  /// 检查缓存是否过期（5分钟）
+  /// 检查缓存是否过期（1分钟，更频繁刷新以获取最新数据）
   bool get isStale {
     if (lastLoadedAt == null) return true;
-    return DateTime.now().difference(lastLoadedAt!).inMinutes > 5;
+    return DateTime.now().difference(lastLoadedAt!).inMinutes > 1;
   }
 }
 

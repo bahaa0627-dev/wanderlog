@@ -1,10 +1,13 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
 import '../supabase_config.dart';
 
 /// 图片上传服务 (Cloudflare R2)
 class ImageService {
   static String get _baseUrl => SupabaseConfig.imagesBaseUrl;
+  static const _uuid = Uuid();
 
   /// 上传用户头像
   static Future<String> uploadAvatar(File imageFile) async {
@@ -54,7 +57,15 @@ class ImageService {
   }
 
   /// 获取上传 token
-  static Future<String> _getUploadToken() async {
+  /// 对于地点图片上传，使用固定的 R2 上传密钥
+  /// 对于用户图片上传，需要通过 Supabase Edge Function 获取
+  static Future<String> _getUploadToken({bool forPlaceImages = false}) async {
+    if (forPlaceImages) {
+      // 地点图片使用固定密钥（与后端一致）
+      return '920627';
+    }
+    
+    // 用户图片需要验证身份
     final response = await SupabaseConfig.client.functions.invoke(
       'get-upload-token',
     );
@@ -124,5 +135,93 @@ class ImageService {
       width: 800,
       quality: 85,
     );
+  }
+
+  /// 从 URL 下载图片并上传到 R2（用于 Google 图片迁移）
+  /// 
+  /// [imageUrl] Google 图片 URL
+  /// [placeId] 地点 ID
+  /// [index] 图片索引 (0=cover, 1-4=其他图片)
+  /// 返回 R2 图片 URL
+  static Future<String?> uploadImageFromUrl(
+    String imageUrl,
+    String placeId, {
+    int index = 0,
+  }) async {
+    try {
+      // 下载图片
+      final response = await http.get(Uri.parse(imageUrl));
+      if (response.statusCode != 200) {
+        print('⚠️ Failed to download image: ${response.statusCode}');
+        return null;
+      }
+
+      final bytes = response.bodyBytes;
+      if (bytes.isEmpty) {
+        print('⚠️ Downloaded image is empty');
+        return null;
+      }
+
+      // 生成文件名
+      final fileName = index == 0 ? 'cover.jpg' : '${_uuid.v4()}.jpg';
+      final path = 'places/$placeId/$fileName';
+
+      // 上传到 R2（使用固定密钥）
+      final token = await _getUploadToken(forPlaceImages: true);
+      final uploadResponse = await http.put(
+        Uri.parse('$_baseUrl/$path'),
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'Authorization': 'Bearer $token',
+        },
+        body: bytes,
+      );
+
+      if (uploadResponse.statusCode != 200) {
+        print('⚠️ Failed to upload image: ${uploadResponse.body}');
+        return null;
+      }
+
+      return '$_baseUrl/$path';
+    } catch (e) {
+      print('⚠️ Error uploading image from URL: $e');
+      return null;
+    }
+  }
+
+  /// 批量上传 Google 图片到 R2
+  /// 
+  /// [googlePhotoUrls] Google 图片 URL 列表
+  /// [placeId] 地点 ID
+  /// 返回 {coverImage: String?, images: List<String>}
+  static Future<Map<String, dynamic>> uploadGooglePhotosToR2(
+    List<String> googlePhotoUrls,
+    String placeId,
+  ) async {
+    if (googlePhotoUrls.isEmpty) {
+      return {'coverImage': null, 'images': <String>[]};
+    }
+
+    final r2Urls = <String>[];
+    
+    for (int i = 0; i < googlePhotoUrls.length; i++) {
+      final url = await uploadImageFromUrl(
+        googlePhotoUrls[i],
+        placeId,
+        index: i,
+      );
+      if (url != null) {
+        r2Urls.add(url);
+      }
+    }
+
+    if (r2Urls.isEmpty) {
+      return {'coverImage': null, 'images': <String>[]};
+    }
+
+    return {
+      'coverImage': r2Urls.first,
+      'images': r2Urls.length > 1 ? r2Urls.sublist(1) : <String>[],
+    };
   }
 }

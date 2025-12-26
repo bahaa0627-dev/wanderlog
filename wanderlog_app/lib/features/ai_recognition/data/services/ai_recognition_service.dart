@@ -7,6 +7,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_result.dart';
 import 'package:wanderlog/core/supabase/repositories/place_repository.dart';
 import 'package:wanderlog/core/supabase/supabase_config.dart';
+import 'package:wanderlog/core/supabase/services/image_service.dart';
+import 'package:wanderlog/core/supabase/services/quota_service.dart';
 import 'dart:convert';
 import 'package:uuid/uuid.dart';
 
@@ -198,6 +200,7 @@ class AIRecognitionService {
 
   final Dio _dio;
   final PlaceRepository _placeRepository = PlaceRepository();
+  final QuotaService _quotaService = QuotaService();
 
   /// 每次对话最多返回 5 个地点
   static const int _maxLimit = 5;
@@ -236,26 +239,10 @@ class AIRecognitionService {
       print('📋 Parsed intent: $intent');
       checkCancelled();
 
-      // 步骤2：检查用户位置（用于"我附近"搜索或没有指定城市时的推荐）
-      // 如果用户明确说"我附近"，必须有定位
+      // 步骤2：只有用户明确说"我附近"时才需要定位
       if (intent.wantsNearMe && (userLat == null || userLng == null)) {
         return AIRecognitionResult(
           message: 'To find places near you, I need access to your location. Tap the button below to enable it! 📍',
-          spots: [],
-          imageUrls: [],
-          needsLocationPermission: true,
-        );
-      }
-      
-      // 如果用户没有指定城市，也没有定位，提示开启定位
-      if ((intent.city == null || intent.city!.isEmpty) && 
-          intent.nearbyLocation == null && 
-          !intent.wantsNearMe &&
-          intent.specificPlaceName == null &&
-          (userLat == null || userLng == null)) {
-        print('⚠️ No user location and no city specified, will prompt for location');
-        return AIRecognitionResult(
-          message: 'For better recommendations, I\'d love to know where you are! Enable location access or tell me which city you\'re interested in. 📍',
           spots: [],
           imageUrls: [],
           needsLocationPermission: true,
@@ -360,6 +347,40 @@ class AIRecognitionService {
         
         checkCancelled();
         
+        // 🔒 检查深度搜索配额
+        final quotaStatus = await _quotaService.getQuotaStatus();
+        print('📊 Quota status: deep_search=${quotaStatus.deepSearchRemaining}/${QuotaService.deepSearchLimit}');
+        
+        if (!quotaStatus.canDeepSearch) {
+          // 配额用完，降级处理
+          print('⚠️ Deep search quota exceeded, using fallback...');
+          
+          if (dbCount > 0) {
+            // 有缓存结果，只返回缓存卡片
+            final finalSpots = allSpots.take(effectiveLimit).toList();
+            return AIRecognitionResult(
+              message: 'I found ${finalSpots.length} places from our database! (Daily search limit reached, resets at midnight UTC)',
+              spots: finalSpots.cast(),
+              imageUrls: [],
+              quotaExceeded: true,
+              quotaStatus: quotaStatus,
+            );
+          } else {
+            // 无缓存结果，返回纯文本推荐
+            final textRecommendations = await _getTextOnlyRecommendations(query, intent, effectiveLimit, cancelToken: cancelToken);
+            return AIRecognitionResult(
+              message: textRecommendations.isNotEmpty 
+                ? 'Here are some suggestions (card generation unavailable - daily limit reached):\n\n${textRecommendations.join('\n')}'
+                : 'Daily search limit reached. Try again tomorrow or search for places we already have in our database!',
+              spots: [],
+              imageUrls: [],
+              quotaExceeded: true,
+              quotaStatus: quotaStatus,
+              textFallback: textRecommendations,
+            );
+          }
+        }
+        
         // 获取用户所在城市（用于 AI 推荐时限定地理范围）
         String? userCity;
         String? userCountry;
@@ -406,6 +427,10 @@ class AIRecognitionService {
             checkCancelled();
             
             if (spotsData.isNotEmpty) {
+              // ✅ 成功调用 Google API，消耗配额
+              await _quotaService.consumeDeepSearch();
+              print('📊 Deep search quota consumed');
+              
               final aiSpots = spotsData.map(AIRecognitionResult.spotFromJson).toList();
               allSpots.addAll(aiSpots);
               print('✅ Added ${aiSpots.length} places from AI');
@@ -649,9 +674,9 @@ class AIRecognitionService {
       HttpOverrides.global = _ProxyHttpOverrides(proxyUrl);
     }
 
-    debugPrint('🤖 Creating Gemini model with gemini-2.5-flash...');
+    debugPrint('🤖 Creating Gemini model with gemini-1.5-flash...');
     final model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       apiKey: apiKey,
     );
 
@@ -869,7 +894,7 @@ Important:
     }
 
     final model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       apiKey: apiKey,
     );
 
@@ -963,6 +988,70 @@ Example for "罗马的咖啡馆" (cafes in Rome):
     }
   }
 
+  /// 获取纯文本推荐（配额用完时的降级方案）
+  /// 不调用 Google API，只返回地点名称和简短描述
+  Future<List<String>> _getTextOnlyRecommendations(
+    String query,
+    QueryIntent intent,
+    int count,
+    {CancelToken? cancelToken}
+  ) async {
+    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    if (apiKey.isEmpty) return [];
+
+    if (cancelToken?.isCancelled ?? false) return [];
+
+    final proxyUrl = dotenv.env['HTTP_PROXY'] ?? '';
+    if (proxyUrl.isNotEmpty) {
+      HttpOverrides.global = _ProxyHttpOverrides(proxyUrl);
+    }
+
+    final model = GenerativeModel(
+      model: 'gemini-1.5-flash',
+      apiKey: apiKey,
+    );
+
+    final cityHint = intent.city != null ? ' in ${intent.city}' : '';
+    final categoryHint = intent.category != null ? ' (${intent.category})' : '';
+
+    final prompt = '''
+Based on this query: "$query"
+
+Provide $count brief text-only recommendations for places$cityHint$categoryHint.
+
+Return a simple list format (no JSON, no images needed):
+• Place Name - Brief one-line description
+
+Example:
+• Caffè Sant'Eustachio - Historic Roman coffee shop famous for its creamy espresso
+• Tazza d'Oro - Traditional coffee bar near the Pantheon with excellent granita di caffè
+
+Rules:
+- Keep descriptions under 15 words each
+- Only recommend real, well-known places
+- No ratings, addresses, or coordinates needed
+- Maximum $count places
+''';
+
+    try {
+      final response = await model.generateContent([Content.text(prompt)]);
+      final text = response.text ?? '';
+      
+      // 解析文本列表
+      final lines = text.split('\n')
+          .where((line) => line.trim().startsWith('•') || line.trim().startsWith('-'))
+          .map((line) => line.trim().replaceFirst(RegExp(r'^[•\-]\s*'), ''))
+          .where((line) => line.isNotEmpty)
+          .take(count)
+          .toList();
+      
+      return lines;
+    } catch (e) {
+      print('Text-only recommendations failed: $e');
+      return [];
+    }
+  }
+
   /// 识别图片中的地点
   Future<AIRecognitionResult> recognizeLocations(
     List<File> images,
@@ -1036,7 +1125,7 @@ Example for "罗马的咖啡馆" (cafes in Rome):
     }
 
     final model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       apiKey: apiKey,
     );
 
@@ -1263,25 +1352,47 @@ Important rules:
           print('⚠️ Error checking existing place: $e');
         }
 
-        // 获取照片 URL - 直接使用 Google 图片 URL
+        // 生成新的 UUID（提前生成，用于图片路径）
+        final newId = const Uuid().v4();
+
+        // 获取照片 URL 并上传到 Cloudflare R2
         final photos = result['photos'] as List?;
-        final photoUrls = <String>[];
+        final googlePhotoUrls = <String>[];
         
         if (photos != null && photos.isNotEmpty) {
           for (int i = 0; i < photos.take(5).length; i++) {
             final photo = photos[i] as Map<String, dynamic>;
             final photoRef = photo['photo_reference'] as String?;
             if (photoRef != null) {
-              // 直接使用 Google 图片 URL
               final googlePhotoUrl = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=$photoRef&key=$apiKey';
-              photoUrls.add(googlePhotoUrl);
+              googlePhotoUrls.add(googlePhotoUrl);
             }
           }
         }
         
-        print('📸 Got ${photoUrls.length} photos');
+        print('📸 Got ${googlePhotoUrls.length} Google photos, uploading to R2...');
+        
+        // 上传图片到 Cloudflare R2
+        String? coverImage;
+        List<String> r2Images = [];
+        
+        if (googlePhotoUrls.isNotEmpty) {
+          try {
+            final uploadResult = await ImageService.uploadGooglePhotosToR2(
+              googlePhotoUrls,
+              newId,
+            );
+            coverImage = uploadResult['coverImage'] as String?;
+            r2Images = (uploadResult['images'] as List<String>?) ?? [];
+            print('✅ Uploaded ${r2Images.length + (coverImage != null ? 1 : 0)} images to R2');
+          } catch (e) {
+            print('⚠️ Failed to upload images to R2: $e');
+          }
+        }
 
-        // 解析营业时间
+        // 解析营业时间 - 保存完整的 weekday_text 和 periods
+        // weekday_text: 用于展示 (如 "Monday: 9:00 AM – 5:00 PM")
+        // periods: 用于计算营业状态 (开门/快打烊/已关门)
         final openingHours = result['opening_hours'] as Map<String, dynamic>?;
         String? openingHoursJson;
         if (openingHours != null) {
@@ -1295,9 +1406,6 @@ Important rules:
         final locationData = geometry?['location'] as Map<String, dynamic>?;
         final lat = locationData?['lat'] as double? ?? 0.0;
         final lng = locationData?['lng'] as double? ?? 0.0;
-
-        // 生成新的 UUID
-        final newId = const Uuid().v4();
         
         // 从 Google Maps types 获取分类（优先使用第一个有意义的类型）
         final googleTypes = result['types'] as List? ?? [];
@@ -1314,7 +1422,7 @@ Important rules:
         final filteredTags = _filterAiTags(location['tags'] as List?, category);
         print('🏷️ Filtered tags: $filteredTags (from ${location['tags']})');
         
-        // 准备数据库记录
+        // 准备数据库记录 - 使用 R2 URL
         final dbRecord = {
           'id': newId,
           'name': result['name'] as String,
@@ -1328,8 +1436,8 @@ Important rules:
           'rating_count': result['user_ratings_total'] as int?,
           'category': category,
           'description': description, // 描述放到 description 字段
-          'cover_image': photoUrls.isNotEmpty ? photoUrls.first : null,
-          'images': photoUrls,
+          'cover_image': coverImage, // R2 URL
+          'images': r2Images, // R2 URLs (不包含 cover)
           'ai_tags': filteredTags, // 过滤后的 tags
           'price_level': result['price_level'] as int?,
           'website': result['website'] as String?,
@@ -1349,19 +1457,30 @@ Important rules:
           // 继续返回数据，即使保存失败
         }
 
+        // 返回数据 - 使用 R2 URL，包含完整字段
         spots.add({
           'id': newId,
+          'googlePlaceId': placeId, // 添加 google_place_id
           'name': result['name'] as String,
           'city': city,
+          'country': country,
           'category': category,
           'latitude': lat,
           'longitude': lng,
+          'address': result['formatted_address'] as String?,
           'rating': (result['rating'] as num?)?.toDouble() ?? 0.0,
           'ratingCount': result['user_ratings_total'] as int? ?? 0,
-          'coverImage': photoUrls.isNotEmpty ? photoUrls.first : '',
-          'images': photoUrls,
+          'coverImage': coverImage ?? '',
+          'images': r2Images, // R2 URLs (不包含 cover)
           'tags': filteredTags,
           'aiSummary': description,
+          'openingHours': openingHours != null ? {
+            'weekday_text': openingHours['weekday_text'],
+            'periods': openingHours['periods'],
+          } : null,
+          'phoneNumber': result['formatted_phone_number'] as String?,
+          'website': result['website'] as String?,
+          'priceLevel': result['price_level'] as int?,
           'isFromAI': true, // AI/Google Maps 结果显示 AI 标签
         });
         

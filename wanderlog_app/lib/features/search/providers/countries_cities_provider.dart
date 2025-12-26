@@ -100,6 +100,11 @@ class CountriesCitiesNotifier extends StateNotifier<Map<String, List<String>>> {
   bool get isLoaded => _isLoaded;
   bool get isLoading => _isLoading;
 
+  /// 强制刷新数据（忽略缓存）
+  Future<void> refresh() async {
+    await preload(forceRefresh: true);
+  }
+
   /// 根据 city 或 country 字段推断真正的国家
   String? _inferCountry(String? countryField, String? cityField) {
     // 1. 如果 city 在映射表中，使用映射的国家
@@ -122,8 +127,9 @@ class CountriesCitiesNotifier extends StateNotifier<Map<String, List<String>>> {
   }
 
   /// 预加载国家和城市数据（直接从 Supabase）
-  Future<void> preload() async {
-    if (_isLoaded || _isLoading) return;
+  /// [forceRefresh] 为 true 时强制刷新，忽略缓存
+  Future<void> preload({bool forceRefresh = false}) async {
+    if (!forceRefresh && (_isLoaded || _isLoading)) return;
     
     _isLoading = true;
     print('📍 [CountriesCities] 开始从 Supabase 加载国家城市数据...');

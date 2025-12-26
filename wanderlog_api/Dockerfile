@@ -1,6 +1,9 @@
 # 使用 Node.js 20 Alpine 镜像
 FROM node:20-alpine
 
+RUN echo "🔥 DOCKERFILE_FINGERPRINT=2025-12-26-xyz"
+
+
 # 设置工作目录
 WORKDIR /app
 
@@ -30,4 +33,5 @@ RUN npm prune --omit=dev
 EXPOSE 3000
 
 # 诊断启动命令
-CMD ["sh", "-c", "set -ex; pwd; ls -la; ls -la dist; echo PORT=$PORT; echo '--- dist/index.js head ---'; head -n 50 dist/index.js; echo '--- run ---'; node dist/index.js"]
+CMD ["sh","-c","set -ex; echo 'PWD='$(pwd); ls -la; echo '--- dist ---'; ls -la dist || true; echo '--- head dist/index.js ---'; head -n 50 dist/index.js || true; echo '--- run node ---'; node dist/index.js"]
+

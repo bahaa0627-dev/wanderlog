@@ -58,6 +58,7 @@ model Place {
   @@index([city])
   @@index([category])
   @@index([rating])
+  @@index([isVerified])
   @@map("places")
 }
 

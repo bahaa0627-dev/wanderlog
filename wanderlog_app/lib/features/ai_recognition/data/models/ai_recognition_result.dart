@@ -48,7 +48,23 @@ class AIRecognitionResult {
       tags: (json['tags'] as List?)?.map((e) => e as String).toList() ?? [],
       aiSummary: json['aiSummary'] as String?,
       isFromAI: json['isFromAI'] as bool? ?? false,
+      isVerified: json['isVerified'] as bool? ?? true,
+      recommendationPhrase: json['recommendationPhrase'] as String?,
+      source: _parseSpotSource(json['source'] as String?),
     );
+
+  static SpotSource _parseSpotSource(String? source) {
+    switch (source) {
+      case 'google':
+        return SpotSource.google;
+      case 'cache':
+        return SpotSource.cache;
+      case 'ai':
+        return SpotSource.ai;
+      default:
+        return SpotSource.cache;
+    }
+  }
 
   Map<String, dynamic> toJson() => {
         'message': message,
@@ -73,5 +89,8 @@ class AIRecognitionResult {
         'tags': spot.tags,
         'aiSummary': spot.aiSummary,
         'isFromAI': spot.isFromAI,
+        'isVerified': spot.isVerified,
+        'recommendationPhrase': spot.recommendationPhrase,
+        'source': spot.source.name,
       };
 }

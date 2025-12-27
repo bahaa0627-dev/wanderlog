@@ -70,6 +70,9 @@ class AIRecognitionHistory {
           'tags': spot.tags,
           'aiSummary': spot.aiSummary,
           'isFromAI': spot.isFromAI,
+          'isVerified': spot.isVerified,
+          'recommendationPhrase': spot.recommendationPhrase,
+          'source': spot.source.name,
         },).toList(),
       },
     };

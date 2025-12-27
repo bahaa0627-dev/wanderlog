@@ -31,7 +31,7 @@ class PlaceRepository {
     final response = await query
         .order('rating', ascending: false)
         .range(start, end);
-    return (response as List).map((e) => PlaceModel.fromJson(e)).toList();
+    return (response as List).map((e) => PlaceModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// 获取单个地点详情
@@ -48,12 +48,12 @@ class PlaceRepository {
 
   /// 搜索地点
   Future<List<PlaceModel>> searchPlaces(String keyword, {int limit = 20}) async {
-    final response = await _client.rpc('search_places', params: {
+    final response = await _client.rpc<List<dynamic>>('search_places', params: {
       'search_term': keyword,
       'limit_count': limit,
     });
 
-    return (response as List).map((e) => PlaceModel.fromJson(e)).toList();
+    return response.map((e) => PlaceModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// 获取附近地点
@@ -63,14 +63,14 @@ class PlaceRepository {
     double radiusKm = 5,
     int limit = 50,
   }) async {
-    final response = await _client.rpc('get_nearby_places', params: {
+    final response = await _client.rpc<List<dynamic>>('get_nearby_places', params: {
       'lat': latitude,
       'lng': longitude,
       'radius_km': radiusKm,
       'limit_count': limit,
     });
 
-    return (response as List).map((e) => PlaceModel.fromJson(e)).toList();
+    return response.map((e) => PlaceModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// 按城市获取地点
@@ -82,7 +82,7 @@ class PlaceRepository {
         .order('rating', ascending: false)
         .limit(limit);
 
-    return (response as List).map((e) => PlaceModel.fromJson(e)).toList();
+    return (response as List).map((e) => PlaceModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// 按分类获取地点
@@ -104,7 +104,7 @@ class PlaceRepository {
         .order('rating', ascending: false)
         .limit(limit);
 
-    return (response as List).map((e) => PlaceModel.fromJson(e)).toList();
+    return (response as List).map((e) => PlaceModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// 获取热门地点
@@ -117,7 +117,7 @@ class PlaceRepository {
         .order('rating_count', ascending: false)
         .limit(limit);
 
-    return (response as List).map((e) => PlaceModel.fromJson(e)).toList();
+    return (response as List).map((e) => PlaceModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// 获取所有城市列表

@@ -1090,8 +1090,8 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
         try {
           final detail = await repo.getTripById(t.id);
           for (final ts in detail.tripSpots ?? []) {
-            _SpotCardOverlay._wishlistCache[ts.spotId] = true;
-            _SpotCardOverlay._destinationCache[ts.spotId] = detail.id;
+            _SpotCardOverlay._wishlistCache[ts.spotId as String] = true;
+            _SpotCardOverlay._destinationCache[ts.spotId as String] = detail.id;
           }
         } catch (_) {}
       }
@@ -1100,7 +1100,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
       if (mounted && _SpotCardOverlay._wishlistCache.containsKey(spotId)) {
         setState(() {
           _isInWishlist = true;
-          _destinationId = _SpotCardOverlay._destinationCache[spotId];
+          _destinationId = _SpotCardOverlay._destinationCache[spotId] as String?;
         });
       }
     } catch (_) {}

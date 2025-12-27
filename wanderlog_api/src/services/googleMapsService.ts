@@ -2,20 +2,32 @@ import { Client, AddressType, GeocodingAddressComponentType } from '@googlemaps/
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { createId } from '@paralleldrive/cuid2';
 import prisma from '../config/database';
+import axios from 'axios';
 
-// 配置代理
-const proxyUrl = process.env.https_proxy || process.env.http_proxy;
-const clientConfig: any = { timeout: 30000 };
+// 创建带代理的 Google Maps 客户端
+function createGoogleMapsClient(): Client {
+  const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy;
+  const clientConfig: any = { timeout: 30000 };
 
-if (proxyUrl) {
-  console.log(`🌐 Using proxy: ${proxyUrl}`);
-  clientConfig.axiosInstance = require('axios').create({
-    httpsAgent: new HttpsProxyAgent(proxyUrl),
-    proxy: false // 禁用 axios 自己的 proxy 配置
-  });
+  if (proxyUrl) {
+    console.log(`🌐 Google Maps client using proxy: ${proxyUrl}`);
+    clientConfig.axiosInstance = axios.create({
+      httpsAgent: new HttpsProxyAgent(proxyUrl),
+      proxy: false // 禁用 axios 自己的 proxy 配置
+    });
+  }
+
+  return new Client(clientConfig);
 }
 
-const client = new Client(clientConfig);
+// 延迟初始化客户端
+let _client: Client | null = null;
+function getClient(): Client {
+  if (!_client) {
+    _client = createGoogleMapsClient();
+  }
+  return _client;
+}
 
 // 城市名称映射：当地语言 -> 英文
 const cityNameMapping: Record<string, string> = {
@@ -78,10 +90,10 @@ interface PlaceData {
   tags?: string;
   coverImage?: string;
   images?: string;
-  priceLevel?: number;
+  // priceLevel?: number; // 移除，省钱
   website?: string;
   phoneNumber?: string;
-  aiSummary?: string;
+  aiSummary?: string; // 保留字段，但不从 Google reviews 生成
 }
 
 class GoogleMapsService {
@@ -95,14 +107,16 @@ class GoogleMapsService {
   }
 
   /**
-   * 从Google Place ID获取详细信息
+   * 从Google Place ID获取详细信息（用于详情页）
+   * 只获取详情页需要的字段：地址、营业时间、额外图片、网站、电话
+   * 不获取：price_level（省钱）
    */
   async getPlaceDetails(placeId: string): Promise<PlaceData | null> {
     try {
       console.log(`🔍 Fetching details for place ID: ${placeId}`);
       console.log(`🔑 Using API key: ${this.apiKey.substring(0, 20)}...`);
       
-      const response = await client.placeDetails({
+      const response = await getClient().placeDetails({
         params: {
           place_id: placeId,
           key: this.apiKey,
@@ -114,14 +128,14 @@ class GoogleMapsService {
             'geometry',
             'rating',
             'user_ratings_total',
-            'price_level',
+            // 'price_level', // 移除，省钱
             'types',
             'opening_hours',
             'website',
             'formatted_phone_number',
             'photos',
             'editorial_summary',
-            'reviews'
+            // 'reviews' // 移除，省钱
           ]
         }
       });
@@ -167,9 +181,6 @@ class GoogleMapsService {
       // 获取封面图和其他图片
       const { coverImage, images } = await this.extractImages(place.photos || []);
 
-      // 生成AI总结（基于评论）
-      const aiSummary = this.generateAISummary(place.reviews || []);
-
       // 简化营业时间：只保留 weekday_text 数组
       // 格式: ["Monday: 9:00 AM – 5:00 PM", "Tuesday: 9:00 AM – 5:00 PM", ...]
       let openingHoursSimplified: string[] | undefined;
@@ -195,10 +206,10 @@ class GoogleMapsService {
         tags: tags ? JSON.stringify(tags) : undefined,
         coverImage,
         images: images ? JSON.stringify(images) : undefined,
-        priceLevel: place.price_level,
+        // priceLevel: 移除，省钱
         website: place.website,
         phoneNumber: place.formatted_phone_number,
-        aiSummary,
+        // aiSummary: 移除，不再基于 reviews 生成
       };
     } catch (error: any) {
       console.error('❌ Error fetching place details:', error.message);
@@ -223,7 +234,7 @@ class GoogleMapsService {
     type?: string
   ) {
     try {
-      const response = await client.placesNearby({
+      const response = await getClient().placesNearby({
         params: {
           location: { lat: latitude, lng: longitude },
           radius,
@@ -261,7 +272,7 @@ class GoogleMapsService {
         params.location = location;
       }
       
-      const response = await client.textSearch({ params });
+      const response = await getClient().textSearch({ params });
 
       console.log(`📍 Text search status: ${response.data.status}, results: ${response.data.results?.length || 0}`);
 
@@ -466,6 +477,136 @@ class GoogleMapsService {
 
     return { imported, skipped, errors };
   }
+
+  /**
+   * 搜索地点 - 基础信息（省钱版，用于列表页）
+   * 只获取：place_id, 名称, 经纬度, 城市, 国家, 封面图(1张), 评分, 评分人数
+   * 成本：~$0.032 (Text Search Basic)
+   */
+  async searchPlaceBasic(query: string): Promise<PlaceBasicData | null> {
+    try {
+      console.log(`🔍 [Basic] Searching for: ${query}`);
+      
+      // 使用 findPlaceFromText 获取基础信息
+      const response = await getClient().findPlaceFromText({
+        params: {
+          input: query,
+          inputtype: 'textquery',
+          fields: ['place_id', 'name', 'formatted_address', 'geometry', 'rating', 'user_ratings_total', 'photos', 'types'],
+          key: this.apiKey,
+        }
+      });
+
+      if (response.data.status !== 'OK' || !response.data.candidates || response.data.candidates.length === 0) {
+        console.log(`⚠️ No results found for: ${query}`);
+        return null;
+      }
+
+      const place = response.data.candidates[0];
+      if (!place.place_id) {
+        return null;
+      }
+
+      console.log(`📍 [Basic] Found: ${place.name} (${place.place_id})`);
+      
+      // 提取城市和国家（从 formatted_address 简单解析）
+      const addressParts = (place.formatted_address || '').split(', ');
+      const country = addressParts.length > 0 ? addressParts[addressParts.length - 1] : 'Unknown';
+      // 城市通常在倒数第二或第三个位置
+      let city = 'Unknown';
+      if (addressParts.length >= 2) {
+        // 跳过邮编等，找到城市名
+        for (let i = addressParts.length - 2; i >= 0; i--) {
+          const part = addressParts[i];
+          // 跳过纯数字（邮编）
+          if (!/^\d+$/.test(part.trim())) {
+            city = part.trim();
+            break;
+          }
+        }
+      }
+      
+      // 只获取第一张照片的 URL
+      let coverImage: string | undefined;
+      if (place.photos && place.photos.length > 0) {
+        const photoRef = place.photos[0].photo_reference;
+        if (photoRef) {
+          coverImage = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photoRef}&key=${this.apiKey}`;
+        }
+      }
+
+      // 提取分类
+      const category = this.extractCategory(place.types || []);
+
+      return {
+        googlePlaceId: place.place_id,
+        name: place.name || '',
+        city: normalizeCity(city),
+        country: country,
+        latitude: place.geometry?.location?.lat || 0,
+        longitude: place.geometry?.location?.lng || 0,
+        rating: place.rating,
+        ratingCount: place.user_ratings_total,
+        coverImage,
+        category,
+      };
+    } catch (error) {
+      console.error(`❌ [Basic] Search error for "${query}":`, error);
+      return null;
+    }
+  }
+
+  /**
+   * 搜索地点（通过文本查询）- 完整版
+   * 注意：这个方法会调用 getPlaceDetails，成本较高
+   */
+  async searchPlace(query: string): Promise<PlaceData | null> {
+    try {
+      console.log(`🔍 Searching for: ${query}`);
+      
+      const response = await getClient().findPlaceFromText({
+        params: {
+          input: query,
+          inputtype: 'textquery',
+          fields: ['place_id', 'name', 'formatted_address', 'geometry', 'rating', 'user_ratings_total', 'photos', 'types'],
+          key: this.apiKey,
+        }
+      });
+
+      if (response.data.status !== 'OK' || !response.data.candidates || response.data.candidates.length === 0) {
+        console.log(`⚠️ No results found for: ${query}`);
+        return null;
+      }
+
+      const placeId = response.data.candidates[0].place_id;
+      if (!placeId) {
+        return null;
+      }
+
+      console.log(`📍 Found place ID: ${placeId}`);
+      
+      // 获取完整详情
+      return await this.getPlaceDetails(placeId);
+    } catch (error) {
+      console.error(`❌ Search error for "${query}":`, error);
+      return null;
+    }
+  }
+}
+
+// 基础地点数据（列表页用）
+interface PlaceBasicData {
+  googlePlaceId: string;
+  name: string;
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  rating?: number;
+  ratingCount?: number;
+  coverImage?: string;
+  category?: string;
 }
 
 export default new GoogleMapsService();
+export type { PlaceData, PlaceBasicData };

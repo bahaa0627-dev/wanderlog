@@ -1288,3 +1288,201 @@ class _AIRecognitionHistoryChatPageState
         ),
       );
 }
+
+/// 地点卡片组件 - 用于显示AI识别的地点
+class SpotCardOverlay extends StatelessWidget {
+  const SpotCardOverlay({super.key, required this.spot});
+
+  final Spot spot;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        // 点击查看详情 - 使用简单的底部弹窗
+        showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => _SpotDetailSheet(spot: spot),
+        );
+      },
+      child: Container(
+        height: 120,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.black, width: 2),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 背景图片
+              if (spot.coverImage.isNotEmpty)
+                Image.network(
+                  spot.coverImage,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: AppTheme.lightGray,
+                    child: const Center(
+                      child: Icon(Icons.image_not_supported, color: AppTheme.mediumGray),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  color: AppTheme.lightGray,
+                  child: const Center(
+                    child: Icon(Icons.place, color: AppTheme.mediumGray, size: 40),
+                  ),
+                ),
+              // 渐变遮罩
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.7),
+                    ],
+                  ),
+                ),
+              ),
+              // 信息
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 12,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      spot.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (spot.city.isNotEmpty)
+                      Text(
+                        spot.city,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 简单的地点详情弹窗
+class _SpotDetailSheet extends StatelessWidget {
+  const _SpotDetailSheet({required this.spot});
+
+  final Spot spot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // 拖动条
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // 内容
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 图片
+                  if (spot.coverImage.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        spot.coverImage,
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 200,
+                          color: AppTheme.lightGray,
+                          child: const Center(
+                            child: Icon(Icons.image_not_supported, size: 48),
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  // 名称
+                  Text(
+                    spot.name,
+                    style: AppTheme.headlineMedium(context),
+                  ),
+                  const SizedBox(height: 8),
+                  // 城市
+                  if (spot.city.isNotEmpty)
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 16, color: AppTheme.mediumGray),
+                        const SizedBox(width: 4),
+                        Text(spot.city, style: AppTheme.bodyMedium(context)),
+                      ],
+                    ),
+                  const SizedBox(height: 8),
+                  // 评分
+                  if (spot.rating > 0)
+                    Row(
+                      children: [
+                        const Icon(Icons.star, size: 16, color: Colors.amber),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${spot.rating.toStringAsFixed(1)} (${spot.ratingCount})',
+                          style: AppTheme.bodyMedium(context),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 16),
+                  // AI 摘要
+                  if (spot.aiSummary != null && spot.aiSummary!.isNotEmpty)
+                    Text(
+                      spot.aiSummary!,
+                      style: AppTheme.bodyMedium(context),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

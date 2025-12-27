@@ -92,13 +92,13 @@ class QuotaService {
 
     try {
       // 调用数据库函数获取或创建今日配额
-      final response = await _client.rpc(
+      final response = await _client.rpc<Map<String, dynamic>?>(
         'get_or_create_today_quota',
         params: {'p_user_id': uid},
       );
 
       if (response != null) {
-        return QuotaStatus.fromJson(response as Map<String, dynamic>);
+        return QuotaStatus.fromJson(response);
       }
       return QuotaStatus.defaultStatus();
     } catch (e) {
@@ -128,13 +128,13 @@ class QuotaService {
     }
 
     try {
-      final response = await _client.rpc(
+      final response = await _client.rpc<Map<String, dynamic>?>(
         'consume_deep_search_quota',
         params: {'p_user_id': uid},
       );
 
       if (response != null) {
-        return QuotaStatus.fromJson(response as Map<String, dynamic>);
+        return QuotaStatus.fromJson(response);
       }
       return QuotaStatus.defaultStatus();
     } catch (e) {
@@ -152,13 +152,13 @@ class QuotaService {
     }
 
     try {
-      final response = await _client.rpc(
+      final response = await _client.rpc<Map<String, dynamic>?>(
         'consume_detail_view_quota',
         params: {'p_user_id': uid},
       );
 
       if (response != null) {
-        return QuotaStatus.fromJson(response as Map<String, dynamic>);
+        return QuotaStatus.fromJson(response);
       }
       return QuotaStatus.defaultStatus();
     } catch (e) {

@@ -74,6 +74,8 @@ import publicPlaceRoutes from './routes/publicPlaceRoutes';
 console.log('  ✅ publicPlaceRoutes loaded');
 import collectionRecommendationRoutes from './routes/collectionRecommendationRoutes';
 console.log('  ✅ collectionRecommendationRoutes loaded');
+import searchV2Routes from './routes/searchV2Routes';
+console.log('  ✅ searchV2Routes loaded');
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -86,6 +88,8 @@ app.use('/api/collections', collectionRoutes);
 app.use('/api/public-places', publicPlaceRoutes);
 app.use('/api/collection-recommendations', collectionRecommendationRoutes);
 console.log('✅ Collection recommendations routes registered');
+app.use('/api/places/ai', searchV2Routes);
+console.log('✅ Search V2 routes registered');
 // app.use('/api/trips', tripRoutes);
 // app.use('/api/spots', spotRoutes);
 

@@ -196,7 +196,7 @@ class SupabaseCollectionRepository {
         final items = await _client
             .from('collection_recommendation_items')
             .select('*, collection:collections(*, collectionSpots:collection_spots(*, place:places(*)))')
-            .eq('recommendation_id', rec['id'])
+            .eq('recommendation_id', rec['id'] as Object)
             .order('sort_order', ascending: true);
 
         // 过滤出已发布的合集并转换字段名
@@ -236,11 +236,12 @@ class SupabaseCollectionRepository {
   Map<String, dynamic> _convertCollectionFields(Map<String, dynamic> collection) {
     final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
     final convertedSpots = spots.map((spot) {
-      final place = spot['place'] as Map<String, dynamic>?;
-      if (place == null) return spot;
+      final spotMap = spot as Map<String, dynamic>;
+      final place = spotMap['place'] as Map<String, dynamic>?;
+      if (place == null) return spotMap;
       
-      return {
-        ...spot,
+      return <String, dynamic>{
+        ...spotMap,
         'place': _convertPlaceFields(place),
       };
     }).toList();

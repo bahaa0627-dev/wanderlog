@@ -4,14 +4,21 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
-import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_result.dart';
+import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_history_service.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/chatgpt_service.dart';
-import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' show Spot;
+import 'package:wanderlog/features/ai_recognition/data/services/search_v2_service.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/widgets/category_section.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/widgets/flat_place_list.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/widgets/recommendation_map_view.dart';
+import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' show Spot, SpotSource;
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
+import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 
 /// 聊天消息模型
 class _ChatMessage {
@@ -22,6 +29,7 @@ class _ChatMessage {
     this.text,
     this.imageUrls,
     this.spots,
+    this.searchV2Result,
   });
 
   final String id;
@@ -29,21 +37,26 @@ class _ChatMessage {
   final String? text;
   final List<String>? imageUrls;
   final List<Spot>? spots;
+  final SearchV2Result? searchV2Result;
   final DateTime timestamp;
 }
 
+
 /// AI Assistant 页面 - 聊天式全屏页面
-class AIAssistantPage extends StatefulWidget {
+/// 
+/// Requirements: 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 9.1, 10.1, 10.2, 12.1, 12.2, 12.3, 13.3, 13.4
+class AIAssistantPage extends ConsumerStatefulWidget {
   const AIAssistantPage({super.key});
 
   @override
-  State<AIAssistantPage> createState() => _AIAssistantPageState();
+  ConsumerState<AIAssistantPage> createState() => _AIAssistantPageState();
 }
 
-class _AIAssistantPageState extends State<AIAssistantPage> {
+class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   final _historyService = AIRecognitionHistoryService();
   final _chatGPTService = ChatGPTService(dio: Dio());
   final _aiService = AIRecognitionService(dio: Dio());
+  late final SearchV2Service _searchV2Service;
   final _scrollController = ScrollController();
   final _messageController = TextEditingController();
   final _focusNode = FocusNode();
@@ -53,12 +66,28 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
   bool _isSendingMessage = false;
   final List<XFile> _selectedImages = [];
   CancelToken? _cancelToken;
+  
+  // SearchV2 状态
+  SearchLoadingState _searchLoadingState = const SearchLoadingState.complete();
+  int _remainingQuota = 10;
 
   @override
   void initState() {
     super.initState();
+    _searchV2Service = SearchV2Service(dio: Dio());
     print('🚀 AIAssistantPage initState called');
     _loadHistories();
+    _loadQuota();
+  }
+
+  Future<void> _loadQuota() async {
+    final user = ref.read(authProvider).user;
+    if (user != null) {
+      final quota = await _searchV2Service.getRemainingQuota(user.id);
+      if (mounted) {
+        setState(() => _remainingQuota = quota);
+      }
+    }
   }
 
   Future<void> _loadHistories() async {
@@ -119,6 +148,7 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
     _focusNode.dispose();
     super.dispose();
   }
+
 
   Future<void> _handleAddMore() async {
     if (_selectedImages.length >= 5) {
@@ -200,6 +230,7 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
 
   bool _isSendEnabled() => _selectedImages.isNotEmpty || _messageController.text.trim().isNotEmpty;
 
+
   Future<void> _handleSendMessage() async {
     final message = _messageController.text.trim();
     if (_selectedImages.isEmpty && message.isEmpty) return;
@@ -232,7 +263,8 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
       if (imagesToSend.isNotEmpty) {
         await _handleImageRecognition(imagesToSend, textToSend);
       } else {
-        await _handleTextChat(textToSend);
+        // 使用 SearchV2 进行文本搜索
+        await _handleSearchV2(textToSend);
       }
     } catch (e) {
       if (mounted) {
@@ -244,14 +276,87 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
         });
       }
     } finally {
-      if (mounted && _isSendingMessage) setState(() { _isSendingMessage = false; _cancelToken = null; });
+      if (mounted && _isSendingMessage) setState(() { 
+        _isSendingMessage = false; 
+        _cancelToken = null;
+        _searchLoadingState = const SearchLoadingState.complete();
+      });
       _scrollToBottom(animated: true);
     }
   }
 
+  /// 使用 SearchV2 进行搜索
+  /// Requirements: 7.1, 7.2, 7.3, 7.4
+  Future<void> _handleSearchV2(String query) async {
+    final user = ref.read(authProvider).user;
+    if (user == null) {
+      setState(() {
+        _messages.add(_ChatMessage(
+          id: 'error_${DateTime.now().millisecondsSinceEpoch}',
+          isUser: false, 
+          text: 'Please login to use AI search.',
+          timestamp: DateTime.now(),
+        ));
+      });
+      return;
+    }
+
+    // 检查配额
+    if (_remainingQuota <= 0) {
+      setState(() {
+        _messages.add(_ChatMessage(
+          id: 'quota_${DateTime.now().millisecondsSinceEpoch}',
+          isUser: false, 
+          text: 'You have reached your daily search limit (10 searches). Please try again tomorrow!',
+          timestamp: DateTime.now(),
+        ));
+      });
+      return;
+    }
+
+    final result = await _searchV2Service.searchV2(
+      query: query,
+      userId: user.id,
+      onStageChange: (state) {
+        if (mounted) {
+          setState(() => _searchLoadingState = state);
+        }
+      },
+      cancelToken: _cancelToken,
+    );
+
+    if (!mounted) return;
+
+    // 更新配额
+    setState(() => _remainingQuota = result.quotaRemaining);
+
+    if (result.error != null) {
+      setState(() {
+        _messages.add(_ChatMessage(
+          id: 'error_${DateTime.now().millisecondsSinceEpoch}',
+          isUser: false, 
+          text: result.error!,
+          timestamp: DateTime.now(),
+        ));
+      });
+      return;
+    }
+
+    // 添加 SearchV2 结果消息
+    setState(() {
+      _messages.add(_ChatMessage(
+        id: 'ai_v2_${DateTime.now().millisecondsSinceEpoch}',
+        isUser: false,
+        searchV2Result: result,
+        timestamp: DateTime.now(),
+      ));
+    });
+  }
+
+
   Future<void> _handleImageRecognition(List<XFile> images, String? additionalText) async {
     final files = images.map((xfile) => File(xfile.path)).toList();
-    final result = await _aiService.recognizeLocations(files, cancelToken: _cancelToken);
+    final result = await _aiService.recognizeLocations(files);
 
     if (mounted) {
       setState(() {
@@ -278,44 +383,120 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
     }
   }
 
-  Future<void> _handleTextChat(String message) async {
-    final response = await _chatGPTService.chat(message, cancelToken: _cancelToken);
-    if (mounted) {
-      setState(() {
-        _messages.add(_ChatMessage(
-          id: 'ai_text_${DateTime.now().millisecondsSinceEpoch}',
-          isUser: false, text: response, timestamp: DateTime.now(),
-        ));
-      });
+  /// 将 PlaceResult 转换为 Spot
+  Spot _placeResultToSpot(PlaceResult place) {
+    return Spot(
+      id: place.id ?? place.name,
+      name: place.name,
+      city: place.city ?? '',
+      category: (place.tags?.isNotEmpty ?? false) ? place.tags!.first : 'Place',
+      latitude: place.latitude,
+      longitude: place.longitude,
+      rating: place.rating ?? 0.0,
+      ratingCount: place.ratingCount ?? 0,
+      coverImage: place.coverImage,
+      images: [place.coverImage],
+      tags: place.tags ?? [],
+      aiSummary: place.summary,
+      isFromAI: place.source == PlaceSource.ai,
+      isVerified: place.isVerified,
+      recommendationPhrase: place.recommendationPhrase,
+      source: _convertSource(place.source),
+    );
+  }
+
+  SpotSource _convertSource(PlaceSource source) {
+    switch (source) {
+      case PlaceSource.google:
+        return SpotSource.google;
+      case PlaceSource.cache:
+        return SpotSource.cache;
+      case PlaceSource.ai:
+        return SpotSource.ai;
     }
   }
+
+  /// 显示地点详情
+  void _showPlaceDetail(PlaceResult place) {
+    final spot = _placeResultToSpot(place);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => UnifiedSpotDetailModal(
+        spot: spot,
+        keepOpenOnAction: true,
+        hideCollectionEntry: true,
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
     print('🎨 AIAssistantPage build called, isLoading: $_isLoading, messages: ${_messages.length}');
     return Scaffold(
-    backgroundColor: Colors.white,
-    appBar: AppBar(
       backgroundColor: Colors.white,
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios, color: AppTheme.black, size: 20),
-        onPressed: () => Navigator.pop(context),
-      ),
-      title: Text('AI Travel Assistant', style: AppTheme.headlineMedium(context).copyWith(fontSize: 18)),
-      centerTitle: false,
-    ),
-    body: Column(
-      children: [
-        Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryYellow)))
-              : _messages.isEmpty ? _buildEmptyState() : _buildMessageList(),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: AppTheme.black, size: 20),
+          onPressed: () => Navigator.pop(context),
         ),
-        _buildInputArea(),
-      ],
-    ),
-  );
+        title: Text('AI Travel Assistant', style: AppTheme.headlineMedium(context).copyWith(fontSize: 18)),
+        centerTitle: false,
+        actions: [
+          // 显示剩余配额 - Requirements: 13.3, 13.4
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _remainingQuota > 0 
+                      ? AppTheme.primaryYellow.withOpacity(0.2)
+                      : Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _remainingQuota > 0 ? AppTheme.primaryYellow : Colors.red,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.auto_awesome,
+                      size: 14,
+                      color: _remainingQuota > 0 ? AppTheme.black : Colors.red,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$_remainingQuota/10',
+                      style: AppTheme.bodySmall(context).copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: _remainingQuota > 0 ? AppTheme.black : Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryYellow)))
+                : _messages.isEmpty ? _buildEmptyState() : _buildMessageList(),
+          ),
+          _buildInputArea(),
+        ],
+      ),
+    );
   }
 
   Widget _buildEmptyState() => Center(
@@ -324,7 +505,6 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 灰色圆形图标
           Container(
             width: 120,
             height: 120,
@@ -334,7 +514,6 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
             ),
           ),
           const SizedBox(height: 32),
-          // 提示文字
           Text(
             'You can input links, upload photos or just describe your interest to find the place you "VAGO".',
             style: AppTheme.bodyMedium(context).copyWith(
@@ -347,6 +526,7 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
       ),
     ),
   );
+
 
   Widget _buildMessageList() => ListView.builder(
     controller: _scrollController,
@@ -362,23 +542,52 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
     },
   );
 
-  Widget _buildLoadingIndicator() => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _buildAIAvatar(),
-      const SizedBox(width: 12),
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppTheme.background,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.black, width: 1.5),
-        ),
-        child: const SizedBox(width: 20, height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black))),
+  /// 构建三阶段 loading 指示器
+  /// Requirements: 7.1, 7.2, 7.3, 7.4
+  Widget _buildLoadingIndicator() {
+    final locale = Localizations.localeOf(context).languageCode;
+    final message = _searchLoadingState.getLocalizedMessage(locale);
+    final progress = _searchLoadingState.progress;
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 直接显示文本，不使用 AI 头像和底卡 - Requirements: 12.1, 12.2, 12.3
+          Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  value: progress < 1.0 ? null : progress,
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryYellow),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message.isNotEmpty ? message : 'Processing...',
+                  style: AppTheme.bodyMedium(context).copyWith(
+                    color: AppTheme.mediumGray,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // 进度条
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: progress,
+            backgroundColor: AppTheme.lightGray,
+            valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryYellow),
+          ),
+        ],
       ),
-    ],
-  );
+    );
+  }
 
   Widget _buildUserMessage(_ChatMessage message) => Row(
     mainAxisAlignment: MainAxisAlignment.end,
@@ -423,49 +632,89 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
     ],
   );
 
-  Widget _buildAIMessage(_ChatMessage message) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _buildAIAvatar(),
-      const SizedBox(width: 12),
-      Flexible(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (message.text != null && message.text!.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.all(16),
-                constraints: const BoxConstraints(maxWidth: 320),
-                decoration: BoxDecoration(
-                  color: AppTheme.background,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(4), topRight: Radius.circular(16),
-                    bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16),
-                  ),
-                  border: Border.all(color: AppTheme.black, width: 1.5),
-                ),
-                child: Text(message.text!, style: AppTheme.bodyMedium(context)),
-              ),
-            if (message.spots != null && message.spots!.isNotEmpty)
-              ...message.spots!.map((spot) => Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: _SpotCardOverlay(spot: spot),
-              )),
-          ],
-        ),
-      ),
-    ],
-  );
 
-  Widget _buildAIAvatar() => Container(
-    width: 32, height: 32,
-    decoration: BoxDecoration(
-      color: AppTheme.primaryYellow,
-      shape: BoxShape.circle,
-      border: Border.all(color: AppTheme.black, width: 2),
-    ),
-    child: const Center(child: Text('🤖', style: TextStyle(fontSize: 16))),
-  );
+  /// 构建 AI 消息 - 移除头像和底卡
+  /// Requirements: 12.1, 12.2, 12.3
+  Widget _buildAIMessage(_ChatMessage message) {
+    // 如果是 SearchV2 结果，使用专门的展示组件
+    if (message.searchV2Result != null) {
+      return _buildSearchV2Result(message.searchV2Result!);
+    }
+
+    // 普通文本消息 - 直接显示文本，不使用头像和底卡
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (message.text != null && message.text!.isNotEmpty)
+          Text(
+            message.text!,
+            style: AppTheme.bodyMedium(context),
+          ),
+        if (message.spots != null && message.spots!.isNotEmpty)
+          ...message.spots!.map((spot) => Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _SpotCardOverlay(spot: spot),
+          )),
+      ],
+    );
+  }
+
+  /// 构建 SearchV2 结果展示
+  /// Requirements: 8.1, 8.2, 8.3, 9.1, 10.1, 10.2
+  Widget _buildSearchV2Result(SearchV2Result result) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 承接文案 - Requirements: 8.1, 8.2, 8.3
+        if (result.acknowledgment.isNotEmpty) ...[
+          Text(
+            result.acknowledgment,
+            style: AppTheme.bodyMedium(context).copyWith(
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        // 分类展示或平铺展示 - Requirements: 9.1
+        if (result.hasCategories)
+          // 有分类时使用分类展示组件
+          CategorizedPlacesList(
+            categories: result.categories!,
+            onPlaceTap: _showPlaceDetail,
+          )
+        else
+          // 无分类时使用平铺展示组件
+          FlatPlaceList(
+            places: result.places,
+            onPlaceTap: _showPlaceDetail,
+          ),
+
+        const SizedBox(height: 20),
+
+        // 总结 summary - Requirements: 10.1, 10.2
+        if (result.overallSummary.isNotEmpty) ...[
+          Text(
+            result.overallSummary,
+            style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.mediumGray,
+              fontStyle: FontStyle.italic,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        // 地图展示 - Requirements: 10.3, 10.4, 10.5
+        if (result.allPlaces.isNotEmpty)
+          RecommendationMapView(
+            places: result.allPlaces,
+            height: 200,
+            onPlaceTap: _showPlaceDetail,
+          ),
+      ],
+    );
+  }
 
   Widget _buildImageGrid(List<String> imageUrls) {
     if (imageUrls.length == 1) {
@@ -486,6 +735,7 @@ class _AIAssistantPageState extends State<AIAssistantPage> {
       )).toList(),
     );
   }
+
 
   Widget _buildInputArea() => Container(
     padding: EdgeInsets.only(left: 16, right: 16, top: 12, bottom: MediaQuery.of(context).padding.bottom + 12),
@@ -665,15 +915,24 @@ class _SpotCardOverlayState extends State<_SpotCardOverlay> {
                       style: AppTheme.labelLarge(context).copyWith(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                       maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
-                    Row(children: [
-                      const Icon(Icons.star, size: 16, color: AppTheme.primaryYellow),
-                      const SizedBox(width: 4),
-                      Text(widget.spot.rating.toStringAsFixed(1),
-                        style: AppTheme.bodySmall(context).copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 4),
-                      Text('(${widget.spot.ratingCount})',
-                        style: AppTheme.bodySmall(context).copyWith(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
-                    ]),
+                    // 显示评分或推荐短语 - Requirements: 11.1, 11.4
+                    if (widget.spot.isAIOnly || !widget.spot.hasRating)
+                      Row(children: [
+                        Icon(Icons.auto_awesome, size: 14, color: AppTheme.accentBlue),
+                        const SizedBox(width: 4),
+                        Text(widget.spot.recommendationPhrase ?? 'AI Recommended',
+                          style: AppTheme.bodySmall(context).copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+                      ])
+                    else
+                      Row(children: [
+                        const Icon(Icons.star, size: 16, color: AppTheme.primaryYellow),
+                        const SizedBox(width: 4),
+                        Text(widget.spot.rating.toStringAsFixed(1),
+                          style: AppTheme.bodySmall(context).copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 4),
+                        Text('(${widget.spot.ratingCount})',
+                          style: AppTheme.bodySmall(context).copyWith(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
+                      ]),
                   ],
                 ),
               ),

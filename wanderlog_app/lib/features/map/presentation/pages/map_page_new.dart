@@ -30,6 +30,13 @@ import 'package:wanderlog/shared/models/spot_model.dart' as spot_model;
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 
+/// 地点来源枚举
+enum SpotSource {
+  google,  // 来自 Google Places API
+  cache,   // 来自数据库缓存
+  ai,      // 来自 AI 生成（未验证）
+}
+
 class Spot {
   Spot({
     required this.id,
@@ -45,6 +52,9 @@ class Spot {
     required this.tags,
     this.aiSummary,
     this.isFromAI = false,
+    this.isVerified = true,
+    this.recommendationPhrase,
+    this.source = SpotSource.cache,
   });
 
   final String id;
@@ -60,6 +70,64 @@ class Spot {
   final List<String> tags;
   final String? aiSummary;
   final bool isFromAI;
+  
+  /// 是否有 Google 验证（有 google_place_id）
+  /// Requirements: 11.1, 11.4
+  final bool isVerified;
+  
+  /// AI 推荐短语（如 "highly rated", "local favorite", "hidden gem"）
+  /// AI-only 地点时显示此字段替代评分
+  /// Requirements: 11.1, 11.4
+  final String? recommendationPhrase;
+  
+  /// 数据来源
+  /// Requirements: 11.1, 11.4
+  final SpotSource source;
+  
+  /// 是否是 AI-only 地点（未经 Google 验证）
+  bool get isAIOnly => !isVerified && source == SpotSource.ai;
+  
+  /// 是否有评分
+  bool get hasRating => rating > 0;
+  
+  /// 复制并修改
+  Spot copyWith({
+    String? id,
+    String? name,
+    String? city,
+    String? category,
+    double? latitude,
+    double? longitude,
+    double? rating,
+    int? ratingCount,
+    String? coverImage,
+    List<String>? images,
+    List<String>? tags,
+    String? aiSummary,
+    bool? isFromAI,
+    bool? isVerified,
+    String? recommendationPhrase,
+    SpotSource? source,
+  }) {
+    return Spot(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      city: city ?? this.city,
+      category: category ?? this.category,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      rating: rating ?? this.rating,
+      ratingCount: ratingCount ?? this.ratingCount,
+      coverImage: coverImage ?? this.coverImage,
+      images: images ?? this.images,
+      tags: tags ?? this.tags,
+      aiSummary: aiSummary ?? this.aiSummary,
+      isFromAI: isFromAI ?? this.isFromAI,
+      isVerified: isVerified ?? this.isVerified,
+      recommendationPhrase: recommendationPhrase ?? this.recommendationPhrase,
+      source: source ?? this.source,
+    );
+  }
 }
 
 class MapPageSnapshot {

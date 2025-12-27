@@ -30,7 +30,7 @@ class UserRepository {
         .order('created_at', ascending: false);
 
     return (response as List)
-        .map((e) => PlaceModel.fromJson(e['place']))
+        .map((e) => PlaceModel.fromJson(e['place'] as Map<String, dynamic>))
         .toList();
   }
 

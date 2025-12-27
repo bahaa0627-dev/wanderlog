@@ -284,6 +284,9 @@ export const syncPlaceData = async (_req: Request, res: Response) => {
 /**
  * AI 解析用户查询意图
  * POST /api/places/ai/parse-intent
+ * 
+ * 使用 aiService 的 fallback 机制，按 AI_PROVIDER_ORDER 顺序尝试：
+ * kouri (OpenAI 代理) → gemini → azure_openai
  */
 export const parseQueryIntent = async (req: Request, res: Response) => {
   try {
@@ -295,25 +298,18 @@ export const parseQueryIntent = async (req: Request, res: Response) => {
 
     const aiService = (await import('../services/aiService')).default;
     
-    // 使用 Gemini 解析意图
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    if (!geminiApiKey) {
-      return res.status(500).json({ message: 'GEMINI_API_KEY not configured' });
-    }
-
-    const axios = (await import('axios')).default;
-    const { HttpsProxyAgent } = await import('https-proxy-agent');
-    
-    // 配置代理
-    const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy;
-    const axiosConfig: any = {};
-    if (proxyUrl) {
-      axiosConfig.httpsAgent = new HttpsProxyAgent(proxyUrl);
-      logger.info(`Using proxy: ${proxyUrl}`);
+    // 检查是否有可用的 AI provider
+    const availableProviders = aiService.getAvailableProviders();
+    if (availableProviders.length === 0) {
+      return res.status(500).json({ message: 'No AI providers configured' });
     }
     
-    const prompt = `
-Analyze this travel search query and extract the user's intent:
+    logger.info(`[parseQueryIntent] Available providers: ${availableProviders.join(', ')}`);
+    logger.info(`[parseQueryIntent] Provider order: ${aiService.getProviderOrder().join(', ')}`);
+    
+    const systemPrompt = 'You are a travel search query analyzer. Extract user intent and return valid JSON only.';
+    
+    const prompt = `Analyze this travel search query and extract the user's intent:
 "${query}"
 
 Return a JSON object with these fields:
@@ -333,25 +329,28 @@ Return a JSON object with these fields:
 Important:
 - ALWAYS translate city names to English (罗马 → Rome, 巴黎 → Paris, 东京 → Tokyo)
 - ALWAYS include the country when you can infer it from the city
-- Return valid JSON only
-`;
+- Return valid JSON only, no markdown code blocks`;
 
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
-      {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 500,
-        }
-      },
-      axiosConfig
+    // 使用 aiService 的 fallback 机制调用 AI
+    const content = await aiService.executeWithFallback(
+      (provider) => provider.generateText(prompt, systemPrompt),
+      'parseQueryIntent'
     );
-
-    const content = response.data.candidates[0].content.parts[0].text;
     
     // 解析 JSON
     let jsonText = content.trim();
+    
+    // 移除可能的 markdown 代码块
+    if (jsonText.includes('```json')) {
+      const start = jsonText.indexOf('```json') + 7;
+      const end = jsonText.lastIndexOf('```');
+      if (end > start) jsonText = jsonText.substring(start, end).trim();
+    } else if (jsonText.includes('```')) {
+      const start = jsonText.indexOf('```') + 3;
+      const end = jsonText.lastIndexOf('```');
+      if (end > start) jsonText = jsonText.substring(start, end).trim();
+    }
+    
     const jsonStart = jsonText.indexOf('{');
     const jsonEnd = jsonText.lastIndexOf('}');
     if (jsonStart >= 0 && jsonEnd > jsonStart) {
@@ -359,16 +358,20 @@ Important:
     }
     
     const intent = JSON.parse(jsonText);
+    logger.info(`[parseQueryIntent] Parsed intent: ${JSON.stringify(intent)}`);
     return res.json({ success: true, intent });
   } catch (error: any) {
-    logger.error('Parse Intent error:', error.response?.data || error.message);
-    return res.status(500).json({ message: 'Failed to parse query intent' });
+    logger.error('Parse Intent error:', error.message || error);
+    return res.status(500).json({ message: 'Failed to parse query intent', error: error.message });
   }
 };
 
 /**
  * AI 推荐地点
  * POST /api/places/ai/recommend
+ * 
+ * 使用 aiService 的 fallback 机制，按 AI_PROVIDER_ORDER 顺序尝试：
+ * kouri (OpenAI 代理) → gemini → azure_openai
  */
 export const getAIRecommendations = async (req: Request, res: Response) => {
   try {
@@ -378,27 +381,23 @@ export const getAIRecommendations = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'query is required' });
     }
 
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    if (!geminiApiKey) {
-      return res.status(500).json({ message: 'GEMINI_API_KEY not configured' });
-    }
-
-    const axios = (await import('axios')).default;
-    const { HttpsProxyAgent } = await import('https-proxy-agent');
+    const aiService = (await import('../services/aiService')).default;
     
-    // 配置代理
-    const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy;
-    const axiosConfig: any = {};
-    if (proxyUrl) {
-      axiosConfig.httpsAgent = new HttpsProxyAgent(proxyUrl);
+    // 检查是否有可用的 AI provider
+    const availableProviders = aiService.getAvailableProviders();
+    if (availableProviders.length === 0) {
+      return res.status(500).json({ message: 'No AI providers configured' });
     }
+    
+    logger.info(`[getAIRecommendations] Available providers: ${availableProviders.join(', ')}`);
     
     const locationHint = city ? ` in ${city}${country ? ', ' + country : ''}` : '';
     const categoryHint = category ? ` (${category})` : '';
     const aiLimit = Math.min(limit, 5);
 
-    const prompt = `
-Based on this query: "${query}"
+    const systemPrompt = 'You are a travel expert recommending real places. Return valid JSON only.';
+    
+    const prompt = `Based on this query: "${query}"
 
 Recommend exactly ${aiLimit} specific, real, well-known places${locationHint}${categoryHint}.
 
@@ -423,21 +422,13 @@ Rules:
 - Maximum ${aiLimit} places
 - Tags MUST be from: Museum, Attractions, Park, Cafe, Bakery, Restaurant, Art, Architecture, Historical, Landmark, Church, Temple, Shopping, Entertainment
 - Maximum 3 tags per place
-`;
+- Return valid JSON only, no markdown code blocks`;
 
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
-      {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 800,
-        }
-      },
-      axiosConfig
+    // 使用 aiService 的 fallback 机制调用 AI
+    const content = await aiService.executeWithFallback(
+      (provider) => provider.generateText(prompt, systemPrompt),
+      'getAIRecommendations'
     );
-
-    const content = response.data.candidates[0].content.parts[0].text;
     
     // 解析 JSON
     let jsonText = content.trim();
@@ -458,17 +449,18 @@ Rules:
     }
     
     const parsed = JSON.parse(jsonText);
+    logger.info(`[getAIRecommendations] Got ${parsed.locations?.length || 0} recommendations`);
     return res.json({ success: true, locations: parsed.locations || [] });
   } catch (error: any) {
-    logger.error('AI Recommend error:', error.response?.data || error.message);
-    return res.status(500).json({ message: 'Failed to get AI recommendations' });
+    logger.error('AI Recommend error:', error.message || error);
+    return res.status(500).json({ message: 'Failed to get AI recommendations', error: error.message });
   }
 };
 
 /**
- * Google Maps 搜索代理
+ * Google Maps 搜索代理 - 基础版（省钱）
  * POST /api/places/google/search
- * 用于 Flutter 端在中国无法直接访问 Google Maps API 的情况
+ * 只返回列表页需要的基础信息：place_id, 名称, 经纬度, 城市, 国家, 封面图, 评分, 评分人数
  */
 export const searchGoogleMaps = async (req: Request, res: Response) => {
   try {
@@ -479,9 +471,10 @@ export const searchGoogleMaps = async (req: Request, res: Response) => {
     }
 
     const searchQuery = city ? `${query} ${city}` : query;
-    logger.info(`Google Maps search: ${searchQuery}`);
+    logger.info(`Google Maps search (basic): ${searchQuery}`);
 
-    const result = await googleMapsService.searchPlace(searchQuery);
+    // 使用省钱版搜索，只获取基础信息
+    const result = await googleMapsService.searchPlaceBasic(searchQuery);
 
     if (!result) {
       return res.json({ success: true, place: null });

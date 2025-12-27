@@ -386,11 +386,77 @@ class AIRecognitionService {
         allSpots.addAll(dbSpots);
       }
 
-      // 步骤3：如果数据库结果不够，用 AI + Google Maps 补齐
+      // 步骤3：如果数据库结果不够，用 AI 推荐补齐（不调用 Google Maps API）
       final remaining = effectiveLimit - dbCount;
       if (remaining > 0) {
         print('📡 Database has $dbCount, need $remaining more from AI...');
         
+        // 获取用户所在城市（用于 AI 推荐时限定地理范围）
+        String? userCity = intent.city;
+        String? userCountry = intent.country;
+        
+        // 如果 intent 中没有城市信息，尝试从用户位置获取
+        if (userCity == null && userLat != null && userLng != null) {
+          final geoResult = await _reverseGeocode(userLat, userLng, cancelToken: cancelToken);
+          checkCancelled();
+          if (geoResult != null) {
+            userCity = geoResult['city'];
+            userCountry = geoResult['country'];
+            print('📍 User location: $userCity, $userCountry');
+          }
+        }
+        
+        // 获取已有地点的名称，避免重复
+        final existingNames = dbResults.map((p) => (p['name'] as String?)?.toLowerCase() ?? '').toSet();
+        
+        checkCancelled();
+        print('🤖 Fetching AI recommendations...');
+        final aiRecommendations = await _getAIRecommendations(
+          query, 
+          intent, 
+          remaining,
+          userCity: userCity,
+          userCountry: userCountry,
+          cancelToken: cancelToken,
+        );
+        checkCancelled();
+        
+        if (aiRecommendations.isNotEmpty) {
+          // 过滤掉已存在的地点
+          final filteredRecommendations = aiRecommendations.where((loc) {
+            final name = (loc['name'] as String?)?.toLowerCase() ?? '';
+            return !existingNames.contains(name);
+          }).toList();
+          
+          if (filteredRecommendations.isNotEmpty) {
+            print('✅ Got ${filteredRecommendations.length} AI recommendations');
+            // 将 AI 推荐转换为 Spot（标记为 isFromAI: true）
+            final aiSpots = filteredRecommendations.map((loc) => {
+              'id': 'ai_${DateTime.now().millisecondsSinceEpoch}_${loc['name'].hashCode}',
+              'name': loc['name'] ?? 'Unknown Place',
+              'city': loc['city'] ?? userCity ?? '',
+              'country': loc['country'] ?? userCountry ?? '',
+              'category': loc['category'] ?? intent.category ?? 'Place',
+              'latitude': loc['latitude'] ?? 0.0,
+              'longitude': loc['longitude'] ?? 0.0,
+              'rating': loc['rating'] ?? 0.0,
+              'ratingCount': loc['ratingCount'] ?? 0,
+              'coverImage': loc['coverImage'] ?? '',
+              'images': loc['images'] ?? [],
+              'tags': loc['tags'] ?? intent.tags ?? [],
+              'aiSummary': loc['description'] ?? loc['aiSummary'] ?? '',
+              'isFromAI': true, // AI 推荐显示 AI 标签
+            }).map(AIRecognitionResult.spotFromJson).toList();
+            
+            allSpots.addAll(aiSpots);
+            print('✅ Added ${aiSpots.length} AI-generated places');
+          }
+        } else {
+          print('⚠️ No AI recommendations received');
+        }
+        
+        /* 
+        // === 以下代码暂时禁用 ===
         checkCancelled();
         
         // 🔒 检查深度搜索配额
@@ -483,6 +549,8 @@ class AIRecognitionService {
             }
           }
         }
+        // === 禁用代码结束 ===
+        */
       }
 
       // 确保不超过上限
@@ -1089,13 +1157,14 @@ Important rules:
         .toList();
   }
 
-  /// 调用Google Maps API获取地点详细信息，保存到数据库
+  /// 调用 Google Maps API 获取地点基础信息（省钱版）
+  /// 只获取列表页需要的数据：place_id, 名称, 经纬度, 城市, 国家, 封面图(1张), 评分, 评分人数
+  /// 详细信息（地址、营业时间、额外图片等）在用户点击时再获取
   Future<List<Map<String, dynamic>>> _fetchSpotDetailsFromGoogleMaps(
     List<Map<String, dynamic>> locations,
     {CancelToken? cancelToken}
   ) async {
-    final apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
-    if (apiKey.isEmpty || locations.isEmpty) {
+    if (locations.isEmpty) {
       return [];
     }
 
@@ -1103,9 +1172,8 @@ Important rules:
     final client = SupabaseConfig.client;
 
     for (final location in locations) {
-      // 检查是否已取消
       if (cancelToken?.isCancelled ?? false) {
-        print('🛑 Request cancelled, stopping Google Maps fetch');
+        print('🛑 Request cancelled');
         break;
       }
       
@@ -1113,269 +1181,126 @@ Important rules:
         final name = location['name'] as String;
         final city = location['city'] as String? ?? '';
         final country = location['country'] as String? ?? '';
-        
-        // 使用Google Places API搜索地点（优先通过后端代理）
         final searchQuery = '$name ${city.isNotEmpty ? city : ''}';
-        print('🔍 Searching Google Maps for: $searchQuery');
         
-        // 先尝试通过后端代理调用
-        Map<String, dynamic>? searchResult = await _searchGoogleMapsViaBackend(searchQuery, city: city, cancelToken: cancelToken);
+        print('🔍 [Basic] Searching: $searchQuery');
         
-        String? placeId;
-        if (searchResult != null && searchResult['googlePlaceId'] != null) {
-          placeId = searchResult['googlePlaceId'] as String;
-          print('📍 Found place via backend: $placeId');
-        } else {
-          // 后端代理失败，尝试直接调用（可能在国外或有代理）
-          try {
-            final response = await _dio.get<Map<String, dynamic>>(
-              'https://maps.googleapis.com/maps/api/place/findplacefromtext/json',
-              queryParameters: {
-                'input': searchQuery,
-                'inputtype': 'textquery',
-                'fields': 'place_id,name,formatted_address,geometry,rating,user_ratings_total,photos,types',
-                'key': apiKey,
-              },
-              cancelToken: cancelToken,
-            );
-
-            final candidates = response.data?['candidates'] as List?;
-            if (candidates == null || candidates.isEmpty) {
-              print('⚠️ No candidates found for: $searchQuery');
-              continue;
-            }
-
-            final place = candidates.first as Map<String, dynamic>;
-            placeId = place['place_id'] as String;
-            print('📍 Found place via direct API: $placeId');
-          } catch (e) {
-            print('⚠️ Direct Google Maps API failed: $e');
-            continue;
-          }
-        }
+        // 通过后端代理获取基础信息（省钱版）
+        final searchResult = await _searchGoogleMapsViaBackend(searchQuery, city: city, cancelToken: cancelToken);
         
-        if (placeId == null) {
-          print('⚠️ No place ID found for: $searchQuery');
+        if (searchResult == null || searchResult['googlePlaceId'] == null) {
+          print('⚠️ No result for: $searchQuery');
           continue;
         }
         
-        // 再次检查是否已取消
-        if (cancelToken?.isCancelled ?? false) {
-          print('🛑 Request cancelled, stopping Google Maps fetch');
-          break;
-        }
+        final placeId = searchResult['googlePlaceId'] as String;
         
-        // 获取地点详情（优先通过后端代理）
-        Map<String, dynamic>? result;
-        
-        // 如果后端搜索已经返回了完整数据，直接使用
-        if (searchResult != null && searchResult['name'] != null) {
-          result = searchResult;
-          print('📍 Using backend search result for details');
-        } else {
-          // 尝试通过后端获取详情
-          final backendDetails = await _getGooglePlaceDetailsViaBackend(placeId, cancelToken: cancelToken);
-          if (backendDetails != null) {
-            result = backendDetails;
-            print('📍 Got details via backend');
-          } else {
-            // 后端失败，尝试直接调用
-            try {
-              final detailsResponse = await _dio.get<Map<String, dynamic>>(
-                'https://maps.googleapis.com/maps/api/place/details/json',
-                queryParameters: {
-                  'place_id': placeId,
-                  'fields': 'name,formatted_address,geometry,rating,user_ratings_total,photos,types,editorial_summary,opening_hours,formatted_phone_number,website,price_level',
-                  'key': apiKey,
-                },
-                cancelToken: cancelToken,
-              );
-              result = detailsResponse.data?['result'] as Map<String, dynamic>?;
-              print('📍 Got details via direct API');
-            } catch (e) {
-              print('⚠️ Direct Google Maps details API failed: $e');
-            }
-          }
-        }
-        
-        if (result == null) {
-          print('⚠️ No details found for place: $placeId');
-          continue;
-        }
-
-        // 检查数据库是否已存在该地点
+        // 检查数据库是否已存在
         try {
           final existingPlace = await client
               .from('places')
-              .select('id')
+              .select()
               .eq('google_place_id', placeId)
               .maybeSingle();
           
           if (existingPlace != null) {
-            print('📍 Place already exists in database: $name');
-            // 从数据库获取完整数据
-            final dbPlace = await client
-                .from('places')
-                .select()
-                .eq('id', existingPlace['id'])
-                .single();
-            
+            print('📍 Found in database: ${existingPlace['name']}');
             spots.add({
-              'id': dbPlace['id'],
-              'name': dbPlace['name'],
-              'city': dbPlace['city'] ?? city,
-              'category': dbPlace['category'] ?? 'Place',
-              'latitude': dbPlace['latitude'] ?? 0.0,
-              'longitude': dbPlace['longitude'] ?? 0.0,
-              'rating': dbPlace['rating'] ?? 0.0,
-              'ratingCount': dbPlace['rating_count'] ?? 0,
-              'coverImage': dbPlace['cover_image'] ?? '',
-              'images': dbPlace['images'] ?? [],
-              'tags': dbPlace['tags'] ?? dbPlace['ai_tags'] ?? [],
-              'aiSummary': dbPlace['ai_summary'] ?? dbPlace['description'],
-              'isFromAI': false, // 已在数据库中，不显示 AI 标签
+              'id': existingPlace['id'],
+              'googlePlaceId': placeId,
+              'name': existingPlace['name'],
+              'city': existingPlace['city'] ?? city,
+              'country': existingPlace['country'] ?? country,
+              'category': existingPlace['category'] ?? 'Place',
+              'latitude': existingPlace['latitude'] ?? 0.0,
+              'longitude': existingPlace['longitude'] ?? 0.0,
+              'rating': existingPlace['rating'] ?? 0.0,
+              'ratingCount': existingPlace['rating_count'] ?? 0,
+              'coverImage': existingPlace['cover_image'] ?? '',
+              'images': existingPlace['images'] ?? [],
+              'tags': existingPlace['ai_tags'] ?? [],
+              'aiSummary': existingPlace['description'],
+              'isFromAI': false,
             });
             continue;
           }
         } catch (e) {
-          print('⚠️ Error checking existing place: $e');
+          print('⚠️ DB check error: $e');
         }
-
-        // 生成新的 UUID（提前生成，用于图片路径）
+        
+        // 新地点：只保存基础信息，不获取详情
         final newId = const Uuid().v4();
-
-        // 获取照片 URL 并上传到 Cloudflare R2
-        final photos = result['photos'] as List?;
-        final googlePhotoUrls = <String>[];
         
-        if (photos != null && photos.isNotEmpty) {
-          for (int i = 0; i < photos.take(5).length; i++) {
-            final photo = photos[i] as Map<String, dynamic>;
-            final photoRef = photo['photo_reference'] as String?;
-            if (photoRef != null) {
-              final googlePhotoUrl = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=$photoRef&key=$apiKey';
-              googlePhotoUrls.add(googlePhotoUrl);
-            }
-          }
-        }
-        
-        print('📸 Got ${googlePhotoUrls.length} Google photos, uploading to R2...');
-        
-        // 上传图片到 Cloudflare R2
-        String? coverImage;
-        List<String> r2Images = [];
-        
-        if (googlePhotoUrls.isNotEmpty) {
+        // 上传封面图到 R2（只上传1张）
+        String? r2CoverImage;
+        final coverImageUrl = searchResult['coverImage'] as String?;
+        if (coverImageUrl != null && coverImageUrl.isNotEmpty) {
           try {
-            final uploadResult = await ImageService.uploadGooglePhotosToR2(
-              googlePhotoUrls,
-              newId,
-            );
-            coverImage = uploadResult['coverImage'] as String?;
-            r2Images = (uploadResult['images'] as List<String>?) ?? [];
-            print('✅ Uploaded ${r2Images.length + (coverImage != null ? 1 : 0)} images to R2');
+            final uploadResult = await ImageService.uploadGooglePhotosToR2([coverImageUrl], newId);
+            r2CoverImage = uploadResult['coverImage'] as String?;
+            print('✅ Uploaded cover image to R2');
           } catch (e) {
-            print('⚠️ Failed to upload images to R2: $e');
+            print('⚠️ R2 upload failed, using Google URL');
+            r2CoverImage = coverImageUrl;
           }
         }
-
-        // 解析营业时间 - 保存完整的 weekday_text 和 periods
-        // weekday_text: 用于展示 (如 "Monday: 9:00 AM – 5:00 PM")
-        // periods: 用于计算营业状态 (开门/快打烊/已关门)
-        final openingHours = result['opening_hours'] as Map<String, dynamic>?;
-        String? openingHoursJson;
-        if (openingHours != null) {
-          openingHoursJson = jsonEncode({
-            'weekday_text': openingHours['weekday_text'],
-            'periods': openingHours['periods'],
-          });
-        }
-
-        final geometry = result['geometry'] as Map<String, dynamic>?;
-        final locationData = geometry?['location'] as Map<String, dynamic>?;
-        final lat = locationData?['lat'] as double? ?? 0.0;
-        final lng = locationData?['lng'] as double? ?? 0.0;
         
-        // 从 Google Maps types 获取分类（优先使用第一个有意义的类型）
-        final googleTypes = result['types'] as List? ?? [];
-        String category = _parseGoogleCategory(googleTypes);
-        if (category == 'Place' && location['type'] != null) {
-          // 如果 Google 没有有意义的分类，使用 AI 识别的
-          category = location['type'] as String;
-        }
+        // 过滤 tags
+        final filteredTags = _filterAiTags(location['tags'] as List?, searchResult['category'] as String? ?? 'Place');
         
-        // 获取描述（从 Google editorial_summary）
-        final description = result['editorial_summary']?['overview'] as String?;
-        
-        // 过滤 AI tags：只保留允许的标签，最多 3 个，且不能与 category 重复
-        final filteredTags = _filterAiTags(location['tags'] as List?, category);
-        print('🏷️ Filtered tags: $filteredTags (from ${location['tags']})');
-        
-        // 准备数据库记录 - 使用 R2 URL
+        // 保存基础信息到数据库（详情字段留空，用户点击时再填充）
         final dbRecord = {
           'id': newId,
-          'name': result['name'] as String,
-          'city': city.isNotEmpty ? city : null,
-          'country': country.isNotEmpty ? country : null,
-          'latitude': lat,
-          'longitude': lng,
-          'address': result['formatted_address'] as String?,
-          'opening_hours': openingHoursJson,
-          'rating': (result['rating'] as num?)?.toDouble(),
-          'rating_count': result['user_ratings_total'] as int?,
-          'category': category,
-          'description': description, // 描述放到 description 字段
-          'cover_image': coverImage, // R2 URL
-          'images': r2Images, // R2 URLs (不包含 cover)
-          'ai_tags': filteredTags, // 过滤后的 tags
-          'price_level': result['price_level'] as int?,
-          'website': result['website'] as String?,
-          'phone_number': result['formatted_phone_number'] as String?,
           'google_place_id': placeId,
+          'name': searchResult['name'] as String,
+          'city': (searchResult['city'] as String?)?.isNotEmpty == true ? searchResult['city'] : city,
+          'country': (searchResult['country'] as String?)?.isNotEmpty == true ? searchResult['country'] : country,
+          'latitude': (searchResult['latitude'] as num?)?.toDouble() ?? 0.0,
+          'longitude': (searchResult['longitude'] as num?)?.toDouble() ?? 0.0,
+          'rating': (searchResult['rating'] as num?)?.toDouble(),
+          'rating_count': searchResult['ratingCount'] as int?,
+          'category': searchResult['category'] as String? ?? 'Place',
+          'cover_image': r2CoverImage,
+          'images': <String>[], // 详情图片留空，点击时再获取
+          'ai_tags': filteredTags,
           'source': 'google_maps_ai',
           'is_verified': false,
+          // 以下字段留空，用户点击时再获取
+          // 'address': null,
+          // 'opening_hours': null,
+          // 'phone_number': null,
+          // 'website': null,
+          // 'description': null,
         };
-
-        // 保存到数据库
+        
         try {
           await client.from('places').insert(dbRecord);
-          print('✅ Saved place to database: ${result['name']} (category: $category, tags: $filteredTags)');
+          print('✅ Saved basic info: ${searchResult['name']}');
         } catch (e) {
-          print('⚠️ Failed to save place to database: $e');
-          print('⚠️ DB Record: $dbRecord');
-          // 继续返回数据，即使保存失败
+          print('⚠️ DB save failed: $e');
         }
-
-        // 返回数据 - 使用 R2 URL，包含完整字段
+        
         spots.add({
           'id': newId,
-          'googlePlaceId': placeId, // 添加 google_place_id
-          'name': result['name'] as String,
-          'city': city,
-          'country': country,
-          'category': category,
-          'latitude': lat,
-          'longitude': lng,
-          'address': result['formatted_address'] as String?,
-          'rating': (result['rating'] as num?)?.toDouble() ?? 0.0,
-          'ratingCount': result['user_ratings_total'] as int? ?? 0,
-          'coverImage': coverImage ?? '',
-          'images': r2Images, // R2 URLs (不包含 cover)
+          'googlePlaceId': placeId,
+          'name': searchResult['name'] as String,
+          'city': (searchResult['city'] as String?)?.isNotEmpty == true ? searchResult['city'] : city,
+          'country': (searchResult['country'] as String?)?.isNotEmpty == true ? searchResult['country'] : country,
+          'category': searchResult['category'] as String? ?? 'Place',
+          'latitude': (searchResult['latitude'] as num?)?.toDouble() ?? 0.0,
+          'longitude': (searchResult['longitude'] as num?)?.toDouble() ?? 0.0,
+          'rating': (searchResult['rating'] as num?)?.toDouble() ?? 0.0,
+          'ratingCount': searchResult['ratingCount'] as int? ?? 0,
+          'coverImage': r2CoverImage ?? '',
+          'images': <String>[],
           'tags': filteredTags,
-          'aiSummary': description,
-          'openingHours': openingHours != null ? {
-            'weekday_text': openingHours['weekday_text'],
-            'periods': openingHours['periods'],
-          } : null,
-          'phoneNumber': result['formatted_phone_number'] as String?,
-          'website': result['website'] as String?,
-          'priceLevel': result['price_level'] as int?,
-          'isFromAI': true, // AI/Google Maps 结果显示 AI 标签
+          'aiSummary': null, // 详情页再获取
+          'isFromAI': true,
         });
         
-        print('✅ Added spot: ${result['name']}');
+        print('✅ Added basic spot: ${searchResult['name']}');
       } catch (e) {
-        print('❌ 获取地点详情失败: $e');
+        print('❌ Error: $e');
         continue;
       }
     }

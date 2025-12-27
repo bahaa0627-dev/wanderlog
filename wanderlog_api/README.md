@@ -73,7 +73,15 @@ Create a `.env` file with:
 - `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
 - `STRIPE_SECRET_KEY`: Stripe secret key
 - `MAPBOX_ACCESS_TOKEN`: Mapbox access token
-- `OPENAI_API_KEY` / `GEMINI_API_KEY`: AI service API keys
+
+### AI Service Configuration
+
+The application supports multiple AI providers with automatic fallback:
+
+- **Azure OpenAI** (Primary): See [AZURE_OPENAI_SETUP.md](./AZURE_OPENAI_SETUP.md) for detailed setup instructions
+- **Google Gemini** (Fallback): Set `GEMINI_API_KEY`
+
+Configure provider priority with `AI_PROVIDER_ORDER` (default: `azure_openai,gemini`)
 
 ## 🧪 Testing
 

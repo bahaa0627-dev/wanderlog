@@ -137,12 +137,12 @@ class SearchV2Service {
 
       final data = response.data;
       if (data != null && data['success'] == true) {
-        return data['remaining'] as int? ?? 0;
+        return data['remaining'] as int? ?? 10;
       }
-      return 0;
+      return 10; // Default quota on failure
     } catch (e) {
       debugPrint('❌ GetQuota Error: $e');
-      return 0;
+      return 10; // Default quota on error
     }
   }
 }

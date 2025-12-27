@@ -66,8 +66,8 @@ interface SearchV2Response {
  * Requirements: 2.2, 2.3
  */
 const TIMEOUT_CONFIG = {
-  AI_TIMEOUT_MS: 10000,      // 10 seconds for AI call
-  GOOGLE_TIMEOUT_MS: 5000,   // 5 seconds for Google call
+  AI_TIMEOUT_MS: 15000,      // 15 seconds for AI call
+  GOOGLE_TIMEOUT_MS: 10000,  // 10 seconds for Google call (proxy may be slow)
 };
 
 // ============================================
@@ -358,7 +358,9 @@ export const searchV2 = async (req: Request, res: Response) => {
       aiRecommendations = aiResult.value;
       logger.info(`[SearchV2] AI returned ${aiRecommendations.places.length} places`);
     } else {
-      logger.warn('[SearchV2] AI call failed:', aiResult.reason);
+      const reason = aiResult.reason;
+      const errorMsg = reason instanceof Error ? reason.message : String(reason);
+      logger.warn(`[SearchV2] AI call failed: ${errorMsg}`);
     }
 
     // Handle Google result
@@ -368,10 +370,13 @@ export const searchV2 = async (req: Request, res: Response) => {
       
       // Sync Google places to database (async, don't wait)
       googlePlacesEnterpriseService.syncPlacesToDatabase(googlePlaces).catch(err => {
-        logger.error('[SearchV2] Error syncing Google places:', err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        logger.error(`[SearchV2] Error syncing Google places: ${errMsg}`);
       });
     } else {
-      logger.warn('[SearchV2] Google call failed:', googleResult.reason);
+      const reason = googleResult.reason;
+      const errorMsg = reason instanceof Error ? reason.message : String(reason);
+      logger.warn(`[SearchV2] Google call failed: ${errorMsg}`);
     }
 
     // Handle cached result
@@ -537,15 +542,21 @@ export const searchV2 = async (req: Request, res: Response) => {
 /**
  * Get quota info for a user
  * GET /api/places/ai/quota
+ * 
+ * Accepts userId from:
+ * 1. Authenticated user (req.user.id)
+ * 2. Query parameter (userId)
  */
 export const getQuotaInfo = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    // Try to get userId from auth or query param
+    const userId = (req as any).user?.id || req.query.userId as string;
 
     if (!userId) {
-      return res.status(401).json({
+      return res.status(400).json({
         success: false,
-        error: 'Authentication required',
+        error: 'userId is required',
+        remaining: 10, // Return default for anonymous
       });
     }
 
@@ -553,13 +564,17 @@ export const getQuotaInfo = async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      quota: quotaInfo,
+      remaining: quotaInfo.remaining,
+      limit: quotaInfo.limit,
+      used: quotaInfo.used,
+      resetsAt: quotaInfo.resetsAt,
     });
   } catch (error: any) {
     logger.error('[SearchV2] Error getting quota info:', error);
     return res.status(500).json({
       success: false,
       error: 'Failed to get quota information',
+      remaining: 10, // Return default on error
     });
   }
 };

@@ -38,12 +38,16 @@ router.post('/search-v2', authenticateTokenIfPresent, searchV2);
 /**
  * GET /api/places/ai/quota
  * 
- * Get quota information for authenticated user
+ * Get quota information for user
+ * Accepts userId from auth token or query parameter
  * 
  * Response:
  * - success: boolean
- * - quota: { remaining, limit, used, resetsAt }
+ * - remaining: number
+ * - limit: number
+ * - used: number
+ * - resetsAt: Date
  */
-router.get('/quota', authenticateToken, getQuotaInfo);
+router.get('/quota', authenticateTokenIfPresent, getQuotaInfo);
 
 export default router;

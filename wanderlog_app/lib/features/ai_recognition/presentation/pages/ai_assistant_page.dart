@@ -83,9 +83,15 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   Future<void> _loadQuota() async {
     final user = ref.read(authProvider).user;
     if (user != null) {
-      final quota = await _searchV2Service.getRemainingQuota(user.id);
-      if (mounted) {
-        setState(() => _remainingQuota = quota);
+      try {
+        final quota = await _searchV2Service.getRemainingQuota(user.id);
+        if (mounted && quota > 0) {
+          setState(() => _remainingQuota = quota);
+        }
+        // 如果获取失败或返回0，保持默认值10，让后端来判断
+      } catch (e) {
+        debugPrint('⚠️ Failed to load quota: $e');
+        // 保持默认值，不阻止用户
       }
     }
   }
@@ -261,9 +267,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
     try {
       if (imagesToSend.isNotEmpty) {
+        debugPrint('🖼️ [AIAssistant] Has images, calling _handleImageRecognition');
         await _handleImageRecognition(imagesToSend, textToSend);
       } else {
         // 使用 SearchV2 进行文本搜索
+        debugPrint('📝 [AIAssistant] Text only, calling _handleSearchV2: $textToSend');
         await _handleSearchV2(textToSend);
       }
     } catch (e) {
@@ -288,6 +296,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 使用 SearchV2 进行搜索
   /// Requirements: 7.1, 7.2, 7.3, 7.4
   Future<void> _handleSearchV2(String query) async {
+    debugPrint('🔍 [SearchV2] Starting search for: $query');
     final user = ref.read(authProvider).user;
     if (user == null) {
       setState(() {
@@ -301,18 +310,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       return;
     }
 
-    // 检查配额
-    if (_remainingQuota <= 0) {
-      setState(() {
-        _messages.add(_ChatMessage(
-          id: 'quota_${DateTime.now().millisecondsSinceEpoch}',
-          isUser: false, 
-          text: 'You have reached your daily search limit (10 searches). Please try again tomorrow!',
-          timestamp: DateTime.now(),
-        ));
-      });
-      return;
-    }
+    // 不在前端检查配额，让后端来判断
+    // 后端会返回 429 错误如果配额用完
 
     final result = await _searchV2Service.searchV2(
       query: query,

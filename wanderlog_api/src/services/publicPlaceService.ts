@@ -1,6 +1,7 @@
-import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import googleMapsService from './googleMapsService';
+import { normalizationService, NormalizationInput, StructuredTags } from './normalizationService';
+import { mergePolicyService, SourceData } from './mergePolicyService';
 
 export interface PublicPlaceData {
   placeId: string;
@@ -30,6 +31,14 @@ class PublicPlaceService {
   /**
    * 根据 googlePlaceId 创建或更新地点
    * 自动去重：如果 googlePlaceId 已存在，则更新；否则创建新记录
+   * 自动归一化：使用 normalizationService 确定 category_slug 和 tags
+   * 自动合并：使用 mergePolicyService 合并多源数据
+   * 
+   * Updated for AI Tags Optimization:
+   * - tags is now a structured jsonb object
+   * - ai_tags is now an array of AITagElement objects
+   * 
+   * Requirements: 1.4, 8.4
    */
   async upsertPlace(data: PublicPlaceData): Promise<any> {
     try {
@@ -38,7 +47,21 @@ class PublicPlaceService {
         where: { googlePlaceId: data.placeId }
       });
 
-      const placeData = {
+      // 准备归一化输入
+      const normInput: NormalizationInput = {
+        name: data.name,
+        description: data.aiDescription,
+        googleTypes: data.sourceDetails?.types || [],
+        googleKeywords: data.category ? [data.category] : [],
+        existingCategory: data.category,
+        existingTags: data.aiTags,
+      };
+      
+      // 执行归一化 (now async to generate ai_tags)
+      const normalized = await normalizationService.normalize(normInput);
+
+      // 准备新数据
+      const newPlaceData = {
         googlePlaceId: data.placeId,
         name: data.name,
         latitude: data.latitude,
@@ -47,34 +70,157 @@ class PublicPlaceService {
         city: data.city,
         country: data.country,
         category: data.category,
+        categorySlug: normalized.categorySlug,
+        categoryEn: normalized.categoryEn,
+        categoryZh: normalized.categoryZh,
         coverImage: data.coverImage,
-        images: data.images ? JSON.stringify(data.images) : null,
+        images: data.images || [],
         rating: data.rating,
         ratingCount: data.ratingCount,
         priceLevel: data.priceLevel,
-        openingHours: data.openingHours ? JSON.stringify(data.openingHours) : null,
+        openingHours: data.openingHours,
         website: data.website,
         phoneNumber: data.phoneNumber,
-        aiTags: data.aiTags ? JSON.stringify(data.aiTags) : null,
+        tags: normalized.tags,  // Now structured jsonb
+        aiTags: normalized.aiTags,  // Now AITagElement[]
         aiSummary: data.aiSummary,
         aiDescription: data.aiDescription,
+        description: data.aiDescription,
         source: data.source,
-        sourceDetails: data.sourceDetails ? JSON.stringify(data.sourceDetails) : null,
+        sourceDetails: data.sourceDetails,
+        customFields: normalized.customFields,
         lastSyncedAt: new Date(),
       };
 
       if (existing) {
-        // 更新现有记录
-        console.log(`Updating existing place: ${data.name} (${data.placeId})`);
+        // 更新现有记录 - 使用合并策略
+        console.log(`Updating existing place with merge policy: ${data.name} (${data.placeId})`);
+        
+        // 构建多源数据
+        const sources: SourceData = {
+          google: {
+            openingHours: newPlaceData.openingHours,
+            address: newPlaceData.address,
+            rating: newPlaceData.rating,
+            ratingCount: newPlaceData.ratingCount,
+            photos: newPlaceData.images,
+            coverImage: newPlaceData.coverImage,
+            website: newPlaceData.website,
+            phoneNumber: newPlaceData.phoneNumber,
+            description: newPlaceData.description,
+            tags: newPlaceData.tags,
+            images: newPlaceData.images,
+          },
+        };
+        
+        // 如果现有数据有其他来源的信息，也加入合并
+        if (existing.customFields && typeof existing.customFields === 'object') {
+          const existingCustomFields = existing.customFields as Record<string, any>;
+          if (existingCustomFields.raw) {
+            for (const [source, sourceData] of Object.entries(existingCustomFields.raw)) {
+              if (source !== 'google' && sourceData) {
+                (sources as any)[source] = sourceData;
+              }
+            }
+          }
+        }
+        
+        // 执行合并
+        const merged = mergePolicyService.mergeMultiSourceData(sources);
+        
+        // 合并 tags（结构化格式）
+        const existingTags = (existing.tags && typeof existing.tags === 'object' && !Array.isArray(existing.tags)) 
+          ? existing.tags as StructuredTags 
+          : {};
+        const mergedTags = this.mergeStructuredTags(existingTags, normalized.tags);
+        
+        // 合并 images
+        const existingImages = Array.isArray(existing.images) ? existing.images : [];
+        const mergedImages = [...new Set([...existingImages, ...merged.images])];
+        
+        // 合并 customFields
+        const existingCustomFields = (existing.customFields && typeof existing.customFields === 'object') 
+          ? existing.customFields as Record<string, any>
+          : {};
+        const mergedCustomFields = {
+          ...existingCustomFields,
+          ...normalized.customFields,
+          raw: {
+            ...(existingCustomFields.raw || {}),
+            ...merged.customFields.raw,
+          },
+        };
+        
+        // 使用合并后的数据更新
+        const updateData = {
+          name: newPlaceData.name,
+          latitude: newPlaceData.latitude,
+          longitude: newPlaceData.longitude,
+          address: merged.address || newPlaceData.address,
+          city: newPlaceData.city,
+          country: newPlaceData.country,
+          category: newPlaceData.category,
+          categorySlug: newPlaceData.categorySlug,
+          categoryEn: newPlaceData.categoryEn,
+          categoryZh: newPlaceData.categoryZh,
+          coverImage: merged.coverImage || newPlaceData.coverImage,
+          images: mergedImages,
+          rating: merged.rating ?? newPlaceData.rating,
+          ratingCount: merged.ratingCount ?? newPlaceData.ratingCount,
+          priceLevel: newPlaceData.priceLevel,
+          openingHours: merged.openingHours ? JSON.stringify(merged.openingHours) : (newPlaceData.openingHours ? JSON.stringify(newPlaceData.openingHours) : null),
+          website: merged.website || newPlaceData.website,
+          phoneNumber: merged.phoneNumber || newPlaceData.phoneNumber,
+          tags: mergedTags as object,  // Cast to satisfy Prisma Json type
+          aiTags: newPlaceData.aiTags as object[],  // Cast to satisfy Prisma Json type
+          aiSummary: newPlaceData.aiSummary,
+          aiDescription: merged.description || newPlaceData.aiDescription,
+          description: merged.description || newPlaceData.description,
+          source: newPlaceData.source,
+          customFields: mergedCustomFields,
+          lastSyncedAt: new Date(),
+        };
+        
         return await prisma.place.update({
           where: { googlePlaceId: data.placeId },
-          data: placeData
+          data: updateData
         });
       } else {
         // 创建新记录
         console.log(`Creating new place: ${data.name} (${data.placeId})`);
+        
+        const createData = {
+          googlePlaceId: newPlaceData.googlePlaceId,
+          name: newPlaceData.name,
+          latitude: newPlaceData.latitude,
+          longitude: newPlaceData.longitude,
+          address: newPlaceData.address,
+          city: newPlaceData.city,
+          country: newPlaceData.country,
+          category: newPlaceData.category,
+          categorySlug: newPlaceData.categorySlug,
+          categoryEn: newPlaceData.categoryEn,
+          categoryZh: newPlaceData.categoryZh,
+          coverImage: newPlaceData.coverImage,
+          images: newPlaceData.images,
+          rating: newPlaceData.rating,
+          ratingCount: newPlaceData.ratingCount,
+          priceLevel: newPlaceData.priceLevel,
+          openingHours: newPlaceData.openingHours ? JSON.stringify(newPlaceData.openingHours) : null,
+          website: newPlaceData.website,
+          phoneNumber: newPlaceData.phoneNumber,
+          tags: newPlaceData.tags as object,  // Cast to satisfy Prisma Json type
+          aiTags: newPlaceData.aiTags as object[],  // Cast to satisfy Prisma Json type
+          aiSummary: newPlaceData.aiSummary,
+          aiDescription: newPlaceData.aiDescription,
+          description: newPlaceData.description,
+          source: newPlaceData.source,
+          customFields: newPlaceData.customFields,
+          lastSyncedAt: newPlaceData.lastSyncedAt,
+        };
+        
         return await prisma.place.create({
-          data: placeData
+          data: createData
         });
       }
     } catch (error) {
@@ -99,6 +245,16 @@ class PublicPlaceService {
         throw new Error('Failed to fetch place details from Google Maps');
       }
 
+      // 解析 tags 以获取 Google types
+      const parsedTags = placeDetails.tags ? JSON.parse(placeDetails.tags) : [];
+      
+      // 合并 sourceDetails，确保包含 Google types
+      const mergedSourceDetails = {
+        ...sourceDetails,
+        types: parsedTags, // Google types 用于归一化
+        originalCategory: placeDetails.category,
+      };
+
       // 转换为公共地点数据格式
       const publicPlaceData: PublicPlaceData = {
         placeId: placeDetails.googlePlaceId,
@@ -114,12 +270,13 @@ class PublicPlaceService {
         images: placeDetails.images ? JSON.parse(placeDetails.images) : undefined,
         rating: placeDetails.rating,
         ratingCount: placeDetails.ratingCount,
-        priceLevel: placeDetails.priceLevel,
+        // priceLevel removed from PlaceData interface
         openingHours: placeDetails.openingHours ? JSON.parse(placeDetails.openingHours) : undefined,
         website: placeDetails.website,
         phoneNumber: placeDetails.phoneNumber,
+        aiDescription: placeDetails.description,
         source,
-        sourceDetails,
+        sourceDetails: mergedSourceDetails,
       };
 
       return await this.upsertPlace(publicPlaceData);
@@ -378,8 +535,27 @@ class PublicPlaceService {
   
   /**
    * 手动创建新地点
+   * 自动归一化：使用 normalizationService 确定 category_slug 和 tags
+   * 
+   * Updated for AI Tags Optimization:
+   * - tags is now a structured jsonb object
+   * - ai_tags is now an array of AITagElement objects
+   * 
+   * Requirements: 1.4, 8.4
    */
   async createPlace(data: any) {
+    // 准备归一化输入
+    const normInput: NormalizationInput = {
+      name: data.name,
+      description: data.description || data.aiDescription,
+      googleKeywords: data.category ? [data.category] : [],
+      existingCategory: data.category,
+      existingTags: data.aiTags ? (typeof data.aiTags === 'string' ? JSON.parse(data.aiTags) : data.aiTags) : [],
+    };
+    
+    // 执行归一化 (now async to generate ai_tags)
+    const normalized = await normalizationService.normalize(normInput);
+    
     // 准备数据
     const createData: any = {
       name: data.name,
@@ -389,6 +565,9 @@ class PublicPlaceService {
       country: data.country || null,
       address: data.address || null,
       category: data.category || null,
+      categorySlug: normalized.categorySlug,
+      categoryEn: normalized.categoryEn,
+      categoryZh: normalized.categoryZh,
       coverImage: data.coverImage || null,
       images: data.images ? (typeof data.images === 'string' ? JSON.parse(data.images) : data.images) : [],
       rating: data.rating !== undefined && data.rating !== null && data.rating !== '' ? parseFloat(data.rating) : null,
@@ -397,11 +576,12 @@ class PublicPlaceService {
       openingHours: data.openingHours || null,
       website: data.website || null,
       phoneNumber: data.phoneNumber || null,
-      aiTags: data.aiTags ? (typeof data.aiTags === 'string' ? JSON.parse(data.aiTags) : data.aiTags) : [],
+      tags: normalized.tags,  // Now structured jsonb
+      aiTags: normalized.aiTags,  // Now AITagElement[] from normalization
       aiSummary: data.aiSummary || null,
       aiDescription: data.aiDescription || null,
       description: data.description || null,
-      customFields: data.customFields ? (typeof data.customFields === 'string' ? JSON.parse(data.customFields) : data.customFields) : null,
+      customFields: normalized.customFields,
       source: data.source || 'manual',
     };
 
@@ -434,11 +614,11 @@ class PublicPlaceService {
           country: placeDetails.country,
           category: placeDetails.category,
           coverImage: placeDetails.coverImage,
-          images: placeDetails.images ? JSON.stringify(JSON.parse(placeDetails.images)) : null,
+          images: placeDetails.images ? JSON.stringify(JSON.parse(placeDetails.images)) : undefined,
           rating: placeDetails.rating,
           ratingCount: placeDetails.ratingCount,
-          priceLevel: placeDetails.priceLevel,
-          openingHours: placeDetails.openingHours,
+          // priceLevel removed from PlaceData interface
+          openingHours: placeDetails.openingHours || undefined,
           website: placeDetails.website,
           phoneNumber: placeDetails.phoneNumber,
           lastSyncedAt: new Date(),
@@ -652,25 +832,41 @@ class PublicPlaceService {
           }
         }
         
-        // 检查 aiTags (JSON 数组，不区分大小写)
+        // 检查 aiTags (now array of AITagElement objects)
         if (place.aiTags) {
           const aiTagsArray = Array.isArray(place.aiTags) ? place.aiTags : [];
-          if (aiTagsArray.some((aiTag: string) => {
-            const aiTagLower = aiTag.toLowerCase();
-            return tagsLower.some(tag => aiTagLower.includes(tag));
+          if (aiTagsArray.some((aiTag: any) => {
+            // aiTag is now an object with en/zh fields
+            if (typeof aiTag === 'object' && aiTag !== null) {
+              const enLower = (aiTag.en || '').toLowerCase();
+              const zhLower = (aiTag.zh || '').toLowerCase();
+              return tagsLower.some(tag => enLower.includes(tag) || zhLower.includes(tag));
+            }
+            // Fallback for old string format
+            if (typeof aiTag === 'string') {
+              return tagsLower.some(tag => aiTag.toLowerCase().includes(tag));
+            }
+            return false;
           })) {
             return true;
           }
         }
         
-        // 检查 tags (JSON 数组，不区分大小写)
-        if (place.tags) {
-          const tagsArray = Array.isArray(place.tags) ? place.tags : [];
-          if (tagsArray.some((t: string) => {
-            const tLower = t.toLowerCase();
-            return tagsLower.some(tag => tLower.includes(tag));
-          })) {
-            return true;
+        // 检查 tags (now structured jsonb object)
+        if (place.tags && typeof place.tags === 'object' && !Array.isArray(place.tags)) {
+          const structuredTags = place.tags as Record<string, unknown>;
+          // Check all values in the structured tags object
+          for (const values of Object.values(structuredTags)) {
+            if (Array.isArray(values)) {
+              if (values.some((v: unknown) => {
+                if (typeof v === 'string') {
+                  return tagsLower.some(tag => v.toLowerCase().includes(tag));
+                }
+                return false;
+              })) {
+                return true;
+              }
+            }
           }
         }
         
@@ -683,6 +879,30 @@ class PublicPlaceService {
       total: filteredPlaces.length,
       isAiGenerated: false,
     };
+  }
+  
+  /**
+   * 合并两个结构化 tags 对象
+   * 将两个 StructuredTags 对象合并，去重
+   */
+  private mergeStructuredTags(existing: StructuredTags, newTags: StructuredTags): StructuredTags {
+    const result: StructuredTags = { ...existing };
+    
+    for (const [key, values] of Object.entries(newTags)) {
+      if (!values || !Array.isArray(values)) continue;
+      
+      if (!result[key]) {
+        result[key] = [];
+      }
+      
+      for (const value of values) {
+        if (!result[key]!.includes(value)) {
+          result[key]!.push(value);
+        }
+      }
+    }
+    
+    return result;
   }
 }
 

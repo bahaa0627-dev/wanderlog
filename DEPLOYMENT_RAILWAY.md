@@ -1,136 +1,136 @@
 # Railway 部署指南
 
-## 快速部署（5分钟）
+## 前置条件
 
-### 1. 注册 Railway
-访问 [railway.app](https://railway.app) 并用 GitHub 登录
+1. 注册 Railway 账号: https://railway.app
+2. 安装 Railway CLI (可选):
+   ```bash
+   npm install -g @railway/cli
+   ```
 
-### 2. 创建项目
+## 部署步骤
+
+### 方式一：通过 Railway Dashboard (推荐)
+
+1. **登录 Railway Dashboard**
+   - 访问 https://railway.app/dashboard
+
+2. **创建新项目**
+   - 点击 "New Project"
+   - 选择 "Deploy from GitHub repo"
+   - 授权 GitHub 并选择你的仓库
+
+3. **配置部署**
+   - Railway 会自动检测 Dockerfile
+   - 设置 Root Directory 为 `wanderlog_api`
+
+4. **配置环境变量**
+   在 Railway Dashboard → Variables 中添加以下环境变量：
+
+   ```
+   # 必需
+   DATABASE_URL=postgresql://...
+   DIRECT_URL=postgresql://...
+   JWT_SECRET=your-secure-jwt-secret
+   NODE_ENV=production
+   PORT=3000
+
+   # Supabase
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_ANON_KEY=your-anon-key
+   SUPABASE_SERVICE_KEY=your-service-key
+
+   # AI Provider (选择一个)
+   # Azure OpenAI
+   AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+   AZURE_OPENAI_API_KEY=your-api-key
+   AZURE_OPENAI_API_VERSION=2024-02-15-preview
+   AZURE_OPENAI_DEPLOYMENT_VISION=gpt-4o
+   AZURE_OPENAI_DEPLOYMENT_CHAT=gpt-4o-mini
+
+   # 或 Kouri (中国大陆推荐)
+   KOURI_API_KEY=your-kouri-api-key
+   KOURI_BASE_URL=https://your-kouri-endpoint/v1
+
+   # 或 Gemini
+   GEMINI_API_KEY=your-gemini-api-key
+
+   # AI Provider 顺序
+   AI_PROVIDER_ORDER=azure_openai,gemini
+
+   # Google Maps (可选)
+   GOOGLE_MAPS_API_KEY=your-google-maps-key
+
+   # Cloudflare R2 (可选)
+   R2_ACCOUNT_ID=your-account-id
+   R2_ACCESS_KEY_ID=your-access-key
+   R2_SECRET_ACCESS_KEY=your-secret-key
+   R2_BUCKET_NAME=wanderlog-images
+   R2_PUBLIC_URL=https://images.vago.to
+   ```
+
+5. **部署**
+   - 点击 "Deploy" 按钮
+   - 等待构建完成 (约 2-5 分钟)
+
+6. **获取部署 URL**
+   - 部署成功后，Railway 会提供一个 URL
+   - 格式类似: `https://wanderlog-api-production.up.railway.app`
+
+### 方式二：通过 Railway CLI
+
 ```bash
-# 方式一：从 GitHub 部署（推荐）
-# 1. 点击 "New Project"
-# 2. 选择 "Deploy from GitHub repo"
-# 3. 选择你的 wanderlog 仓库
-# 4. 选择 wanderlog_api 目录
-
-# 方式二：CLI 部署
-npm install -g @railway/cli
+# 登录
 railway login
+
+# 进入 API 目录
 cd wanderlog_api
+
+# 初始化项目
 railway init
+
+# 链接到现有项目或创建新项目
+railway link
+
+# 部署
 railway up
 ```
 
-### 3. 配置环境变量
-在 Railway Dashboard → Variables 中添加：
+## 配置自定义域名 (可选)
 
-```env
-# 必需
-DATABASE_URL=postgresql://postgres.dhyfttcikicrsfqamgfk:xxx@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres
-DIRECT_URL=postgresql://postgres:xxx@db.dhyfttcikicrsfqamgfk.supabase.co:5432/postgres
-JWT_SECRET=your-production-secret-key
-GOOGLE_MAPS_API_KEY=your_key
+1. 在 Railway Dashboard → Settings → Domains
+2. 添加自定义域名: `api.vago.to`
+3. 在 Cloudflare DNS 添加 CNAME 记录:
+   - 类型: CNAME
+   - 名称: api
+   - 内容: Railway 提供的域名
+   - 代理状态: 已代理 (橙色云朵)
 
-# Supabase
-SUPABASE_URL=https://dhyfttcikicrsfqamgfk.supabase.co
-SUPABASE_ANON_KEY=your_key
-SUPABASE_SERVICE_KEY=your_key
-
-# 可选
-RESEND_API_KEY=your_key
-OPENAI_API_KEY=your_key
-R2_PUBLIC_URL=https://wanderlog-images.xxx.workers.dev
-R2_UPLOAD_SECRET=your_secret
-```
-
-### 4. 配置域名
-Railway 会自动分配一个 `xxx.railway.app` 域名
-
-如需自定义域名：
-1. Settings → Domains → Add Custom Domain
-2. 添加 `api.yourdomain.com`
-3. 在 DNS 添加 CNAME 记录指向 Railway 提供的地址
-
-### 5. 验证部署
-```bash
-curl https://your-app.railway.app/health
-# 应返回 {"status":"ok","timestamp":"..."}
-
-curl https://your-app.railway.app/api/public-places?limit=1
-# 应返回地点数据
-```
-
----
-
-## 其他部署选项
-
-### Render（免费版可用）
-
-1. 访问 [render.com](https://render.com)
-2. New → Web Service → 连接 GitHub
-3. 配置：
-   - Root Directory: `wanderlog_api`
-   - Build Command: `npm install && npx prisma generate && npm run build`
-   - Start Command: `npm start`
-4. 添加环境变量
-
-### Fly.io（全球边缘部署）
+## 验证部署
 
 ```bash
-# 安装 CLI
-brew install flyctl
+# 检查健康状态
+curl https://your-railway-url.up.railway.app/health
 
-# 登录
-fly auth login
-
-# 初始化
-cd wanderlog_api
-fly launch
-
-# 设置环境变量
-fly secrets set DATABASE_URL="postgresql://..."
-fly secrets set JWT_SECRET="..."
-
-# 部署
-fly deploy
+# 测试 API
+curl https://your-railway-url.up.railway.app/api/places?limit=5
 ```
 
-### Docker 自托管
+## 常见问题
 
-```bash
-# 构建镜像
-cd wanderlog_api
-docker build -t wanderlog-api .
+### 构建失败
+- 检查 Dockerfile 是否正确
+- 确保 package.json 中的依赖版本正确
 
-# 运行
-docker run -d \
-  -p 3000:3000 \
-  -e DATABASE_URL="postgresql://..." \
-  -e JWT_SECRET="..." \
-  --name wanderlog-api \
-  wanderlog-api
-```
+### 数据库连接失败
+- 确保 DATABASE_URL 格式正确
+- 检查 Supabase 是否允许外部连接
 
----
+### 环境变量未生效
+- 重新部署后环境变量才会生效
+- 检查变量名是否正确 (区分大小写)
 
-## 生产环境检查清单
+## 监控和日志
 
-- [ ] 使用 Supabase Pooler 连接（不是直连）
-- [ ] JWT_SECRET 使用强密钥（32+ 字符）
-- [ ] 配置 HTTPS（Railway/Render 自动提供）
-- [ ] 设置健康检查端点 `/health`
-- [ ] 配置日志监控
-- [ ] 升级 Supabase 到 Pro（避免暂停）
-- [ ] 更新 Flutter App 的 API 地址
-
----
-
-## 费用估算
-
-| 服务 | 免费额度 | 预估月费 |
-|------|----------|----------|
-| Railway | $5 信用 | ~$5-10 |
-| Render | 750小时 | $0-7 |
-| Fly.io | 3个小实例 | ~$5 |
-| Supabase Pro | - | $25 |
-| **总计** | - | **$30-40/月** |
+- Railway Dashboard → Deployments → 选择部署 → Logs
+- 可以实时查看应用日志

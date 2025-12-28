@@ -1,0 +1,223 @@
+{
+  "timestamp": "2025-12-28T17:04:28.814Z",
+  "mode": "dry-run",
+  "summary": {
+    "total": 30,
+    "regenerated": 1,
+    "skipped": 29,
+    "errors": 0
+  },
+  "aiTagStats": {},
+  "sampleResults": [
+    {
+      "placeId": "001a96f5-e76d-4ec3-ac14-dbfef1b00c31",
+      "placeName": "Blue Bottle Coffee - Nakameguro Cafe",
+      "categorySlug": "shop",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "009e663a-c190-42e5-86fa-461fa6a9f5ea",
+      "placeName": "Cheongsudang Bakery",
+      "categorySlug": "cafe",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "00b97759-24f6-4eff-a7ed-f5ce1472383c",
+      "placeName": "PLAYWORKS SHOP&CAFE",
+      "categorySlug": "cafe",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "00fdd300-c6ff-4bf2-bc81-d13b7539d798",
+      "placeName": "KEEN GARAGE HARAJUKU",
+      "categorySlug": "shop",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "0178f64a-5d3c-4a25-baa2-4cb9bc305c3b",
+      "placeName": "Hart",
+      "categorySlug": "bakery",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "017a4ca5-adbf-4e26-b688-62f84347de36",
+      "placeName": "CAFE REISSUE",
+      "categorySlug": "cafe",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "01e5ee8a-876c-4b28-ae8c-3e31acc25046",
+      "placeName": "Wat Si Koet",
+      "categorySlug": "shop",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "0249796f-af96-46b5-a239-a28df2b57ebe",
+      "placeName": "Imperial Palace East National Gardens",
+      "categorySlug": "park",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "02a399b3-46a4-4ff6-a70a-3f54e443d944",
+      "placeName": "Ninja Experience Cafe Asakusa In Tokyo",
+      "categorySlug": "cafe",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "02c62758-b371-46d2-8a24-409a881538a9",
+      "placeName": "soba MAREN Higobashi",
+      "categorySlug": "restaurant",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "032be9fd-4666-4ffd-bc0e-0971f0ede8f6",
+      "placeName": "Griffon",
+      "categorySlug": "restaurant",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "03891dbf-611b-4b7e-8cb0-bb9a62f8bae8",
+      "placeName": "Le Café Marly",
+      "categorySlug": "restaurant",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "03b22bc9-916c-44fb-9c02-1d4d791150d8",
+      "placeName": "Asakusa Culture Tourist Information Center",
+      "categorySlug": "landmark",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "03cf21ba-365d-434b-bdfd-c64199f20cd8",
+      "placeName": "Aarhus",
+      "categorySlug": "shop",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "03e3c34c-2c38-4e69-9e78-5c01343526f4",
+      "placeName": "The runner",
+      "categorySlug": "shop",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "0474db38-f69b-46ba-816b-6113171f14e8",
+      "placeName": "Café DIOR Seoul",
+      "categorySlug": "cafe",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "049b8c79-1efa-4408-b5cb-b1e16a039ba4",
+      "placeName": "Superkilen Park",
+      "categorySlug": "park",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "04c744d4-ace3-4d3d-98de-f3084c4f4dae",
+      "placeName": "Møns Klint",
+      "categorySlug": "park",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "0591306a-7f03-4734-8681-0bc0b79868f7",
+      "placeName": "Soup Curry Okushiba Store Ekimae Soseiji",
+      "categorySlug": "shop",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "05a77490-04f6-48d3-a4d0-12e862be1bff",
+      "placeName": "Le Procope",
+      "categorySlug": "cafe",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "05eb386c-5eea-4270-8bcd-15feb72fbfa2",
+      "placeName": "Social Brew Cafe",
+      "categorySlug": "cafe",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "0611c0f0-9b44-4ccf-9c0c-82d0342e6897",
+      "placeName": "Shibuya Crossing",
+      "categorySlug": "landmark",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "061ba1dd-90ab-47ad-9536-4efdbdd0853b",
+      "placeName": "Next Door Cafe",
+      "categorySlug": "cafe",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "06bce1ff-6f07-4550-b57e-637c079871a1",
+      "placeName": "Copenhagen Free Walking Tours",
+      "categorySlug": "landmark",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "07643576-2412-4cf5-b8c8-9b02d852280f",
+      "placeName": "Original Coffee",
+      "categorySlug": "shop",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "07936a28-377d-4856-a084-a47b6076cafa",
+      "placeName": "Louis Poulsen",
+      "categorySlug": "shop",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "07a4b6a7-9465-4354-ae7c-88aec9281515",
+      "placeName": "Run boys! Run girls!",
+      "categorySlug": "shop",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "07cf5e7a-27f1-4117-b965-715dc2b28254",
+      "placeName": "Khum Hmon Somm",
+      "categorySlug": "shop",
+      "status": "regenerated",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "081cdbed-d6ec-4ad4-8e80-05e7c9cd771b",
+      "placeName": "TANUKI KOJI",
+      "categorySlug": "shop",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    },
+    {
+      "placeId": "0856a9b9-3a38-45f4-b387-1a713664bffb",
+      "placeName": "Khum Hmon Somm",
+      "categorySlug": "shop",
+      "status": "skipped",
+      "newAiTagsCount": 0
+    }
+  ]
+}

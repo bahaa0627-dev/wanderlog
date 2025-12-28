@@ -3,6 +3,8 @@ import publicPlaceService from '../services/publicPlaceService';
 import apifyService from '../services/apifyService';
 import aiService from '../services/aiService';
 import googleMapsFavoritesService from '../services/googleMapsFavoritesService';
+import displayTagsService from '../services/displayTagsService';
+import { AITagElement } from '../services/aiTagsGeneratorService';
 
 // 解析 JSON 字符串字段，确保返回数组
 function parseJsonField(value: any): any[] {
@@ -19,55 +21,96 @@ function parseJsonField(value: any): any[] {
   return [];
 }
 
-// 标签替换映射
-const tagReplacements: Record<string, string> = {
-  'coffee': 'Cafe',
-  'Coffee': 'Cafe',
-};
-
-// 格式化标签：首字母大写，特殊替换
-function formatTag(tag: string): string {
-  if (!tag) return tag;
-  
-  // 检查是否有特殊替换
-  if (tagReplacements[tag]) {
-    return tagReplacements[tag];
-  }
-  
-  // 首字母大写
-  return tag.charAt(0).toUpperCase() + tag.slice(1).toLowerCase();
-}
-
-// 格式化标签数组
-function formatTags(tags: any[]): string[] {
-  return tags.map(tag => typeof tag === 'string' ? formatTag(tag) : tag);
-}
-
 // 格式化 category
 function formatCategory(category: string | null): string | null {
   if (!category) return category;
-  return formatTag(category);
+  // 首字母大写
+  return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
 }
 
-// 转换 place 对象，解析 JSON 字符串字段，确保必填字段不为 null
+/**
+ * 验证并解析 ai_tags 数组
+ * 确保返回有效的 AITagElement[] 格式
+ * 
+ * Requirements: 8.2, 8.5
+ */
+function parseAiTags(value: any): AITagElement[] {
+  if (!value) return [];
+  
+  const rawArray = parseJsonField(value);
+  
+  // 过滤并验证每个元素
+  return rawArray.filter((element): element is AITagElement => {
+    if (typeof element !== 'object' || element === null) {
+      return false;
+    }
+    
+    const e = element as Record<string, unknown>;
+    
+    return (
+      typeof e.kind === 'string' &&
+      ['facet', 'person', 'architect'].includes(e.kind) &&
+      typeof e.id === 'string' &&
+      typeof e.en === 'string' &&
+      typeof e.zh === 'string' &&
+      (typeof e.priority === 'number' || e.priority === undefined)
+    );
+  });
+}
+
+/**
+ * 转换 place 对象为 API 响应格式
+ * 
+ * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
+ * 
+ * - 返回 category_en 和 category_zh 字段
+ * - 返回 ai_tags 作为对象数组 {kind, id, en, zh, priority}
+ * - 返回计算的 display_tags_en 和 display_tags_zh
+ * - 不返回内部 tags 字段给 C 端用户
+ */
 function transformPlace(place: any): any {
   if (!place) return place;
   const images = parseJsonField(place.images);
   const coverImage = place.coverImage || (images.length > 0 ? images[0] : null);
   
-  // 格式化标签和分类
-  const rawTags = parseJsonField(place.tags || place.aiTags);
-  const rawAiTags = parseJsonField(place.aiTags);
+  // 处理分类字段：优先使用 categorySlug/categoryEn，向后兼容 category
+  const categorySlug = place.categorySlug || null;
+  const categoryEn = place.categoryEn || null;
+  const categoryZh = place.categoryZh || null;
+  // 如果有 categoryEn 但没有 category，用 categoryEn 填充 category（向后兼容）
+  const category = place.category 
+    ? formatCategory(place.category) 
+    : (categoryEn || null);
+  
+  // 解析 ai_tags 为对象数组格式 (Requirements: 8.2, 8.5)
+  const aiTags = parseAiTags(place.aiTags);
+  
+  // 计算 display_tags (Requirements: 8.3)
+  const { display_tags_en, display_tags_zh } = displayTagsService.computeDisplayTagsBilingual(
+    categoryEn,
+    categoryZh,
+    aiTags
+  );
+  
+  // 构建响应对象，移除内部 tags 字段 (Requirements: 8.4)
+  const { tags: _internalTags, ...placeWithoutTags } = place;
   
   return {
-    ...place,
+    ...placeWithoutTags,
     // 确保 placeId 不为空，优先使用 placeId，其次 googlePlaceId，最后 id
     placeId: place.placeId || place.googlePlaceId || place.id,
     images,
     coverImage,
-    category: formatCategory(place.category),
-    tags: formatTags(rawTags),
-    aiTags: formatTags(rawAiTags),
+    // 分类字段 (Requirements: 8.1)
+    category,
+    categorySlug,
+    categoryEn,
+    categoryZh,
+    // AI Tags 对象数组 (Requirements: 8.2, 8.5)
+    aiTags,
+    // 计算的展示标签 (Requirements: 8.3)
+    display_tags_en,
+    display_tags_zh,
   };
 }
 

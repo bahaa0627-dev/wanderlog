@@ -35,10 +35,14 @@ model Place {
   rating         Float?
   ratingCount    Int?      @map("rating_count")
   category       String?
+  categorySlug   String?   @map("category_slug")   // 主分类机器键 (如 cafe, museum)
+  categoryEn     String?   @map("category_en")     // 主分类英文展示名 (如 Cafe, Museum)
+  categoryZh     String?   @map("category_zh")     // 主分类中文展示名 (如 咖啡店, 博物馆)
   aiSummary      String?   @map("ai_summary")
   aiDescription  String?   @map("ai_description")
-  tags           Json?     @default("[]")
-  aiTags         Json?     @default("[]") @map("ai_tags")
+  tags           Json?     @default("{}")          // jsonb 结构化对象 (style, theme, award, meal, cuisine, etc.)
+  aiTags         Json?     @default("[]") @map("ai_tags")  // jsonb[] 对象数组，最多 2 个元素
+  i18n           Json?                             // 多语言文本容器
   coverImage     String?   @map("cover_image")
   photoReference String?   @map("photo_reference") // Google photo reference for future extraction
   images         Json?     @default("[]")
@@ -47,6 +51,7 @@ model Place {
   phoneNumber    String?   @map("phone_number")
   googlePlaceId  String?   @unique @map("google_place_id")
   source         String?   @default("google_maps")
+  sourceDetail   String?   @map("source_detail")   // 数据源详细标识 (OSM ID, Wikidata QID)
   sourceDetails  Json?     @map("source_details")
   isVerified     Boolean   @default(false) @map("is_verified")
   customFields   Json?     @map("custom_fields")
@@ -58,6 +63,7 @@ model Place {
 
   @@index([city])
   @@index([category])
+  @@index([categorySlug])
   @@index([rating])
   @@index([isVerified])
   @@map("places")
@@ -194,4 +200,19 @@ model AppConfig {
   updatedAt   DateTime @default(now()) @map("updated_at")
 
   @@map("app_configs")
+}
+
+// AI Facet 字典表 - 管理受控的展示标签
+model AIFacetDictionary {
+  id                String   @id                    // e.g. 'Brutalist'
+  en                String                          // e.g. 'Brutalist'
+  zh                String                          // e.g. '粗野主义'
+  priority          Int      @default(50)           // 优先级，数字越大优先级越高
+  allowedCategories String[] @map("allowed_categories")  // e.g. ['restaurant', 'cafe']
+  deriveFrom        Json?    @map("derive_from")    // e.g. {"source": "tags:style:Brutalist*"}
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @map("updated_at")
+
+  @@index([priority(sort: Desc)])
+  @@map("ai_facet_dictionary")
 }

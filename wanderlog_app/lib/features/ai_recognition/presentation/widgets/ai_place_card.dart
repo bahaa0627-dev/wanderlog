@@ -2,16 +2,23 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpotStatus;
+import 'package:wanderlog/shared/utils/destination_utils.dart';
+import 'package:wanderlog/shared/widgets/custom_toast.dart';
 
 /// AI 地点卡片组件
 /// 
 /// Requirements: 11.1, 11.2, 11.4
 /// - 显示 recommendationPhrase 替代评分（AI-only 地点）
-/// - 显示 AI 标签和 summary
+/// - 显示标签和 summary
 /// - 支持 4:3 和横向两种布局
-class AIPlaceCard extends StatelessWidget {
+/// - 去掉 AI/Verified 标签，添加收藏按钮
+class AIPlaceCard extends ConsumerStatefulWidget {
   const AIPlaceCard({
     required this.place,
     this.aspectRatio = 4 / 3,
@@ -32,6 +39,49 @@ class AIPlaceCard extends StatelessWidget {
   /// 是否显示 summary
   final bool showSummary;
 
+  @override
+  ConsumerState<AIPlaceCard> createState() => _AIPlaceCardState();
+}
+
+class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
+  bool _isInWishlist = false;
+  bool _isSaving = false;
+  String? _destinationId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWishlistStatus();
+  }
+
+  /// 加载收藏状态
+  Future<void> _loadWishlistStatus() async {
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) return;
+
+    try {
+      final trips = await ref.read(tripsProvider.future);
+      final spotId = widget.place.id ?? widget.place.name;
+      
+      for (final trip in trips) {
+        final tripSpots = trip.tripSpots ?? [];
+        for (final tripSpot in tripSpots) {
+          if (tripSpot.spotId == spotId) {
+            if (mounted) {
+              setState(() {
+                _isInWishlist = true;
+                _destinationId = trip.id;
+              });
+            }
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ [AIPlaceCard] Failed to load wishlist status: $e');
+    }
+  }
+
   /// 解码 base64 图片
   Uint8List? _decodeBase64Image(String dataUri) {
     try {
@@ -43,14 +93,54 @@ class AIPlaceCard extends StatelessWidget {
 
   /// 构建封面图片
   Widget _buildCoverImage(String imageUrl) {
-    const placeholder = ColoredBox(
+    // AI 地点的占位符 - 使用渐变背景和图标
+    Widget buildAIPlaceholder() {
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppTheme.primaryYellow.withOpacity(0.3),
+              AppTheme.accentBlue.withOpacity(0.2),
+            ],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.auto_awesome,
+                size: 40,
+                color: AppTheme.primaryYellow.withOpacity(0.8),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'AI Recommended',
+                style: TextStyle(
+                  color: AppTheme.mediumGray,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    const defaultPlaceholder = ColoredBox(
       color: AppTheme.lightGray,
       child: Center(
         child: Icon(Icons.image_not_supported, size: 48, color: AppTheme.mediumGray),
       ),
     );
 
-    if (imageUrl.isEmpty) return placeholder;
+    // 如果是 AI-only 地点且没有图片，使用特殊占位符
+    if (imageUrl.isEmpty) {
+      return widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder;
+    }
 
     if (imageUrl.startsWith('data:')) {
       final bytes = _decodeBase64Image(imageUrl);
@@ -58,10 +148,10 @@ class AIPlaceCard extends StatelessWidget {
         return Image.memory(
           bytes,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => placeholder,
+          errorBuilder: (_, __, ___) => widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder,
         );
       }
-      return placeholder;
+      return widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder;
     }
 
     return Image.network(
@@ -79,36 +169,29 @@ class AIPlaceCard extends StatelessWidget {
           ),
         );
       },
-      errorBuilder: (_, __, ___) => placeholder,
+      errorBuilder: (_, __, ___) => widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder,
     );
   }
 
   /// 构建评分或推荐短语
   Widget _buildRatingOrPhrase(BuildContext context) {
     // AI-only 地点显示推荐短语
-    if (place.isAIOnly || !place.hasRating) {
-      final phrase = place.recommendationPhrase ?? 'AI Recommended';
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppTheme.accentBlue.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.auto_awesome, size: 12, color: Colors.white),
-            const SizedBox(width: 4),
-            Text(
-              phrase,
-              style: AppTheme.bodySmall(context).copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 11,
-              ),
+    if (widget.place.isAIOnly || !widget.place.hasRating) {
+      final phrase = widget.place.recommendationPhrase ?? 'Recommended';
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.auto_awesome, size: 12, color: AppTheme.primaryYellow),
+          const SizedBox(width: 4),
+          Text(
+            phrase,
+            style: AppTheme.bodySmall(context).copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
             ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
@@ -116,22 +199,22 @@ class AIPlaceCard extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.star, size: 16, color: AppTheme.primaryYellow),
+        const Icon(Icons.star, size: 14, color: AppTheme.primaryYellow),
         const SizedBox(width: 4),
         Text(
-          place.rating!.toStringAsFixed(1),
+          widget.place.rating!.toStringAsFixed(1),
           style: AppTheme.bodySmall(context).copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w600,
           ),
         ),
-        if (place.ratingCount != null) ...[
+        if (widget.place.ratingCount != null) ...[
           const SizedBox(width: 4),
           Text(
-            '(${place.ratingCount})',
+            '(${widget.place.ratingCount})',
             style: AppTheme.bodySmall(context).copyWith(
               color: Colors.white.withOpacity(0.8),
-              fontSize: 12,
+              fontSize: 11,
             ),
           ),
         ],
@@ -141,19 +224,18 @@ class AIPlaceCard extends StatelessWidget {
 
   /// 构建标签列表
   Widget _buildTags(BuildContext context) {
-    final tags = place.tags ?? [];
+    final tags = widget.place.tags ?? [];
     if (tags.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
       spacing: 4,
       runSpacing: 4,
-      children: tags.take(3).map((tag) {
+      children: tags.take(2).map((tag) {
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: AppTheme.primaryYellow,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppTheme.black, width: 1),
           ),
           child: Text(
             tag,
@@ -168,63 +250,90 @@ class AIPlaceCard extends StatelessWidget {
     );
   }
 
-  /// 构建来源标识
-  Widget _buildSourceBadge(BuildContext context) {
-    if (place.isVerified) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: AppTheme.accentGreen.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.verified, size: 10, color: Colors.white),
-            const SizedBox(width: 2),
-            Text(
-              'Verified',
-              style: AppTheme.bodySmall(context).copyWith(
-                color: Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      );
+  /// 处理收藏点击
+  Future<void> _handleWishlistTap() async {
+    if (_isSaving) return;
+
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) {
+      final authed = await requireAuth(context, ref);
+      if (!authed) return;
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppTheme.accentBlue.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.auto_awesome, size: 10, color: Colors.white),
-          const SizedBox(width: 2),
-          Text(
-            'AI',
-            style: AppTheme.bodySmall(context).copyWith(
-              color: Colors.white,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
+    setState(() => _isSaving = true);
+
+    try {
+      if (_isInWishlist && _destinationId != null) {
+        // 已收藏，移除
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: _destinationId!,
+          spotId: widget.place.id ?? widget.place.name,
+          remove: true,
+        );
+        ref.invalidate(tripsProvider);
+        setState(() {
+          _isInWishlist = false;
+          _destinationId = null;
+        });
+        CustomToast.showSuccess(context, 'Removed from wishlist');
+      } else {
+        // 未收藏，添加
+        // 使用 city，如果为空则使用 country，如果都为空则使用 "Saved Places"
+        final cityName = widget.place.city?.isNotEmpty == true 
+            ? widget.place.city! 
+            : (widget.place.country?.isNotEmpty == true 
+                ? widget.place.country! 
+                : 'Saved Places');
+        
+        final destId = await ensureDestinationForCity(ref, cityName);
+        if (destId == null) {
+          CustomToast.showError(context, 'Failed to save - please try again');
+          return;
+        }
+
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: destId,
+          spotId: widget.place.id ?? widget.place.name,
+          status: TripSpotStatus.wishlist,
+          spotPayload: {
+            'name': widget.place.name,
+            'city': widget.place.city ?? '',
+            'country': widget.place.country ?? '',
+            'latitude': widget.place.latitude,
+            'longitude': widget.place.longitude,
+            'rating': widget.place.rating,
+            'ratingCount': widget.place.ratingCount,
+            'tags': widget.place.tags,
+            'coverImage': widget.place.coverImage,
+            'images': [widget.place.coverImage],
+            'googlePlaceId': widget.place.googlePlaceId,
+            'source': widget.place.source.name,
+          },
+        );
+
+        ref.invalidate(tripsProvider);
+        setState(() {
+          _isInWishlist = true;
+          _destinationId = destId;
+        });
+        CustomToast.showSuccess(context, 'Saved to wishlist');
+      }
+    } catch (e) {
+      debugPrint('❌ [AIPlaceCard] Wishlist error: $e');
+      CustomToast.showError(context, 'Error saving - please try again');
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: AspectRatio(
-        aspectRatio: aspectRatio,
+        aspectRatio: widget.aspectRatio,
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -237,7 +346,7 @@ class AIPlaceCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 // 封面图片
-                _buildCoverImage(place.coverImage),
+                _buildCoverImage(widget.place.coverImage),
                 // 渐变遮罩
                 Positioned.fill(
                   child: Container(
@@ -254,11 +363,35 @@ class AIPlaceCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // 左上角来源标识
+                // 右上角收藏按钮
                 Positioned(
                   top: 8,
-                  left: 8,
-                  child: _buildSourceBadge(context),
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: _handleWishlistTap,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppTheme.black, width: 1.5),
+                      ),
+                      child: _isSaving
+                          ? const Padding(
+                              padding: EdgeInsets.all(6),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
+                              ),
+                            )
+                          : Icon(
+                              _isInWishlist ? Icons.favorite : Icons.favorite_border,
+                              size: 16,
+                              color: _isInWishlist ? Colors.red : AppTheme.black,
+                            ),
+                    ),
+                  ),
                 ),
                 // 底部信息
                 Positioned(
@@ -271,35 +404,21 @@ class AIPlaceCard extends StatelessWidget {
                     children: [
                       // 标签
                       _buildTags(context),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       // 地点名称
                       Text(
-                        place.name,
+                        widget.place.name,
                         style: AppTheme.labelLarge(context).copyWith(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       // 评分或推荐短语
                       _buildRatingOrPhrase(context),
-                      // Summary（可选）
-                      if (showSummary && place.summary.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          place.summary,
-                          style: AppTheme.bodySmall(context).copyWith(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 12,
-                            height: 1.3,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
                     ],
                   ),
                 ),

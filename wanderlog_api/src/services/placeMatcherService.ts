@@ -39,6 +39,9 @@ export interface MatchedPlace {
   source: 'google' | 'cache';
   googlePlaceId?: string;
   cachedId?: string;
+  cachedCoverImage?: string; // 缓存的封面图片
+  cachedRating?: number;     // 缓存的评分
+  cachedRatingCount?: number; // 缓存的评分数量
   matchScore: number;
 }
 
@@ -99,11 +102,21 @@ export interface DisplayResult {
 export const MATCH_CONFIG = {
   nameSimThreshold: 0.7,        // 名称相似度阈值 (70%)
   maxDistanceMeters: 500,       // 最大距离阈值 (500m)
-  minMatchesPerCategory: 2,     // 每个分类最少匹配数
+  minMatchesPerCategory: 2,     // 每个分类最少匹配数（触发 Google 的阈值）
   maxMatchesPerCategory: 5,     // 每个分类最多展示数
-  minTotalMatches: 5,           // 无分类时最少匹配数
-  maxTotalMatches: 5,           // 无分类时最多展示数
+  minTotalMatches: 5,           // 无分类时最少匹配数（触发 Google 的阈值）
+  maxTotalMatches: 5,           // 无分类时最多展示数（默认值，会被 requestedCount 覆盖）
 };
+
+/**
+ * 展示优先级
+ * google > cache > ai
+ */
+export enum PlacePriority {
+  GOOGLE = 1,   // Google 新搜索的内容优先级最高
+  CACHE = 2,    // Supabase 缓存次之
+  AI = 3,       // AI-only 最低
+}
 
 // ============================================
 // Distance Calculation (Haversine Formula)
@@ -286,14 +299,20 @@ class PlaceMatcherService {
       }
       
       if (bestMatch) {
+        // 获取缓存的图片和评分信息
+        const cachedData = this.getCachedData(bestMatch.place, bestMatch.source);
+        
         matched.push({
           aiPlace,
           source: bestMatch.source,
           googlePlaceId: this.getGooglePlaceId(bestMatch.place, bestMatch.source),
           cachedId: this.getCachedId(bestMatch.place, bestMatch.source),
+          cachedCoverImage: cachedData.coverImage,
+          cachedRating: cachedData.rating,
+          cachedRatingCount: cachedData.ratingCount,
           matchScore: bestMatch.score,
         });
-        console.log(`✅ Matched: "${aiPlace.name}" -> "${this.getPlaceName(bestMatch.place, bestMatch.source)}" (score: ${bestMatch.score.toFixed(2)})`);
+        console.log(`✅ Matched: "${aiPlace.name}" -> "${this.getPlaceName(bestMatch.place, bestMatch.source)}" (score: ${bestMatch.score.toFixed(2)}, coverImage: ${cachedData.coverImage ? 'YES' : 'NO'})`);
       } else {
         unmatched.push(aiPlace);
         console.log(`❌ Unmatched: "${aiPlace.name}"`);
@@ -350,6 +369,63 @@ class PlaceMatcherService {
   }
 
   /**
+   * Get cached data (coverImage, rating, ratingCount) based on source type
+   */
+  private getCachedData(place: GooglePlace | CachedPlace, source: 'google' | 'cache'): {
+    coverImage?: string;
+    rating?: number;
+    ratingCount?: number;
+  } {
+    if (source === 'cache') {
+      const cached = place as CachedPlace;
+      console.log(`📷 [PlaceMatcher] Cache data for "${cached.name}": coverImage=${cached.coverImage ? 'YES' : 'NO'}, rating=${cached.rating}`);
+      return {
+        coverImage: cached.coverImage || undefined,
+        rating: cached.rating || undefined,
+        ratingCount: cached.ratingCount || undefined,
+      };
+    }
+    // Google places don't have cached data yet
+    return {};
+  }
+
+  /**
+   * Check if Google API call is needed based on match results
+   * 
+   * 触发条件：
+   * - 有分类时：任一分类匹配数 < 2
+   * - 无分类时：总匹配数 < 5
+   * 
+   * @param matched - 已匹配的地点
+   * @param categories - AI 分类（可选）
+   * @returns 是否需要调用 Google API
+   */
+  checkNeedsGoogleAPI(
+    matched: MatchedPlace[],
+    categories?: AICategory[]
+  ): boolean {
+    if (categories && categories.length > 0) {
+      // 有分类时：检查每个分类是否有足够的匹配
+      for (const category of categories) {
+        const categoryMatchCount = category.placeNames.filter(name =>
+          matched.some(m => m.aiPlace.name.toLowerCase() === name.toLowerCase())
+        ).length;
+        
+        if (categoryMatchCount < MATCH_CONFIG.minMatchesPerCategory) {
+          console.log(`📊 [PlaceMatcher] Category "${category.title}" has ${categoryMatchCount} matches, need ${MATCH_CONFIG.minMatchesPerCategory}`);
+          return true;
+        }
+      }
+      return false;
+    } else {
+      // 无分类时：检查总匹配数
+      const needsMore = matched.length < MATCH_CONFIG.minTotalMatches;
+      console.log(`📊 [PlaceMatcher] Total matches: ${matched.length}, need ${MATCH_CONFIG.minTotalMatches}, needsGoogle: ${needsMore}`);
+      return needsMore;
+    }
+  }
+
+  /**
    * Check if AI content supplement is needed
    * 
    * Requirements: 5.3, 5.4
@@ -382,6 +458,7 @@ class PlaceMatcherService {
    * @param matched - Matched places
    * @param unmatched - Unmatched AI places
    * @param categories - AI categories (optional)
+   * @param requestedCount - 用户请求的数量（控制最终展示数量，最大20）
    * @returns Display result with limited places
    * 
    * Requirements: 9.2, 9.4
@@ -389,55 +466,112 @@ class PlaceMatcherService {
   applyDisplayLimits(
     matched: MatchedPlace[],
     unmatched: AIPlace[],
-    categories?: AICategory[]
+    categories?: AICategory[],
+    requestedCount: number = 5
   ): DisplayResult {
-    if (categories && categories.length > 0) {
-      // With categories: 2-5 places per category
-      return this.applyDisplayLimitsWithCategories(matched, unmatched, categories);
+    console.log(`📊 [PlaceMatcher] Applying display limits: requestedCount=${requestedCount}, hasCategories=${!!categories}`);
+    
+    // 分类策略：
+    // - requestedCount >= 5: 分类（5个可以分成2+3）
+    // - requestedCount <= 4: 不分类（不够分成2个分类，每个最少2个）
+    if (requestedCount >= 5 && categories && categories.length > 0) {
+      return this.applyDisplayLimitsWithCategories(matched, unmatched, categories, requestedCount);
     } else {
-      // Without categories: max 5 places total
-      return this.applyDisplayLimitsFlat(matched, unmatched);
+      return this.applyDisplayLimitsFlat(matched, unmatched, requestedCount);
     }
   }
 
   /**
    * Apply display limits with categories
+   * 展示优先级：Google > Cache > AI
+   * 
+   * 策略：
+   * - 每个分类 2-5 个地点
+   * - 数量多时尽量每个分类多放，减少分类数量
+   * - 总数量 = requestedCount
    * 
    * Requirements: 9.2
    */
   private applyDisplayLimitsWithCategories(
     matched: MatchedPlace[],
     unmatched: AIPlace[],
-    categories: AICategory[]
+    categories: AICategory[],
+    requestedCount: number
   ): DisplayResult {
     const categoryGroups: CategoryGroup[] = [];
+    let totalPlacesAdded = 0;
     
-    for (const category of categories) {
-      const categoryPlaces: PlaceResult[] = [];
+    // 计算理想的分类数量和每个分类的地点数
+    // 目标：尽量每个分类多放，减少分类数量
+    // 每个分类最多5个，最少2个
+    const idealPlacesPerCategory = Math.min(5, Math.max(2, Math.ceil(requestedCount / 3)));
+    const idealCategoryCount = Math.ceil(requestedCount / idealPlacesPerCategory);
+    
+    console.log(`📊 [PlaceMatcher] Category strategy: ${idealCategoryCount} categories, ~${idealPlacesPerCategory} places each`);
+    
+    // 只使用前 idealCategoryCount 个分类
+    const categoriesToUse = categories.slice(0, idealCategoryCount);
+    
+    for (let catIndex = 0; catIndex < categoriesToUse.length; catIndex++) {
+      const category = categoriesToUse[catIndex];
+      if (totalPlacesAdded >= requestedCount) break;
       
-      // Find matched places for this category
+      // 收集该分类下的所有地点
+      const categoryMatchedPlaces: Array<{ place: PlaceResult; priority: number; score: number }> = [];
+      const categoryAIOnlyPlaces: PlaceResult[] = [];
+      
       for (const placeName of category.placeNames) {
-        // First try to find in matched
+        // 先找匹配的
         const matchedPlace = matched.find(
           m => m.aiPlace.name.toLowerCase() === placeName.toLowerCase()
         );
         
         if (matchedPlace) {
-          categoryPlaces.push(this.createPlaceResult(matchedPlace));
+          const priority = matchedPlace.source === 'google' ? 1 : 2; // google=1, cache=2
+          categoryMatchedPlaces.push({
+            place: this.createPlaceResult(matchedPlace),
+            priority,
+            score: matchedPlace.matchScore,
+          });
         } else {
-          // Try to find in unmatched
+          // 找 AI-only
           const unmatchedPlace = unmatched.find(
             u => u.name.toLowerCase() === placeName.toLowerCase()
           );
           if (unmatchedPlace) {
-            categoryPlaces.push(this.createAIOnlyPlaceResult(unmatchedPlace));
+            categoryAIOnlyPlaces.push(this.createAIOnlyPlaceResult(unmatchedPlace));
           }
         }
-        
-        // Stop if we have enough places for this category
-        if (categoryPlaces.length >= MATCH_CONFIG.maxMatchesPerCategory) {
-          break;
+      }
+      
+      // 按优先级排序匹配的地点：google > cache，同优先级按分数
+      categoryMatchedPlaces.sort((a, b) => {
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
         }
+        return b.score - a.score;
+      });
+      
+      // 计算这个分类应该展示多少地点
+      const remainingSlots = requestedCount - totalPlacesAdded;
+      const remainingCategories = categoriesToUse.length - catIndex;
+      // 平均分配剩余的地点，但每个分类最多5个，最少2个
+      const targetForThisCategory = Math.min(
+        MATCH_CONFIG.maxMatchesPerCategory,
+        Math.max(MATCH_CONFIG.minMatchesPerCategory, Math.ceil(remainingSlots / remainingCategories))
+      );
+      
+      // 组合最终列表：先匹配的，再 AI-only
+      const categoryPlaces: PlaceResult[] = [];
+      
+      for (const { place } of categoryMatchedPlaces) {
+        if (categoryPlaces.length >= targetForThisCategory) break;
+        categoryPlaces.push(place);
+      }
+      
+      for (const place of categoryAIOnlyPlaces) {
+        if (categoryPlaces.length >= targetForThisCategory) break;
+        categoryPlaces.push(place);
       }
       
       // Only add category if it has at least 2 places
@@ -446,11 +580,14 @@ class PlaceMatcherService {
           title: category.title,
           places: categoryPlaces,
         });
+        totalPlacesAdded += categoryPlaces.length;
+        console.log(`📊 [PlaceMatcher] Category "${category.title}": ${categoryPlaces.length} places`);
       }
     }
     
     // Flatten all places for the places array
     const allPlaces = categoryGroups.flatMap(cg => cg.places);
+    console.log(`📊 [PlaceMatcher] Total displayed: ${allPlaces.length}/${requestedCount} requested, ${categoryGroups.length} categories`);
     
     return {
       categories: categoryGroups.length > 0 ? categoryGroups : undefined,
@@ -460,46 +597,70 @@ class PlaceMatcherService {
 
   /**
    * Apply display limits without categories (flat layout)
+   * 展示优先级：Google > Cache > AI
    * 
    * Requirements: 9.4
    */
   private applyDisplayLimitsFlat(
     matched: MatchedPlace[],
-    unmatched: AIPlace[]
+    unmatched: AIPlace[],
+    requestedCount: number
   ): DisplayResult {
     const places: PlaceResult[] = [];
+    const maxPlaces = requestedCount; // 使用用户请求的数量
     
-    // Add matched places first (sorted by match score)
-    const sortedMatched = [...matched].sort((a, b) => b.matchScore - a.matchScore);
+    // 按优先级排序：google > cache > ai
+    // 同优先级内按 matchScore 排序
+    const sortedMatched = [...matched].sort((a, b) => {
+      // 优先级：google = 1, cache = 2
+      const priorityA = a.source === 'google' ? 1 : 2;
+      const priorityB = b.source === 'google' ? 1 : 2;
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB; // 优先级小的排前面
+      }
+      return b.matchScore - a.matchScore; // 同优先级按分数降序
+    });
     
+    // 添加匹配的地点（已按 google > cache 排序）
     for (const m of sortedMatched) {
-      if (places.length >= MATCH_CONFIG.maxTotalMatches) break;
+      if (places.length >= maxPlaces) break;
       places.push(this.createPlaceResult(m));
     }
     
-    // Add unmatched AI places if needed
+    // 如果还不够，添加 AI-only 地点
     for (const u of unmatched) {
-      if (places.length >= MATCH_CONFIG.maxTotalMatches) break;
+      if (places.length >= maxPlaces) break;
       places.push(this.createAIOnlyPlaceResult(u));
     }
+    
+    console.log(`📊 [PlaceMatcher] Flat display: ${places.length}/${requestedCount} requested (${places.filter(p => p.source === 'google').length} google, ${places.filter(p => p.source === 'cache').length} cache, ${places.filter(p => p.source === 'ai').length} ai)`);
     
     return { places };
   }
 
   /**
    * Create PlaceResult from matched place
+   * 优先使用缓存的图片和评分，如果没有则使用 AI 返回的数据
    */
   private createPlaceResult(matched: MatchedPlace): PlaceResult {
+    const coverImage = matched.cachedCoverImage || matched.aiPlace.coverImageUrl;
+    console.log(`🖼️ [PlaceMatcher] createPlaceResult for "${matched.aiPlace.name}": cachedCoverImage=${matched.cachedCoverImage ? 'YES' : 'NO'}, aiCoverImage=${matched.aiPlace.coverImageUrl ? 'YES' : 'NO'}, final=${coverImage ? 'YES' : 'NO'}`);
+    
     return {
       id: matched.cachedId,
       googlePlaceId: matched.googlePlaceId,
       name: matched.aiPlace.name,
       summary: matched.aiPlace.summary,
-      coverImage: matched.aiPlace.coverImageUrl,
+      // 优先使用缓存的图片
+      coverImage: coverImage,
       latitude: matched.aiPlace.latitude,
       longitude: matched.aiPlace.longitude,
       city: matched.aiPlace.city,
       country: matched.aiPlace.country,
+      // 优先使用缓存的评分
+      rating: matched.cachedRating,
+      ratingCount: matched.cachedRatingCount,
       tags: matched.aiPlace.tags,
       isVerified: true,
       source: matched.source,

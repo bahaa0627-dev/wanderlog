@@ -42,6 +42,8 @@ export interface AIRecommendationResult {
   acknowledgment: string;
   categories?: AICategory[];
   places: AIPlace[];
+  requestedCount: number; // 用户请求的数量，用于控制最终展示（最大20）
+  exceededLimit: boolean; // 用户请求是否超过20
 }
 
 /**
@@ -76,15 +78,27 @@ export class AIResponseValidationError extends Error {
  * Requirements: 3.1, 3.3, 3.4, 3.5
  */
 const RECOMMENDATION_SYSTEM_PROMPT = `You are a travel expert helping users discover places.
-Your task is to understand the user's intent and recommend 10 specific places.
+Your task is to understand the user's intent and recommend places.
+
+CRITICAL - Determine the user's requested count (MUST extract number from query):
+- ALWAYS look for numbers in the query: "2 cafes" → requestedCount = 2, "5 museums" → requestedCount = 5
+- Numbers can appear anywhere: "give me 3 restaurants" → 3, "推荐10个咖啡馆" → 10
+- If user says "a few" or "几个", requestedCount = 3
+- If user says "some" or "一些", requestedCount = 5
+- If NO number is specified at all, requestedCount = 5 (default)
+- Maximum requestedCount is 20 (if user asks for more, set to 20 and note exceededLimit = true)
+
+ALWAYS return exactly 20 places internally for better matching.
 
 Output format (JSON):
 {
-  "acknowledgment": "A friendly message acknowledging the user's request and explaining your approach",
+  "requestedCount": 5,
+  "exceededLimit": false,
+  "acknowledgment": "A direct, helpful message that explains your recommendation approach WITHOUT starting with a question. Start with 'I've curated...' or 'Here are...' or similar direct statements.",
   "categories": [
     {
-      "title": "Category name (e.g., 精品咖啡, 小众博物馆)",
-      "placeNames": ["Place 1", "Place 2"]
+      "title": "Category name based on place characteristics (e.g., Cozy Hideaways, Waterfront Views, Historic Gems, Local Favorites)",
+      "placeNames": ["Place 1", "Place 2", "Place 3", "Place 4", "Place 5"]
     }
   ],
   "places": [
@@ -102,16 +116,37 @@ Output format (JSON):
   ]
 }
 
-Rules:
-1. Always return exactly 10 places
-2. Categories are OPTIONAL - only include if the query naturally fits into categories
-3. If using categories, ensure each category has at least 2 places
-4. Use the same language as the user's query for acknowledgment and category titles
-5. Provide real, existing places with accurate coordinates
-6. coverImageUrl should be a real, publicly accessible image URL
-7. tags should describe the place's style/vibe (2-3 tags)
-8. recommendationPhrase should be a short, catchy phrase
-9. summary must NOT exceed 100 characters`;
+IMPORTANT Rules:
+1. ALWAYS return exactly 20 places (for internal matching purposes)
+2. Set requestedCount to the number user actually asked for (max 20)
+3. Set exceededLimit = true if user asked for more than 20
+4. Category rules:
+   - If requestedCount >= 5: create categories (e.g., 5 places = 2 categories of 2+3)
+   - If requestedCount <= 4: skip categories (not enough for 2 categories with min 2 each)
+   - Each category should have 2-5 places
+   - When requestedCount is large (10-20), prefer fewer categories with more places each
+5. The acknowledgment MUST:
+   - NEVER start with a question like "Looking for...?" or "想找...？"
+   - Start directly with what you're recommending: "I've curated...", "Here are...", "为你精选了...", "这里有..."
+   - Briefly explain your recommendation criteria or approach
+   - Be conversational and helpful
+6. Use the same language as the user's query for acknowledgment and category titles
+7. Provide real, existing places with accurate coordinates
+8. coverImageUrl should be a real, publicly accessible image URL (Wikipedia, official sites, etc.)
+9. tags should describe the place's style/vibe (2-3 tags)
+10. recommendationPhrase should be a short, catchy phrase
+11. summary must NOT exceed 100 characters
+
+BAD acknowledgment examples (starting with questions - DO NOT USE):
+- "Looking for cafes in Copenhagen? I've curated..."
+- "想找哥本哈根的咖啡馆？我按氛围帮你分类了..."
+- "Searching for cozy spots? Here are..."
+
+GOOD acknowledgment examples (direct statements - USE THESE):
+- "I've curated a mix of cozy neighborhood gems, stylish spots, and places with great coffee. Here's what I recommend based on atmosphere and local popularity:"
+- "为你精选了一系列咖啡馆，按氛围分类：有适合工作的安静角落，也有适合约会的浪漫小店。"
+- "Here are some fantastic cafes ranging from hidden local favorites to trendy waterfront spots, selected for their unique atmosphere and quality."`;
+
 
 /**
  * System prompt for summary generation
@@ -384,14 +419,23 @@ class AIRecommendationService {
       throw new AIResponseValidationError('places must be an array');
     }
 
-    // Requirement 3.3: exactly 10 places
-    if (response.places.length !== 10) {
-      console.warn(`[AIRecommendationService] Expected 10 places, got ${response.places.length}`);
-      // Allow fewer places but log warning, don't fail
-      if (response.places.length === 0) {
-        throw new AIResponseValidationError('No places returned by AI');
-      }
+    // 期望 20 个地点，但允许少于 20 个
+    if (response.places.length < 20) {
+      console.warn(`[AIRecommendationService] Expected 20 places, got ${response.places.length}`);
     }
+    if (response.places.length === 0) {
+      throw new AIResponseValidationError('No places returned by AI');
+    }
+
+    // 解析 requestedCount（用户请求的数量），默认 5，最大 20
+    let requestedCount = typeof response.requestedCount === 'number' 
+      ? Math.max(1, Math.min(20, response.requestedCount))
+      : 5;
+    
+    // 解析 exceededLimit
+    const exceededLimit = response.exceededLimit === true;
+    
+    console.log(`[AIRecommendationService] User requested ${requestedCount} places, exceededLimit: ${exceededLimit}, AI returned ${response.places.length}`);
 
     // Validate each place
     const validatedPlaces: AIPlace[] = [];
@@ -401,7 +445,7 @@ class AIRecommendationService {
 
     // Validate categories if present
     let validatedCategories: AICategory[] | undefined;
-    if (response.categories && Array.isArray(response.categories)) {
+    if (response.categories && Array.isArray(response.categories) && response.categories.length > 0) {
       validatedCategories = [];
       for (const cat of response.categories) {
         if (!cat.title || typeof cat.title !== 'string') {
@@ -410,10 +454,6 @@ class AIRecommendationService {
         if (!Array.isArray(cat.placeNames)) {
           throw new AIResponseValidationError(`Category "${cat.title}" missing placeNames array`);
         }
-        // Requirement 3.4: each category must have at least 2 places
-        if (cat.placeNames.length < 2) {
-          console.warn(`[AIRecommendationService] Category "${cat.title}" has fewer than 2 places`);
-        }
         validatedCategories.push({
           title: cat.title.trim(),
           placeNames: cat.placeNames.map((n: any) => String(n).trim()),
@@ -421,10 +461,17 @@ class AIRecommendationService {
       }
     }
 
+    // 分类策略：
+    // - requestedCount >= 5: 分类（5个可以分成2+3）
+    // - requestedCount <= 4: 不分类（不够分成2个分类，每个最少2个）
+    const shouldUseCategories = requestedCount >= 5 && validatedCategories && validatedCategories.length > 0;
+
     return {
       acknowledgment: response.acknowledgment.trim(),
-      categories: validatedCategories,
+      categories: shouldUseCategories ? validatedCategories : undefined,
       places: validatedPlaces,
+      requestedCount,
+      exceededLimit,
     };
   }
 

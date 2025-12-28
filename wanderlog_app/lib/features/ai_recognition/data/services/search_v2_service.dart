@@ -64,8 +64,8 @@ class SearchV2Service {
         },
         cancelToken: cancelToken,
         options: Options(
-          sendTimeout: const Duration(seconds: 30),
-          receiveTimeout: const Duration(seconds: 30),
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
         ),
       );
 

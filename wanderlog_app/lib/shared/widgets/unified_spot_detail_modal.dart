@@ -149,6 +149,24 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     }
   }
 
+  String? get _spotRecommendationPhrase {
+    try {
+      return (widget.spot as dynamic).recommendationPhrase as String?;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  bool get _isAIOnlySpot {
+    try {
+      final isFromAI = (widget.spot as dynamic).isFromAI as bool?;
+      final isVerified = (widget.spot as dynamic).isVerified as bool?;
+      return (isFromAI == true) && (isVerified != true);
+    } catch (e) {
+      return false;
+    }
+  }
+
   List<String> get _spotTags {
     if (widget.spot is Spot) {
       return (widget.spot as Spot).tags;
@@ -702,7 +720,9 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         setState(() => _isWishlist = false);
         return false;
       }
-      final destId = await ensureDestinationForCity(ref, _spotCity ?? '');
+      // 使用 city，如果为空则使用 "Saved Places" 作为默认目的地
+      final cityName = (_spotCity?.isNotEmpty == true) ? _spotCity! : 'Saved Places';
+      final destId = await ensureDestinationForCity(ref, cityName);
       if (destId == null) {
         setState(() => _isWishlist = false);
         _showError('Failed to create destination');
@@ -1213,8 +1233,27 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                   ),
                   const SizedBox(height: 16),
                 ],
-                // 5. Rating with Check-in button on the right
-                if (_spotRating != null) ...[
+                // 5. Rating or Recommendation Phrase with Check-in button on the right
+                // For AI-only places, show recommendation phrase instead of rating
+                if (_isAIOnlySpot && _spotRecommendationPhrase != null) ...[
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome, size: 20, color: AppTheme.primaryYellow),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _spotRecommendationPhrase!,
+                          style: AppTheme.headlineMedium(context).copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      _buildCheckInButton(),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (_spotRating != null) ...[
                   Row(
                     children: [
                       Text(

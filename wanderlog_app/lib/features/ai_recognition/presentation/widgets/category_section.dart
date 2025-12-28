@@ -6,9 +6,10 @@ import 'package:wanderlog/features/ai_recognition/presentation/widgets/ai_place_
 /// 分类展示组件 - 横滑 4:3 卡片布局
 /// 
 /// Requirements: 9.1, 9.2, 9.3
-/// - 显示分类标题
+/// - 显示分类标题（左对齐）
 /// - 每个分类 2-5 个地点
 /// - 横向滚动的 4:3 卡片
+/// - 标题和第一个卡片左对齐
 class CategorySection extends StatelessWidget {
   const CategorySection({
     required this.category,
@@ -34,36 +35,39 @@ class CategorySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 分类标题
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            category.title,
-            style: AppTheme.headlineMedium(context).copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+        // 分类标题 - 左对齐，不需要额外 padding（外层已有 16px）
+        Text(
+          category.title,
+          style: AppTheme.headlineMedium(context).copyWith(
+            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 12),
-        // 横滑卡片列表
-        SizedBox(
-          height: 220, // 4:3 卡片高度 + padding
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: displayPlaces.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final place = displayPlaces[index];
-              return SizedBox(
-                width: 280, // 4:3 比例宽度
-                child: AIPlaceCard(
-                  place: place,
-                  aspectRatio: 4 / 3,
-                  onTap: () => onPlaceTap?.call(place),
-                ),
-              );
-            },
+        // 横滑卡片列表 - 使用负 margin 让卡片延伸到屏幕边缘
+        Transform.translate(
+          offset: const Offset(-16, 0), // 向左偏移抵消外层 padding
+          child: SizedBox(
+            width: MediaQuery.of(context).size.width, // 占满屏幕宽度
+            height: 240,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(left: 16, right: 16), // 左边 16px 让第一个卡片对齐标题
+              clipBehavior: Clip.none,
+              itemCount: displayPlaces.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final place = displayPlaces[index];
+                return SizedBox(
+                  width: 280, // 4:3 比例宽度
+                  child: AIPlaceCard(
+                    place: place,
+                    aspectRatio: 4 / 3,
+                    onTap: () => onPlaceTap?.call(place),
+                    showSummary: false, // 分类卡片不显示 summary，避免 overflow
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ],

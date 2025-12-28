@@ -1,4 +1,5 @@
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_result.dart';
+import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
 
 /// AI识别历史记录模型
 class AIRecognitionHistory {
@@ -8,12 +9,23 @@ class AIRecognitionHistory {
     required this.imageUrls,
     required this.result,
     this.queryText,
+    this.searchV2Result,
   });
 
   /// 从JSON创建
   factory AIRecognitionHistory.fromJson(Map<String, dynamic> json) {
     final resultData = json['result'] as Map<String, dynamic>;
     final spotsData = (resultData['spots'] as List<dynamic>?) ?? [];
+    
+    // 尝试解析 SearchV2Result
+    SearchV2Result? searchV2Result;
+    if (json['searchV2Result'] != null) {
+      try {
+        searchV2Result = SearchV2Result.fromJson(json['searchV2Result'] as Map<String, dynamic>);
+      } catch (e) {
+        // 忽略解析错误，使用旧格式
+      }
+    }
     
     return AIRecognitionHistory(
       id: json['id'] as String,
@@ -27,6 +39,7 @@ class AIRecognitionHistory {
         imageUrls: (json['imageUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       ),
       queryText: json['queryText'] as String?,
+      searchV2Result: searchV2Result,
     );
   }
 
@@ -39,14 +52,20 @@ class AIRecognitionHistory {
   /// 上传的图片路径列表
   final List<String> imageUrls;
   
-  /// 识别结果
+  /// 识别结果（旧格式，兼容用）
   final AIRecognitionResult result;
   
   /// 文本搜索查询（如果是文本搜索）
   final String? queryText;
   
+  /// SearchV2 完整结果（新格式）
+  final SearchV2Result? searchV2Result;
+  
   /// 是否是文本搜索
   bool get isTextQuery => queryText != null && queryText!.isNotEmpty;
+  
+  /// 是否有 SearchV2 结果
+  bool get hasSearchV2Result => searchV2Result != null;
 
   /// 转换为JSON
   Map<String, dynamic> toJson() => {
@@ -75,6 +94,8 @@ class AIRecognitionHistory {
           'source': spot.source.name,
         },).toList(),
       },
+      // 保存完整的 SearchV2Result
+      'searchV2Result': searchV2Result?.toJson(),
     };
 
   /// 获取格式化的日期时间

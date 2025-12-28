@@ -23,35 +23,36 @@ model Profile {
 }
 
 model Place {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name          String
-  city          String?
-  country       String?
-  latitude      Float
-  longitude     Float
-  address       String?
-  description   String?
-  openingHours  String?   @map("opening_hours")
-  rating        Float?
-  ratingCount   Int?      @map("rating_count")
-  category      String?
-  aiSummary     String?   @map("ai_summary")
-  aiDescription String?   @map("ai_description")
-  tags          Json?     @default("[]")
-  aiTags        Json?     @default("[]") @map("ai_tags")
-  coverImage    String?   @map("cover_image")
-  images        Json?     @default("[]")
-  priceLevel    Int?      @map("price_level")
-  website       String?
-  phoneNumber   String?   @map("phone_number")
-  googlePlaceId String?   @unique @map("google_place_id")
-  source        String?   @default("google_maps")
-  sourceDetails Json?     @map("source_details")
-  isVerified    Boolean   @default(false) @map("is_verified")
-  customFields  Json?     @map("custom_fields")
-  lastSyncedAt  DateTime? @map("last_synced_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @default(now()) @map("updated_at")
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  city           String?
+  country        String?
+  latitude       Float
+  longitude      Float
+  address        String?
+  description    String?
+  openingHours   String?   @map("opening_hours")
+  rating         Float?
+  ratingCount    Int?      @map("rating_count")
+  category       String?
+  aiSummary      String?   @map("ai_summary")
+  aiDescription  String?   @map("ai_description")
+  tags           Json?     @default("[]")
+  aiTags         Json?     @default("[]") @map("ai_tags")
+  coverImage     String?   @map("cover_image")
+  photoReference String?   @map("photo_reference") // Google photo reference for future extraction
+  images         Json?     @default("[]")
+  priceLevel     Int?      @map("price_level")
+  website        String?
+  phoneNumber    String?   @map("phone_number")
+  googlePlaceId  String?   @unique @map("google_place_id")
+  source         String?   @default("google_maps")
+  sourceDetails  Json?     @map("source_details")
+  isVerified     Boolean   @default(false) @map("is_verified")
+  customFields   Json?     @map("custom_fields")
+  lastSyncedAt   DateTime? @map("last_synced_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @map("updated_at")
 
   collectionSpots CollectionSpot[]
 

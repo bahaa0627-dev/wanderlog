@@ -116,9 +116,12 @@ const ENTERPRISE_FIELD_MASK = [
 ].join(',');
 
 // ============================================
-// City Name Mapping
+// City Name Mapping & District to City Mapping
 // ============================================
 
+/**
+ * Map localized city names to English
+ */
 const cityNameMapping: Record<string, string> = {
   // 丹麦
   'København': 'Copenhagen',
@@ -157,9 +160,155 @@ const cityNameMapping: Record<string, string> = {
   '부산': 'Busan',
 };
 
+/**
+ * Map district/ward names to their parent city
+ * Key: district name, Value: parent city name
+ */
+const districtToCityMapping: Record<string, string> = {
+  // Tokyo districts (23 special wards + common areas)
+  'Minato City': 'Tokyo',
+  'Minato': 'Tokyo',
+  'Shibuya': 'Tokyo',
+  'Shibuya City': 'Tokyo',
+  'Shinjuku': 'Tokyo',
+  'Shinjuku City': 'Tokyo',
+  'Chiyoda': 'Tokyo',
+  'Chiyoda City': 'Tokyo',
+  'Taito': 'Tokyo',
+  'Taito City': 'Tokyo',
+  'Chuo': 'Tokyo',
+  'Chuo City': 'Tokyo',
+  'Meguro': 'Tokyo',
+  'Meguro City': 'Tokyo',
+  'Setagaya': 'Tokyo',
+  'Setagaya City': 'Tokyo',
+  'Nakano': 'Tokyo',
+  'Nakano City': 'Tokyo',
+  'Toshima': 'Tokyo',
+  'Toshima City': 'Tokyo',
+  'Sumida': 'Tokyo',
+  'Sumida City': 'Tokyo',
+  'Koto': 'Tokyo',
+  'Koto City': 'Tokyo',
+  'Shinagawa': 'Tokyo',
+  'Shinagawa City': 'Tokyo',
+  'Ota': 'Tokyo',
+  'Ota City': 'Tokyo',
+  'Bunkyo': 'Tokyo',
+  'Bunkyo City': 'Tokyo',
+  'Arakawa': 'Tokyo',
+  'Arakawa City': 'Tokyo',
+  'Nerima': 'Tokyo',
+  'Nerima City': 'Tokyo',
+  'Suginami': 'Tokyo',
+  'Suginami City': 'Tokyo',
+  'Itabashi': 'Tokyo',
+  'Itabashi City': 'Tokyo',
+  'Katsushika': 'Tokyo',
+  'Katsushika City': 'Tokyo',
+  'Edogawa': 'Tokyo',
+  'Edogawa City': 'Tokyo',
+  'Adachi': 'Tokyo',
+  'Adachi City': 'Tokyo',
+  'Kita': 'Tokyo',
+  'Kita City': 'Tokyo',
+  
+  // Sydney districts
+  'North Sydney': 'Sydney',
+  'Surry Hills': 'Sydney',
+  'Haymarket': 'Sydney',
+  'Pyrmont': 'Sydney',
+  'Darlinghurst': 'Sydney',
+  'Paddington': 'Sydney',
+  'Newtown': 'Sydney',
+  'Bondi': 'Sydney',
+  'Manly': 'Sydney',
+  'Parramatta': 'Sydney',
+  'Chatswood': 'Sydney',
+  'Circular Quay': 'Sydney',
+  'The Rocks': 'Sydney',
+  'Barangaroo': 'Sydney',
+  'Ultimo': 'Sydney',
+  'Redfern': 'Sydney',
+  'Glebe': 'Sydney',
+  'Chippendale': 'Sydney',
+  'Alexandria': 'Sydney',
+  'Waterloo': 'Sydney',
+  
+  // Osaka districts
+  'Namba': 'Osaka',
+  'Umeda': 'Osaka',
+  'Shinsaibashi': 'Osaka',
+  'Dotonbori': 'Osaka',
+  'Tennoji': 'Osaka',
+  'Kita-ku': 'Osaka',
+  'Chuo-ku': 'Osaka',
+  
+  // London districts
+  'Westminster': 'London',
+  'Camden': 'London',
+  'Kensington': 'London',
+  'Chelsea': 'London',
+  'Shoreditch': 'London',
+  'Soho': 'London',
+  'Covent Garden': 'London',
+  'Notting Hill': 'London',
+  'Brixton': 'London',
+  'Greenwich': 'London',
+  
+  // New York districts
+  'Manhattan': 'New York',
+  'Brooklyn': 'New York',
+  'Queens': 'New York',
+  'Bronx': 'New York',
+  'Staten Island': 'New York',
+  
+  // Paris districts (arrondissements)
+  '1er Arrondissement': 'Paris',
+  '2e Arrondissement': 'Paris',
+  '3e Arrondissement': 'Paris',
+  '4e Arrondissement': 'Paris',
+  '5e Arrondissement': 'Paris',
+  '6e Arrondissement': 'Paris',
+  '7e Arrondissement': 'Paris',
+  '8e Arrondissement': 'Paris',
+  'Le Marais': 'Paris',
+  'Montmartre': 'Paris',
+  'Saint-Germain-des-Prés': 'Paris',
+  
+  // Singapore districts
+  'Orchard': 'Singapore',
+  'Marina Bay': 'Singapore',
+  'Chinatown': 'Singapore',
+  'Little India': 'Singapore',
+  'Sentosa': 'Singapore',
+  
+  // Hong Kong districts
+  'Central': 'Hong Kong',
+  'Wan Chai': 'Hong Kong',
+  'Causeway Bay': 'Hong Kong',
+  'Tsim Sha Tsui': 'Hong Kong',
+  'Mong Kok': 'Hong Kong',
+  'Kowloon': 'Hong Kong',
+};
+
+/**
+ * Normalize city name - handles both localization and district mapping
+ */
 function normalizeCity(city: string): string {
   if (!city) return city;
-  return cityNameMapping[city] || city;
+  
+  // First check district mapping
+  if (districtToCityMapping[city]) {
+    return districtToCityMapping[city];
+  }
+  
+  // Then check localization mapping
+  if (cityNameMapping[city]) {
+    return cityNameMapping[city];
+  }
+  
+  return city;
 }
 
 // ============================================
@@ -465,25 +614,39 @@ class GooglePlacesEnterpriseService {
    * 使用 upsert 避免重复
    * 设置 is_verified = true
    * 
+   * 优化策略：
+   * - 一次性取 20 条落库（$0.035/request）
+   * - 只给展示的地点调取图片（$0.007/photo）
+   * - 未展示的地点保存 photoReference，方便后续提取
+   * 
    * @param places - Google Places 数组
+   * @param displayPlaceIds - 需要展示的地点 ID 列表（只有这些才下载图片）
    * 
    * Requirements: 4.5, 14.5
    */
-  async syncPlacesToDatabase(places: GooglePlace[]): Promise<void> {
+  async syncPlacesToDatabase(places: GooglePlace[], displayPlaceIds?: string[]): Promise<void> {
     console.log(`💾 Syncing ${places.length} places to database...`);
+    const displaySet = new Set(displayPlaceIds || []);
+    const shouldFetchPhotos = displaySet.size > 0;
 
     let synced = 0;
     let errors = 0;
+    let photosDownloaded = 0;
 
     for (const place of places) {
       try {
         // Extract city and country
         const { city, country } = this.extractCityCountry(place.addressComponents);
 
-        // Upload photo to R2 if available
+        // Only upload photo for displayed places to save costs ($0.007/photo)
         let coverImage: string | null = null;
-        if (place.photoReference) {
+        const shouldDownloadPhoto = shouldFetchPhotos 
+          ? displaySet.has(place.placeId) 
+          : true; // If no displayPlaceIds provided, download all (backward compatibility)
+        
+        if (place.photoReference && shouldDownloadPhoto) {
           coverImage = await this.uploadPhotoToR2(place.photoReference, place.placeId);
+          if (coverImage) photosDownloaded++;
         }
 
         // Extract category from types
@@ -494,7 +657,7 @@ class GooglePlacesEnterpriseService {
           ? JSON.stringify(place.openingHours.weekdayDescriptions)
           : null;
 
-        // Upsert to database
+        // Upsert to database - save photoReference for future use
         await prisma.place.upsert({
           where: {
             googlePlaceId: place.placeId,
@@ -511,6 +674,7 @@ class GooglePlacesEnterpriseService {
             ratingCount: place.userRatingCount,
             category: category,
             coverImage: coverImage || undefined,
+            photoReference: place.photoReference || undefined, // Save for future photo extraction
             priceLevel: place.priceLevel,
             website: place.websiteUri,
             phoneNumber: place.phoneNumber,
@@ -532,6 +696,7 @@ class GooglePlacesEnterpriseService {
             ratingCount: place.userRatingCount,
             category: category,
             coverImage: coverImage || undefined,
+            photoReference: place.photoReference || undefined, // Save for future photo extraction
             priceLevel: place.priceLevel,
             website: place.websiteUri,
             phoneNumber: place.phoneNumber,
@@ -548,7 +713,7 @@ class GooglePlacesEnterpriseService {
       }
     }
 
-    console.log(`✅ Synced ${synced} places, ${errors} errors`);
+    console.log(`✅ Synced ${synced} places, ${errors} errors, ${photosDownloaded} photos downloaded`);
   }
 
   /**

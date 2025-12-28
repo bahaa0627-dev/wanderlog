@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
+import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_result.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_history_service.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
@@ -102,28 +103,51 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     final reversedHistories = histories.reversed.toList();
 
     for (final history in reversedHistories) {
+      // 添加用户消息
       if (history.imageUrls.isNotEmpty) {
+        // 图片识别历史
         _messages.add(_ChatMessage(
           id: '${history.id}_user_img',
           isUser: true,
           imageUrls: history.imageUrls,
-          text: 'Help me find these places',
+          text: history.queryText ?? 'Help me find these places',
+          timestamp: history.timestamp,
+        ));
+      } else if (history.queryText != null && history.queryText!.isNotEmpty) {
+        // 文本搜索历史
+        _messages.add(_ChatMessage(
+          id: '${history.id}_user_text',
+          isUser: true,
+          text: history.queryText,
           timestamp: history.timestamp,
         ));
       }
-      _messages.add(_ChatMessage(
-        id: '${history.id}_ai_text',
-        isUser: false,
-        text: history.result.message,
-        timestamp: history.timestamp,
-      ));
-      if (history.result.spots.isNotEmpty) {
+      
+      // 添加 AI 回复消息
+      if (history.hasSearchV2Result) {
+        // 新格式：使用 SearchV2Result 展示（包含分类、地图等）
         _messages.add(_ChatMessage(
-          id: '${history.id}_ai_spots',
+          id: '${history.id}_ai_v2',
           isUser: false,
-          spots: history.result.spots.cast<Spot>(),
+          searchV2Result: history.searchV2Result,
           timestamp: history.timestamp,
         ));
+      } else {
+        // 旧格式：兼容旧的历史记录
+        _messages.add(_ChatMessage(
+          id: '${history.id}_ai_text',
+          isUser: false,
+          text: history.result.message,
+          timestamp: history.timestamp,
+        ));
+        if (history.result.spots.isNotEmpty) {
+          _messages.add(_ChatMessage(
+            id: '${history.id}_ai_spots',
+            isUser: false,
+            spots: history.result.spots.cast<Spot>(),
+            timestamp: history.timestamp,
+          ));
+        }
       }
     }
 
@@ -350,6 +374,25 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         timestamp: DateTime.now(),
       ));
     });
+
+    // 保存历史记录（保存完整的 SearchV2Result）
+    if (result.success) {
+      final spots = result.allPlaces.map(_placeResultToSpot).toList();
+      final history = AIRecognitionHistory(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp: DateTime.now(),
+        imageUrls: [],
+        result: AIRecognitionResult(
+          message: result.acknowledgment,
+          spots: spots,
+          imageUrls: [],
+        ),
+        queryText: query,
+        searchV2Result: result, // 保存完整的 SearchV2Result
+      );
+      await _historyService.saveHistory(history);
+      debugPrint('✅ [SearchV2] History saved for query: $query');
+    }
   }
 
 

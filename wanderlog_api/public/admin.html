@@ -1454,15 +1454,16 @@
         async function init() {
             loadStoredToken();
 
-            // 并行加载，不阻塞地点列表显示
-            loadAllPlaces().then(() => {
-                updateFilterOptions();
-            }).catch(err => {
+            // 并行加载筛选选项，不阻塞地点列表显示
+            loadFilterOptions().catch(err => {
                 console.error('加载筛选器数据失败，但不影响地点列表显示:', err);
             });
             
-            // 立即加载地点列表，不等待 loadAllPlaces
+            // 立即加载地点列表，不等待 loadFilterOptions
             await loadPlaces();
+            
+            // 设置筛选器监听
+            setupFilterListeners();
             
             // 加载合集（可选，不阻塞）
             loadCollections().catch(err => {
@@ -1519,150 +1520,103 @@
         }
 
         // 加载所有地点数据（用于筛选器联动）
-        async function loadAllPlaces() {
+        // 改用 filter-options API，只获取筛选选项而不是所有数据
+        let filterOptions = { countries: [], citiesByCountry: {}, categories: [] };
+        
+        async function loadFilterOptions() {
             try {
-                // 增加超时时间到30秒，因为要加载1000条数据
-                const response = await fetchWithTimeout(`${API_BASE}?limit=1000`, {}, 30000);
+                const response = await fetchWithTimeout(`${API_BASE}/filter-options`, {}, 30000);
                 const result = await response.json();
                 if (result.success && result.data) {
-                    allPlaces = result.data;
+                    filterOptions = result.data;
+                    updateFilterOptionsUI();
                 }
             } catch (error) {
-                console.error('加载地点数据失败:', error);
-                // 不显示错误信息，因为不影响地点列表显示
+                console.error('加载筛选选项失败:', error);
+            }
+        }
+        
+        // 更新筛选选项 UI
+        function updateFilterOptionsUI() {
+            const countrySelect = document.getElementById('country');
+            const citySelect = document.getElementById('city');
+            const categorySelect = document.getElementById('category');
+            
+            // 保存当前选中值
+            const currentCountry = countrySelect.value;
+            const currentCity = citySelect.value;
+            const currentCategory = categorySelect.value;
+            
+            // 更新国家选项
+            countrySelect.innerHTML = '<option value="">全部</option>';
+            filterOptions.countries.forEach(c => {
+                const option = document.createElement('option');
+                option.value = c.name;
+                option.textContent = `${c.name} (${c.count})`;
+                option.selected = c.name === currentCountry;
+                countrySelect.appendChild(option);
+            });
+            
+            // 更新城市选项（根据选中的国家）
+            updateCityOptions(currentCountry, currentCity);
+            
+            // 更新分类选项
+            categorySelect.innerHTML = '<option value="">全部</option>';
+            filterOptions.categories.forEach(c => {
+                const option = document.createElement('option');
+                option.value = c.name;
+                option.textContent = `${c.name} (${c.count})`;
+                option.selected = c.name === currentCategory;
+                categorySelect.appendChild(option);
+            });
+        }
+        
+        // 更新城市选项（根据选中的国家）
+        function updateCityOptions(selectedCountry, currentCity) {
+            const citySelect = document.getElementById('city');
+            citySelect.innerHTML = '<option value="">全部</option>';
+            
+            if (selectedCountry && filterOptions.citiesByCountry[selectedCountry]) {
+                // 只显示选中国家的城市
+                filterOptions.citiesByCountry[selectedCountry].forEach(c => {
+                    const option = document.createElement('option');
+                    option.value = c.name;
+                    option.textContent = `${c.name} (${c.count})`;
+                    option.selected = c.name === currentCity;
+                    citySelect.appendChild(option);
+                });
+            } else {
+                // 显示所有城市
+                const allCities = [];
+                Object.values(filterOptions.citiesByCountry).forEach(cities => {
+                    cities.forEach(c => allCities.push(c));
+                });
+                // 按名称排序并去重
+                const uniqueCities = {};
+                allCities.forEach(c => {
+                    if (!uniqueCities[c.name]) {
+                        uniqueCities[c.name] = c.count;
+                    } else {
+                        uniqueCities[c.name] += c.count;
+                    }
+                });
+                Object.entries(uniqueCities)
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .forEach(([name, count]) => {
+                        const option = document.createElement('option');
+                        option.value = name;
+                        option.textContent = `${name} (${count})`;
+                        option.selected = name === currentCity;
+                        citySelect.appendChild(option);
+                    });
             }
         }
 
-        // 更新筛选选项（根据当前筛选条件）
+        // 更新筛选选项（根据当前筛选条件）- 简化版
         function updateFilterOptions() {
-            // 根据当前筛选条件过滤数据
-            let filteredPlaces = allPlaces;
-            
-            // 应用国家筛选
-            if (filters.country) {
-                filteredPlaces = filteredPlaces.filter(p => p.country === filters.country);
-            }
-            
-            // 应用城市筛选
-            if (filters.city) {
-                filteredPlaces = filteredPlaces.filter(p => p.city === filters.city);
-            }
-            
-            // 应用分类筛选
-            if (filters.category) {
-                filteredPlaces = filteredPlaces.filter(p => p.category === filters.category);
-            }
-            
-            // 更新标签选项
-            const allTags = new Set();
-            allPlaces.forEach(p => {
-                const tagsData = p.aiTags || p.tags;
-                if (tagsData) {
-                    try {
-                        const tags = typeof tagsData === 'string' ? JSON.parse(tagsData) : tagsData;
-                        if (Array.isArray(tags)) {
-                            tags.forEach(t => allTags.add(t));
-                        }
-                    } catch {}
-                }
-            });
-            
-            const tagDatalist = document.getElementById('tagSuggestions');
-            if (tagDatalist) {
-                tagDatalist.innerHTML = [...allTags].sort().map(t => `<option value="${t}">`).join('');
-            }
-
-            // 更新国家选项（如果没有选择国家）
-            if (!filters.country) {
-                const countries = [...new Set(
-                    allPlaces
-                        .filter(p => !filters.city || p.city === filters.city)
-                        .filter(p => !filters.category || p.category === filters.category)
-                        .map(p => p.country)
-                        .filter(Boolean)
-                )].sort();
-                
-                const countrySelect = document.getElementById('country');
-                const currentValue = countrySelect.value;
-                countrySelect.innerHTML = '<option value="">全部</option>';
-                countries.forEach(country => {
-                    const count = allPlaces
-                        .filter(p => p.country === country)
-                        .filter(p => !filters.city || p.city === filters.city)
-                        .filter(p => !filters.category || p.category === filters.category)
-                        .length;
-                    const option = document.createElement('option');
-                    option.value = country;
-                    option.textContent = `${country} (${count})`;
-                    option.selected = country === currentValue;
-                    countrySelect.appendChild(option);
-                });
-            }
-
-            // 更新城市选项（如果没有选择城市）
-            if (!filters.city) {
-                const cities = [...new Set(
-                    allPlaces
-                        .filter(p => !filters.country || p.country === filters.country)
-                        .filter(p => !filters.category || p.category === filters.category)
-                        .map(p => p.city)
-                        .filter(Boolean)
-                )].sort();
-                
-                const citySelect = document.getElementById('city');
-                const currentValue = citySelect.value;
-                citySelect.innerHTML = '<option value="">全部</option>';
-                cities.forEach(city => {
-                    const count = allPlaces
-                        .filter(p => p.city === city)
-                        .filter(p => !filters.country || p.country === filters.country)
-                        .filter(p => !filters.category || p.category === filters.category)
-                        .length;
-                    const option = document.createElement('option');
-                    option.value = city;
-                    option.textContent = `${city} (${count})`;
-                    option.selected = city === currentValue;
-                    citySelect.appendChild(option);
-                });
-            }
-
-            // 更新分类选项（如果没有选择分类）
-            if (!filters.category) {
-                const categories = [...new Set(
-                    allPlaces
-                        .filter(p => !filters.country || p.country === filters.country)
-                        .filter(p => !filters.city || p.city === filters.city)
-                        .map(p => p.category)
-                        .filter(Boolean)
-                )].sort();
-                
-                const categorySelect = document.getElementById('category');
-                const currentValue = categorySelect.value;
-                categorySelect.innerHTML = '<option value="">全部</option>';
-                categories.forEach(category => {
-                    const count = allPlaces
-                        .filter(p => p.category === category)
-                        .filter(p => !filters.country || p.country === filters.country)
-                        .filter(p => !filters.city || p.city === filters.city)
-                        .length;
-                    const option = document.createElement('option');
-                    option.value = category;
-                    option.textContent = `${category} (${count})`;
-                    option.selected = category === currentValue;
-                    categorySelect.appendChild(option);
-                });
-            }
-
-            // 更新评分范围提示
-            const ratings = filteredPlaces.map(p => p.rating).filter(Boolean);
-            if (ratings.length > 0) {
-                const minRatingInput = document.getElementById('minRating');
-                const maxRatingInput = document.getElementById('maxRating');
-                const minRating = Math.min(...ratings);
-                const maxRating = Math.max(...ratings);
-                minRatingInput.placeholder = `${minRating.toFixed(1)} - ${maxRating.toFixed(1)}`;
-                maxRatingInput.placeholder = `${minRating.toFixed(1)} - ${maxRating.toFixed(1)}`;
-            }
+            const selectedCountry = document.getElementById('country').value;
+            const currentCity = document.getElementById('city').value;
+            updateCityOptions(selectedCountry, currentCity);
         }
 
         // 监听筛选器变化
@@ -1670,22 +1624,16 @@
             document.getElementById('country').addEventListener('change', function() {
                 filters.country = this.value || undefined;
                 delete filters.city; // 清除城市筛选
-                delete filters.category; // 清除分类筛选
                 document.getElementById('city').value = '';
-                document.getElementById('category').value = '';
                 updateFilterOptions();
             });
 
             document.getElementById('city').addEventListener('change', function() {
                 filters.city = this.value || undefined;
-                delete filters.category; // 清除分类筛选
-                document.getElementById('category').value = '';
-                updateFilterOptions();
             });
 
             document.getElementById('category').addEventListener('change', function() {
                 filters.category = this.value || undefined;
-                updateFilterOptions();
             });
         }
 
@@ -3289,9 +3237,8 @@
                         currentPage = 1;
                     }
                     await loadPlaces();
-                    // 更新缓存并等待完成
-                    await loadAllPlaces();
-                    updateFilterOptions();
+                    // 更新筛选选项
+                    await loadFilterOptions();
                 } else {
                     throw new Error(result.message || result.error || '操作失败');
                 }

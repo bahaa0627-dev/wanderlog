@@ -1123,6 +1123,220 @@ class NormalizationService {
       secondhandKeywords.some(sk => kw.toLowerCase().includes(sk))
     );
   }
+  
+  // ============================================
+  // Apify Data Normalization Methods
+  // ============================================
+  
+  /**
+   * Apify 分类映射规则
+   * 按优先级从高到低排列
+   * 
+   * Requirements: 4.1-4.9
+   */
+  private readonly APIFY_CATEGORY_MAPPINGS: Array<{
+    patterns: string[];
+    categorySlug: string;
+    priority: number;
+  }> = [
+    // Requirement 4.3: Museum/Art museum → museum
+    { patterns: ['museum', 'art museum', 'history museum', 'science museum'], categorySlug: 'museum', priority: 10 },
+    // Requirement 4.4: Art gallery/Gallery → art_gallery
+    { patterns: ['art gallery', 'gallery', 'contemporary art'], categorySlug: 'art_gallery', priority: 11 },
+    // Requirement 4.5: Coffee shop/Cafe → cafe
+    { patterns: ['coffee shop', 'cafe', 'café', 'coffee', 'espresso bar'], categorySlug: 'cafe', priority: 20 },
+    // Requirement 4.6: Bakery/Patisserie → bakery
+    { patterns: ['bakery', 'patisserie', 'pastry', 'boulangerie', 'pastry shop'], categorySlug: 'bakery', priority: 21 },
+    // Requirement 4.7: Restaurant → restaurant
+    { patterns: ['restaurant', 'bistro', 'dining', 'eatery', 'brasserie'], categorySlug: 'restaurant', priority: 30 },
+    // Requirement 4.8: Thrift store/Second hand → thrift_store
+    { patterns: ['thrift store', 'second hand', 'secondhand', 'charity shop', 'resale', 'consignment'], categorySlug: 'thrift_store', priority: 15 },
+    // Requirement 4.9: Tourist attraction/Landmark → landmark
+    { patterns: ['tourist attraction', 'landmark', 'attraction', 'viewpoint', 'scenic'], categorySlug: 'landmark', priority: 100 },
+    // Additional mappings
+    { patterns: ['bar', 'pub', 'cocktail bar', 'wine bar'], categorySlug: 'bar', priority: 31 },
+    { patterns: ['hotel', 'lodging', 'boutique hotel', 'hostel'], categorySlug: 'hotel', priority: 40 },
+    { patterns: ['church', 'cathedral', 'basilica', 'chapel'], categorySlug: 'church', priority: 50 },
+    { patterns: ['library', 'public library'], categorySlug: 'library', priority: 51 },
+    { patterns: ['bookstore', 'book store', 'book shop'], categorySlug: 'bookstore', priority: 52 },
+    { patterns: ['cemetery', 'graveyard'], categorySlug: 'cemetery', priority: 53 },
+    { patterns: ['park', 'garden', 'botanical garden'], categorySlug: 'park', priority: 60 },
+    { patterns: ['castle', 'palace', 'fortress', 'chateau'], categorySlug: 'castle', priority: 12 },
+    { patterns: ['market', 'marketplace', 'farmers market', 'food market'], categorySlug: 'market', priority: 70 },
+    { patterns: ['shopping mall', 'mall', 'department store', 'shopping center'], categorySlug: 'shopping_mall', priority: 71 },
+    { patterns: ['yarn', 'wool shop', 'knitting', 'haberdashery'], categorySlug: 'yarn_store', priority: 16 },
+    { patterns: ['shop', 'store', 'retail', 'gift shop'], categorySlug: 'shop', priority: 90 },
+  ];
+  
+  /**
+   * 从 Apify 数据归一化分类
+   * 
+   * Requirements: 4.1-4.11
+   * 
+   * @param categories - Apify categories 数组
+   * @param categoryName - Apify categoryName 字段
+   * @param searchString - Apify searchString 字段（用于 feminist 标签检测）
+   * @returns 归一化后的分类结果
+   */
+  normalizeFromApify(
+    categories?: string[] | null,
+    categoryName?: string | null,
+    searchString?: string | null
+  ): {
+    categorySlug: string;
+    categoryEn: string;
+    categoryZh: string;
+    tags: string[];
+    matchedBy: 'categories' | 'categoryName' | 'searchString' | 'fallback';
+  } {
+    const tags: string[] = [];
+    
+    // Requirement 4.10: searchString 为 feminist 时添加 Feminism 标签
+    if (searchString && this.isFeminismSearchString(searchString)) {
+      tags.push('theme:feminism');
+    }
+    
+    // Requirement 4.2: 优先级 categories > categoryName > searchString
+    
+    // 1. 尝试从 categories 数组匹配
+    if (categories && categories.length > 0) {
+      const result = this.matchApifyCategories(categories);
+      if (result) {
+        return {
+          categorySlug: result.categorySlug,
+          categoryEn: CATEGORY_DISPLAY_NAMES[result.categorySlug],
+          categoryZh: CATEGORY_ZH_NAMES[result.categorySlug],
+          tags,
+          matchedBy: 'categories',
+        };
+      }
+    }
+    
+    // 2. 尝试从 categoryName 匹配
+    if (categoryName) {
+      const result = this.matchApifyCategoryName(categoryName);
+      if (result) {
+        return {
+          categorySlug: result.categorySlug,
+          categoryEn: CATEGORY_DISPLAY_NAMES[result.categorySlug],
+          categoryZh: CATEGORY_ZH_NAMES[result.categorySlug],
+          tags,
+          matchedBy: 'categoryName',
+        };
+      }
+    }
+    
+    // 3. 尝试从 searchString 推断
+    if (searchString) {
+      const result = this.matchApifySearchString(searchString);
+      if (result) {
+        return {
+          categorySlug: result.categorySlug,
+          categoryEn: CATEGORY_DISPLAY_NAMES[result.categorySlug],
+          categoryZh: CATEGORY_ZH_NAMES[result.categorySlug],
+          tags,
+          matchedBy: 'searchString',
+        };
+      }
+    }
+    
+    // 4. Fallback: 默认为 shop
+    return {
+      categorySlug: 'shop',
+      categoryEn: CATEGORY_DISPLAY_NAMES['shop'],
+      categoryZh: CATEGORY_ZH_NAMES['shop'],
+      tags,
+      matchedBy: 'fallback',
+    };
+  }
+  
+  /**
+   * 从 categories 数组匹配分类
+   * 按优先级选择最佳匹配
+   */
+  private matchApifyCategories(categories: string[]): { categorySlug: string; priority: number } | null {
+    let bestMatch: { categorySlug: string; priority: number } | null = null;
+    
+    for (const category of categories) {
+      const categoryLower = category.toLowerCase();
+      
+      for (const mapping of this.APIFY_CATEGORY_MAPPINGS) {
+        const matched = mapping.patterns.some((pattern: string) => 
+          categoryLower.includes(pattern.toLowerCase()) ||
+          pattern.toLowerCase().includes(categoryLower)
+        );
+        
+        if (matched) {
+          // 选择优先级最低（数值最小）的匹配
+          if (!bestMatch || mapping.priority < bestMatch.priority) {
+            bestMatch = { categorySlug: mapping.categorySlug, priority: mapping.priority };
+          }
+        }
+      }
+    }
+    
+    return bestMatch;
+  }
+  
+  /**
+   * 从 categoryName 匹配分类
+   */
+  private matchApifyCategoryName(categoryName: string): { categorySlug: string; priority: number } | null {
+    const categoryLower = categoryName.toLowerCase();
+    
+    let bestMatch: { categorySlug: string; priority: number } | null = null;
+    
+    for (const mapping of this.APIFY_CATEGORY_MAPPINGS) {
+      const matched = mapping.patterns.some((pattern: string) => 
+        categoryLower.includes(pattern.toLowerCase()) ||
+        pattern.toLowerCase().includes(categoryLower)
+      );
+      
+      if (matched) {
+        if (!bestMatch || mapping.priority < bestMatch.priority) {
+          bestMatch = { categorySlug: mapping.categorySlug, priority: mapping.priority };
+        }
+      }
+    }
+    
+    return bestMatch;
+  }
+  
+  /**
+   * 从 searchString 推断分类
+   */
+  private matchApifySearchString(searchString: string): { categorySlug: string; priority: number } | null {
+    const searchLower = searchString.toLowerCase();
+    
+    // 特殊处理：feminist 搜索词不影响分类，只影响标签
+    // 分类仍按场所功能确定
+    
+    let bestMatch: { categorySlug: string; priority: number } | null = null;
+    
+    for (const mapping of this.APIFY_CATEGORY_MAPPINGS) {
+      const matched = mapping.patterns.some((pattern: string) => 
+        searchLower.includes(pattern.toLowerCase())
+      );
+      
+      if (matched) {
+        if (!bestMatch || mapping.priority < bestMatch.priority) {
+          bestMatch = { categorySlug: mapping.categorySlug, priority: mapping.priority };
+        }
+      }
+    }
+    
+    return bestMatch;
+  }
+  
+  /**
+   * 检测是否为 feminism 相关搜索词
+   * Requirement 4.10
+   */
+  private isFeminismSearchString(searchString: string): boolean {
+    const feminismKeywords = ['feminist', 'feminism', "women's", 'gender equality'];
+    const searchLower = searchString.toLowerCase();
+    return feminismKeywords.some(kw => searchLower.includes(kw));
+  }
 }
 
 // 导出单例

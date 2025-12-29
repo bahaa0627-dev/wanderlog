@@ -716,6 +716,69 @@ class PublicPlaceService {
   }
 
   /**
+   * 获取筛选选项（国家、城市、分类及其数量）
+   * 用于后台管理的筛选器
+   */
+  async getFilterOptions() {
+    const [countriesData, citiesData, categoriesData] = await Promise.all([
+      prisma.place.groupBy({
+        by: ['country'],
+        _count: true,
+        orderBy: { country: 'asc' },
+        where: { country: { not: null } }
+      }),
+      prisma.place.groupBy({
+        by: ['city', 'country'],
+        _count: true,
+        orderBy: { city: 'asc' },
+        where: { city: { not: null } }
+      }),
+      prisma.place.groupBy({
+        by: ['category'],
+        _count: true,
+        orderBy: { category: 'asc' },
+        where: { category: { not: null } }
+      })
+    ]);
+
+    // 格式化国家数据
+    const countries = countriesData
+      .filter(c => c.country)
+      .map(c => ({
+        name: c.country!,
+        count: c._count
+      }));
+
+    // 格式化城市数据（按国家分组）
+    const citiesByCountry: Record<string, { name: string; count: number }[]> = {};
+    citiesData
+      .filter(c => c.city && c.country)
+      .forEach(c => {
+        if (!citiesByCountry[c.country!]) {
+          citiesByCountry[c.country!] = [];
+        }
+        citiesByCountry[c.country!].push({
+          name: c.city!,
+          count: c._count
+        });
+      });
+
+    // 格式化分类数据
+    const categories = categoriesData
+      .filter(c => c.category)
+      .map(c => ({
+        name: c.category!,
+        count: c._count
+      }));
+
+    return {
+      countries,
+      citiesByCountry,
+      categories
+    };
+  }
+
+  /**
    * 获取国家和城市列表（按国家分组，按字母排序）
    * 返回数据库中实际存在的国家和城市（保留原始大小写）
    */

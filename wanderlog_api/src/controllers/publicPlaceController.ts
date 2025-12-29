@@ -570,6 +570,26 @@ class PublicPlaceController {
   }
 
   /**
+   * 获取筛选选项（国家、城市、分类及其数量）
+   * GET /api/public-places/filter-options
+   */
+  async getFilterOptions(_req: Request, res: Response): Promise<void> {
+    try {
+      const data = await publicPlaceService.getFilterOptions();
+
+      res.json({
+        success: true,
+        data,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
    * 按城市和标签筛选地点
    * GET /api/public-places/search-by-filters
    */

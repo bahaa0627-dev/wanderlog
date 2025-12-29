@@ -5,6 +5,7 @@ import aiService from '../services/aiService';
 import googleMapsFavoritesService from '../services/googleMapsFavoritesService';
 import displayTagsService from '../services/displayTagsService';
 import { AITagElement } from '../services/aiTagsGeneratorService';
+import { ApifyImportService } from '../services/apifyImportService';
 
 // 解析 JSON 字符串字段，确保返回数组
 function parseJsonField(value: any): any[] {
@@ -694,6 +695,112 @@ class PublicPlaceController {
         message: 'Place created successfully',
       });
     } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * 从 Apify Dataset 导入地点数据
+   * POST /api/public-places/import-from-apify
+   * Body: { 
+   *   datasetId: string,           // Apify Dataset ID (必填)
+   *   batchSize?: number,          // 批量大小，默认 100
+   *   delayMs?: number,            // 批次间延迟(ms)，默认 100
+   *   dryRun?: boolean,            // 仅验证不写入，默认 false
+   *   skipImages?: boolean         // 跳过图片处理，默认 false
+   * }
+   */
+  async importFromApifyDataset(req: Request, res: Response): Promise<void> {
+    try {
+      const { datasetId, batchSize, delayMs, dryRun, skipImages } = req.body;
+
+      if (!datasetId) {
+        res.status(400).json({
+          success: false,
+          error: 'datasetId is required',
+        });
+        return;
+      }
+
+      console.log(`📥 Starting Apify Dataset import: ${datasetId}`);
+      console.log(`   Options: batchSize=${batchSize || 100}, dryRun=${dryRun || false}, skipImages=${skipImages || false}`);
+
+      const apifyImportService = new ApifyImportService();
+      
+      const result = await apifyImportService.importFromDataset(datasetId, {
+        batchSize: batchSize || 100,
+        delayMs: delayMs || 100,
+        dryRun: dryRun || false,
+        skipImages: skipImages || false,
+      });
+
+      res.json({
+        success: true,
+        data: {
+          total: result.total,
+          inserted: result.inserted,
+          updated: result.updated,
+          skipped: result.skipped,
+          failed: result.failed,
+          stats: result.stats,
+          errors: result.errors.slice(0, 20), // 只返回前20个错误
+        },
+        message: `Import complete: ${result.inserted} inserted, ${result.updated} updated, ${result.skipped} skipped, ${result.failed} failed`,
+      });
+    } catch (error: any) {
+      console.error('❌ Error importing from Apify Dataset:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * 从 Apify Dataset 预览数据（dry-run 模式）
+   * POST /api/public-places/preview-apify-import
+   * Body: { datasetId: string }
+   */
+  async previewApifyImport(req: Request, res: Response): Promise<void> {
+    try {
+      const { datasetId } = req.body;
+
+      if (!datasetId) {
+        res.status(400).json({
+          success: false,
+          error: 'datasetId is required',
+        });
+        return;
+      }
+
+      console.log(`🔍 Previewing Apify Dataset: ${datasetId}`);
+
+      const apifyImportService = new ApifyImportService();
+      
+      // 使用 dry-run 模式预览
+      const result = await apifyImportService.importFromDataset(datasetId, {
+        dryRun: true,
+        skipImages: true,
+      });
+
+      res.json({
+        success: true,
+        data: {
+          total: result.total,
+          wouldInsert: result.inserted,
+          wouldUpdate: result.updated,
+          wouldSkip: result.skipped,
+          wouldFail: result.failed,
+          stats: result.stats,
+          sampleErrors: result.errors.slice(0, 10),
+        },
+        message: `Preview complete: ${result.total} items found`,
+      });
+    } catch (error: any) {
+      console.error('❌ Error previewing Apify Dataset:', error);
       res.status(500).json({
         success: false,
         error: error.message,

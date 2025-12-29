@@ -906,11 +906,10 @@
                     <input type="number" id="maxRating" min="0" max="5" step="0.1" placeholder="5.0">
                 </div>
                 <div class="filter-group" style="flex: 2;">
-                    <label for="tagFilter">🏷️ 标签 <small style="color: #999;">(可输入或选择)</small></label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="tagFilter" list="tagSuggestions" placeholder="输入或选择标签..." style="flex: 1;">
-                        <datalist id="tagSuggestions"></datalist>
-                    </div>
+                    <label for="tagFilter">🏷️ 标签 <small style="color: #999;">(联动)</small></label>
+                    <select id="tagFilter">
+                        <option value="">全部</option>
+                    </select>
                 </div>
             </div>
             <div class="filter-actions" style="display: flex; justify-content: space-between; align-items: center;">
@@ -1148,7 +1147,31 @@
                 </div>
                 <div class="form-group">
                     <label>分类</label>
-                    <input id="placeCategory" type="text" placeholder="如：Landmark, Restaurant" autocomplete="off">
+                    <select id="placeCategory">
+                        <option value="">请选择分类</option>
+                        <option value="landmark">Landmark (地标)</option>
+                        <option value="museum">Museum (博物馆)</option>
+                        <option value="art_gallery">Gallery (美术馆)</option>
+                        <option value="shopping_mall">Shopping (商场)</option>
+                        <option value="cafe">Cafe (咖啡店)</option>
+                        <option value="bakery">Bakery (面包店)</option>
+                        <option value="restaurant">Restaurant (餐馆)</option>
+                        <option value="bar">Bar (酒吧)</option>
+                        <option value="hotel">Hotel (酒店)</option>
+                        <option value="church">Church (教堂)</option>
+                        <option value="library">Library (图书馆)</option>
+                        <option value="bookstore">Bookstore (书店)</option>
+                        <option value="cemetery">Cemetery (墓园)</option>
+                        <option value="park">Park (公园)</option>
+                        <option value="castle">Castle (城堡)</option>
+                        <option value="market">Market (市集)</option>
+                        <option value="shop">Shop (商店)</option>
+                        <option value="yarn_store">Yarn (毛线店)</option>
+                        <option value="thrift_store">Thrift (二手店)</option>
+                        <option value="university">University (大学)</option>
+                        <option value="temple">Temple (寺庙)</option>
+                        <option value="zoo">Zoo (动物园)</option>
+                    </select>
                 </div>
             </div>
             
@@ -1521,7 +1544,7 @@
 
         // 加载所有地点数据（用于筛选器联动）
         // 改用 filter-options API，只获取筛选选项而不是所有数据
-        let filterOptions = { countries: [], citiesByCountry: {}, categories: [] };
+        let filterOptions = { countries: [], citiesByCountry: {}, categories: [], tags: [], tagsByCountry: {} };
         
         async function loadFilterOptions() {
             try {
@@ -1541,11 +1564,13 @@
             const countrySelect = document.getElementById('country');
             const citySelect = document.getElementById('city');
             const categorySelect = document.getElementById('category');
+            const tagSelect = document.getElementById('tagFilter');
             
             // 保存当前选中值
             const currentCountry = countrySelect.value;
             const currentCity = citySelect.value;
             const currentCategory = categorySelect.value;
+            const currentTag = tagSelect.value;
             
             // 更新国家选项
             countrySelect.innerHTML = '<option value="">全部</option>';
@@ -1569,6 +1594,9 @@
                 option.selected = c.name === currentCategory;
                 categorySelect.appendChild(option);
             });
+            
+            // 更新标签选项（根据选中的国家）
+            updateTagOptions(currentCountry, currentTag);
         }
         
         // 更新城市选项（根据选中的国家）
@@ -1611,12 +1639,38 @@
                     });
             }
         }
+        
+        // 更新标签选项（根据选中的国家）
+        function updateTagOptions(selectedCountry, currentTag) {
+            const tagSelect = document.getElementById('tagFilter');
+            tagSelect.innerHTML = '<option value="">全部</option>';
+            
+            let tagsToShow = [];
+            
+            if (selectedCountry && filterOptions.tagsByCountry && filterOptions.tagsByCountry[selectedCountry]) {
+                // 只显示选中国家的标签
+                tagsToShow = filterOptions.tagsByCountry[selectedCountry];
+            } else if (filterOptions.tags) {
+                // 显示所有标签
+                tagsToShow = filterOptions.tags;
+            }
+            
+            tagsToShow.forEach(t => {
+                const option = document.createElement('option');
+                option.value = t.name;
+                option.textContent = `${t.name} (${t.count})`;
+                option.selected = t.name === currentTag;
+                tagSelect.appendChild(option);
+            });
+        }
 
         // 更新筛选选项（根据当前筛选条件）- 简化版
         function updateFilterOptions() {
             const selectedCountry = document.getElementById('country').value;
             const currentCity = document.getElementById('city').value;
+            const currentTag = document.getElementById('tagFilter').value;
             updateCityOptions(selectedCountry, currentCity);
+            updateTagOptions(selectedCountry, currentTag);
         }
 
         // 监听筛选器变化
@@ -1718,25 +1772,48 @@
                                 hours.weekday_text.slice(0, 7).map(t => `<li>${t}</li>`).join('') + 
                                 '</ul>';
                         } else if (Array.isArray(hours)) {
+                            // 数组格式 [{day, hours}, ...]
                             openingHoursHtml = '<ul class="opening-hours-list">' + 
-                                hours.slice(0, 7).map(t => `<li>${t}</li>`).join('') + 
+                                hours.slice(0, 7).map(t => {
+                                    if (typeof t === 'object' && t.day && t.hours) {
+                                        return `<li>${t.day}: ${t.hours}</li>`;
+                                    }
+                                    return `<li>${typeof t === 'string' ? t : ''}</li>`;
+                                }).join('') + 
                                 '</ul>';
                         } else if (typeof hours === 'string') {
                             openingHoursHtml = `<span style="font-size:11px;">${hours}</span>`;
+                        } else if (typeof hours === 'object') {
+                            // 尝试提取 periods 或其他格式
+                            if (hours.periods && Array.isArray(hours.periods)) {
+                                openingHoursHtml = '<span style="font-size:11px;">有营业时间数据</span>';
+                            } else {
+                                openingHoursHtml = '<span style="font-size:11px;">有营业时间</span>';
+                            }
                         }
                     } catch { openingHoursHtml = '-'; }
                 }
                 
-                // 解析标签
+                // 解析标签 - aiTags 现在是 {en, zh} 对象数组
                 let tagsHtml = '-';
-                const tagsData = place.aiTags || place.tags;
+                const tagsData = place.aiTags;
                 if (tagsData) {
                     try {
                         const tagArr = typeof tagsData === 'string' ? JSON.parse(tagsData) : tagsData;
                         if (Array.isArray(tagArr) && tagArr.length > 0) {
-                            tagsHtml = '<div class="tag-container">' + 
-                                tagArr.map(t => `<span class="tag tag-info">${t}</span>`).join('') + 
-                                '</div>';
+                            // 提取 en 字段，如果是对象的话
+                            const tagStrings = tagArr.map(t => {
+                                if (typeof t === 'object' && t !== null && t.en) {
+                                    return t.en;
+                                }
+                                return typeof t === 'string' ? t : '';
+                            }).filter(Boolean);
+                            
+                            if (tagStrings.length > 0) {
+                                tagsHtml = '<div class="tag-container">' + 
+                                    tagStrings.map(t => `<span class="tag tag-info">${t}</span>`).join('') + 
+                                    '</div>';
+                            }
                         }
                     } catch { tagsHtml = '-'; }
                 }
@@ -1803,8 +1880,8 @@
                             : '-'}
                     </td>
                     <td class="nowrap-cell">
-                        ${place.category 
-                            ? `<span class="badge badge-category">${place.category}</span>` 
+                        ${place.categoryEn || place.category 
+                            ? `<span class="badge badge-category">${place.categoryEn || place.category}</span>` 
                             : '-'}
                     </td>
                     <td class="wrap-cell" style="font-size:12px;color:#666;">${description}</td>
@@ -2873,7 +2950,8 @@
                 
                 // 填充表单
                 document.getElementById('placeName').value = place.name || '';
-                document.getElementById('placeCategory').value = place.category || '';
+                // 使用 categorySlug 来设置下拉选项，如果没有则尝试用 category
+                document.getElementById('placeCategory').value = place.categorySlug || place.category || '';
                 document.getElementById('placeCity').value = place.city || '';
                 document.getElementById('placeCountry').value = place.country || '';
                 document.getElementById('placeLat').value = place.latitude || '';

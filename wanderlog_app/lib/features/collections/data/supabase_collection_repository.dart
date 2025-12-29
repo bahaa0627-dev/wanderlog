@@ -153,6 +153,22 @@ class SupabaseCollectionRepository {
       coverImage = images[0]?.toString();
     }
     
+    // 解析 ai_tags - 支持对象数组格式 [{en, zh, kind, id, priority}]
+    final rawAiTags = place['ai_tags'] as List?;
+    final parsedAiTags = <String>[];
+    if (rawAiTags != null) {
+      for (final item in rawAiTags) {
+        if (item is Map<String, dynamic>) {
+          final en = item['en'] as String?;
+          if (en != null && en.isNotEmpty) {
+            parsedAiTags.add(en);
+          }
+        } else if (item is String) {
+          parsedAiTags.add(item);
+        }
+      }
+    }
+    
     return {
       'id': place['id'],
       'name': place['name'],
@@ -167,8 +183,8 @@ class SupabaseCollectionRepository {
       'rating': place['rating'],
       'ratingCount': place['rating_count'],
       'category': place['category'],
-      'tags': place['tags'] ?? place['ai_tags'] ?? [],
-      'aiTags': place['ai_tags'],
+      'tags': (place['tags'] as List?)?.cast<String>() ?? parsedAiTags,
+      'aiTags': parsedAiTags,
       'aiSummary': place['ai_summary'],
       'aiDescription': place['ai_description'],
       'googlePlaceId': place['google_place_id'],
@@ -267,6 +283,22 @@ class SupabaseCollectionRepository {
       coverImage = images[0]?.toString();
     }
     
+    // 解析 ai_tags - 支持对象数组格式 [{en, zh, kind, id, priority}]
+    final rawAiTags = place['ai_tags'] as List?;
+    final parsedAiTags = <String>[];
+    if (rawAiTags != null) {
+      for (final item in rawAiTags) {
+        if (item is Map<String, dynamic>) {
+          final en = item['en'] as String?;
+          if (en != null && en.isNotEmpty) {
+            parsedAiTags.add(en);
+          }
+        } else if (item is String) {
+          parsedAiTags.add(item);
+        }
+      }
+    }
+    
     return {
       'id': place['id'],
       'name': place['name'],
@@ -282,7 +314,7 @@ class SupabaseCollectionRepository {
       'ratingCount': place['rating_count'],
       'category': place['category'],
       'tags': place['tags'],
-      'aiTags': place['ai_tags'],
+      'aiTags': parsedAiTags,
       'aiSummary': place['ai_summary'],
       'aiDescription': place['ai_description'],
     };

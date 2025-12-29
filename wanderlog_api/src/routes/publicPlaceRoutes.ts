@@ -48,6 +48,12 @@ router.post('/import-from-image', publicPlaceController.importFromImage.bind(pub
 // 从对话导入
 router.post('/import-from-chat', publicPlaceController.importFromChat.bind(publicPlaceController));
 
+// 从 Apify Dataset 导入
+router.post('/import-from-apify', publicPlaceController.importFromApifyDataset.bind(publicPlaceController));
+
+// 预览 Apify Dataset 导入（dry-run）
+router.post('/preview-apify-import', publicPlaceController.previewApifyImport.bind(publicPlaceController));
+
 // 更新地点
 router.put('/:placeId', publicPlaceController.updatePlace.bind(publicPlaceController));
 

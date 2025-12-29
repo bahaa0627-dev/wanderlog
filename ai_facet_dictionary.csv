@@ -28,6 +28,12 @@ facet,LocalFavorite,LocalFavorite,本地人爱,56,"","signals:local_favorite"
 
 facet,Photogenic,Photogenic,很出片,52,"","signals:visual_high"
 
+facet,Nature,Nature,自然,50,"park;landmark;zoo","tags:theme:nature;keywords:nature;natural;wildlife"
+facet,Culture,Culture,文化,50,"museum;art_gallery;landmark;temple;church","tags:theme:culture;keywords:culture;cultural;heritage"
+facet,Historical,Historical,历史,50,"landmark;museum;castle;church;temple","tags:theme:historical;keywords:historical;historic;history"
+facet,Fountain,Fountain,喷泉,48,"landmark;park","tags:theme:fountain;keywords:fountain"
+facet,Ryokan,Ryokan,日式旅馆,70,"hotel","tags:style:ryokan;keywords:ryokan"
+
 facet,Brutalist,Brutalist,粗野主义,92,"","tags:style:Brutalist*"
 facet,Modernist,Modernist,现代主义,88,"","tags:style:Modern*"
 facet,Contemporary,Contemporary,当代,78,"","tags:style:Contemporary*;keywords:contemporary"

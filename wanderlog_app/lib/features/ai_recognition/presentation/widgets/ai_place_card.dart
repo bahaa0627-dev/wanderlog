@@ -224,13 +224,14 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
 
   /// 构建标签列表
   Widget _buildTags(BuildContext context) {
-    final tags = widget.place.tags ?? [];
-    if (tags.isEmpty) return const SizedBox.shrink();
+    // 优先使用后端计算好的 displayTagsEn，否则回退到 tags
+    final displayTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+    if (displayTags.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
       spacing: 4,
       runSpacing: 4,
-      children: tags.take(2).map((tag) {
+      children: displayTags.take(2).map((tag) {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
@@ -291,6 +292,9 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
           return;
         }
 
+        // 使用 displayTagsEn 作为 tags，如果没有则回退到原始 tags
+        final effectiveTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+
         await ref.read(tripRepositoryProvider).manageTripSpot(
           tripId: destId,
           spotId: widget.place.id ?? widget.place.name,
@@ -303,7 +307,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
             'longitude': widget.place.longitude,
             'rating': widget.place.rating,
             'ratingCount': widget.place.ratingCount,
-            'tags': widget.place.tags,
+            'tags': effectiveTags,
             'coverImage': widget.place.coverImage,
             'images': [widget.place.coverImage],
             'googlePlaceId': widget.place.googlePlaceId,

@@ -1457,9 +1457,12 @@ class _MapPageState extends ConsumerState<MapPage> {
       return null;
     }
 
-    final tags = place.aiTags.isNotEmpty
-        ? place.aiTags
-        : <String>[place.category ?? 'Hidden Gem'];
+    // 优先使用后端计算好的 displayTagsEn，否则回退到 aiTags 或 category
+    final tags = place.displayTagsEn.isNotEmpty
+        ? place.displayTagsEn
+        : (place.aiTags.isNotEmpty
+            ? place.aiTags
+            : <String>[place.category ?? 'Hidden Gem']);
 
     return Spot(
       id: place.placeId,

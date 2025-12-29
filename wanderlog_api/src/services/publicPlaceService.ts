@@ -340,7 +340,7 @@ class PublicPlaceService {
     // 基础筛选
     if (options?.city) where.city = options.city;
     if (options?.country) where.country = options.country;
-    if (options?.category) where.category = options.category;
+    if (options?.category) where.categoryEn = options.category; // 使用 categoryEn 筛选
     if (options?.source) where.source = options.source;
 
     // 名称搜索（模糊匹配）- 使用 mode: 'insensitive' 提高兼容性
@@ -351,14 +351,9 @@ class PublicPlaceService {
       ];
     }
 
-    // 标签筛选（模糊匹配 aiTags 或 tags 字段）
-    if (options?.tag) {
-      where.OR = where.OR || [];
-      where.OR.push(
-        { aiTags: { contains: options.tag } },
-        { tags: { contains: options.tag } }
-      );
-    }
+    // 标签筛选 - aiTags 是 JSON 数组，需要特殊处理
+    // 由于 Prisma 对 JSON 数组的查询支持有限，我们在查询后在内存中过滤
+    const tagFilter = options?.tag;
 
     // 评分区间筛选
     if (options?.minRating !== undefined || options?.maxRating !== undefined) {
@@ -372,11 +367,21 @@ class PublicPlaceService {
     }
 
     // 并行执行查询和计数，只选择必要字段提高性能
-    const [places, total] = await Promise.all([
+    // 如果有标签筛选，需要获取所有数据然后在内存中过滤
+    let queryLimit = limit;
+    let querySkip = skip;
+    
+    if (tagFilter) {
+      // 获取所有数据以便过滤
+      queryLimit = 2000; // 获取足够多的数据
+      querySkip = 0;
+    }
+
+    const [rawPlaces, rawTotal] = await Promise.all([
       prisma.place.findMany({
         where,
-        skip,
-        take: limit,
+        skip: querySkip,
+        take: queryLimit,
         orderBy: { createdAt: 'desc' }, // 按创建时间倒序，最新的在前面
         select: {
           id: true,
@@ -391,6 +396,8 @@ class PublicPlaceService {
           rating: true,
           ratingCount: true,
           category: true,
+          categoryEn: true,
+          categoryZh: true,
           aiSummary: true,
           aiDescription: true,
           tags: true,
@@ -407,6 +414,30 @@ class PublicPlaceService {
       }),
       prisma.place.count({ where })
     ]);
+
+    // 如果有标签筛选，在内存中过滤
+    let places = rawPlaces;
+    let total = rawTotal;
+    
+    if (tagFilter) {
+      const tagLower = tagFilter.toLowerCase();
+      places = rawPlaces.filter(place => {
+        // 检查 aiTags
+        if (place.aiTags && Array.isArray(place.aiTags)) {
+          for (const tag of place.aiTags as any[]) {
+            const tagEn = typeof tag === 'object' && tag.en ? tag.en : (typeof tag === 'string' ? tag : '');
+            if (tagEn.toLowerCase().includes(tagLower)) {
+              return true;
+            }
+          }
+        }
+        return false;
+      });
+      
+      total = places.length;
+      // 应用分页
+      places = places.slice(skip, skip + limit);
+    }
 
     return {
       places,
@@ -452,6 +483,9 @@ class PublicPlaceService {
    * 支持通过数据库 ID 或 googlePlaceId 更新
    */
   async updatePlace(placeId: string, updates: any) {
+    console.log('[updatePlace] placeId:', placeId);
+    console.log('[updatePlace] updates:', JSON.stringify(updates, null, 2));
+    
     // 构建 Prisma 更新数据对象
     const updateData: any = {
       updatedAt: new Date(),
@@ -463,7 +497,6 @@ class PublicPlaceService {
     if (updates.address !== undefined) updateData.address = updates.address || null;
     if (updates.city !== undefined) updateData.city = updates.city || null;
     if (updates.country !== undefined) updateData.country = updates.country || null;
-    if (updates.category !== undefined) updateData.category = updates.category || null;
     if (updates.coverImage !== undefined) updateData.coverImage = updates.coverImage || null;
     if (updates.images !== undefined) {
       updateData.images = updates.images ? (typeof updates.images === 'string' ? JSON.parse(updates.images) : updates.images) : [];
@@ -480,9 +513,6 @@ class PublicPlaceService {
     if (updates.openingHours !== undefined) updateData.openingHours = updates.openingHours || null;
     if (updates.website !== undefined) updateData.website = updates.website || null;
     if (updates.phoneNumber !== undefined) updateData.phoneNumber = updates.phoneNumber || null;
-    if (updates.aiTags !== undefined) {
-      updateData.aiTags = updates.aiTags ? (typeof updates.aiTags === 'string' ? JSON.parse(updates.aiTags) : updates.aiTags) : [];
-    }
     if (updates.aiSummary !== undefined) updateData.aiSummary = updates.aiSummary || null;
     if (updates.aiDescription !== undefined) updateData.aiDescription = updates.aiDescription || null;
     if (updates.description !== undefined) updateData.description = updates.description || null;
@@ -490,8 +520,56 @@ class PublicPlaceService {
       updateData.customFields = updates.customFields ? (typeof updates.customFields === 'string' ? JSON.parse(updates.customFields) : updates.customFields) : null;
     }
     
+    // 如果更新了 category 或 aiTags，需要重新归一化
+    const needsNormalization = updates.category !== undefined || updates.aiTags !== undefined;
+    console.log('[updatePlace] needsNormalization:', needsNormalization);
+    
+    if (needsNormalization) {
+      // 获取现有地点数据用于归一化
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(placeId);
+      let existingPlace = null;
+      
+      if (isUUID) {
+        existingPlace = await prisma.place.findUnique({ where: { id: placeId } });
+      }
+      if (!existingPlace) {
+        existingPlace = await prisma.place.findUnique({ where: { googlePlaceId: placeId } });
+      }
+      
+      // 准备归一化输入
+      const normInput: NormalizationInput = {
+        name: updates.name || existingPlace?.name || '',
+        description: updates.description || existingPlace?.description || existingPlace?.aiDescription || '',
+        googleKeywords: updates.category ? [updates.category] : (existingPlace?.category ? [existingPlace.category] : []),
+        existingCategory: updates.category || existingPlace?.category || undefined,
+        existingTags: updates.aiTags 
+          ? (typeof updates.aiTags === 'string' ? JSON.parse(updates.aiTags) : updates.aiTags) 
+          : (existingPlace?.aiTags as string[] || []),
+      };
+      
+      // 执行归一化
+      const normalized = await normalizationService.normalize(normInput);
+      console.log('[updatePlace] normalized:', JSON.stringify(normalized, null, 2));
+      
+      // 更新归一化字段
+      updateData.category = updates.category || existingPlace?.category || null;
+      updateData.categorySlug = normalized.categorySlug;
+      updateData.categoryEn = normalized.categoryEn;
+      updateData.categoryZh = normalized.categoryZh;
+      updateData.tags = normalized.tags;
+      updateData.aiTags = normalized.aiTags;
+      
+      // 合并 customFields
+      if (normalized.customFields) {
+        const existingCustomFields = updateData.customFields || existingPlace?.customFields || {};
+        updateData.customFields = { ...existingCustomFields, ...normalized.customFields };
+      }
+    }
+    
     // 检查 placeId 是否是 UUID 格式（用于数据库 ID）还是 Google Place ID
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(placeId);
+    console.log('[updatePlace] isUUID:', isUUID);
+    console.log('[updatePlace] updateData:', JSON.stringify(updateData, null, 2));
     
     if (isUUID) {
       // 按数据库 ID 更新
@@ -716,65 +794,118 @@ class PublicPlaceService {
   }
 
   /**
-   * 获取筛选选项（国家、城市、分类及其数量）
+   * 获取筛选选项（国家、城市、分类、标签及其数量）
    * 用于后台管理的筛选器
    */
   async getFilterOptions() {
-    const [countriesData, citiesData, categoriesData] = await Promise.all([
-      prisma.place.groupBy({
-        by: ['country'],
-        _count: true,
-        orderBy: { country: 'asc' },
-        where: { country: { not: null } }
-      }),
-      prisma.place.groupBy({
-        by: ['city', 'country'],
-        _count: true,
-        orderBy: { city: 'asc' },
-        where: { city: { not: null } }
-      }),
-      prisma.place.groupBy({
-        by: ['category'],
-        _count: true,
-        orderBy: { category: 'asc' },
-        where: { category: { not: null } }
-      })
-    ]);
+    // 获取所有地点的 aiTags
+    const placesWithTags = await prisma.place.findMany({
+      select: {
+        country: true,
+        city: true,
+        categoryEn: true,
+        aiTags: true,
+      },
+      where: {
+        OR: [
+          { country: { not: null } },
+          { city: { not: null } },
+          { categoryEn: { not: null } },
+        ]
+      }
+    });
+
+    // 统计国家
+    const countryMap: Record<string, number> = {};
+    // 统计城市（按国家分组）
+    const citiesByCountry: Record<string, Record<string, number>> = {};
+    // 统计分类
+    const categoryMap: Record<string, number> = {};
+    // 统计标签（按国家分组）
+    const tagsByCountry: Record<string, Record<string, number>> = {};
+    // 全局标签统计
+    const globalTagMap: Record<string, number> = {};
+
+    for (const place of placesWithTags) {
+      const country = place.country;
+      const city = place.city;
+      const categoryEn = place.categoryEn;
+      
+      // 统计国家
+      if (country) {
+        countryMap[country] = (countryMap[country] || 0) + 1;
+      }
+      
+      // 统计城市
+      if (country && city) {
+        if (!citiesByCountry[country]) {
+          citiesByCountry[country] = {};
+        }
+        citiesByCountry[country][city] = (citiesByCountry[country][city] || 0) + 1;
+      }
+      
+      // 统计分类
+      if (categoryEn) {
+        categoryMap[categoryEn] = (categoryMap[categoryEn] || 0) + 1;
+      }
+      
+      // 统计标签
+      if (place.aiTags && Array.isArray(place.aiTags)) {
+        for (const tag of place.aiTags as any[]) {
+          const tagEn = typeof tag === 'object' && tag.en ? tag.en : (typeof tag === 'string' ? tag : null);
+          if (tagEn) {
+            // 全局标签
+            globalTagMap[tagEn] = (globalTagMap[tagEn] || 0) + 1;
+            
+            // 按国家分组的标签
+            if (country) {
+              if (!tagsByCountry[country]) {
+                tagsByCountry[country] = {};
+              }
+              tagsByCountry[country][tagEn] = (tagsByCountry[country][tagEn] || 0) + 1;
+            }
+          }
+        }
+      }
+    }
 
     // 格式化国家数据
-    const countries = countriesData
-      .filter(c => c.country)
-      .map(c => ({
-        name: c.country!,
-        count: c._count
-      }));
+    const countries = Object.entries(countryMap)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
-    // 格式化城市数据（按国家分组）
-    const citiesByCountry: Record<string, { name: string; count: number }[]> = {};
-    citiesData
-      .filter(c => c.city && c.country)
-      .forEach(c => {
-        if (!citiesByCountry[c.country!]) {
-          citiesByCountry[c.country!] = [];
-        }
-        citiesByCountry[c.country!].push({
-          name: c.city!,
-          count: c._count
-        });
-      });
+    // 格式化城市数据
+    const formattedCitiesByCountry: Record<string, { name: string; count: number }[]> = {};
+    for (const [country, cities] of Object.entries(citiesByCountry)) {
+      formattedCitiesByCountry[country] = Object.entries(cities)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    }
 
     // 格式化分类数据
-    const categories = categoriesData
-      .filter(c => c.category)
-      .map(c => ({
-        name: c.category!,
-        count: c._count
-      }));
+    const categories = Object.entries(categoryMap)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    // 格式化标签数据（全局）
+    const tags = Object.entries(globalTagMap)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count); // 按数量降序
+
+    // 格式化标签数据（按国家分组）
+    const formattedTagsByCountry: Record<string, { name: string; count: number }[]> = {};
+    for (const [country, tagMap] of Object.entries(tagsByCountry)) {
+      formattedTagsByCountry[country] = Object.entries(tagMap)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+    }
 
     return {
       countries,
-      citiesByCountry,
-      categories
+      citiesByCountry: formattedCitiesByCountry,
+      categories,
+      tags,
+      tagsByCountry: formattedTagsByCountry
     };
   }
 

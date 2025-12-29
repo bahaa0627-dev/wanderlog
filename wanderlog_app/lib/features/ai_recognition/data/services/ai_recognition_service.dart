@@ -367,20 +367,38 @@ class AIRecognitionService {
 
       // 转换数据库结果为 Spot (isFromAI: false)
       if (dbResults.isNotEmpty) {
-        final dbSpots = dbResults.map((place) => {
-          'id': place['id'],
-          'name': place['name'],
-          'city': place['city'] ?? '',
-          'category': place['category'] ?? 'Place',
-          'latitude': place['latitude'] ?? 0.0,
-          'longitude': place['longitude'] ?? 0.0,
-          'rating': place['rating'] ?? 0.0,
-          'ratingCount': place['rating_count'] ?? 0,
-          'coverImage': place['cover_image'] ?? '',
-          'images': place['images'] ?? [place['cover_image'] ?? ''],
-          'tags': place['tags'] ?? place['ai_tags'] ?? [],
-          'aiSummary': place['ai_summary'] ?? place['description'],
-          'isFromAI': false, // 数据库结果不显示 AI 标签
+        final dbSpots = dbResults.map((place) {
+          // 解析 ai_tags - 支持对象数组格式 [{en, zh, kind, id, priority}]
+          final rawAiTags = place['ai_tags'] as List?;
+          final parsedAiTags = <String>[];
+          if (rawAiTags != null) {
+            for (final item in rawAiTags) {
+              if (item is Map<String, dynamic>) {
+                final en = item['en'] as String?;
+                if (en != null && en.isNotEmpty) {
+                  parsedAiTags.add(en);
+                }
+              } else if (item is String) {
+                parsedAiTags.add(item);
+              }
+            }
+          }
+          
+          return {
+            'id': place['id'],
+            'name': place['name'],
+            'city': place['city'] ?? '',
+            'category': place['category'] ?? 'Place',
+            'latitude': place['latitude'] ?? 0.0,
+            'longitude': place['longitude'] ?? 0.0,
+            'rating': place['rating'] ?? 0.0,
+            'ratingCount': place['rating_count'] ?? 0,
+            'coverImage': place['cover_image'] ?? '',
+            'images': place['images'] ?? [place['cover_image'] ?? ''],
+            'tags': (place['tags'] as List?)?.cast<String>() ?? parsedAiTags,
+            'aiSummary': place['ai_summary'] ?? place['description'],
+            'isFromAI': false, // 数据库结果不显示 AI 标签
+          };
         }).map(AIRecognitionResult.spotFromJson).toList();
         
         allSpots.addAll(dbSpots);
@@ -686,7 +704,21 @@ class AIRecognitionService {
       // 如果有标签过滤
       if (tags != null && tags.isNotEmpty && results.isNotEmpty) {
         final taggedResults = results.where((place) {
-          final aiTags = (place['ai_tags'] as List?)?.map((e) => e.toString().toLowerCase()).toList() ?? [];
+          // 解析 ai_tags - 支持对象数组格式 [{en, zh, kind, id, priority}]
+          final rawAiTags = place['ai_tags'] as List?;
+          final aiTags = <String>[];
+          if (rawAiTags != null) {
+            for (final item in rawAiTags) {
+              if (item is Map<String, dynamic>) {
+                final en = item['en'] as String?;
+                if (en != null && en.isNotEmpty) {
+                  aiTags.add(en.toLowerCase());
+                }
+              } else if (item is String) {
+                aiTags.add(item.toLowerCase());
+              }
+            }
+          }
           final placeTags = (place['tags'] as List?)?.map((e) => e.toString().toLowerCase()).toList() ?? [];
           final allTags = [...aiTags, ...placeTags];
           return tags.any((t) => allTags.any((tag) => tag.contains(t.toLowerCase())));
@@ -843,7 +875,21 @@ class AIRecognitionService {
         // 如果有标签过滤
         if (intent.tags.isNotEmpty && results.isNotEmpty) {
           results = results.where((place) {
-            final aiTags = (place['ai_tags'] as List?)?.map((e) => e.toString().toLowerCase()).toList() ?? [];
+            // 解析 ai_tags - 支持对象数组格式 [{en, zh, kind, id, priority}]
+            final rawAiTags = place['ai_tags'] as List?;
+            final aiTags = <String>[];
+            if (rawAiTags != null) {
+              for (final item in rawAiTags) {
+                if (item is Map<String, dynamic>) {
+                  final en = item['en'] as String?;
+                  if (en != null && en.isNotEmpty) {
+                    aiTags.add(en.toLowerCase());
+                  }
+                } else if (item is String) {
+                  aiTags.add(item.toLowerCase());
+                }
+              }
+            }
             final tags = (place['tags'] as List?)?.map((e) => e.toString().toLowerCase()).toList() ?? [];
             final allTags = [...aiTags, ...tags];
             return intent.tags.any((t) => allTags.any((tag) => tag.contains(t.toLowerCase())));
@@ -1205,6 +1251,23 @@ Important rules:
           
           if (existingPlace != null) {
             print('📍 Found in database: ${existingPlace['name']}');
+            
+            // 解析 ai_tags - 支持对象数组格式 [{en, zh, kind, id, priority}]
+            final rawAiTags = existingPlace['ai_tags'] as List?;
+            final parsedAiTags = <String>[];
+            if (rawAiTags != null) {
+              for (final item in rawAiTags) {
+                if (item is Map<String, dynamic>) {
+                  final en = item['en'] as String?;
+                  if (en != null && en.isNotEmpty) {
+                    parsedAiTags.add(en);
+                  }
+                } else if (item is String) {
+                  parsedAiTags.add(item);
+                }
+              }
+            }
+            
             spots.add({
               'id': existingPlace['id'],
               'googlePlaceId': placeId,
@@ -1218,7 +1281,7 @@ Important rules:
               'ratingCount': existingPlace['rating_count'] ?? 0,
               'coverImage': existingPlace['cover_image'] ?? '',
               'images': existingPlace['images'] ?? [],
-              'tags': existingPlace['ai_tags'] ?? [],
+              'tags': parsedAiTags,
               'aiSummary': existingPlace['description'],
               'isFromAI': false,
             });

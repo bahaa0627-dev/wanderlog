@@ -254,6 +254,9 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
           return;
         }
 
+        // 使用 displayTagsEn 作为 tags，如果没有则回退到原始 tags
+        final effectiveTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+
         await ref.read(tripRepositoryProvider).manageTripSpot(
           tripId: destId,
           spotId: widget.place.id ?? widget.place.name,
@@ -266,7 +269,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
             'longitude': widget.place.longitude,
             'rating': widget.place.rating,
             'ratingCount': widget.place.ratingCount,
-            'tags': widget.place.tags,
+            'tags': effectiveTags,
             'coverImage': widget.place.coverImage,
             'images': [widget.place.coverImage],
             'googlePlaceId': widget.place.googlePlaceId,

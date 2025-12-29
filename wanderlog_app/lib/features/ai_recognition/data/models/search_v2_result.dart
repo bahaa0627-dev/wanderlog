@@ -192,6 +192,8 @@ class PlaceResult {
     this.ratingCount,
     this.recommendationPhrase,
     this.tags,
+    this.displayTagsEn,
+    this.displayTagsZh,
     required this.isVerified,
     required this.source,
   });
@@ -211,7 +213,9 @@ class PlaceResult {
       rating: (json['rating'] as num?)?.toDouble(),
       ratingCount: json['ratingCount'] as int?,
       recommendationPhrase: json['recommendationPhrase'] as String?,
-      tags: (json['tags'] as List?)?.map((e) => e.toString()).toList(),
+      tags: _parseAiTags(json['tags']),
+      displayTagsEn: _parseStringList(json['display_tags_en']),
+      displayTagsZh: _parseStringList(json['display_tags_zh']),
       isVerified: json['isVerified'] as bool? ?? false,
       source: _parseSource(json['source'] as String?),
     );
@@ -257,6 +261,12 @@ class PlaceResult {
   /// AI 标签（如 "cozy", "instagram-worthy"）
   final List<String>? tags;
 
+  /// 展示标签（英文）- 后端计算好的 category + ai_tags
+  final List<String>? displayTagsEn;
+
+  /// 展示标签（中文）- 后端计算好的 category + ai_tags
+  final List<String>? displayTagsZh;
+
   /// 是否有 Google 验证
   final bool isVerified;
 
@@ -285,6 +295,8 @@ class PlaceResult {
       'ratingCount': ratingCount,
       'recommendationPhrase': recommendationPhrase,
       'tags': tags,
+      'display_tags_en': displayTagsEn,
+      'display_tags_zh': displayTagsZh,
       'isVerified': isVerified,
       'source': source.name,
     };
@@ -304,6 +316,38 @@ class PlaceResult {
     }
   }
 
+  /// 解析字符串列表
+  static List<String>? _parseStringList(dynamic value) {
+    if (value == null) return null;
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    return null;
+  }
+
+  /// 解析 aiTags - 支持对象数组格式 [{en, zh, kind, id, priority}]
+  static List<String>? _parseAiTags(dynamic value) {
+    if (value == null) return null;
+    if (value is! List) return null;
+    
+    final List<String> result = [];
+    for (final item in value) {
+      if (item is Map<String, dynamic>) {
+        // 新格式：对象数组，提取 en 字段
+        final en = item['en'] as String?;
+        if (en != null && en.isNotEmpty) {
+          result.add(en);
+        }
+      } else if (item is String) {
+        // 旧格式：字符串数组，直接使用
+        if (item.isNotEmpty) {
+          result.add(item);
+        }
+      }
+    }
+    return result.isEmpty ? null : result;
+  }
+
   /// 复制并修改
   PlaceResult copyWith({
     String? id,
@@ -319,6 +363,8 @@ class PlaceResult {
     int? ratingCount,
     String? recommendationPhrase,
     List<String>? tags,
+    List<String>? displayTagsEn,
+    List<String>? displayTagsZh,
     bool? isVerified,
     PlaceSource? source,
   }) {
@@ -336,6 +382,8 @@ class PlaceResult {
       ratingCount: ratingCount ?? this.ratingCount,
       recommendationPhrase: recommendationPhrase ?? this.recommendationPhrase,
       tags: tags ?? this.tags,
+      displayTagsEn: displayTagsEn ?? this.displayTagsEn,
+      displayTagsZh: displayTagsZh ?? this.displayTagsZh,
       isVerified: isVerified ?? this.isVerified,
       source: source ?? this.source,
     );

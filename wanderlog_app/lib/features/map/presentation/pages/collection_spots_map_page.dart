@@ -401,13 +401,34 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
     }
   }
 
+  /// 解析标签列表 - 支持对象数组格式 [{en, zh, kind, id, priority}]
   List<String> _parseTagsList(dynamic value) {
     if (value == null) return [];
-    if (value is List) return value.map((e) => e.toString()).toList();
+    if (value is List) {
+      final List<String> result = [];
+      for (final item in value) {
+        if (item is Map<String, dynamic>) {
+          // 新格式：对象数组，提取 en 字段
+          final en = item['en'] as String?;
+          if (en != null && en.isNotEmpty) {
+            result.add(en);
+          }
+        } else if (item != null) {
+          // 旧格式：字符串数组，直接使用
+          final str = item.toString();
+          if (str.isNotEmpty) {
+            result.add(str);
+          }
+        }
+      }
+      return result;
+    }
     if (value is String) {
       try {
         final decoded = jsonDecode(value);
-        if (decoded is List) return decoded.map((e) => e.toString()).toList();
+        if (decoded is List) {
+          return _parseTagsList(decoded);
+        }
       } catch (_) {}
     }
     return [];

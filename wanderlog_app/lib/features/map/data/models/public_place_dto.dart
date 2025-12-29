@@ -10,6 +10,8 @@ class PublicPlaceDto {
     this.city,
     this.country,
     this.category,
+    this.categoryEn,
+    this.categoryZh,
     this.coverImage,
     this.images = const [],
     this.rating,
@@ -18,6 +20,8 @@ class PublicPlaceDto {
     this.website,
     this.phoneNumber,
     this.aiTags = const [],
+    this.displayTagsEn = const [],
+    this.displayTagsZh = const [],
     this.aiSummary,
     this.aiDescription,
     this.source,
@@ -34,6 +38,8 @@ class PublicPlaceDto {
         city: json['city'] as String?,
         country: json['country'] as String?,
         category: json['category'] as String?,
+        categoryEn: json['categoryEn'] as String?,
+        categoryZh: json['categoryZh'] as String?,
         coverImage: json['coverImage'] as String?,
         images: _parseStringList(json['images']),
         rating: _parseDouble(json['rating']),
@@ -41,7 +47,9 @@ class PublicPlaceDto {
         priceLevel: _parseInt(json['priceLevel']),
         website: json['website'] as String?,
         phoneNumber: json['phoneNumber'] as String?,
-        aiTags: _parseStringList(json['aiTags']),
+        aiTags: _parseAiTags(json['aiTags']),
+        displayTagsEn: _parseStringList(json['display_tags_en']),
+        displayTagsZh: _parseStringList(json['display_tags_zh']),
         aiSummary: json['aiSummary'] as String?,
         aiDescription: json['aiDescription'] as String?,
         source: json['source'] as String?,
@@ -59,6 +67,8 @@ class PublicPlaceDto {
         city: json['city'] as String?,
         country: json['country'] as String?,
         category: json['category'] as String?,
+        categoryEn: json['category_en'] as String?,
+        categoryZh: json['category_zh'] as String?,
         coverImage: json['cover_image'] as String?,
         images: _parseStringList(json['images']),
         rating: _parseDouble(json['rating']),
@@ -66,7 +76,9 @@ class PublicPlaceDto {
         priceLevel: _parseInt(json['price_level']),
         website: json['website'] as String?,
         phoneNumber: json['phone_number'] as String?,
-        aiTags: _parseStringList(json['ai_tags']),
+        aiTags: _parseAiTags(json['ai_tags']),
+        displayTagsEn: _parseStringList(json['display_tags_en']),
+        displayTagsZh: _parseStringList(json['display_tags_zh']),
         aiSummary: json['ai_summary'] as String?,
         aiDescription: json['ai_description'] as String?,
         source: json['source'] as String?,
@@ -82,6 +94,8 @@ class PublicPlaceDto {
   final String? city;
   final String? country;
   final String? category;
+  final String? categoryEn;
+  final String? categoryZh;
   final String? coverImage;
   final List<String> images;
   final double? rating;
@@ -90,6 +104,8 @@ class PublicPlaceDto {
   final String? website;
   final String? phoneNumber;
   final List<String> aiTags;
+  final List<String> displayTagsEn;
+  final List<String> displayTagsZh;
   final String? aiSummary;
   final String? aiDescription;
   final String? source;
@@ -155,6 +171,30 @@ List<String> _parseStringList(dynamic value) {
   }
 
   return results;
+}
+
+/// 解析 aiTags - 支持对象数组格式 [{en, zh, kind, id, priority}]
+/// 提取 en 字段作为标签字符串
+List<String> _parseAiTags(dynamic value) {
+  if (value == null) return const [];
+  if (value is! List) return const [];
+  
+  final List<String> result = [];
+  for (final item in value) {
+    if (item is Map<String, dynamic>) {
+      // 新格式：对象数组，提取 en 字段
+      final en = item['en'] as String?;
+      if (en != null && en.isNotEmpty) {
+        result.add(en);
+      }
+    } else if (item is String) {
+      // 旧格式：字符串数组，直接使用
+      if (item.isNotEmpty) {
+        result.add(item);
+      }
+    }
+  }
+  return result;
 }
 
 double? _parseDouble(dynamic value) {

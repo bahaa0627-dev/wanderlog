@@ -20,6 +20,7 @@ import {
   getCategoryBySlug,
   getCategoryMappingPriority,
   shouldExcludeCategory,
+  isValidCategorySlug,
 } from '../constants/categories';
 
 import { detectPritzkerTags } from '../constants/pritzkerArchitects';
@@ -61,7 +62,7 @@ export interface CategoryResult {
   categoryEn: string;
   categoryZh: string;
   confidence: number;          // 0-1 置信度
-  matchedBy: 'google_types' | 'osm_tags' | 'wikidata_p31' | 'fsq_category' | 'keywords' | 'fallback';
+  matchedBy: 'google_types' | 'osm_tags' | 'wikidata_p31' | 'fsq_category' | 'keywords' | 'fallback' | 'manual';
   altCategories: string[];     // 备选分类
 }
 
@@ -208,6 +209,19 @@ class NormalizationService {
    * 支持 per-category mapping_priority 和排除规则
    */
   determineCategory(input: NormalizationInput): CategoryResult {
+    // 优先检查：如果 existingCategory 是一个有效的 category slug，直接使用它
+    // 这支持后台手动编辑分类的场景
+    if (input.existingCategory && isValidCategorySlug(input.existingCategory)) {
+      return {
+        categorySlug: input.existingCategory,
+        categoryEn: CATEGORY_DISPLAY_NAMES[input.existingCategory],
+        categoryZh: CATEGORY_ZH_NAMES[input.existingCategory],
+        confidence: 1.0,
+        matchedBy: 'manual',
+        altCategories: [],
+      };
+    }
+    
     // 第一步：收集所有匹配的分类（按各自的 mapping_priority）
     const allMatches = this.collectAllMatches(input);
     
@@ -1155,8 +1169,11 @@ class NormalizationService {
     { patterns: ['tourist attraction', 'landmark', 'attraction', 'viewpoint', 'scenic'], categorySlug: 'landmark', priority: 100 },
     // Additional mappings
     { patterns: ['bar', 'pub', 'cocktail bar', 'wine bar'], categorySlug: 'bar', priority: 31 },
-    { patterns: ['hotel', 'lodging', 'boutique hotel', 'hostel'], categorySlug: 'hotel', priority: 40 },
+    { patterns: ['hotel', 'lodging', 'boutique hotel', 'hostel', 'ryokan'], categorySlug: 'hotel', priority: 40 },
     { patterns: ['church', 'cathedral', 'basilica', 'chapel'], categorySlug: 'church', priority: 50 },
+    { patterns: ['temple', 'shrine', 'buddhist temple', 'hindu temple', 'shinto shrine'], categorySlug: 'temple', priority: 49 },
+    { patterns: ['university', 'college', 'campus', 'school'], categorySlug: 'university', priority: 48 },
+    { patterns: ['zoo', 'aquarium', 'wildlife park', 'animal park'], categorySlug: 'zoo', priority: 47 },
     { patterns: ['library', 'public library'], categorySlug: 'library', priority: 51 },
     { patterns: ['bookstore', 'book store', 'book shop'], categorySlug: 'bookstore', priority: 52 },
     { patterns: ['cemetery', 'graveyard'], categorySlug: 'cemetery', priority: 53 },

@@ -337,10 +337,18 @@ class AITagsGeneratorService {
     categorySlug: string,
     categoryEn: string
   ): Promise<AITagElement | null> {
+    // Theme 到 Facet ID 的映射
     const themeFacetMap: Record<string, string> = {
       'feminism': 'Feminist',
       'feminist': 'Feminist',
+      'nature': 'Nature',
+      'culture': 'Culture',
+      'historical': 'Historical',
+      'photogenic': 'Photogenic',
+      'fountain': 'Fountain',
     };
+
+    let bestMatch: FacetDefinition | null = null;
 
     for (const theme of themes) {
       const normalizedTheme = theme.toLowerCase();
@@ -351,37 +359,44 @@ class AITagsGeneratorService {
         if (facet && !this.isDuplicateOfCategory(facet.en, categoryEn)) {
           const isAllowed = await aiFacetDictionaryService.isFacetAllowedForCategory(facetId, categorySlug);
           if (isAllowed) {
-            return {
-              kind: 'facet',
-              id: facet.id,
-              en: facet.en,
-              zh: facet.zh,
-              priority: facet.priority,
-            };
+            // 选择优先级最高的
+            if (!bestMatch || facet.priority > bestMatch.priority) {
+              bestMatch = facet;
+            }
           }
         }
       }
+    }
+
+    if (bestMatch) {
+      return {
+        kind: 'facet',
+        id: bestMatch.id,
+        en: bestMatch.en,
+        zh: bestMatch.zh,
+        priority: bestMatch.priority,
+      };
     }
 
     return null;
   }
 
   /**
-   * 查找 shop style facet (Vintage, Secondhand, Curated)
+   * 查找 shop style facet (Vintage, Secondhand, Curated) 和其他 style facets (Ryokan)
    */
   private async findShopStyleFacet(
     tags: StructuredTags,
     categorySlug: string,
     categoryEn: string
   ): Promise<AITagElement | null> {
-    const shopStyleFacets = ['Vintage', 'Secondhand', 'Curated'];
+    const styleFacets = ['Vintage', 'Secondhand', 'Curated', 'Ryokan'];
     
     // 检查 style 数组中是否有匹配
     if (tags.style) {
       for (const style of tags.style) {
         const normalizedStyle = style.toLowerCase();
         
-        for (const facetId of shopStyleFacets) {
+        for (const facetId of styleFacets) {
           if (normalizedStyle.includes(facetId.toLowerCase())) {
             const facet = await aiFacetDictionaryService.getFacetDefinition(facetId);
             if (facet && !this.isDuplicateOfCategory(facet.en, categoryEn)) {

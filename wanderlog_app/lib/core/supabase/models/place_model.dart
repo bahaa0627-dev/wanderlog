@@ -12,9 +12,13 @@ class PlaceModel {
   final double? rating;
   final int? ratingCount;
   final String? category;
+  final String? categoryEn;
+  final String? categoryZh;
   final String? aiSummary;
   final String? aiDescription;
   final List<String> aiTags;
+  final List<String> displayTagsEn;
+  final List<String> displayTagsZh;
   final String? coverImage;
   final List<String> images;
   final List<String> tags;
@@ -40,9 +44,13 @@ class PlaceModel {
     this.rating,
     this.ratingCount,
     this.category,
+    this.categoryEn,
+    this.categoryZh,
     this.aiSummary,
     this.aiDescription,
     this.aiTags = const [],
+    this.displayTagsEn = const [],
+    this.displayTagsZh = const [],
     this.coverImage,
     this.images = const [],
     this.tags = const [],
@@ -70,9 +78,13 @@ class PlaceModel {
       rating: json['rating'] != null ? (json['rating'] as num).toDouble() : null,
       ratingCount: json['rating_count'] as int?,
       category: json['category'] as String?,
+      categoryEn: json['category_en'] as String? ?? json['categoryEn'] as String?,
+      categoryZh: json['category_zh'] as String? ?? json['categoryZh'] as String?,
       aiSummary: json['ai_summary'] as String?,
       aiDescription: json['ai_description'] as String?,
-      aiTags: _parseStringList(json['ai_tags']),
+      aiTags: _parseAiTags(json['ai_tags'] ?? json['aiTags']),
+      displayTagsEn: _parseStringList(json['display_tags_en'] ?? json['displayTagsEn']),
+      displayTagsZh: _parseStringList(json['display_tags_zh'] ?? json['displayTagsZh']),
       coverImage: json['cover_image'] as String?,
       images: _parseStringList(json['images']),
       tags: _parseStringList(json['tags']),
@@ -101,9 +113,13 @@ class PlaceModel {
       'rating': rating,
       'rating_count': ratingCount,
       'category': category,
+      'category_en': categoryEn,
+      'category_zh': categoryZh,
       'ai_summary': aiSummary,
       'ai_description': aiDescription,
       'ai_tags': aiTags,
+      'display_tags_en': displayTagsEn,
+      'display_tags_zh': displayTagsZh,
       'cover_image': coverImage,
       'images': images,
       'tags': tags,
@@ -122,5 +138,29 @@ class PlaceModel {
     if (value == null) return [];
     if (value is List) return value.map((e) => e.toString()).toList();
     return [];
+  }
+
+  /// 解析 aiTags - 支持对象数组格式 [{en, zh, kind, id, priority}]
+  /// 提取 en 字段作为标签字符串
+  static List<String> _parseAiTags(dynamic value) {
+    if (value == null) return [];
+    if (value is! List) return [];
+    
+    final List<String> result = [];
+    for (final item in value) {
+      if (item is Map<String, dynamic>) {
+        // 新格式：对象数组，提取 en 字段
+        final en = item['en'] as String?;
+        if (en != null && en.isNotEmpty) {
+          result.add(en);
+        }
+      } else if (item is String) {
+        // 旧格式：字符串数组，直接使用
+        if (item.isNotEmpty) {
+          result.add(item);
+        }
+      }
+    }
+    return result;
   }
 }

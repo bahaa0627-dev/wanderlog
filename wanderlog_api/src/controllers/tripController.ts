@@ -155,6 +155,12 @@ export const getTripById = async (req: Request, res: Response) => {
   }
 };
 
+// Helper to check if a string is a valid UUID
+const isValidUUID = (str: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+};
+
 export const manageTripSpot = async (req: Request, res: Response) => {
   const prismaAny = prisma as any;
   try {
@@ -162,7 +168,7 @@ export const manageTripSpot = async (req: Request, res: Response) => {
     const { spotId, placeId, status, priority, visitDate, userRating, userNotes, spot, remove } =
       req.body;
     const userId = req.user.id;
-    const targetPlaceId: string | undefined = placeId || spotId;
+    let targetPlaceId: string | undefined = placeId || spotId;
 
     if (!targetPlaceId) {
       return res.status(400).json({ message: 'placeId is required' });
@@ -179,24 +185,42 @@ export const manageTripSpot = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    // Check if targetPlaceId is a valid UUID
+    const isUUID = isValidUUID(targetPlaceId);
+    logger.info(`[manageTripSpot] targetPlaceId="${targetPlaceId}", isUUID=${isUUID}`);
+
     // Delete spot if requested
     if (remove === true) {
-      await prismaAny.$executeRaw`
-        DELETE FROM trip_spots WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid
-      `;
+      if (isUUID) {
+        await prismaAny.$executeRaw`
+          DELETE FROM trip_spots WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid
+        `;
+      }
       return res.json({ success: true, removed: true, spotId: targetPlaceId });
     }
 
-    // Ensure place exists (use raw SQL to avoid DateTime conversion issues)
-    const existingPlaces = await prismaAny.$queryRaw`
-      SELECT * FROM places WHERE id = ${targetPlaceId}::uuid LIMIT 1
-    `;
-    const existingPlace = existingPlaces && existingPlaces.length > 0 ? existingPlaces[0] : null;
+    // If targetPlaceId is not a UUID (e.g., it's a place name from AI), we need to create a new place
+    let existingPlace = null;
+    
+    if (isUUID) {
+      // Try to find existing place by UUID
+      const existingPlaces = await prismaAny.$queryRaw`
+        SELECT * FROM places WHERE id = ${targetPlaceId}::uuid LIMIT 1
+      `;
+      existingPlace = existingPlaces && existingPlaces.length > 0 ? existingPlaces[0] : null;
+    }
     
     if (!existingPlace) {
-      if (!spot || !spot.name || !spot.city || spot.latitude === undefined || spot.longitude === undefined) {
+      // Place doesn't exist or targetPlaceId is not a UUID
+      // We need spot data to create a new place
+      if (!spot || !spot.name || spot.latitude === undefined || spot.longitude === undefined) {
         return res.status(400).json({ message: 'Place not found and insufficient data to create' });
       }
+      
+      // Generate a new UUID for the place if targetPlaceId is not a valid UUID
+      const { randomUUID } = await import('crypto');
+      const newPlaceId = isUUID ? targetPlaceId : randomUUID();
+      
       // Create place using raw SQL to avoid DateTime issues
       const tagsJson = spot.tags ? JSON.stringify(spot.tags) : '[]';
       const imagesJson = spot.images ? JSON.stringify(spot.images) : '[]';
@@ -204,9 +228,9 @@ export const manageTripSpot = async (req: Request, res: Response) => {
       await prismaAny.$executeRaw`
         INSERT INTO places (id, name, city, country, latitude, longitude, address, description, opening_hours, rating, rating_count, category, ai_summary, tags, cover_image, images, price_level, website, phone_number, source, created_at, updated_at)
         VALUES (
-          ${targetPlaceId}::uuid, 
+          ${newPlaceId}::uuid, 
           ${spot.name}, 
-          ${spot.city}, 
+          ${spot.city || 'Unknown'}, 
           ${spot.country ?? 'Unknown'}, 
           ${spot.latitude}::float, 
           ${spot.longitude}::float, 
@@ -223,11 +247,15 @@ export const manageTripSpot = async (req: Request, res: Response) => {
           ${spot.priceLevel || null}::int, 
           ${spot.website || null}, 
           ${spot.phoneNumber || null}, 
-          ${spot.source ?? 'user_import'},
+          ${spot.source ?? 'ai_search'},
           NOW(),
           NOW()
         )
       `;
+      
+      // Update targetPlaceId to the new UUID
+      targetPlaceId = newPlaceId;
+      logger.info(`[manageTripSpot] Created new place with id=${newPlaceId} for "${spot.name}"`);
     }
 
     // Check if trip spot exists

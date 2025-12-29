@@ -196,6 +196,11 @@ class PlaceResult {
     this.displayTagsZh,
     required this.isVerified,
     required this.source,
+    // 详情页需要的额外字段
+    this.address,
+    this.phoneNumber,
+    this.website,
+    this.openingHours,
   });
 
   /// 从 JSON 创建
@@ -218,6 +223,11 @@ class PlaceResult {
       displayTagsZh: _parseStringList(json['display_tags_zh']),
       isVerified: json['isVerified'] as bool? ?? false,
       source: _parseSource(json['source'] as String?),
+      // 详情页需要的额外字段
+      address: json['address'] as String?,
+      phoneNumber: json['phoneNumber'] as String?,
+      website: json['website'] as String?,
+      openingHours: json['openingHours'] as String?,
     );
   }
 
@@ -273,6 +283,12 @@ class PlaceResult {
   /// 数据来源
   final PlaceSource source;
 
+  /// 详情页需要的额外字段
+  final String? address;
+  final String? phoneNumber;
+  final String? website;
+  final String? openingHours;
+
   /// 是否是 AI-only 地点（未经 Google 验证）
   bool get isAIOnly => !isVerified && source == PlaceSource.ai;
 
@@ -299,6 +315,10 @@ class PlaceResult {
       'display_tags_zh': displayTagsZh,
       'isVerified': isVerified,
       'source': source.name,
+      'address': address,
+      'phoneNumber': phoneNumber,
+      'website': website,
+      'openingHours': openingHours,
     };
   }
 
@@ -367,6 +387,10 @@ class PlaceResult {
     List<String>? displayTagsZh,
     bool? isVerified,
     PlaceSource? source,
+    String? address,
+    String? phoneNumber,
+    String? website,
+    String? openingHours,
   }) {
     return PlaceResult(
       id: id ?? this.id,
@@ -386,6 +410,10 @@ class PlaceResult {
       displayTagsZh: displayTagsZh ?? this.displayTagsZh,
       isVerified: isVerified ?? this.isVerified,
       source: source ?? this.source,
+      address: address ?? this.address,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      website: website ?? this.website,
+      openingHours: openingHours ?? this.openingHours,
     );
   }
 }

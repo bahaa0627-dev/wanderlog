@@ -70,8 +70,8 @@ interface SearchV2Response {
  * Timeout configuration for API calls
  */
 const TIMEOUT_CONFIG = {
-  AI_TIMEOUT_MS: 15000,      // 15 seconds for AI call
-  GOOGLE_TIMEOUT_MS: 10000,  // 10 seconds for Google call (proxy may be slow)
+  AI_TIMEOUT_MS: 20000,      // 20 seconds for AI call (Gemini needs more time)
+  GOOGLE_TIMEOUT_MS: 15000,  // 15 seconds for Google call (proxy may be slow)
 };
 
 // ============================================
@@ -118,13 +118,20 @@ async function getCachedPlaces(query: string, aiPlaceNames?: string[]): Promise<
     // Add AI place name searches for better matching
     if (aiPlaceNames && aiPlaceNames.length > 0) {
       for (const name of aiPlaceNames) {
+        // Normalize name: remove accents for better matching
+        const normalizedName = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        
         // Search for full name match
         searchConditions.push({ name: { contains: name, mode: 'insensitive' } });
+        searchConditions.push({ name: { contains: normalizedName, mode: 'insensitive' } });
+        
         // Also search for partial name matches (first word, first two words)
         const words = name.split(' ');
         if (words.length > 1) {
           searchConditions.push({ name: { contains: words[0], mode: 'insensitive' } });
           searchConditions.push({ name: { contains: words.slice(0, 2).join(' '), mode: 'insensitive' } });
+          // Also try last word (e.g., "Sagrada Familia" -> "Familia")
+          searchConditions.push({ name: { contains: words[words.length - 1], mode: 'insensitive' } });
         }
       }
     }
@@ -132,9 +139,9 @@ async function getCachedPlaces(query: string, aiPlaceNames?: string[]): Promise<
     const places = await prisma.place.findMany({
       where: {
         OR: searchConditions,
-        isVerified: true,
+        // Include both verified and unverified places for matching
       },
-      take: 100, // Get more candidates for better matching
+      take: 150, // Get more candidates for better matching
       select: {
         id: true,
         googlePlaceId: true,
@@ -147,6 +154,11 @@ async function getCachedPlaces(query: string, aiPlaceNames?: string[]): Promise<
         ratingCount: true,
         coverImage: true,
         isVerified: true,
+        // 详情页需要的额外字段
+        address: true,
+        phoneNumber: true,
+        website: true,
+        openingHours: true,
       },
     });
 
@@ -173,6 +185,11 @@ async function getCachedPlaces(query: string, aiPlaceNames?: string[]): Promise<
       ratingCount: p.ratingCount,
       coverImage: p.coverImage,
       isVerified: p.isVerified ?? false,
+      // 详情页需要的额外字段
+      address: p.address,
+      phoneNumber: p.phoneNumber,
+      website: p.website,
+      openingHours: p.openingHours,
     }));
   } catch (error) {
     logger.error('[SearchV2] Error fetching cached places:', error);
@@ -183,20 +200,50 @@ async function getCachedPlaces(query: string, aiPlaceNames?: string[]): Promise<
 /**
  * Save AI-only places to database
  * Requirements: 14.1, 14.7
+ * 
+ * 去重逻辑：通过名称相似度 + 城市 + 经纬度判断是否已存在
  */
 async function saveAIPlacesToDatabase(aiPlaces: AIPlace[]): Promise<void> {
   for (const place of aiPlaces) {
     try {
-      // Check if place already exists by name and coordinates
-      const existing = await prisma.place.findFirst({
+      // 先通过名称模糊搜索可能的重复
+      const candidates = await prisma.place.findMany({
         where: {
-          name: place.name,
-          latitude: { gte: place.latitude - 0.001, lte: place.latitude + 0.001 },
-          longitude: { gte: place.longitude - 0.001, lte: place.longitude + 0.001 },
+          OR: [
+            { name: { contains: place.name.split(' ')[0], mode: 'insensitive' } },
+            { name: { contains: place.name, mode: 'insensitive' } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          city: true,
+          latitude: true,
+          longitude: true,
         },
       });
 
-      if (!existing) {
+      // 检查是否有重复（名称相似 + 经纬度接近）
+      let isDuplicate = false;
+      for (const candidate of candidates) {
+        // 计算名称相似度
+        const { calculateNameSimilarity } = await import('./placeMatcherService');
+        const nameSimilarity = calculateNameSimilarity(place.name, candidate.name);
+        
+        // 检查经纬度是否接近（约100米范围内）
+        const latDiff = Math.abs(place.latitude - candidate.latitude);
+        const lngDiff = Math.abs(place.longitude - candidate.longitude);
+        const isNearby = latDiff < 0.001 && lngDiff < 0.001;
+        
+        // 如果名称相似度 >= 0.7 且位置接近，认为是重复
+        if (nameSimilarity >= 0.7 && isNearby) {
+          isDuplicate = true;
+          logger.info(`[SearchV2] Skipping duplicate AI place: "${place.name}" (similar to "${candidate.name}")`);
+          break;
+        }
+      }
+
+      if (!isDuplicate) {
         await prisma.place.create({
           data: {
             name: place.name,
@@ -566,17 +613,13 @@ export const searchV2 = async (req: Request, res: Response) => {
       
       logger.info(`[SearchV2] Syncing ${googlePlaces.length} Google places, downloading photos for ${displayedGooglePlaceIds.length} displayed places`);
       
-      // Sync places to database and WAIT for photos to be uploaded
-      // This ensures photos are available in the response
-      try {
-        await googlePlacesEnterpriseService.syncPlacesToDatabase(googlePlaces, displayedGooglePlaceIds);
-        logger.info(`[SearchV2] Google places synced successfully`);
-      } catch (err) {
-        logger.error(`[SearchV2] Error syncing Google places: ${err}`);
-      }
+      // Sync places to database in background (don't wait)
+      googlePlacesEnterpriseService.syncPlacesToDatabase(googlePlaces, displayedGooglePlaceIds)
+        .then(() => logger.info(`[SearchV2] Google places synced successfully`))
+        .catch(err => logger.error(`[SearchV2] Error syncing Google places: ${err}`));
     }
 
-    // Save unmatched AI places to database
+    // Save unmatched AI places to database (background)
     if (matchResult.unmatched.length > 0) {
       saveAIPlacesToDatabase(matchResult.unmatched).catch(err => {
         logger.error('[SearchV2] Error saving AI places:', err);
@@ -584,44 +627,43 @@ export const searchV2 = async (req: Request, res: Response) => {
     }
 
     // Step 5.6: Fetch images for AI-only places from Wikipedia (FREE)
-    // Wikipedia 适合景点、博物馆等有词条的地点
     const aiOnlyPlacesInDisplay = [
-      ...(categories?.flatMap(cat => cat.places.filter(p => p.source === 'ai')) || []),
-      ...finalPlaces.filter(p => p.source === 'ai'),
+      ...(categories?.flatMap(cat => cat.places.filter(p => p.source === 'ai' && !p.coverImage)) || []),
+      ...finalPlaces.filter(p => p.source === 'ai' && !p.coverImage),
     ];
     
     if (aiOnlyPlacesInDisplay.length > 0) {
-      logger.info(`[SearchV2] Step 5.6: Fetching Wikipedia images for ${aiOnlyPlacesInDisplay.length} AI-only places...`);
+      logger.info(`[SearchV2] Fetching Wikipedia images for ${aiOnlyPlacesInDisplay.length} AI places...`);
       
       try {
-        // Dynamic import to avoid circular dependency
         const { wikipediaImageService } = await import('../services/wikipediaImageService');
         
-        const imageResults = await wikipediaImageService.batchGetImages(
-          aiOnlyPlacesInDisplay.map(p => ({
-            name: p.name,
-            city: p.city,
-          }))
+        // Fetch images with 10 second timeout (Wikipedia needs time through proxy)
+        const imagePromise = wikipediaImageService.batchGetImages(
+          aiOnlyPlacesInDisplay.map(p => ({ name: p.name, city: p.city }))
         );
+        
+        const timeoutPromise = new Promise<Map<string, any>>((resolve) => {
+          setTimeout(() => {
+            logger.warn('[SearchV2] Wikipedia image fetch timed out');
+            resolve(new Map());
+          }, 10000);
+        });
+        
+        const imageResults = await Promise.race([imagePromise, timeoutPromise]);
         
         // Update places with fetched images
         const updatePlaceImage = (place: PlaceResult): PlaceResult => {
-          if (place.source === 'ai') {
+          if (place.source === 'ai' && !place.coverImage) {
             const imageResult = imageResults.get(place.name);
             if (imageResult?.imageUrl) {
-              return {
-                ...place,
-                coverImage: imageResult.imageUrl,
-              };
+              return { ...place, coverImage: imageResult.imageUrl };
             }
           }
           return place;
         };
         
-        // Update finalPlaces
         finalPlaces = finalPlaces.map(updatePlaceImage);
-        
-        // Update categories
         if (categories) {
           categories = categories.map(cat => ({
             ...cat,
@@ -629,60 +671,59 @@ export const searchV2 = async (req: Request, res: Response) => {
           }));
         }
         
-        const imagesFound = Array.from(imageResults.values()).filter(r => r.imageUrl).length;
-        logger.info(`[SearchV2] Found Wikipedia images for ${imagesFound}/${aiOnlyPlacesInDisplay.length} AI places`);
-        
-      } catch (wikiError) {
-        logger.warn(`[SearchV2] Error fetching Wikipedia images: ${wikiError}`);
-        // Continue without images - will show placeholder
+        const found = Array.from(imageResults.values()).filter(r => r?.imageUrl).length;
+        logger.info(`[SearchV2] Wikipedia: found ${found}/${aiOnlyPlacesInDisplay.length} images`);
+      } catch (err) {
+        logger.warn(`[SearchV2] Wikipedia image fetch failed: ${err}`);
       }
     }
 
-    // Step 6: Generate summaries
-    let overallSummary = '';
+    // Step 6: Generate summaries (skip for now to speed up response)
+    let overallSummary = 'Hope you enjoy exploring these places!';
     
-    if (finalPlaces.length > 0) {
-      try {
-        const placesForSummary: PlaceBasicInfo[] = finalPlaces.map(p => ({
-          name: p.name,
-          city: p.city,
-          country: p.country,
-        }));
+    // TODO: Re-enable summary generation when performance is optimized
+    // if (finalPlaces.length > 0) {
+    //   try {
+    //     const placesForSummary: PlaceBasicInfo[] = finalPlaces.map(p => ({
+    //       name: p.name,
+    //       city: p.city,
+    //       country: p.country,
+    //     }));
 
-        const summaryResult = await aiRecommendationService.generateSummaries(
-          placesForSummary,
-          query
-        );
+    //     const summaryResult = await aiRecommendationService.generateSummaries(
+    //       placesForSummary,
+    //       query
+    //     );
 
-        overallSummary = summaryResult.overallSummary;
+    //     overallSummary = summaryResult.overallSummary;
         
-        // 如果用户请求超过20条，在总结里说明
-        if (aiRecommendations.exceededLimit) {
-          const exceedNote = query.match(/[\u4e00-\u9fa5]/) 
-            ? '先为你推荐20条看看~' 
-            : "Here are 20 recommendations to start with!";
-          overallSummary = `${exceedNote} ${overallSummary}`;
-        }
+    //     // 如果用户请求超过20条，在总结里说明
+    //     if (aiRecommendations.exceededLimit) {
+    //       const exceedNote = query.match(/[\u4e00-\u9fa5]/) 
+    //         ? '先为你推荐20条看看~' 
+    //         : "Here are 20 recommendations to start with!";
+    //       overallSummary = `${exceedNote} ${overallSummary}`;
+    //     }
 
-        finalPlaces = finalPlaces.map(place => {
-          const summary = summaryResult.placeSummaries.get(place.name);
-          return {
-            ...place,
-            summary: summary || place.summary,
-          };
-        });
-      } catch (error) {
-        logger.error('[SearchV2] Error generating summaries:', error);
-        // 如果用户请求超过20条，在总结里说明
-        if (aiRecommendations.exceededLimit) {
-          const exceedNote = query.match(/[\u4e00-\u9fa5]/) 
-            ? '先为你推荐20条看看~' 
-            : "Here are 20 recommendations to start with!";
-          overallSummary = exceedNote;
-        } else {
-          overallSummary = 'Hope you enjoy exploring these places!';
-        }
-      }
+    //     finalPlaces = finalPlaces.map(place => {
+    //       const summary = summaryResult.placeSummaries.get(place.name);
+    //       return {
+    //         ...place,
+    //         summary: summary || place.summary,
+    //       };
+    //     });
+    //   } catch (error) {
+    //     logger.error('[SearchV2] Error generating summaries:', error);
+    //     overallSummary = 'Hope you enjoy exploring these places!';
+    //   }
+    // }
+    
+    // Use AI-provided summaries from the recommendation response
+    if (aiRecommendations.exceededLimit) {
+      const exceedNote = query.match(/[\u4e00-\u9fa5]/) 
+        ? '先为你推荐10条看看~' 
+        : "Here are 10 recommendations to start with!";
+      overallSummary = exceedNote;
     }
 
     // Step 7: Enrich with database data

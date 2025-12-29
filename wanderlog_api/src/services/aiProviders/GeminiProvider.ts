@@ -5,7 +5,8 @@
  * Supports both vision and text generation using Gemini 1.5 Flash model.
  */
 
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import {
   AIProvider,
   AIProviderName,
@@ -21,6 +22,7 @@ import {
 interface GeminiConfig {
   apiKey: string;
   model: string;
+  proxyAgent?: HttpsProxyAgent<string>;
 }
 
 /**
@@ -71,9 +73,18 @@ export class GeminiProvider implements AIProvider {
       return;
     }
 
+    // Setup proxy if configured
+    let proxyAgent: HttpsProxyAgent<string> | undefined;
+    const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+    if (proxyUrl) {
+      proxyAgent = new HttpsProxyAgent(proxyUrl);
+      console.log(`[Gemini] Using proxy: ${proxyUrl}`);
+    }
+
     this.config = {
       apiKey,
       model,
+      proxyAgent,
     };
 
     this.configValid = true;
@@ -156,12 +167,19 @@ export class GeminiProvider implements AIProvider {
     try {
       console.log('[Gemini] Sending vision request...');
       
-      const response = await axios.post<GeminiResponse>(url, requestBody, {
+      const axiosConfig: AxiosRequestConfig = {
         headers: {
           'Content-Type': 'application/json',
         },
         timeout: 30000,
-      });
+      };
+      
+      // Add proxy agent if configured
+      if (this.config.proxyAgent) {
+        axiosConfig.httpsAgent = this.config.proxyAgent;
+      }
+      
+      const response = await axios.post<GeminiResponse>(url, requestBody, axiosConfig);
 
       const content = response.data.candidates[0]?.content?.parts[0]?.text;
       if (!content) {
@@ -216,12 +234,19 @@ export class GeminiProvider implements AIProvider {
     try {
       console.log('[Gemini] Sending text generation request...');
       
-      const response = await axios.post<GeminiResponse>(url, requestBody, {
+      const axiosConfig: AxiosRequestConfig = {
         headers: {
           'Content-Type': 'application/json',
         },
         timeout: 30000,
-      });
+      };
+      
+      // Add proxy agent if configured
+      if (this.config.proxyAgent) {
+        axiosConfig.httpsAgent = this.config.proxyAgent;
+      }
+      
+      const response = await axios.post<GeminiResponse>(url, requestBody, axiosConfig);
 
       const content = response.data.candidates[0]?.content?.parts[0]?.text;
       if (!content) {

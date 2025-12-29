@@ -51,16 +51,25 @@ export interface WikiImageResult {
 // Wikipedia Image Service
 // ============================================
 
+import { HttpsProxyAgent } from 'https-proxy-agent';
+
 class WikipediaImageService {
   private axiosInstance: AxiosInstance;
 
   constructor() {
+    const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+    
     this.axiosInstance = axios.create({
-      timeout: 5000,
+      timeout: 8000,
       headers: {
         'User-Agent': 'WanderlogApp/1.0 (https://wanderlog.app; contact@wanderlog.app)',
       },
+      ...(proxyUrl && { httpsAgent: new HttpsProxyAgent(proxyUrl) }),
     });
+    
+    if (proxyUrl) {
+      console.log(`[Wikipedia] Using proxy: ${proxyUrl}`);
+    }
   }
 
   /**

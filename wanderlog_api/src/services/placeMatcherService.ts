@@ -29,6 +29,11 @@ export interface CachedPlace {
   ratingCount?: number | null;
   coverImage?: string | null;
   isVerified: boolean;
+  // 详情页需要的额外字段
+  address?: string | null;
+  phoneNumber?: string | null;
+  website?: string | null;
+  openingHours?: string | null;
 }
 
 /**
@@ -42,6 +47,11 @@ export interface MatchedPlace {
   cachedCoverImage?: string; // 缓存的封面图片
   cachedRating?: number;     // 缓存的评分
   cachedRatingCount?: number; // 缓存的评分数量
+  // 详情页需要的额外字段
+  cachedAddress?: string;
+  cachedPhoneNumber?: string;
+  cachedWebsite?: string;
+  cachedOpeningHours?: string;
   matchScore: number;
 }
 
@@ -73,6 +83,11 @@ export interface PlaceResult {
   tags?: string[];
   isVerified: boolean;
   source: 'google' | 'cache' | 'ai';
+  // 详情页需要的额外字段
+  address?: string;
+  phoneNumber?: string;
+  website?: string;
+  openingHours?: string;
 }
 
 /**
@@ -197,6 +212,79 @@ export function levenshteinDistance(str1: string, str2: string): number {
 }
 
 /**
+ * Prefix translations mapping (for matching translated names)
+ */
+const PREFIX_TRANSLATIONS: Record<string, string[]> = {
+  'restaurant': ['restaurante', 'ristorante', 'レストラン'],
+  'museum': ['musée', 'museo', 'museu', '博物館', '美術館'],
+  'square': ['plaça', 'plaza', 'piazza', 'platz', '広場'],
+  'church': ['église', 'chiesa', 'iglesia', 'kirche', '教会'],
+  'garden': ['jardin', 'jardín', 'giardino', 'garten', '庭園'],
+  'viewpoint': ['mirador', 'aussichtspunkt', 'belvedere', '展望台'],
+  'bakery': ['boulangerie', 'panadería', 'panetteria', 'bäckerei', 'パン屋'],
+  'castle': ['château', 'castillo', 'castello', 'schloss', '城'],
+  'park': ['parc', 'parque', 'parco', '公園'],
+  'market': ['marché', 'mercado', 'mercato', 'markt', '市場'],
+  'bridge': ['pont', 'puente', 'ponte', 'brücke', '橋'],
+  'tower': ['tour', 'torre', 'turm', '塔'],
+  'palace': ['palais', 'palacio', 'palazzo', 'palast', 'palau', '宮殿'],
+  'cathedral': ['cathédrale', 'catedral', 'cattedrale', 'kathedrale', '大聖堂'],
+  'station': ['gare', 'estación', 'stazione', 'bahnhof', '駅'],
+  'basilica': ['basílica', 'basilique', 'basilika'],
+};
+
+/**
+ * Normalize name by removing/standardizing prefixes for better matching
+ */
+function normalizeNameForMatching(name: string): string {
+  let lower = name.toLowerCase().trim();
+  
+  // Remove accents
+  lower = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  
+  // Remove common prefixes like "Basílica de la", "Iglesia de", etc.
+  const prefixPatterns = [
+    /^(basilica|basílica)\s+(de\s+la\s+)?/i,
+    /^(iglesia|chiesa|église|church)\s+(de\s+la\s+|de\s+|di\s+)?/i,
+    /^(catedral|cathedral|cattedrale)\s+(de\s+la\s+|de\s+)?/i,
+    /^(museo|museu|musée|museum)\s+(de\s+la\s+|de\s+|del\s+)?/i,
+    /^(palacio|palazzo|palais|palace)\s+(de\s+la\s+|de\s+)?/i,
+    /^(parque|parc|park)\s+(de\s+la\s+|de\s+)?/i,
+    /^(plaza|plaça|piazza|square)\s+(de\s+la\s+|de\s+)?/i,
+    /^(la\s+|el\s+|les\s+|los\s+|las\s+)/i,
+  ];
+  
+  for (const pattern of prefixPatterns) {
+    lower = lower.replace(pattern, '');
+  }
+  
+  // Try to remove translated prefixes
+  for (const [english, translations] of Object.entries(PREFIX_TRANSLATIONS)) {
+    // Check if starts with English prefix
+    if (lower.startsWith(english + ' ')) {
+      return lower.substring(english.length + 1);
+    }
+    // Check if starts with any translation
+    for (const trans of translations) {
+      if (lower.startsWith(trans + ' ')) {
+        return lower.substring(trans.length + 1);
+      }
+    }
+  }
+  
+  return lower.trim();
+}
+
+/**
+ * Check if one name contains the other (for partial matching)
+ */
+function containsMatch(name1: string, name2: string): boolean {
+  const n1 = name1.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const n2 = name2.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return n1.includes(n2) || n2.includes(n1);
+}
+
+/**
  * Calculate normalized name similarity (0-1)
  * 
  * @param name1 - First name
@@ -216,14 +304,41 @@ export function calculateNameSimilarity(name1: string, name2: string): number {
   if (n1.length === 0 && n2.length === 0) return 1;
   if (n1.length === 0 || n2.length === 0) return 0;
   
-  // Calculate Levenshtein distance
+  // Check for contains match first (e.g., "Sagrada Familia" in "Basílica de la Sagrada Família")
+  if (containsMatch(n1, n2)) {
+    // If one contains the other, give high score
+    const shorter = n1.length < n2.length ? n1 : n2;
+    const longer = n1.length < n2.length ? n2 : n1;
+    // Score based on how much of the longer string is covered
+    return Math.max(0.85, shorter.length / longer.length);
+  }
+  
+  // Calculate basic Levenshtein similarity
   const distance = levenshteinDistance(n1, n2);
-  
-  // Normalize to similarity score (0-1)
   const maxLen = Math.max(n1.length, n2.length);
-  const similarity = 1 - (distance / maxLen);
+  const basicSimilarity = 1 - (distance / maxLen);
   
-  return similarity;
+  // Also try matching without prefixes (for translated names)
+  const n1NoPrefix = normalizeNameForMatching(name1);
+  const n2NoPrefix = normalizeNameForMatching(name2);
+  
+  // Check contains match on normalized names
+  if (containsMatch(n1NoPrefix, n2NoPrefix)) {
+    const shorter = n1NoPrefix.length < n2NoPrefix.length ? n1NoPrefix : n2NoPrefix;
+    const longer = n1NoPrefix.length < n2NoPrefix.length ? n2NoPrefix : n1NoPrefix;
+    return Math.max(0.85, shorter.length / longer.length);
+  }
+  
+  if (n1NoPrefix !== n1.toLowerCase().trim() || n2NoPrefix !== n2.toLowerCase().trim()) {
+    const distanceNoPrefix = levenshteinDistance(n1NoPrefix, n2NoPrefix);
+    const maxLenNoPrefix = Math.max(n1NoPrefix.length, n2NoPrefix.length);
+    const noPrefixSimilarity = maxLenNoPrefix > 0 ? 1 - (distanceNoPrefix / maxLenNoPrefix) : 0;
+    
+    // Return the better match
+    return Math.max(basicSimilarity, noPrefixSimilarity);
+  }
+  
+  return basicSimilarity;
 }
 
 // ============================================
@@ -310,6 +425,11 @@ class PlaceMatcherService {
           cachedCoverImage: cachedData.coverImage,
           cachedRating: cachedData.rating,
           cachedRatingCount: cachedData.ratingCount,
+          // 详情页需要的额外字段
+          cachedAddress: cachedData.address,
+          cachedPhoneNumber: cachedData.phoneNumber,
+          cachedWebsite: cachedData.website,
+          cachedOpeningHours: cachedData.openingHours,
           matchScore: bestMatch.score,
         });
         console.log(`✅ Matched: "${aiPlace.name}" -> "${this.getPlaceName(bestMatch.place, bestMatch.source)}" (score: ${bestMatch.score.toFixed(2)}, coverImage: ${cachedData.coverImage ? 'YES' : 'NO'})`);
@@ -369,12 +489,16 @@ class PlaceMatcherService {
   }
 
   /**
-   * Get cached data (coverImage, rating, ratingCount) based on source type
+   * Get cached data (coverImage, rating, ratingCount, address, etc.) based on source type
    */
   private getCachedData(place: GooglePlace | CachedPlace, source: 'google' | 'cache'): {
     coverImage?: string;
     rating?: number;
     ratingCount?: number;
+    address?: string;
+    phoneNumber?: string;
+    website?: string;
+    openingHours?: string;
   } {
     if (source === 'cache') {
       const cached = place as CachedPlace;
@@ -383,6 +507,10 @@ class PlaceMatcherService {
         coverImage: cached.coverImage || undefined,
         rating: cached.rating || undefined,
         ratingCount: cached.ratingCount || undefined,
+        address: cached.address || undefined,
+        phoneNumber: cached.phoneNumber || undefined,
+        website: cached.website || undefined,
+        openingHours: cached.openingHours || undefined,
       };
     }
     // Google places don't have cached data yet
@@ -664,6 +792,11 @@ class PlaceMatcherService {
       tags: matched.aiPlace.tags,
       isVerified: true,
       source: matched.source,
+      // 详情页需要的额外字段
+      address: matched.cachedAddress,
+      phoneNumber: matched.cachedPhoneNumber,
+      website: matched.cachedWebsite,
+      openingHours: matched.cachedOpeningHours,
     };
   }
 

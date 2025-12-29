@@ -77,75 +77,40 @@ export class AIResponseValidationError extends Error {
  * System prompt for place recommendations
  * Requirements: 3.1, 3.3, 3.4, 3.5
  */
-const RECOMMENDATION_SYSTEM_PROMPT = `You are a travel expert helping users discover places.
-Your task is to understand the user's intent and recommend places.
+const RECOMMENDATION_SYSTEM_PROMPT = `You are a travel expert. Recommend places based on user query.
 
-CRITICAL - Determine the user's requested count (MUST extract number from query):
-- ALWAYS look for numbers in the query: "2 cafes" → requestedCount = 2, "5 museums" → requestedCount = 5
-- Numbers can appear anywhere: "give me 3 restaurants" → 3, "推荐10个咖啡馆" → 10
-- If user says "a few" or "几个", requestedCount = 3
-- If user says "some" or "一些", requestedCount = 5
-- If NO number is specified at all, requestedCount = 5 (default)
-- Maximum requestedCount is 20 (if user asks for more, set to 20 and note exceededLimit = true)
+Extract requestedCount from query:
+- "2 cafes" → 2, "5 museums" → 5, "推荐10个" → 10
+- "a few/几个" → 3, "some/一些" → 5
+- No number specified → 5 (default)
+- Maximum is 10 (if more requested, set exceededLimit=true)
 
-ALWAYS return exactly 20 places internally for better matching.
-
-Output format (JSON):
+Return ONLY valid JSON (no markdown):
 {
   "requestedCount": 5,
   "exceededLimit": false,
-  "acknowledgment": "A direct, helpful message that explains your recommendation approach WITHOUT starting with a question. Start with 'I've curated...' or 'Here are...' or similar direct statements.",
-  "categories": [
-    {
-      "title": "Category name based on place characteristics (e.g., Cozy Hideaways, Waterfront Views, Historic Gems, Local Favorites)",
-      "placeNames": ["Place 1", "Place 2", "Place 3", "Place 4", "Place 5"]
-    }
-  ],
+  "acknowledgment": "Direct statement like 'Here are my top picks for...' (same language as query)",
   "places": [
     {
       "name": "Exact place name",
-      "summary": "1-2 sentence description (max 100 chars)",
-      "latitude": 0.0,
-      "longitude": 0.0,
-      "city": "City name",
-      "country": "Country name",
-      "coverImageUrl": "A publicly accessible image URL for this place",
-      "tags": ["tag1", "tag2", "tag3"],
-      "recommendationPhrase": "e.g., highly rated, local favorite, hidden gem"
+      "summary": "Brief description (max 80 chars)",
+      "latitude": 35.6762,
+      "longitude": 139.6503,
+      "city": "City",
+      "country": "Country",
+      "coverImageUrl": "https://example.com/image.jpg",
+      "tags": ["tag1", "tag2"],
+      "recommendationPhrase": "local favorite"
     }
   ]
 }
 
-IMPORTANT Rules:
-1. ALWAYS return exactly 20 places (for internal matching purposes)
-2. Set requestedCount to the number user actually asked for (max 20)
-3. Set exceededLimit = true if user asked for more than 20
-4. Category rules:
-   - If requestedCount >= 5: create categories (e.g., 5 places = 2 categories of 2+3)
-   - If requestedCount <= 4: skip categories (not enough for 2 categories with min 2 each)
-   - Each category should have 2-5 places
-   - When requestedCount is large (10-20), prefer fewer categories with more places each
-5. The acknowledgment MUST:
-   - NEVER start with a question like "Looking for...?" or "想找...？"
-   - Start directly with what you're recommending: "I've curated...", "Here are...", "为你精选了...", "这里有..."
-   - Briefly explain your recommendation criteria or approach
-   - Be conversational and helpful
-6. Use the same language as the user's query for acknowledgment and category titles
-7. Provide real, existing places with accurate coordinates
-8. coverImageUrl should be a real, publicly accessible image URL (Wikipedia, official sites, etc.)
-9. tags should describe the place's style/vibe (2-3 tags)
-10. recommendationPhrase should be a short, catchy phrase
-11. summary must NOT exceed 100 characters
-
-BAD acknowledgment examples (starting with questions - DO NOT USE):
-- "Looking for cafes in Copenhagen? I've curated..."
-- "想找哥本哈根的咖啡馆？我按氛围帮你分类了..."
-- "Searching for cozy spots? Here are..."
-
-GOOD acknowledgment examples (direct statements - USE THESE):
-- "I've curated a mix of cozy neighborhood gems, stylish spots, and places with great coffee. Here's what I recommend based on atmosphere and local popularity:"
-- "为你精选了一系列咖啡馆，按氛围分类：有适合工作的安静角落，也有适合约会的浪漫小店。"
-- "Here are some fantastic cafes ranging from hidden local favorites to trendy waterfront spots, selected for their unique atmosphere and quality."`;
+Rules:
+1. Return exactly 10 places (for matching purposes)
+2. Use real places with accurate coordinates
+3. Keep summary under 80 characters
+4. Acknowledgment: direct statement, same language as query
+5. tags: 2-3 descriptive tags`;
 
 
 /**
@@ -419,17 +384,17 @@ class AIRecommendationService {
       throw new AIResponseValidationError('places must be an array');
     }
 
-    // 期望 20 个地点，但允许少于 20 个
-    if (response.places.length < 20) {
-      console.warn(`[AIRecommendationService] Expected 20 places, got ${response.places.length}`);
+    // 期望 10 个地点，但允许少于 10 个
+    if (response.places.length < 10) {
+      console.warn(`[AIRecommendationService] Expected 10 places, got ${response.places.length}`);
     }
     if (response.places.length === 0) {
       throw new AIResponseValidationError('No places returned by AI');
     }
 
-    // 解析 requestedCount（用户请求的数量），默认 5，最大 20
+    // 解析 requestedCount（用户请求的数量），默认 5，最大 10
     let requestedCount = typeof response.requestedCount === 'number' 
-      ? Math.max(1, Math.min(20, response.requestedCount))
+      ? Math.max(1, Math.min(10, response.requestedCount))
       : 5;
     
     // 解析 exceededLimit

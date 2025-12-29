@@ -45,12 +45,9 @@ class FlatPlaceList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (int i = 0; i < displayPlaces.length; i++) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: FlatPlaceCard(
-              place: displayPlaces[i],
-              onTap: () => onPlaceTap?.call(displayPlaces[i]),
-            ),
+          FlatPlaceCard(
+            place: displayPlaces[i],
+            onTap: () => onPlaceTap?.call(displayPlaces[i]),
           ),
           if (i < displayPlaces.length - 1) const SizedBox(height: 16),
         ],
@@ -78,6 +75,41 @@ class FlatPlaceCard extends ConsumerStatefulWidget {
 class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
   bool _isInWishlist = false;
   bool _isSaving = false;
+  String? _destinationId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWishlistStatus();
+  }
+
+  /// 加载收藏状态
+  Future<void> _loadWishlistStatus() async {
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) return;
+
+    try {
+      final trips = await ref.read(tripsProvider.future);
+      final spotId = widget.place.id ?? widget.place.name;
+      
+      for (final trip in trips) {
+        final tripSpots = trip.tripSpots ?? [];
+        for (final tripSpot in tripSpots) {
+          if (tripSpot.spotId == spotId) {
+            if (mounted) {
+              setState(() {
+                _isInWishlist = true;
+                _destinationId = trip.id;
+              });
+            }
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ [FlatPlaceCard] Failed to load wishlist status: $e');
+    }
+  }
 
   Widget _buildCoverImage() {
     // AI 地点的占位符 - 使用渐变背景和图标
@@ -235,9 +267,18 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
     setState(() => _isSaving = true);
 
     try {
-      if (_isInWishlist) {
+      if (_isInWishlist && _destinationId != null) {
         // 已收藏，移除
-        setState(() => _isInWishlist = false);
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: _destinationId!,
+          spotId: widget.place.id ?? widget.place.name,
+          remove: true,
+        );
+        ref.invalidate(tripsProvider);
+        setState(() {
+          _isInWishlist = false;
+          _destinationId = null;
+        });
         CustomToast.showSuccess(context, 'Removed from wishlist');
       } else {
         // 未收藏，添加
@@ -278,7 +319,10 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
         );
 
         ref.invalidate(tripsProvider);
-        setState(() => _isInWishlist = true);
+        setState(() {
+          _isInWishlist = true;
+          _destinationId = destId;
+        });
         CustomToast.showSuccess(context, 'Saved to wishlist');
       }
     } catch (e) {
@@ -296,12 +340,12 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Summary 在卡片上方，流文本形式
+        // Summary 在卡片上方，流文本形式，黑色
         if (widget.place.summary.isNotEmpty) ...[
           Text(
             widget.place.summary,
             style: AppTheme.bodyMedium(context).copyWith(
-              color: AppTheme.mediumGray,
+              color: AppTheme.black,
               height: 1.4,
             ),
           ),
@@ -341,7 +385,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
                         ),
                       ),
                     ),
-                    // 右上角收藏按钮
+                    // 右上角收藏按钮 - 收藏后黄底黑桃心
                     Positioned(
                       top: 8,
                       right: 8,
@@ -351,7 +395,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: _isInWishlist ? AppTheme.primaryYellow : Colors.white,
                             shape: BoxShape.circle,
                             border: Border.all(color: AppTheme.black, width: 1.5),
                           ),
@@ -366,7 +410,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
                               : Icon(
                                   _isInWishlist ? Icons.favorite : Icons.favorite_border,
                                   size: 18,
-                                  color: _isInWishlist ? Colors.red : AppTheme.black,
+                                  color: AppTheme.black,
                                 ),
                         ),
                       ),

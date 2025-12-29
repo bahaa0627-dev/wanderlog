@@ -367,7 +367,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                     ),
                   ),
                 ),
-                // 右上角收藏按钮
+                // 右上角收藏按钮 - 收藏后黄底黑桃心
                 Positioned(
                   top: 8,
                   right: 8,
@@ -377,7 +377,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: _isInWishlist ? AppTheme.primaryYellow : Colors.white,
                         shape: BoxShape.circle,
                         border: Border.all(color: AppTheme.black, width: 1.5),
                       ),
@@ -392,7 +392,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                           : Icon(
                               _isInWishlist ? Icons.favorite : Icons.favorite_border,
                               size: 16,
-                              color: _isInWishlist ? Colors.red : AppTheme.black,
+                              color: AppTheme.black,
                             ),
                     ),
                   ),

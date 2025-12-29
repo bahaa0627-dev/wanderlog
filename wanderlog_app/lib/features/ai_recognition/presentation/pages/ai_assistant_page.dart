@@ -707,11 +707,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 承接文案 - Requirements: 8.1, 8.2, 8.3
+        // 承接文案 - Requirements: 8.1, 8.2, 8.3 - 黑色文字
         if (result.acknowledgment.isNotEmpty) ...[
           Text(
             result.acknowledgment,
             style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.black,
               height: 1.5,
             ),
           ),
@@ -734,13 +735,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
         const SizedBox(height: 20),
 
-        // 总结 summary - Requirements: 10.1, 10.2
+        // 总结 summary - Requirements: 10.1, 10.2 - 黑色文字
         if (result.overallSummary.isNotEmpty) ...[
           Text(
             result.overallSummary,
             style: AppTheme.bodyMedium(context).copyWith(
-              color: AppTheme.mediumGray,
-              fontStyle: FontStyle.italic,
+              color: AppTheme.black,
               height: 1.5,
             ),
           ),

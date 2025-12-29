@@ -36,6 +36,8 @@ export interface MergedPlace extends Omit<MappedPlace, 'sourceDetails' | 'custom
   isVerified?: boolean;
   tags?: Record<string, string[]>;  // StructuredTags
   aiTags?: Array<{ kind: string; id: string; en: string; zh: string; priority?: number }>;
+  price?: string;       // 价格范围文本 (如 €10–20)
+  priceLevel?: number;  // 价格等级 (0-4)
 }
 
 /**
@@ -200,6 +202,11 @@ class PlaceMergeService {
       merged.googlePlaceId = incoming.googlePlaceId;
     }
 
+    // Update price if incoming has it (non-null overwrite)
+    if (incoming.price !== undefined && incoming.price !== null) {
+      merged.price = incoming.price;
+    }
+
     return merged;
   }
 
@@ -221,6 +228,8 @@ class PlaceMergeService {
       phoneNumber: place.phoneNumber ?? null,
       openingHours: place.openingHours ?? null,
       description: place.description ?? null,
+      price: place.price ?? null,
+      priceLevel: place.priceLevel ?? null,
       source: place.source,
       sourceDetails: place.sourceDetails as object,
       customFields: place.customFields as object,

@@ -54,6 +54,9 @@ router.post('/import-from-apify', publicPlaceController.importFromApifyDataset.b
 // 预览 Apify Dataset 导入（dry-run）
 router.post('/preview-apify-import', publicPlaceController.previewApifyImport.bind(publicPlaceController));
 
+// Apify Webhook - Actor 运行完成后自动触发导入
+router.post('/apify-webhook', publicPlaceController.handleApifyWebhook.bind(publicPlaceController));
+
 // 更新地点
 router.put('/:placeId', publicPlaceController.updatePlace.bind(publicPlaceController));
 

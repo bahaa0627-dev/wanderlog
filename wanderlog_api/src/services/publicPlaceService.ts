@@ -330,6 +330,8 @@ class PublicPlaceService {
     minRating?: number;
     maxRating?: number;
     tag?: string;
+    sortBy?: 'rating' | 'ratingCount' | 'createdAt';
+    sortOrder?: 'asc' | 'desc';
   }) {
     const page = options?.page || 1;
     const limit = Math.min(options?.limit || 50, 100); // 限制最大100条
@@ -377,12 +379,28 @@ class PublicPlaceService {
       querySkip = 0;
     }
 
+    // 构建排序条件，null 值放在最后
+    let orderBy: any;
+    if (options?.sortBy) {
+      const sortDirection = options.sortOrder || 'desc';
+      // 对于 rating 和 ratingCount，null 值应该放在最后
+      if (options.sortBy === 'rating' || options.sortBy === 'ratingCount') {
+        orderBy = {
+          [options.sortBy]: { sort: sortDirection, nulls: 'last' }
+        };
+      } else {
+        orderBy = { [options.sortBy]: sortDirection };
+      }
+    } else {
+      orderBy = { createdAt: 'desc' }; // 默认按创建时间倒序
+    }
+
     const [rawPlaces, rawTotal] = await Promise.all([
       prisma.place.findMany({
         where,
         skip: querySkip,
         take: queryLimit,
-        orderBy: { createdAt: 'desc' }, // 按创建时间倒序，最新的在前面
+        orderBy,
         select: {
           id: true,
           name: true,
@@ -404,6 +422,7 @@ class PublicPlaceService {
           aiTags: true,
           coverImage: true,
           images: true,
+          price: true,
           priceLevel: true,
           website: true,
           phoneNumber: true,

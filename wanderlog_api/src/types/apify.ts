@@ -327,6 +327,7 @@ export interface MappedPlace {
   phoneNumber?: string;
   openingHours?: string;  // JSON string
   description?: string;
+  price?: string;         // 价格范围文本 (如 €10–20)
   source: 'apify_google_places';
   sourceDetails: SourceDetails;
   customFields: CustomFields;

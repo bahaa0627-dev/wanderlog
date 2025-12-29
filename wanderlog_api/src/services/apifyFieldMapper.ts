@@ -224,6 +224,9 @@ class ApifyFieldMapper {
       // Requirement 1.13: description → description
       description: item.description ?? undefined,
       
+      // price → price (价格范围文本，如 €10–20)
+      price: item.price ?? undefined,
+      
       // Requirement 1.14: source = 'apify_google_places'
       source: APIFY_SOURCE,
       

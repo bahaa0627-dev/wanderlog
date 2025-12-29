@@ -14,6 +14,8 @@ console.log("PORT =", process.env.PORT);
 // Load environment variables
 dotenv.config();
 
+console.log('📍 APIFY_API_TOKEN loaded:', process.env.APIFY_API_TOKEN ? 'Yes (' + process.env.APIFY_API_TOKEN.substring(0, 20) + '...)' : 'No');
+
 // Enable global proxy agent if HTTP_PROXY or HTTPS_PROXY is set
 const proxyUrl = process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.http_proxy || process.env.https_proxy;
 if (proxyUrl) {

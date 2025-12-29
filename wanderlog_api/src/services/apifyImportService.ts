@@ -288,30 +288,33 @@ export class ApifyImportService {
     const skipImages = options?.skipImages || false;
 
     try {
+      // Step 0: 预处理 - 根据经纬度补全缺失的 city/countryCode
+      const preprocessedItem = apifyDataValidator.preprocessItem(item);
+
       // Step 1: Validate required fields (Requirement 2.8)
-      const validation = apifyDataValidator.validateRequired(item);
+      const validation = apifyDataValidator.validateRequired(preprocessedItem);
       if (!validation.valid) {
-        console.log(`   ⚠️  Skipping ${item.title || item.placeId}: ${validation.errors.join(', ')}`);
+        console.log(`   ⚠️  Skipping ${preprocessedItem.title || preprocessedItem.placeId}: ${validation.errors.join(', ')}`);
         return {
           success: false,
           action: 'skipped',
-          googlePlaceId: item.placeId,
+          googlePlaceId: preprocessedItem.placeId,
           error: validation.errors.join(', '),
         };
       }
 
       // Step 2: Map fields
-      const mapped = apifyFieldMapper.mapToPlace(item);
+      const mapped = apifyFieldMapper.mapToPlace(preprocessedItem);
 
       // Step 3: Normalize category (Requirements 4.1-4.11)
       const categoryResult = normalizationService.normalizeFromApify(
-        item.categories,
-        item.categoryName,
-        item.searchString
+        preprocessedItem.categories,
+        preprocessedItem.categoryName,
+        preprocessedItem.searchString
       );
 
       // Step 4: Check for existing record and merge if needed
-      const existing = await placeMergeService.findExisting(item);
+      const existing = await placeMergeService.findExisting(preprocessedItem);
       
       let mergedPlace: MergedPlace;
       let isUpdate = false;
@@ -325,7 +328,13 @@ export class ApifyImportService {
         mergedPlace = {
           ...mapped,
           customFields: mapped.customFields as Record<string, unknown>,
+          price: mapped.price,  // 确保 price 字段被传递
         };
+      }
+
+      // 有 googlePlaceId 时，isVerified = true
+      if (preprocessedItem.placeId) {
+        mergedPlace.isVerified = true;
       }
 
       // Apply category normalization
@@ -360,9 +369,9 @@ export class ApifyImportService {
       }
       
       // 5.2: Extract tags from Apify additionalInfo
-      if (item.additionalInfo) {
+      if (preprocessedItem.additionalInfo) {
         // Detect brunch from dining options
-        const diningOptions = item.additionalInfo['Dining options'];
+        const diningOptions = preprocessedItem.additionalInfo['Dining options'];
         if (diningOptions && Array.isArray(diningOptions)) {
           const hasBrunch = diningOptions.some((opt: Record<string, boolean>) => opt['Brunch'] === true);
           if (hasBrunch && ['restaurant', 'cafe', 'bakery'].includes(categoryResult.categorySlug)) {
@@ -374,7 +383,7 @@ export class ApifyImportService {
         }
         
         // Detect atmosphere/style tags
-        const atmosphere = item.additionalInfo['Atmosphere'];
+        const atmosphere = preprocessedItem.additionalInfo['Atmosphere'];
         if (atmosphere && Array.isArray(atmosphere)) {
           const styleMap: Record<string, string> = {
             'Trendy': 'trendy',
@@ -397,7 +406,7 @@ export class ApifyImportService {
       }
       
       // 5.3: Extract cuisine from Apify categories
-      if (item.categories && ['restaurant', 'cafe'].includes(categoryResult.categorySlug)) {
+      if (preprocessedItem.categories && ['restaurant', 'cafe'].includes(categoryResult.categorySlug)) {
         const cuisinePatterns: Record<string, string[]> = {
           'Japanese': ['japanese', 'sushi', 'ramen', 'izakaya'],
           'Korean': ['korean', 'bbq'],
@@ -413,7 +422,7 @@ export class ApifyImportService {
           'Seafood': ['seafood'],
         };
         
-        for (const cat of item.categories) {
+        for (const cat of preprocessedItem.categories) {
           const catLower = cat.toLowerCase();
           for (const [cuisine, patterns] of Object.entries(cuisinePatterns)) {
             if (patterns.some(p => catLower.includes(p))) {
@@ -428,7 +437,7 @@ export class ApifyImportService {
       }
       
       // 5.4: Extract tags from reviewsTags
-      if (item.reviewsTags && item.reviewsTags.length > 0) {
+      if (preprocessedItem.reviewsTags && preprocessedItem.reviewsTags.length > 0) {
         const reviewTagPatterns: Record<string, { key: string; value: string }> = {
           'brunch': { key: 'meal', value: 'brunch' },
           'breakfast': { key: 'meal', value: 'breakfast' },
@@ -440,7 +449,7 @@ export class ApifyImportService {
           'romantic': { key: 'style', value: 'romantic' },
         };
         
-        for (const reviewTag of item.reviewsTags) {
+        for (const reviewTag of preprocessedItem.reviewsTags) {
           const tagLower = reviewTag.title.toLowerCase();
           for (const [pattern, mapping] of Object.entries(reviewTagPatterns)) {
             if (tagLower.includes(pattern)) {
@@ -471,8 +480,8 @@ export class ApifyImportService {
       }
 
       // Step 7: Process image if available and not skipped
-      if (!skipImages && item.imageUrl && !mergedPlace.coverImage) {
-        const imageResult = await r2ImageService.processAndUpload(item.imageUrl);
+      if (!skipImages && preprocessedItem.imageUrl && !mergedPlace.coverImage) {
+        const imageResult = await r2ImageService.processAndUpload(preprocessedItem.imageUrl);
         if (imageResult.success && imageResult.publicUrl && imageResult.r2Key) {
           mergedPlace.coverImage = imageResult.publicUrl;
           (mergedPlace.customFields as Record<string, unknown>).r2Key = imageResult.r2Key;
@@ -485,7 +494,7 @@ export class ApifyImportService {
         return {
           success: true,
           action: isUpdate ? 'updated' : 'inserted',
-          googlePlaceId: item.placeId,
+          googlePlaceId: preprocessedItem.placeId,
         };
       }
 
@@ -496,7 +505,7 @@ export class ApifyImportService {
         success: true,
         action: upsertResult.action,
         placeId: upsertResult.place.id,
-        googlePlaceId: item.placeId,
+        googlePlaceId: preprocessedItem.placeId,
       };
 
     } catch (e: any) {

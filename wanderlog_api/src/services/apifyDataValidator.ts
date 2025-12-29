@@ -29,6 +29,74 @@ const LONGITUDE_MIN = -180;
 const LONGITUDE_MAX = 180;
 
 /**
+ * 城市边界框定义 - 用于根据经纬度推断城市
+ * 格式: { city, country, countryCode, bounds: { minLat, maxLat, minLng, maxLng } }
+ */
+interface CityBoundingBox {
+  city: string;
+  country: string;
+  countryCode: string;
+  bounds: {
+    minLat: number;
+    maxLat: number;
+    minLng: number;
+    maxLng: number;
+  };
+}
+
+const CITY_BOUNDING_BOXES: CityBoundingBox[] = [
+  // 巴塞罗那 (扩大范围以覆盖周边)
+  {
+    city: 'Barcelona',
+    country: 'Spain',
+    countryCode: 'ES',
+    bounds: { minLat: 41.30, maxLat: 41.50, minLng: 2.05, maxLng: 2.25 }
+  },
+  // 巴黎
+  {
+    city: 'Paris',
+    country: 'France',
+    countryCode: 'FR',
+    bounds: { minLat: 48.80, maxLat: 48.95, minLng: 2.20, maxLng: 2.50 }
+  },
+  // 伦敦
+  {
+    city: 'London',
+    country: 'United Kingdom',
+    countryCode: 'GB',
+    bounds: { minLat: 51.38, maxLat: 51.65, minLng: -0.35, maxLng: 0.15 }
+  },
+  // 纽约
+  {
+    city: 'New York',
+    country: 'United States',
+    countryCode: 'US',
+    bounds: { minLat: 40.50, maxLat: 40.95, minLng: -74.30, maxLng: -73.70 }
+  },
+  // 东京
+  {
+    city: 'Tokyo',
+    country: 'Japan',
+    countryCode: 'JP',
+    bounds: { minLat: 35.50, maxLat: 35.85, minLng: 139.50, maxLng: 139.95 }
+  },
+  // 悉尼
+  {
+    city: 'Sydney',
+    country: 'Australia',
+    countryCode: 'AU',
+    bounds: { minLat: -34.10, maxLat: -33.65, minLng: 150.90, maxLng: 151.35 }
+  },
+  // 多伦多
+  {
+    city: 'Toronto',
+    country: 'Canada',
+    countryCode: 'CA',
+    bounds: { minLat: 43.58, maxLat: 43.85, minLng: -79.65, maxLng: -79.10 }
+  },
+];
+
+/**
  * Valid rating range
  */
 const RATING_MIN = 0;
@@ -49,6 +117,49 @@ const GOOGLE_PLACE_ID_PATTERN = /^ChIJ[A-Za-z0-9_-]+$/;
 // ============================================
 
 class ApifyDataValidator {
+  /**
+   * 根据经纬度推断城市和国家
+   * 如果坐标在已知城市边界框内，返回城市信息
+   */
+  inferCityFromCoordinates(lat: number, lng: number): { city: string; country: string; countryCode: string } | null {
+    for (const cityBox of CITY_BOUNDING_BOXES) {
+      const { bounds } = cityBox;
+      if (lat >= bounds.minLat && lat <= bounds.maxLat &&
+          lng >= bounds.minLng && lng <= bounds.maxLng) {
+        return {
+          city: cityBox.city,
+          country: cityBox.country,
+          countryCode: cityBox.countryCode
+        };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 预处理 item，自动补全缺失的 city/countryCode
+   */
+  preprocessItem(item: ApifyPlaceItem): ApifyPlaceItem {
+    // 如果已有 city 和 countryCode，直接返回
+    if (item.city && item.countryCode) {
+      return item;
+    }
+
+    // 尝试根据经纬度推断
+    if (item.location?.lat !== undefined && item.location?.lng !== undefined) {
+      const inferred = this.inferCityFromCoordinates(item.location.lat, item.location.lng);
+      if (inferred) {
+        return {
+          ...item,
+          city: item.city || inferred.city,
+          countryCode: item.countryCode || inferred.countryCode,
+        };
+      }
+    }
+
+    return item;
+  }
+
   /**
    * Validates that all required fields are present
    * 

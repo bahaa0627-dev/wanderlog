@@ -122,7 +122,7 @@ class PublicPlaceController {
    */
   async getAllPlaces(req: Request, res: Response): Promise<void> {
     try {
-      const { page, limit, city, country, category, source, search, minRating, maxRating, tag } = req.query;
+      const { page, limit, city, country, category, source, search, minRating, maxRating, tag, sortBy, sortOrder } = req.query;
 
       const result = await publicPlaceService.getAllPlaces({
         page: page ? parseInt(page as string) : undefined,
@@ -135,6 +135,8 @@ class PublicPlaceController {
         minRating: minRating ? parseFloat(minRating as string) : undefined,
         maxRating: maxRating ? parseFloat(maxRating as string) : undefined,
         tag: tag as string,
+        sortBy: sortBy as 'rating' | 'ratingCount' | 'createdAt' | undefined,
+        sortOrder: sortOrder as 'asc' | 'desc' | undefined,
       });
 
       res.json({
@@ -801,6 +803,98 @@ class PublicPlaceController {
       });
     } catch (error: any) {
       console.error('❌ Error previewing Apify Dataset:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Apify Webhook 处理器 - Actor 运行完成后自动触发导入
+   * POST /api/public-places/apify-webhook
+   * 
+   * Apify 会发送类似这样的 payload:
+   * {
+   *   "eventType": "ACTOR.RUN.SUCCEEDED",
+   *   "eventData": {
+   *     "actorId": "xxx",
+   *     "actorRunId": "xxx",
+   *     "defaultDatasetId": "xxx"  // 这是我们需要的 Dataset ID
+   *   }
+   * }
+   */
+  async handleApifyWebhook(req: Request, res: Response): Promise<void> {
+    try {
+      const { eventType, eventData, resource } = req.body;
+      
+      console.log(`🔔 Apify Webhook received: ${eventType}`);
+      console.log(`   Payload:`, JSON.stringify(req.body, null, 2));
+
+      // 验证 webhook secret（可选，增加安全性）
+      const webhookSecret = process.env.APIFY_WEBHOOK_SECRET;
+      const receivedSecret = req.headers['x-apify-webhook-secret'] || req.query.secret;
+      
+      if (webhookSecret && receivedSecret !== webhookSecret) {
+        console.warn('⚠️ Invalid webhook secret');
+        res.status(401).json({
+          success: false,
+          error: 'Invalid webhook secret',
+        });
+        return;
+      }
+
+      // 只处理成功完成的 Actor 运行
+      if (eventType !== 'ACTOR.RUN.SUCCEEDED') {
+        console.log(`ℹ️ Ignoring event type: ${eventType}`);
+        res.json({
+          success: true,
+          message: `Event type ${eventType} ignored`,
+        });
+        return;
+      }
+
+      // 获取 Dataset ID
+      // Apify webhook payload 结构可能有两种格式
+      const datasetId = eventData?.defaultDatasetId || resource?.defaultDatasetId;
+      
+      if (!datasetId) {
+        console.error('❌ No datasetId found in webhook payload');
+        res.status(400).json({
+          success: false,
+          error: 'No datasetId found in webhook payload',
+        });
+        return;
+      }
+
+      console.log(`📥 Auto-importing from Dataset: ${datasetId}`);
+
+      // 异步执行导入（不阻塞 webhook 响应）
+      const apifyImportService = new ApifyImportService();
+      
+      // 先快速响应 webhook
+      res.json({
+        success: true,
+        message: `Import started for dataset: ${datasetId}`,
+        datasetId,
+      });
+
+      // 然后在后台执行导入
+      try {
+        const result = await apifyImportService.importFromDataset(datasetId, {
+          batchSize: 100,
+          delayMs: 100,
+          dryRun: false,
+          skipImages: false,
+        });
+
+        console.log(`✅ Auto-import complete for ${datasetId}:`);
+        console.log(`   Inserted: ${result.inserted}, Updated: ${result.updated}, Skipped: ${result.skipped}, Failed: ${result.failed}`);
+      } catch (importError: any) {
+        console.error(`❌ Auto-import failed for ${datasetId}:`, importError.message);
+      }
+    } catch (error: any) {
+      console.error('❌ Error handling Apify webhook:', error);
       res.status(500).json({
         success: false,
         error: error.message,

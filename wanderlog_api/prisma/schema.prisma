@@ -46,7 +46,8 @@ model Place {
   coverImage     String?   @map("cover_image")
   photoReference String?   @map("photo_reference") // Google photo reference for future extraction
   images         Json?     @default("[]")
-  priceLevel     Int?      @map("price_level")
+  price          String?                           // 价格范围文本 (如 €10–20, $20–40)
+  priceLevel     Int?      @map("price_level")     // 价格等级 (0-4)
   website        String?
   phoneNumber    String?   @map("phone_number")
   googlePlaceId  String?   @unique @map("google_place_id")

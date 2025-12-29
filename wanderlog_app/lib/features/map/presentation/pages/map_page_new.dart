@@ -55,6 +55,11 @@ class Spot {
     this.isVerified = true,
     this.recommendationPhrase,
     this.source = SpotSource.cache,
+    // 详情页需要的额外字段
+    this.address,
+    this.phoneNumber,
+    this.website,
+    this.openingHours,
   });
 
   final String id;
@@ -84,6 +89,12 @@ class Spot {
   /// Requirements: 11.1, 11.4
   final SpotSource source;
   
+  /// 详情页需要的额外字段
+  final String? address;
+  final String? phoneNumber;
+  final String? website;
+  final Map<String, dynamic>? openingHours;
+  
   /// 是否是 AI-only 地点（未经 Google 验证）
   bool get isAIOnly => !isVerified && source == SpotSource.ai;
   
@@ -108,6 +119,10 @@ class Spot {
     bool? isVerified,
     String? recommendationPhrase,
     SpotSource? source,
+    String? address,
+    String? phoneNumber,
+    String? website,
+    Map<String, dynamic>? openingHours,
   }) {
     return Spot(
       id: id ?? this.id,
@@ -126,6 +141,10 @@ class Spot {
       isVerified: isVerified ?? this.isVerified,
       recommendationPhrase: recommendationPhrase ?? this.recommendationPhrase,
       source: source ?? this.source,
+      address: address ?? this.address,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      website: website ?? this.website,
+      openingHours: openingHours ?? this.openingHours,
     );
   }
 }

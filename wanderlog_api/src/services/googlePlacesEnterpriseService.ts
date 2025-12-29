@@ -11,7 +11,6 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import * as https from 'https';
 import prisma from '../config/database';
 
 // ============================================
@@ -525,86 +524,49 @@ class GooglePlacesEnterpriseService {
   }
 
   /**
-   * Download image as Buffer
+   * Download image as Buffer (with proxy support)
    */
-  private downloadImage(url: string): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Download timeout'));
-      }, 30000);
-
-      const request = (targetUrl: string) => {
-        https.get(targetUrl, (res) => {
-          // Handle redirects
-          if (res.statusCode === 302 || res.statusCode === 301) {
-            const redirectUrl = res.headers.location;
-            if (redirectUrl) {
-              request(redirectUrl);
-              return;
-            }
-          }
-
-          if (res.statusCode !== 200) {
-            clearTimeout(timeout);
-            reject(new Error(`HTTP ${res.statusCode}`));
-            return;
-          }
-
-          const chunks: Buffer[] = [];
-          res.on('data', chunk => chunks.push(chunk));
-          res.on('end', () => {
-            clearTimeout(timeout);
-            resolve(Buffer.concat(chunks));
-          });
-        }).on('error', (e) => {
-          clearTimeout(timeout);
-          reject(e);
-        });
-      };
-
-      request(url);
-    });
+  private async downloadImage(url: string): Promise<Buffer> {
+    try {
+      // Use axios with proxy support instead of native https
+      const response = await this.axiosInstance.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 30000,
+        maxRedirects: 5,
+      });
+      
+      return Buffer.from(response.data);
+    } catch (error: any) {
+      console.error(`❌ Image download error: ${error.message}`);
+      throw error;
+    }
   }
 
   /**
-   * Upload buffer to R2
+   * Upload buffer to R2 (with proxy support)
    */
-  private uploadBufferToR2(imageBuffer: Buffer, path: string): Promise<string | null> {
-    return new Promise((resolve) => {
-      const url = new URL(`${this.r2WorkerUrl}/${path}`);
-
-      const options = {
-        hostname: url.hostname,
-        path: url.pathname,
-        method: 'PUT',
+  private async uploadBufferToR2(imageBuffer: Buffer, path: string): Promise<string | null> {
+    try {
+      const url = `${this.r2WorkerUrl}/${path}`;
+      
+      const response = await this.axiosInstance.put(url, imageBuffer, {
         headers: {
           'Authorization': `Bearer ${this.r2UploadSecret}`,
           'Content-Type': 'image/jpeg',
-          'Content-Length': imageBuffer.length,
         },
-      };
-
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          if (res.statusCode === 200) {
-            resolve(`${this.r2WorkerUrl}/${path}`);
-          } else {
-            console.log(`⚠️ R2 upload failed: ${res.statusCode}`);
-            resolve(null);
-          }
-        });
+        timeout: 30000,
       });
-
-      req.on('error', (e) => {
-        console.log(`⚠️ R2 error: ${e.message}`);
-        resolve(null);
-      });
-
-      req.write(imageBuffer);
-      req.end();
-    });
+      
+      if (response.status === 200) {
+        return url;
+      } else {
+        console.log(`⚠️ R2 upload failed: ${response.status}`);
+        return null;
+      }
+    } catch (error: any) {
+      console.log(`⚠️ R2 error: ${error.message}`);
+      return null;
+    }
   }
 
   /**
@@ -618,6 +580,10 @@ class GooglePlacesEnterpriseService {
    * - 一次性取 20 条落库（$0.035/request）
    * - 只给展示的地点调取图片（$0.007/photo）
    * - 未展示的地点保存 photoReference，方便后续提取
+   * 
+   * 字段规范：
+   * - 使用 categorySlug, categoryEn, categoryZh 而不是 category
+   * - 图片使用 R2 URL 格式
    * 
    * @param places - Google Places 数组
    * @param displayPlaceIds - 需要展示的地点 ID 列表（只有这些才下载图片）
@@ -649,8 +615,8 @@ class GooglePlacesEnterpriseService {
           if (coverImage) photosDownloaded++;
         }
 
-        // Extract category from types
-        const category = this.extractCategory(place.types);
+        // Extract category using new schema (categorySlug, categoryEn, categoryZh)
+        const { categorySlug, categoryEn, categoryZh } = this.extractCategoryNew(place.types);
 
         // Format opening hours
         const openingHours = place.openingHours?.weekdayDescriptions
@@ -672,7 +638,10 @@ class GooglePlacesEnterpriseService {
             openingHours: openingHours,
             rating: place.rating,
             ratingCount: place.userRatingCount,
-            category: category,
+            // 使用新的分类字段
+            categorySlug: categorySlug,
+            categoryEn: categoryEn,
+            categoryZh: categoryZh,
             coverImage: coverImage || undefined,
             photoReference: place.photoReference || undefined, // Save for future photo extraction
             priceLevel: place.priceLevel,
@@ -694,7 +663,10 @@ class GooglePlacesEnterpriseService {
             openingHours: openingHours,
             rating: place.rating,
             ratingCount: place.userRatingCount,
-            category: category,
+            // 使用新的分类字段
+            categorySlug: categorySlug,
+            categoryEn: categoryEn,
+            categoryZh: categoryZh,
             coverImage: coverImage || undefined,
             photoReference: place.photoReference || undefined, // Save for future photo extraction
             priceLevel: place.priceLevel,
@@ -717,36 +689,85 @@ class GooglePlacesEnterpriseService {
   }
 
   /**
-   * Extract category from Google place types
+   * Extract category from Google place types - 使用新的分类 schema
+   * 返回 categorySlug, categoryEn, categoryZh
    */
-  private extractCategory(types: string[]): string {
-    const categoryMap: Record<string, string> = {
+  private extractCategoryNew(types: string[]): { categorySlug: string; categoryEn: string; categoryZh: string } {
+    // Google type -> categorySlug 映射
+    const typeToSlugMap: Record<string, string> = {
       'museum': 'museum',
       'art_gallery': 'art_gallery',
       'cafe': 'cafe',
+      'coffee_shop': 'cafe',
       'restaurant': 'restaurant',
       'bar': 'bar',
+      'wine_bar': 'bar',
+      'cocktail_bar': 'bar',
       'church': 'church',
       'park': 'park',
       'shopping_mall': 'shopping_mall',
-      'store': 'store',
+      'department_store': 'shopping_mall',
+      'store': 'shop',
       'bakery': 'bakery',
       'library': 'library',
-      'tourist_attraction': 'tourist_attraction',
-      'lodging': 'lodging',
-      'night_club': 'night_club',
+      'book_store': 'bookstore',
+      'tourist_attraction': 'landmark',
+      'cultural_landmark': 'landmark',
+      'historical_landmark': 'landmark',
+      'lodging': 'hotel',
+      'hotel': 'hotel',
+      'night_club': 'bar',
       'market': 'market',
-      'food': 'food',
-      'point_of_interest': 'point_of_interest',
+      'farmers_market': 'market',
+      'cemetery': 'cemetery',
+      'university': 'university',
+      'hindu_temple': 'temple',
+      'buddhist_temple': 'temple',
+      'place_of_worship': 'temple',
+      'zoo': 'zoo',
+      'aquarium': 'zoo',
     };
 
+    // slug -> 英文/中文名映射
+    const slugToNames: Record<string, { en: string; zh: string }> = {
+      'landmark': { en: 'Landmark', zh: '地标' },
+      'museum': { en: 'Museum', zh: '博物馆' },
+      'art_gallery': { en: 'Gallery', zh: '美术馆' },
+      'shopping_mall': { en: 'Shopping', zh: '商场' },
+      'cafe': { en: 'Cafe', zh: '咖啡店' },
+      'bakery': { en: 'Bakery', zh: '面包店' },
+      'restaurant': { en: 'Restaurant', zh: '餐馆' },
+      'bar': { en: 'Bar', zh: '酒吧' },
+      'hotel': { en: 'Hotel', zh: '酒店' },
+      'church': { en: 'Church', zh: '教堂' },
+      'library': { en: 'Library', zh: '图书馆' },
+      'bookstore': { en: 'Bookstore', zh: '书店' },
+      'cemetery': { en: 'Cemetery', zh: '墓园' },
+      'park': { en: 'Park', zh: '公园' },
+      'castle': { en: 'Castle', zh: '城堡' },
+      'market': { en: 'Market', zh: '市集' },
+      'shop': { en: 'Shop', zh: '商店' },
+      'university': { en: 'University', zh: '大学' },
+      'temple': { en: 'Temple', zh: '寺庙' },
+      'zoo': { en: 'Zoo', zh: '动物园' },
+    };
+
+    // 查找匹配的 slug
+    let categorySlug = 'landmark'; // 默认
     for (const type of types) {
-      if (categoryMap[type]) {
-        return categoryMap[type];
+      if (typeToSlugMap[type]) {
+        categorySlug = typeToSlugMap[type];
+        break;
       }
     }
 
-    return types[0] || 'other';
+    const names = slugToNames[categorySlug] || { en: 'Landmark', zh: '地标' };
+    
+    return {
+      categorySlug,
+      categoryEn: names.en,
+      categoryZh: names.zh,
+    };
   }
 
   /**

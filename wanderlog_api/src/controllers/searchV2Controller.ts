@@ -227,7 +227,7 @@ async function saveAIPlacesToDatabase(aiPlaces: AIPlace[]): Promise<void> {
       let isDuplicate = false;
       for (const candidate of candidates) {
         // 计算名称相似度
-        const { calculateNameSimilarity } = await import('./placeMatcherService');
+        const { calculateNameSimilarity } = await import('../services/placeMatcherService');
         const nameSimilarity = calculateNameSimilarity(place.name, candidate.name);
         
         // 检查经纬度是否接近（约100米范围内）
@@ -328,6 +328,11 @@ async function enrichPlaceResults(
         enriched.coverImage = dbPlace.coverImage;
         logger.info(`[SearchV2] Enriched "${place.name}" with coverImage from DB`);
       }
+      // 详情页需要的额外字段
+      enriched.address = dbPlace.address ?? enriched.address;
+      enriched.phoneNumber = dbPlace.phoneNumber ?? enriched.phoneNumber;
+      enriched.website = dbPlace.website ?? enriched.website;
+      enriched.openingHours = dbPlace.openingHours ?? enriched.openingHours;
     }
 
     // Also try Google place data for rating

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_result.dart';
@@ -16,6 +17,7 @@ import 'package:wanderlog/features/ai_recognition/data/services/search_v2_servic
 import 'package:wanderlog/features/ai_recognition/presentation/widgets/category_section.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/widgets/flat_place_list.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/widgets/recommendation_map_view.dart';
+import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' show Spot, SpotSource;
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
@@ -77,8 +79,15 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     super.initState();
     _searchV2Service = SearchV2Service(dio: Dio());
     print('🚀 AIAssistantPage initState called');
+    _preloadWishlistStatus();
     _loadHistories();
     _loadQuota();
+  }
+
+  /// 预加载收藏状态，确保卡片显示时状态已就绪
+  Future<void> _preloadWishlistStatus() async {
+    // 触发 wishlistStatusProvider 加载
+    ref.read(wishlistStatusProvider);
   }
 
   Future<void> _loadQuota() async {
@@ -427,6 +436,25 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
   /// 将 PlaceResult 转换为 Spot
   Spot _placeResultToSpot(PlaceResult place) {
+    // 解析 openingHours（可能是 JSON 字符串数组或 Map）
+    Map<String, dynamic>? parsedOpeningHours;
+    if (place.openingHours != null && place.openingHours!.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(place.openingHours!);
+        if (decoded is Map<String, dynamic>) {
+          // 已经是正确的格式
+          parsedOpeningHours = decoded;
+        } else if (decoded is List) {
+          // 后端返回的是字符串数组，转换为 weekday_text 格式
+          parsedOpeningHours = {
+            'weekday_text': decoded.map((e) => e.toString()).toList(),
+          };
+        }
+      } catch (_) {
+        // 如果解析失败，忽略
+      }
+    }
+    
     return Spot(
       id: place.id ?? place.name,
       name: place.name,
@@ -444,6 +472,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       isVerified: place.isVerified,
       recommendationPhrase: place.recommendationPhrase,
       source: _convertSource(place.source),
+      // 详情页需要的额外字段
+      address: place.address,
+      phoneNumber: place.phoneNumber,
+      website: place.website,
+      openingHours: parsedOpeningHours,
     );
   }
 
@@ -459,18 +492,44 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
 
   /// 显示地点详情
-  void _showPlaceDetail(PlaceResult place) {
-    final spot = _placeResultToSpot(place);
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => UnifiedSpotDetailModal(
-        spot: spot,
-        keepOpenOnAction: true,
-        hideCollectionEntry: true,
-      ),
-    );
+  /// 如果详情字段缺失但有 ID，会从后端获取完整数据
+  void _showPlaceDetail(PlaceResult place) async {
+    debugPrint('🔍 [AIAssistant] _showPlaceDetail for: ${place.name}');
+    
+    // 检查是否需要从后端获取详情（有 ID 但缺少详情字段）
+    final needsFetch = place.id != null && 
+        place.address == null && 
+        place.phoneNumber == null && 
+        place.website == null;
+    
+    if (needsFetch) {
+      debugPrint('🔍 [AIAssistant] Fetching fresh data for place ID: ${place.id}');
+      
+      // 先显示 loading 状态的 modal
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => _PlaceDetailLoader(
+          placeId: place.id!,
+          fallbackPlace: place,
+          placeResultToSpot: _placeResultToSpot,
+        ),
+      );
+    } else {
+      // 已有详情数据，直接显示
+      final spot = _placeResultToSpot(place);
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => UnifiedSpotDetailModal(
+          spot: spot,
+          keepOpenOnAction: true,
+          hideCollectionEntry: true,
+        ),
+      );
+    }
   }
 
 
@@ -1002,4 +1061,125 @@ class _SpotCardOverlayState extends State<_SpotCardOverlay> {
       ),
     ),
   );
+}
+
+
+/// 地点详情加载器 - 从后端获取完整数据后显示详情
+class _PlaceDetailLoader extends StatefulWidget {
+  const _PlaceDetailLoader({
+    required this.placeId,
+    required this.fallbackPlace,
+    required this.placeResultToSpot,
+  });
+
+  final String placeId;
+  final PlaceResult fallbackPlace;
+  final Spot Function(PlaceResult) placeResultToSpot;
+
+  @override
+  State<_PlaceDetailLoader> createState() => _PlaceDetailLoaderState();
+}
+
+class _PlaceDetailLoaderState extends State<_PlaceDetailLoader> {
+  bool _isLoading = true;
+  Spot? _spot;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPlaceDetails();
+  }
+
+  Future<void> _fetchPlaceDetails() async {
+    try {
+      final dio = Dio();
+      final apiBaseUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000/api';
+      
+      final response = await dio.get<Map<String, dynamic>>(
+        '$apiBaseUrl/spots/${widget.placeId}',
+        options: Options(
+          sendTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      if (!mounted) return;
+
+      final data = response.data;
+      if (data != null) {
+        // 将后端返回的数据转换为 PlaceResult
+        final enrichedPlace = widget.fallbackPlace.copyWith(
+          address: data['address'] as String?,
+          phoneNumber: data['phoneNumber'] as String?,
+          website: data['website'] as String?,
+          openingHours: data['openingHours'] is String 
+              ? data['openingHours'] as String
+              : data['openingHours'] != null 
+                  ? jsonEncode(data['openingHours'])
+                  : null,
+        );
+        
+        setState(() {
+          _spot = widget.placeResultToSpot(enrichedPlace);
+          _isLoading = false;
+        });
+      } else {
+        // 使用 fallback 数据
+        setState(() {
+          _spot = widget.placeResultToSpot(widget.fallbackPlace);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ [PlaceDetailLoader] Error fetching place: $e');
+      if (!mounted) return;
+      
+      // 使用 fallback 数据
+      setState(() {
+        _spot = widget.placeResultToSpot(widget.fallbackPlace);
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryYellow),
+          ),
+        ),
+      );
+    }
+
+    if (_spot == null) {
+      return Container(
+        height: 200,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Center(
+          child: Text(
+            _error ?? 'Failed to load place details',
+            style: AppTheme.bodyMedium(context).copyWith(color: AppTheme.mediumGray),
+          ),
+        ),
+      );
+    }
+
+    return UnifiedSpotDetailModal(
+      spot: _spot!,
+      keepOpenOnAction: true,
+      hideCollectionEntry: true,
+    );
+  }
 }

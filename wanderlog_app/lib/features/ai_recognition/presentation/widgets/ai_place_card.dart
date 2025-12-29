@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
+import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpotStatus;
@@ -24,6 +25,7 @@ class AIPlaceCard extends ConsumerStatefulWidget {
     this.aspectRatio = 4 / 3,
     this.onTap,
     this.showSummary = true,
+    this.onWishlistChanged,
     super.key,
   });
 
@@ -39,6 +41,9 @@ class AIPlaceCard extends ConsumerStatefulWidget {
   /// 是否显示 summary
   final bool showSummary;
 
+  /// 收藏状态变化回调
+  final void Function(bool isInWishlist)? onWishlistChanged;
+
   @override
   ConsumerState<AIPlaceCard> createState() => _AIPlaceCardState();
 }
@@ -47,39 +52,30 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   bool _isInWishlist = false;
   bool _isSaving = false;
   String? _destinationId;
+  bool _initialized = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadWishlistStatus();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      _loadWishlistStatusFromCache();
+    }
   }
 
-  /// 加载收藏状态
-  Future<void> _loadWishlistStatus() async {
-    final auth = ref.read(authProvider);
-    if (!auth.isAuthenticated) return;
-
-    try {
-      final trips = await ref.read(tripsProvider.future);
+  /// 从缓存加载收藏状态（同步，无需等待）
+  void _loadWishlistStatusFromCache() {
+    final statusAsync = ref.read(wishlistStatusProvider);
+    statusAsync.whenData((statusMap) {
       final spotId = widget.place.id ?? widget.place.name;
-      
-      for (final trip in trips) {
-        final tripSpots = trip.tripSpots ?? [];
-        for (final tripSpot in tripSpots) {
-          if (tripSpot.spotId == spotId) {
-            if (mounted) {
-              setState(() {
-                _isInWishlist = true;
-                _destinationId = trip.id;
-              });
-            }
-            return;
-          }
-        }
+      final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
+      if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
+        setState(() {
+          _isInWishlist = isInWishlist;
+          _destinationId = destId;
+        });
       }
-    } catch (e) {
-      debugPrint('⚠️ [AIPlaceCard] Failed to load wishlist status: $e');
-    }
+    });
   }
 
   /// 解码 base64 图片
@@ -272,10 +268,12 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
           remove: true,
         );
         ref.invalidate(tripsProvider);
+        ref.invalidate(wishlistStatusProvider);
         setState(() {
           _isInWishlist = false;
           _destinationId = null;
         });
+        widget.onWishlistChanged?.call(false);
         CustomToast.showSuccess(context, 'Removed from wishlist');
       } else {
         // 未收藏，添加
@@ -316,10 +314,12 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         );
 
         ref.invalidate(tripsProvider);
+        ref.invalidate(wishlistStatusProvider);
         setState(() {
           _isInWishlist = true;
           _destinationId = destId;
         });
+        widget.onWishlistChanged?.call(true);
         CustomToast.showSuccess(context, 'Saved to wishlist');
       }
     } catch (e) {

@@ -12,6 +12,7 @@ import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/widgets/save_spot_button.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpotStatus, SpotPriority;
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
@@ -262,7 +263,11 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       _isWishlist = widget.initialIsSaved!;
       _isMustGo = widget.initialIsMustGo ?? false;
       _isTodaysPlan = widget.initialIsTodaysPlan ?? false;
+    } else {
+      // 先从缓存同步读取收藏状态，避免闪烁
+      _loadWishlistStatusFromCache();
     }
+    // 异步加载详细状态
     _loadWishlistStatus();
     
     // 处理合集入口数据
@@ -277,6 +282,18 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       // 需要异步加载
       _loadLinkedCollection();
     }
+  }
+
+  /// 从缓存同步读取收藏状态（立即生效，无需等待）
+  void _loadWishlistStatusFromCache() {
+    final statusAsync = ref.read(wishlistStatusProvider);
+    statusAsync.whenData((statusMap) {
+      final (isInWishlist, destId) = checkWishlistStatus(statusMap, _spotId);
+      if (isInWishlist) {
+        _isWishlist = true;
+        _destinationId = destId;
+      }
+    });
   }
 
   @override

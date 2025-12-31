@@ -79,38 +79,81 @@ export class AIResponseValidationError extends Error {
  */
 const RECOMMENDATION_SYSTEM_PROMPT = `You are a travel expert. Recommend places based on user query.
 
-Extract requestedCount from query:
-- "2 cafes" → 2, "5 museums" → 5, "推荐10个" → 10
-- "a few/几个" → 3, "some/一些" → 5
-- No number specified → 5 (default)
-- Maximum is 10 (if more requested, set exceededLimit=true)
+LANGUAGE RULES (CRITICAL):
+- The user will specify their preferred language in the prompt
+- ALL output text MUST be in the user's specified language
+- Place names should use their commonly known name (can be in original language)
+- Category titles, summaries, tags, recommendationPhrase - ALL in user's language
+- acknowledgment - MUST be in user's language
 
-Return ONLY valid JSON (no markdown):
+CATEGORY RULES (CRITICAL):
+- ALWAYS create exactly 3-4 categories
+- Each category MUST have 5-7 places
+- Total places: match user's requested count (default 20, max 20)
+- Categories should have emoji prefix, e.g. "☕ Specialty Coffee", "🏛️ Historic Sites", "🍜 Local Eats"
+
+PLACE SELECTION RULES (CRITICAL):
+- For general queries like "interesting places", "things to do", "places to visit":
+  - Prioritize FAMOUS landmarks, iconic attractions, and must-see destinations
+  - Include a mix: landmarks, museums, temples/shrines, parks, viewpoints
+  - Avoid recommending only restaurants or cafes unless specifically asked
+- For specific queries like "cafes", "ramen shops", "restaurants":
+  - Focus on that specific category
+  - Recommend well-known, highly-rated establishments
+
+Return ONLY valid JSON (no markdown, no code blocks):
 {
-  "requestedCount": 5,
+  "requestedCount": 10,
   "exceededLimit": false,
-  "acknowledgment": "Direct statement like 'Here are my top picks for...' (same language as query)",
+  "acknowledgment": "A creative, engaging intro (2-3 sentences, max 60 words). Avoid generic phrases like 'vibrant city'. Be specific about what makes these recommendations special.",
+  "categories": [
+    {
+      "title": "☕ Category Title with Emoji",
+      "placeNames": ["Place 1", "Place 2", "Place 3", "Place 4", "Place 5"]
+    }
+  ],
   "places": [
     {
-      "name": "Exact place name",
-      "summary": "Brief description (max 80 chars)",
+      "name": "Place Name",
+      "summary": "Brief description (30-50 chars max, must be complete)",
       "latitude": 35.6762,
       "longitude": 139.6503,
       "city": "City",
       "country": "Country",
-      "coverImageUrl": "https://example.com/image.jpg",
+      "coverImageUrl": "",
       "tags": ["tag1", "tag2"],
-      "recommendationPhrase": "local favorite"
+      "recommendationPhrase": "Unique phrase (e.g., 'Local favorite', 'Hidden gem', 'Must-visit', 'Iconic landmark', 'Highly acclaimed')"
     }
   ]
 }
 
+CRITICAL - Coordinates must be PRECISE:
+- Use the EXACT latitude/longitude of the place entrance
+- For "Park Güell" use 41.4145, 2.1527 (not approximate)
+- For "La Rambla" use 41.3803, 2.1734 (center point)
+- Double-check coordinates are accurate to 4 decimal places
+
+CRITICAL - User requested count:
+- If user asks for N places (e.g. "12家咖啡"), return EXACTLY N places
+- Parse the number from user query carefully
+- requestedCount should match user's request
+
+CRITICAL - recommendationPhrase:
+- Each place MUST have a UNIQUE recommendationPhrase
+- Use varied phrases like: "Local favorite", "Hidden gem", "Must-visit", "Iconic landmark", "Highly acclaimed", "Traveler's choice", "Authentic experience", "Architectural marvel", "Cultural treasure", "Scenic spot"
+- NEVER use generic "Recommended" for all places
+
 Rules:
-1. Return exactly 10 places (for matching purposes)
-2. Use real places with accurate coordinates
-3. Keep summary under 80 characters
-4. Acknowledgment: direct statement, same language as query
-5. tags: 2-3 descriptive tags`;
+1. Parse user query to determine requested count. Default to 20 if not specified. Max 20.
+2. Return EXACTLY the requested number of places (or 20 if exceeds limit)
+3. MUST have exactly 3-4 categories (distribute places across them)
+4. Each category should have roughly equal places
+5. ALWAYS include categories with emoji prefix
+6. coverImageUrl: always empty string (images fetched separately)
+7. tags: 2 descriptive tags only
+8. summary: MUST be 30-50 chars, complete sentence, no ellipsis
+9. acknowledgment: Creative intro (2-3 sentences, max 60 words), avoid clichés
+10. Set exceededLimit to true if user requested more than 20`;
 
 
 /**
@@ -304,7 +347,7 @@ class AIRecommendationService {
   }
 
   /**
-   * Parse JSON from AI response
+   * Parse JSON from AI response with enhanced error recovery
    */
   private parseJsonResponse<T>(content: string): T {
     // Try to extract JSON from the response
@@ -313,9 +356,57 @@ class AIRecommendationService {
       throw new AIResponseValidationError('No JSON found in AI response');
     }
 
+    let jsonStr = jsonMatch[0];
+
     try {
-      return JSON.parse(jsonMatch[0]) as T;
+      return JSON.parse(jsonStr) as T;
     } catch (parseError) {
+      // Try to fix common JSON issues from AI responses
+      console.warn('[AIRecommendationService] Initial JSON parse failed, attempting recovery...');
+      
+      // 1. Try to fix truncated arrays - find last complete object and close the array
+      const placesMatch = jsonStr.match(/"places"\s*:\s*\[/);
+      if (placesMatch) {
+        // Find all complete place objects (ending with })
+        const objectMatches = jsonStr.match(/\{[^{}]*"name"[^{}]*\}/g);
+        if (objectMatches && objectMatches.length > 0) {
+          // Rebuild JSON with only complete objects
+          const fixedPlaces = objectMatches.join(',');
+          jsonStr = `{"places":[${fixedPlaces}]}`;
+          console.log(`[AIRecommendationService] Recovered ${objectMatches.length} complete place objects`);
+          
+          try {
+            return JSON.parse(jsonStr) as T;
+          } catch (e) {
+            // Continue to other recovery methods
+          }
+        }
+      }
+
+      // 2. Try removing trailing incomplete content
+      const lastCompleteIndex = Math.max(
+        jsonStr.lastIndexOf('}]'),
+        jsonStr.lastIndexOf('"}')
+      );
+      if (lastCompleteIndex > 0) {
+        const trimmed = jsonStr.substring(0, lastCompleteIndex + 2);
+        // Try to close any unclosed structures
+        const openBraces = (trimmed.match(/\{/g) || []).length;
+        const closeBraces = (trimmed.match(/\}/g) || []).length;
+        const openBrackets = (trimmed.match(/\[/g) || []).length;
+        const closeBrackets = (trimmed.match(/\]/g) || []).length;
+        
+        let fixed = trimmed;
+        for (let i = 0; i < openBrackets - closeBrackets; i++) fixed += ']';
+        for (let i = 0; i < openBraces - closeBraces; i++) fixed += '}';
+        
+        try {
+          return JSON.parse(fixed) as T;
+        } catch (e) {
+          // Continue to throw original error
+        }
+      }
+
       throw new AIResponseValidationError(`Failed to parse JSON: ${parseError}`);
     }
   }
@@ -342,10 +433,20 @@ class AIRecommendationService {
       throw new AIResponseValidationError(`Place ${index + 1}: summary must be a string`);
     }
 
-    // Validate summary length (max 100 chars) - Requirement 3.6
-    if (place.summary.length > 100) {
-      console.warn(`[AIRecommendationService] Place ${index + 1} summary exceeds 100 chars, truncating`);
-      place.summary = place.summary.substring(0, 100);
+    // Validate summary length (max 50 chars) - Requirement 3.6
+    if (place.summary.length > 50) {
+      console.warn(`[AIRecommendationService] Place ${index + 1} summary exceeds 50 chars (${place.summary.length}), truncating`);
+      // 截断到最后一个完整的句子或词
+      let truncated = place.summary.substring(0, 50);
+      const lastPeriod = truncated.lastIndexOf('。');
+      const lastDot = truncated.lastIndexOf('.');
+      const lastComma = truncated.lastIndexOf('，');
+      const lastSpace = truncated.lastIndexOf(' ');
+      const cutPoint = Math.max(lastPeriod, lastDot, lastComma, lastSpace);
+      if (cutPoint > 25) {
+        truncated = truncated.substring(0, cutPoint + 1);
+      }
+      place.summary = truncated.trim();
     }
 
     if (typeof place.latitude !== 'number' || typeof place.longitude !== 'number') {
@@ -384,23 +485,24 @@ class AIRecommendationService {
       throw new AIResponseValidationError('places must be an array');
     }
 
-    // 期望 10 个地点，但允许少于 10 个
-    if (response.places.length < 10) {
-      console.warn(`[AIRecommendationService] Expected 10 places, got ${response.places.length}`);
+    // 期望最多 20 个地点
+    if (response.places.length > 20) {
+      console.warn(`[AIRecommendationService] AI returned ${response.places.length} places, truncating to 20`);
+      response.places = response.places.slice(0, 20);
     }
     if (response.places.length === 0) {
       throw new AIResponseValidationError('No places returned by AI');
     }
 
-    // 解析 requestedCount（用户请求的数量），默认 5，最大 10
+    // 解析 requestedCount（AI 返回的数量），默认 20，最大 20
     let requestedCount = typeof response.requestedCount === 'number' 
-      ? Math.max(1, Math.min(10, response.requestedCount))
-      : 5;
+      ? Math.max(1, Math.min(20, response.requestedCount))
+      : 20; // 默认 20 个地点
     
     // 解析 exceededLimit
     const exceededLimit = response.exceededLimit === true;
     
-    console.log(`[AIRecommendationService] User requested ${requestedCount} places, exceededLimit: ${exceededLimit}, AI returned ${response.places.length}`);
+    console.log(`[AIRecommendationService] requestedCount: ${requestedCount}, exceededLimit: ${exceededLimit}, AI returned ${response.places.length}`);
 
     // Validate each place
     const validatedPlaces: AIPlace[] = [];
@@ -424,12 +526,22 @@ class AIRecommendationService {
           placeNames: cat.placeNames.map((n: any) => String(n).trim()),
         });
       }
+      
+      // Warn if categories don't meet requirements
+      if (validatedCategories.length < 3) {
+        console.warn(`[AIRecommendationService] Expected at least 3 categories, got ${validatedCategories.length}`);
+      }
+      for (const cat of validatedCategories) {
+        if (cat.placeNames.length < 3) {
+          console.warn(`[AIRecommendationService] Category "${cat.title}" has only ${cat.placeNames.length} places (expected at least 3)`);
+        }
+      }
     }
 
     // 分类策略：
-    // - requestedCount >= 5: 分类（5个可以分成2+3）
-    // - requestedCount <= 4: 不分类（不够分成2个分类，每个最少2个）
-    const shouldUseCategories = requestedCount >= 5 && validatedCategories && validatedCategories.length > 0;
+    // - 默认使用分类（至少 3 个分类，每个至少 3 个地点）
+    // - requestedCount <= 3: 不分类
+    const shouldUseCategories = requestedCount >= 4 && validatedCategories && validatedCategories.length >= 3;
 
     return {
       acknowledgment: response.acknowledgment.trim(),
@@ -445,10 +557,38 @@ class AIRecommendationService {
    * Requirements: 1.1, 3.1, 3.3, 3.4, 3.5
    * 
    * @param query User's search query
+   * @param language User's preferred language (e.g., 'en', 'zh', 'ja')
    * @returns AI recommendation result with places and optional categories
    */
-  async getRecommendations(query: string): Promise<AIRecommendationResult> {
-    const userPrompt = `User query: ${query}\n\nProvide 10 place recommendations.`;
+  async getRecommendations(query: string, language: string = 'en'): Promise<AIRecommendationResult> {
+    // Map language code to full name for AI
+    const languageMap: Record<string, string> = {
+      'en': 'English',
+      'zh': 'Chinese (Simplified)',
+      'zh-CN': 'Chinese (Simplified)',
+      'zh-TW': 'Chinese (Traditional)',
+      'ja': 'Japanese',
+      'ko': 'Korean',
+      'es': 'Spanish',
+      'fr': 'French',
+      'de': 'German',
+      'it': 'Italian',
+      'pt': 'Portuguese',
+    };
+    const languageName = languageMap[language] || 'English';
+    
+    const userPrompt = `User query: ${query}
+
+IMPORTANT: Respond in ${languageName}. All text including acknowledgment, category titles, summaries, tags, and recommendationPhrase must be in ${languageName}.
+
+CRITICAL RULES FOR NUMBER OF PLACES:
+- Parse the user's query to determine how many places they want
+- If user specifies a number (e.g., "12 restaurants", "5家咖啡店"), return EXACTLY that number (max 20)
+- If user does NOT specify a number, return exactly 20 places
+- If user requests more than 20, return exactly 20 places and set exceededLimit to true
+- Set requestedCount in your response to the number you are returning
+
+Each summary MUST be 40-60 characters, complete sentence, no "..." at end.`;
 
     const response = await this.executeWithFallback(
       async (provider) => {
@@ -458,6 +598,9 @@ class AIRecommendationService {
       },
       'getRecommendations'
     );
+
+    // 打印 AI 返回的地点名称
+    console.log(`[AIRecommendationService] AI places: ${response.places.map(p => p.name).join(', ')}`);
 
     return response;
   }

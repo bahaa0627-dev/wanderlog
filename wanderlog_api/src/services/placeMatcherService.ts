@@ -117,10 +117,11 @@ export interface DisplayResult {
 export const MATCH_CONFIG = {
   nameSimThreshold: 0.7,        // 名称相似度阈值 (70%)
   maxDistanceMeters: 500,       // 最大距离阈值 (500m)
-  minMatchesPerCategory: 2,     // 每个分类最少匹配数（触发 Google 的阈值）
-  maxMatchesPerCategory: 5,     // 每个分类最多展示数
+  minMatchesPerCategory: 2,     // 每个分类最少匹配数（改为2，更宽松）
+  maxMatchesPerCategory: 10,    // 每个分类最多展示数
   minTotalMatches: 5,           // 无分类时最少匹配数（触发 Google 的阈值）
-  maxTotalMatches: 5,           // 无分类时最多展示数（默认值，会被 requestedCount 覆盖）
+  maxTotalMatches: 10,          // 无分类时最多展示数（默认值，会被 requestedCount 覆盖）
+  minCategories: 2,             // 最少分类数（改为2，更宽松）
 };
 
 /**
@@ -234,12 +235,12 @@ const PREFIX_TRANSLATIONS: Record<string, string[]> = {
 };
 
 /**
- * Normalize name by removing/standardizing prefixes for better matching
+ * Normalize name by removing/standardizing prefixes and special characters for better matching
  */
 function normalizeNameForMatching(name: string): string {
   let lower = name.toLowerCase().trim();
   
-  // Remove accents
+  // Remove accents and diacritics (ü -> u, é -> e, ñ -> n, etc.)
   lower = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   
   // Remove common prefixes like "Basílica de la", "Iglesia de", etc.
@@ -276,16 +277,117 @@ function normalizeNameForMatching(name: string): string {
 }
 
 /**
+ * Normalize string for comparison: remove accents, lowercase, trim
+ */
+function normalizeForComparison(str: string): string {
+  return str
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+    .replace(/[''`]/g, "'")          // Normalize apostrophes
+    .replace(/\s+/g, ' ');           // Normalize whitespace
+}
+
+/**
+ * Normalize name for core matching: remove hyphens, common suffixes, location prefixes
+ * This helps match "Sensoji" with "Senso-ji Temple" or "Asakusa Senso-ji" with "Senso-ji Temple"
+ * Also handles multilingual variations like "La Boqueria Market" vs "Mercat de la Boqueria"
+ */
+function extractCoreName(name: string): string {
+  let core = normalizeForComparison(name);
+  
+  // Remove common location prefixes (Asakusa, Shibuya, etc.)
+  const locationPrefixes = [
+    'asakusa', 'shibuya', 'shinjuku', 'ginza', 'ueno', 'akihabara', 'harajuku',
+    'roppongi', 'odaiba', 'ikebukuro', 'tokyo', 'kyoto', 'osaka', 'nara',
+  ];
+  for (const prefix of locationPrefixes) {
+    if (core.startsWith(prefix + ' ')) {
+      core = core.substring(prefix.length + 1);
+    }
+  }
+  
+  // Remove common suffixes (English)
+  const suffixes = [' temple', ' shrine', ' castle', ' park', ' garden', ' museum', ' station', ' market', ' church', ' cathedral', ' palace', ' tower', ' bridge'];
+  for (const suffix of suffixes) {
+    if (core.endsWith(suffix)) {
+      core = core.substring(0, core.length - suffix.length);
+    }
+  }
+  
+  // Remove common prefixes (multilingual: mercat de la, mercado de, marche de, etc.)
+  const prefixPatterns = [
+    /^mercat\s+(de\s+la\s+|de\s+)?/i,  // Catalan: Mercat de la
+    /^mercado\s+(de\s+la\s+|de\s+|del\s+)?/i,  // Spanish: Mercado de
+    /^marche\s+(de\s+la\s+|de\s+|du\s+)?/i,  // French: Marché de
+    /^market\s+(of\s+the\s+|of\s+)?/i,  // English: Market of
+    /^la\s+/i,  // Spanish/Catalan article
+    /^el\s+/i,
+    /^les\s+/i,
+    /^los\s+/i,
+    /^las\s+/i,
+    /^the\s+/i,
+  ];
+  
+  for (const pattern of prefixPatterns) {
+    core = core.replace(pattern, '');
+  }
+  
+  // Remove hyphens and normalize (senso-ji -> sensoji)
+  core = core.replace(/-/g, '');
+  
+  return core.trim();
+}
+
+/**
  * Check if one name contains the other (for partial matching)
+ * Handles language variations: "La Rambla" matches "Las Ramblas"
+ * Also handles Japanese temple names: "Sensoji" matches "Senso-ji Temple"
  */
 function containsMatch(name1: string, name2: string): boolean {
-  const n1 = name1.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const n2 = name2.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return n1.includes(n2) || n2.includes(n1);
+  const n1 = normalizeForComparison(name1);
+  const n2 = normalizeForComparison(name2);
+  
+  // Direct contains check
+  if (n1.includes(n2) || n2.includes(n1)) {
+    return true;
+  }
+  
+  // Handle plural variations (Rambla/Ramblas, Güell/Guell)
+  const n1Base = n1.replace(/s$/, ''); // Remove trailing 's'
+  const n2Base = n2.replace(/s$/, '');
+  
+  if (n1Base.includes(n2Base) || n2Base.includes(n1Base)) {
+    return true;
+  }
+  
+  // Handle "La/Las/El/Los" prefix variations
+  const stripArticle = (s: string) => s.replace(/^(la|las|el|los|les)\s+/i, '');
+  const n1NoArticle = stripArticle(n1);
+  const n2NoArticle = stripArticle(n2);
+  
+  if (n1NoArticle.includes(n2NoArticle) || n2NoArticle.includes(n1NoArticle)) {
+    return true;
+  }
+  
+  // Extract core names (handles "Asakusa Senso-ji" vs "Senso-ji Temple", "Sensoji" vs "Senso-ji")
+  const core1 = extractCoreName(name1);
+  const core2 = extractCoreName(name2);
+  
+  if (core1.length >= 4 && core2.length >= 4) {
+    // Check if core names match or contain each other
+    if (core1 === core2 || core1.includes(core2) || core2.includes(core1)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 /**
  * Calculate normalized name similarity (0-1)
+ * Handles language variations, accents, and special characters
  * 
  * @param name1 - First name
  * @param name2 - Second name
@@ -294,17 +396,19 @@ function containsMatch(name1: string, name2: string): boolean {
  * Requirements: 5.1
  */
 export function calculateNameSimilarity(name1: string, name2: string): number {
-  // Normalize names: lowercase, trim, remove extra spaces
-  const normalize = (s: string) => s.toLowerCase().trim().replace(/\s+/g, ' ');
-  
-  const n1 = normalize(name1);
-  const n2 = normalize(name2);
+  // Normalize names: lowercase, trim, remove accents, normalize spaces
+  const n1 = normalizeForComparison(name1);
+  const n2 = normalizeForComparison(name2);
   
   // Handle empty strings
   if (n1.length === 0 && n2.length === 0) return 1;
   if (n1.length === 0 || n2.length === 0) return 0;
   
+  // Exact match after normalization
+  if (n1 === n2) return 1;
+  
   // Check for contains match first (e.g., "Sagrada Familia" in "Basílica de la Sagrada Família")
+  // Also handles "La Rambla" vs "Las Ramblas"
   if (containsMatch(n1, n2)) {
     // If one contains the other, give high score
     const shorter = n1.length < n2.length ? n1 : n2;
@@ -329,7 +433,7 @@ export function calculateNameSimilarity(name1: string, name2: string): number {
     return Math.max(0.85, shorter.length / longer.length);
   }
   
-  if (n1NoPrefix !== n1.toLowerCase().trim() || n2NoPrefix !== n2.toLowerCase().trim()) {
+  if (n1NoPrefix !== n1 || n2NoPrefix !== n2) {
     const distanceNoPrefix = levenshteinDistance(n1NoPrefix, n2NoPrefix);
     const maxLenNoPrefix = Math.max(n1NoPrefix.length, n2NoPrefix.length);
     const noPrefixSimilarity = maxLenNoPrefix > 0 ? 1 - (distanceNoPrefix / maxLenNoPrefix) : 0;
@@ -398,14 +502,25 @@ class PlaceMatcherService {
           placeCoords.lng
         );
         
-        // Check if within distance threshold
-        const withinDistance = distance <= MATCH_CONFIG.maxDistanceMeters;
+        // 改进匹配逻辑：
+        // 1. 如果名称完全匹配（>= 0.95），放宽距离限制到 2km
+        // 2. 如果名称高度相似（>= 0.85），距离限制 1km
+        // 3. 普通匹配（>= 0.7），距离限制 500m
+        let maxDistance = MATCH_CONFIG.maxDistanceMeters; // 500m
+        if (nameSim >= 0.95) {
+          maxDistance = 2000; // 2km for near-perfect name match
+        } else if (nameSim >= 0.85) {
+          maxDistance = 1000; // 1km for high similarity
+        }
         
-        // Calculate combined score (70% name, 30% distance)
-        const distanceScore = withinDistance ? 1 : 0;
-        const score = nameSim * 0.7 + distanceScore * 0.3;
+        const withinDistance = distance <= maxDistance;
         
-        // Check if meets threshold and is better than current best
+        // Calculate combined score
+        // 名称相似度权重更高，距离作为加分项
+        const distanceBonus = withinDistance ? Math.max(0, 1 - distance / maxDistance) * 0.2 : 0;
+        const score = nameSim * 0.8 + distanceBonus;
+        
+        // 匹配条件：名称相似度 >= 0.7 且 距离在允许范围内
         if (nameSim >= MATCH_CONFIG.nameSimThreshold && 
             withinDistance &&
             (!bestMatch || score > bestMatch.score)) {
@@ -631,13 +746,14 @@ class PlaceMatcherService {
     
     // 计算理想的分类数量和每个分类的地点数
     // 目标：尽量每个分类多放，减少分类数量
-    // 每个分类最多5个，最少2个
-    const idealPlacesPerCategory = Math.min(5, Math.max(2, Math.ceil(requestedCount / 3)));
-    const idealCategoryCount = Math.ceil(requestedCount / idealPlacesPerCategory);
+    // 每个分类最多10个，最少2个
+    // 例如：10个地点 -> 2个分类，每个5个；或3个分类，3+3+4
+    const idealPlacesPerCategory = Math.min(MATCH_CONFIG.maxMatchesPerCategory, Math.max(3, Math.ceil(requestedCount / 3)));
+    const idealCategoryCount = Math.min(categories.length, Math.ceil(requestedCount / idealPlacesPerCategory));
     
-    console.log(`📊 [PlaceMatcher] Category strategy: ${idealCategoryCount} categories, ~${idealPlacesPerCategory} places each`);
+    console.log(`📊 [PlaceMatcher] Category strategy: ${idealCategoryCount} categories, ~${idealPlacesPerCategory} places each, total requested: ${requestedCount}`);
     
-    // 只使用前 idealCategoryCount 个分类
+    // 使用所有可用的分类（最多 idealCategoryCount 个）
     const categoriesToUse = categories.slice(0, idealCategoryCount);
     
     for (let catIndex = 0; catIndex < categoriesToUse.length; catIndex++) {
@@ -680,36 +796,62 @@ class PlaceMatcherService {
         return b.score - a.score;
       });
       
+      // AI-only 地点按是否有图片排序：有图片的在前
+      categoryAIOnlyPlaces.sort((a, b) => {
+        const aHasImage = a.coverImage && a.coverImage.length > 0 ? 1 : 0;
+        const bHasImage = b.coverImage && b.coverImage.length > 0 ? 1 : 0;
+        return bHasImage - aHasImage;
+      });
+      
       // 计算这个分类应该展示多少地点
       const remainingSlots = requestedCount - totalPlacesAdded;
       const remainingCategories = categoriesToUse.length - catIndex;
-      // 平均分配剩余的地点，但每个分类最多5个，最少2个
+      // 平均分配剩余的地点，但每个分类最多10个，最少3个
       const targetForThisCategory = Math.min(
         MATCH_CONFIG.maxMatchesPerCategory,
         Math.max(MATCH_CONFIG.minMatchesPerCategory, Math.ceil(remainingSlots / remainingCategories))
       );
       
-      // 组合最终列表：先匹配的，再 AI-only
+      // 组合最终列表：优先添加有图片的地点，但也允许没有图片的
       const categoryPlaces: PlaceResult[] = [];
+      const placesWithoutImage: PlaceResult[] = [];
       
+      // 先添加匹配的地点
       for (const { place } of categoryMatchedPlaces) {
         if (categoryPlaces.length >= targetForThisCategory) break;
-        categoryPlaces.push(place);
+        if (place.coverImage && place.coverImage.length > 0) {
+          categoryPlaces.push(place);
+        } else {
+          placesWithoutImage.push(place);
+        }
       }
       
+      // 再添加 AI-only 地点
       for (const place of categoryAIOnlyPlaces) {
+        if (categoryPlaces.length >= targetForThisCategory) break;
+        if (place.coverImage && place.coverImage.length > 0) {
+          categoryPlaces.push(place);
+        } else {
+          placesWithoutImage.push(place);
+        }
+      }
+      
+      // 如果有图片的地点不够，补充没有图片的地点
+      for (const place of placesWithoutImage) {
         if (categoryPlaces.length >= targetForThisCategory) break;
         categoryPlaces.push(place);
       }
       
-      // Only add category if it has at least 2 places
+      // Only add category if it has at least minMatchesPerCategory places
       if (categoryPlaces.length >= MATCH_CONFIG.minMatchesPerCategory) {
         categoryGroups.push({
           title: category.title,
           places: categoryPlaces,
         });
         totalPlacesAdded += categoryPlaces.length;
-        console.log(`📊 [PlaceMatcher] Category "${category.title}": ${categoryPlaces.length} places`);
+        console.log(`📊 [PlaceMatcher] Category "${category.title}": ${categoryPlaces.length} places (${categoryPlaces.filter(p => p.coverImage).length} with images)`);
+      } else {
+        console.log(`⚠️ [PlaceMatcher] Category "${category.title}" skipped: only ${categoryPlaces.length} places (need ${MATCH_CONFIG.minMatchesPerCategory})`);
       }
     }
     
@@ -725,7 +867,7 @@ class PlaceMatcherService {
 
   /**
    * Apply display limits without categories (flat layout)
-   * 展示优先级：Google > Cache > AI
+   * 展示优先级：Supabase Cache > AI 带图片 > AI 文字
    * 
    * Requirements: 9.4
    */
@@ -757,7 +899,14 @@ class PlaceMatcherService {
     }
     
     // 如果还不够，添加 AI-only 地点
-    for (const u of unmatched) {
+    // 排序：有图片的在前，无图片的在后
+    const sortedUnmatched = [...unmatched].sort((a, b) => {
+      const aHasImage = a.coverImageUrl && a.coverImageUrl.length > 0 ? 1 : 0;
+      const bHasImage = b.coverImageUrl && b.coverImageUrl.length > 0 ? 1 : 0;
+      return bHasImage - aHasImage; // 有图片的排前面
+    });
+    
+    for (const u of sortedUnmatched) {
       if (places.length >= maxPlaces) break;
       places.push(this.createAIOnlyPlaceResult(u));
     }

@@ -117,11 +117,10 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
 
   String? get _spotDescription {
     try {
-      if (widget.spot is Spot) {
-        return null;
-      }
+      // 尝试获取 aiSummary（AI 地点的描述）
       final aiSummary = (widget.spot as dynamic).aiSummary as String?;
       if (aiSummary != null && aiSummary.isNotEmpty) return aiSummary;
+      // 回退到 description
       return (widget.spot as dynamic).description as String?;
     } catch (e) {
       return null;
@@ -166,6 +165,43 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     } catch (e) {
       return false;
     }
+  }
+
+  /// 根据地点特征生成默认推荐短语
+  String _getDefaultRecommendationPhrase() {
+    final tags = _spotTags;
+    final name = _spotName.toLowerCase();
+    final category = _getCategory()?.toLowerCase() ?? '';
+    
+    if (tags.any((t) => t.toLowerCase().contains('museum') || t.toLowerCase().contains('gallery')) ||
+        category.contains('museum')) {
+      return 'Cultural treasure';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('temple') || t.toLowerCase().contains('shrine')) ||
+        category.contains('temple') || category.contains('shrine')) {
+      return 'Sacred landmark';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('park') || t.toLowerCase().contains('garden')) ||
+        category.contains('park')) {
+      return 'Scenic retreat';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('cafe') || t.toLowerCase().contains('coffee')) ||
+        category.contains('cafe')) {
+      return 'Local favorite';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('restaurant') || t.toLowerCase().contains('food')) ||
+        category.contains('restaurant')) {
+      return 'Culinary gem';
+    }
+    if (name.contains('castle') || name.contains('palace')) {
+      return 'Historic landmark';
+    }
+    if (name.contains('tower') || name.contains('view')) {
+      return 'Iconic viewpoint';
+    }
+    
+    final phrases = ['Must-visit', 'Hidden gem', 'Local pick', 'Worth exploring', 'Traveler favorite'];
+    return phrases[_spotName.length % phrases.length];
   }
 
   List<String> get _spotTags {
@@ -1251,15 +1287,15 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                   const SizedBox(height: 16),
                 ],
                 // 5. Rating or Recommendation Phrase with Check-in button on the right
-                // For AI-only places, show recommendation phrase instead of rating
-                if (_isAIOnlySpot && _spotRecommendationPhrase != null) ...[
+                // For AI-only places or places without valid rating, show recommendation phrase
+                if (_isAIOnlySpot || (_spotRating == null || _spotRating == 0)) ...[
                   Row(
                     children: [
                       Icon(Icons.auto_awesome, size: 20, color: AppTheme.primaryYellow),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _spotRecommendationPhrase!,
+                          _spotRecommendationPhrase ?? _getDefaultRecommendationPhrase(),
                           style: AppTheme.headlineMedium(context).copyWith(
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
@@ -1270,7 +1306,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                     ],
                   ),
                   const SizedBox(height: 16),
-                ] else if (_spotRating != null) ...[
+                ] else if (_spotRating != null && _spotRating! > 0) ...[
                   Row(
                     children: [
                       Text(

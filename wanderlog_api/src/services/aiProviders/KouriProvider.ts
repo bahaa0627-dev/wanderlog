@@ -3,6 +3,7 @@
  * 
  * Implements the AIProvider interface for Kouri API proxy service.
  * Provides access to OpenAI models (gpt-4o-mini, gpt-4o) via OpenAI-compatible API.
+ * Uses /v1/responses endpoint with web_search_preview for better recommendations.
  */
 
 import axios, { AxiosError } from 'axios';
@@ -46,6 +47,33 @@ interface OpenAIChatResponse {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
+  };
+}
+
+/**
+ * Kouri Responses API format (with web search)
+ */
+interface KouriResponsesResponse {
+  id: string;
+  object: string;
+  created_at: number;
+  status: string;
+  model: string;
+  output: Array<{
+    id: string;
+    type: string;
+    status: string;
+    content?: Array<{
+      type: string;
+      text?: string;
+      annotations?: Array<any>;
+    }>;
+    role?: string;
+  }>;
+  usage?: {
+    input_tokens: number;
+    output_tokens?: number;
+    total_tokens?: number;
   };
 }
 
@@ -109,11 +137,21 @@ export class KouriProvider implements AIProvider {
   /**
    * Build API URL for chat completions endpoint
    */
-  private buildApiUrl(): string {
+  private buildChatApiUrl(): string {
     if (!this.config) {
       throw new Error('Kouri not configured');
     }
     return `${this.config.baseUrl}/chat/completions`;
+  }
+
+  /**
+   * Build API URL for responses endpoint (with web search)
+   */
+  private buildResponsesApiUrl(): string {
+    if (!this.config) {
+      throw new Error('Kouri not configured');
+    }
+    return `${this.config.baseUrl}/responses`;
   }
 
   /**
@@ -147,7 +185,7 @@ export class KouriProvider implements AIProvider {
   }
 
   /**
-   * Generate text based on a prompt using Kouri API (OpenAI-compatible)
+   * Generate text based on a prompt using Kouri Responses API (with web search)
    * @param prompt User prompt
    * @param systemPrompt Optional system prompt
    * @returns Generated text response
@@ -157,44 +195,49 @@ export class KouriProvider implements AIProvider {
       throw this.createConfigError();
     }
 
-    const url = this.buildApiUrl();
+    const url = this.buildResponsesApiUrl();
     
-    const messages: Array<{ role: string; content: string }> = [];
-    
-    if (systemPrompt) {
-      messages.push({
-        role: 'system',
-        content: systemPrompt,
-      });
-    }
-    
-    messages.push({
-      role: 'user',
-      content: prompt,
-    });
+    // Combine system prompt and user prompt for the responses API
+    const fullPrompt = systemPrompt 
+      ? `${systemPrompt}\n\n${prompt}`
+      : prompt;
 
     const requestBody = {
       model: this.config.chatModel,
-      messages,
-      max_tokens: 1000,
-      temperature: 0.7,
+      input: fullPrompt,
+      tools: [{ type: 'web_search_preview' }],
+      tool_choice: 'auto', // 让 AI 自己决定是否使用 web search
     };
 
     try {
-      console.log(`[Kouri] Sending chat request to: ${url}`);
+      console.log(`[Kouri] Sending responses request to: ${url}`);
       
-      const response = await axios.post<OpenAIChatResponse>(url, requestBody, {
+      const response = await axios.post<KouriResponsesResponse>(url, requestBody, {
         headers: this.getHeaders(),
-        timeout: 30000, // 30 second timeout
+        timeout: 90000, // 90 second timeout for web search
       });
 
-      const content = response.data.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('Empty response from Kouri API');
+      // Extract text content from the response
+      const output = response.data.output;
+      let content = '';
+      
+      for (const item of output) {
+        if (item.type === 'message' && item.content) {
+          for (const contentItem of item.content) {
+            if (contentItem.type === 'output_text' && contentItem.text) {
+              content = contentItem.text;
+              break;
+            }
+          }
+        }
       }
 
-      console.log(`[Kouri] Chat request successful`);
-      console.log(`[Kouri] Tokens used: ${response.data.usage?.total_tokens || 'unknown'}`);
+      if (!content) {
+        throw new Error('Empty response from Kouri Responses API');
+      }
+
+      console.log(`[Kouri] Responses request successful`);
+      console.log(`[Kouri] Tokens used: ${response.data.usage?.input_tokens || 'unknown'}`);
       
       return content;
     } catch (error) {
@@ -213,7 +256,7 @@ export class KouriProvider implements AIProvider {
       throw this.createConfigError();
     }
 
-    const url = this.buildApiUrl();
+    const url = this.buildChatApiUrl();
     
     const systemPrompt = `You are a travel expert specializing in identifying famous landmarks, restaurants, cafes, museums, and tourist attractions from images. 
 Please identify the place in the image and return ONLY a JSON object with this exact structure:
@@ -276,6 +319,94 @@ If you cannot identify the place with reasonable confidence, set confidence to 0
       return result;
     } catch (error) {
       throw this.handleError(error, 'identifyPlace');
+    }
+  }
+
+  /**
+   * Search for place image using web search
+   * @param placeName Name of the place
+   * @param city Optional city name for better results
+   * @returns Image URL or null
+   */
+  async searchPlaceImage(placeName: string, city?: string): Promise<string | null> {
+    if (!this.isAvailable() || !this.config) {
+      console.log('[Kouri] Not available for image search');
+      return null;
+    }
+
+    const url = this.buildResponsesApiUrl();
+    const searchQuery = city ? `${placeName} ${city}` : placeName;
+    
+    const prompt = `Find a direct image URL for "${searchQuery}".
+IMPORTANT: Return ONLY a direct image file URL (must end with .jpg, .jpeg, .png, .webp, or .gif).
+Do NOT return webpage URLs from Getty Images, Alamy, Shutterstock, or similar stock photo sites.
+Prefer images from Wikipedia, Wikimedia Commons, or official tourism websites.
+
+Return JSON: {"imageUrl": "https://example.com/image.jpg", "source": "website name"}
+If no direct image URL found: {"imageUrl": null, "source": null}`;
+
+    const requestBody = {
+      model: this.config.chatModel,
+      input: prompt,
+      tools: [{ type: 'web_search_preview' }],
+      tool_choice: 'required', // 强制使用 web search
+    };
+
+    try {
+      console.log(`[Kouri] Searching image for: ${searchQuery}`);
+      
+      const response = await axios.post<KouriResponsesResponse>(url, requestBody, {
+        headers: this.getHeaders(),
+        timeout: 30000,
+      });
+
+      // Extract text content from the response
+      const output = response.data.output;
+      let content = '';
+      
+      for (const item of output) {
+        if (item.type === 'message' && item.content) {
+          for (const contentItem of item.content) {
+            if (contentItem.type === 'output_text' && contentItem.text) {
+              content = contentItem.text;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!content) {
+        console.log('[Kouri] Empty response for image search');
+        return null;
+      }
+
+      // Remove markdown code blocks if present
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+      // Parse JSON response
+      try {
+        const result = this.parseJsonResponse<{ imageUrl: string | null; source: string | null }>(content);
+        if (result.imageUrl) {
+          // Validate that it's a direct image URL
+          const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+          const urlLower = result.imageUrl.toLowerCase();
+          const isDirectImage = imageExtensions.some(ext => urlLower.includes(ext));
+          
+          if (isDirectImage) {
+            console.log(`[Kouri] Found image from ${result.source}: ${result.imageUrl}`);
+            return result.imageUrl;
+          } else {
+            console.log(`[Kouri] Skipping non-direct image URL: ${result.imageUrl.substring(0, 50)}...`);
+          }
+        }
+      } catch (parseError) {
+        console.log('[Kouri] Failed to parse image search response:', content.substring(0, 100));
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('[Kouri] Image search error:', error instanceof Error ? error.message : error);
+      return null;
     }
   }
 

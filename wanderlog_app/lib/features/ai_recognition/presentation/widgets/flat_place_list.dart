@@ -16,6 +16,7 @@ import 'package:wanderlog/shared/widgets/custom_toast.dart';
 /// - 最多显示 5 个地点
 /// - 3:2 横向卡片，summary 在卡片上方
 /// - 去掉 AI/Verified 标签
+/// - 没有图片的地点以文字形式展示，排在最后
 class FlatPlaceList extends StatelessWidget {
   const FlatPlaceList({
     required this.places,
@@ -42,17 +43,267 @@ class FlatPlaceList extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    // 分离有图片和无图片的地点，有图片的在前，无图片的在后
+    final placesWithImage = displayPlaces.where((p) => p.coverImage.isNotEmpty).toList();
+    final placesWithoutImage = displayPlaces.where((p) => p.coverImage.isEmpty).toList();
+    final sortedPlaces = [...placesWithImage, ...placesWithoutImage];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (int i = 0; i < displayPlaces.length; i++) ...[
-          FlatPlaceCard(
-            place: displayPlaces[i],
-            onTap: () => onPlaceTap?.call(displayPlaces[i]),
-          ),
-          if (i < displayPlaces.length - 1) const SizedBox(height: 16),
+        for (int i = 0; i < sortedPlaces.length; i++) ...[
+          if (sortedPlaces[i].coverImage.isNotEmpty)
+            FlatPlaceCard(
+              place: sortedPlaces[i],
+              onTap: () => onPlaceTap?.call(sortedPlaces[i]),
+            )
+          else
+            TextOnlyPlaceItem(
+              place: sortedPlaces[i],
+              onTap: () => onPlaceTap?.call(sortedPlaces[i]),
+            ),
+          if (i < sortedPlaces.length - 1) const SizedBox(height: 16),
         ],
       ],
+    );
+  }
+}
+
+/// 纯文字地点展示组件 - 用于没有图片的地点
+/// 
+/// 格式：地点名加粗，下方展示 AI summary（约3行）
+class TextOnlyPlaceItem extends ConsumerStatefulWidget {
+  const TextOnlyPlaceItem({
+    required this.place,
+    this.onTap,
+    this.onWishlistChanged,
+    super.key,
+  });
+
+  final PlaceResult place;
+  final VoidCallback? onTap;
+  final void Function(bool isInWishlist)? onWishlistChanged;
+
+  @override
+  ConsumerState<TextOnlyPlaceItem> createState() => _TextOnlyPlaceItemState();
+}
+
+class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
+  bool _isInWishlist = false;
+  bool _isSaving = false;
+  String? _destinationId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWishlistStatusFromCache();
+  }
+
+  @override
+  void didUpdateWidget(TextOnlyPlaceItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.place.id != widget.place.id || oldWidget.place.name != widget.place.name) {
+      _loadWishlistStatusFromCache();
+    }
+  }
+
+  void _loadWishlistStatusFromCache() {
+    final statusAsync = ref.read(wishlistStatusProvider);
+    statusAsync.whenData((statusMap) {
+      final spotId = widget.place.id ?? widget.place.name;
+      final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
+      if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
+        setState(() {
+          _isInWishlist = isInWishlist;
+          _destinationId = destId;
+        });
+      }
+    });
+  }
+
+  Future<void> _handleWishlistTap() async {
+    if (_isSaving) return;
+
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) {
+      final authed = await requireAuth(context, ref);
+      if (!authed) return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      if (_isInWishlist && _destinationId != null) {
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: _destinationId!,
+          spotId: widget.place.id ?? widget.place.name,
+          remove: true,
+        );
+        ref.invalidate(tripsProvider);
+        ref.invalidate(wishlistStatusProvider);
+        setState(() {
+          _isInWishlist = false;
+          _destinationId = null;
+        });
+        widget.onWishlistChanged?.call(false);
+        CustomToast.showSuccess(context, 'Removed from wishlist');
+      } else {
+        final cityName = widget.place.city?.isNotEmpty == true 
+            ? widget.place.city! 
+            : (widget.place.country?.isNotEmpty == true 
+                ? widget.place.country! 
+                : 'Saved Places');
+        
+        final destId = await ensureDestinationForCity(ref, cityName);
+        if (destId == null) {
+          CustomToast.showError(context, 'Failed to save - please try again');
+          return;
+        }
+
+        final effectiveTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: destId,
+          spotId: widget.place.id ?? widget.place.name,
+          status: TripSpotStatus.wishlist,
+          spotPayload: {
+            'name': widget.place.name,
+            'city': widget.place.city ?? '',
+            'country': widget.place.country ?? '',
+            'latitude': widget.place.latitude,
+            'longitude': widget.place.longitude,
+            'rating': widget.place.rating,
+            'ratingCount': widget.place.ratingCount,
+            'tags': effectiveTags,
+            'coverImage': widget.place.coverImage,
+            'images': [widget.place.coverImage],
+            'googlePlaceId': widget.place.googlePlaceId,
+            'source': widget.place.source.name,
+          },
+        );
+
+        ref.invalidate(tripsProvider);
+        ref.invalidate(wishlistStatusProvider);
+        setState(() {
+          _isInWishlist = true;
+          _destinationId = destId;
+        });
+        widget.onWishlistChanged?.call(true);
+        CustomToast.showSuccess(context, 'Saved to wishlist');
+      }
+    } catch (e) {
+      debugPrint('❌ [TextOnlyPlaceItem] Wishlist error: $e');
+      CustomToast.showError(context, 'Error saving - please try again');
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 获取 summary 或 recommendationPhrase
+    final description = widget.place.summary.isNotEmpty 
+        ? widget.place.summary 
+        : (widget.place.recommendationPhrase ?? '');
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.lightGray.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(color: AppTheme.black.withOpacity(0.1), width: 1),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 左侧文字内容
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 地点名称 - 加粗
+                  Text(
+                    widget.place.name,
+                    style: AppTheme.labelLarge(context).copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppTheme.black,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // AI summary - 约3行
+                  if (description.isNotEmpty)
+                    Text(
+                      description,
+                      style: AppTheme.bodyMedium(context).copyWith(
+                        color: AppTheme.darkGray,
+                        height: 1.4,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  // 标签
+                  if ((widget.place.displayTagsEn ?? widget.place.tags)?.isNotEmpty == true) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: (widget.place.displayTagsEn ?? widget.place.tags ?? []).take(2).map((tag) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryYellow.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            tag,
+                            style: AppTheme.bodySmall(context).copyWith(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.black,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            // 右侧收藏按钮
+            GestureDetector(
+              onTap: _handleWishlistTap,
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: _isInWishlist ? AppTheme.primaryYellow : Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.black, width: 1.5),
+                ),
+                child: _isSaving
+                    ? const Padding(
+                        padding: EdgeInsets.all(6),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
+                        ),
+                      )
+                    : Icon(
+                        _isInWishlist ? Icons.favorite : Icons.favorite_border,
+                        size: 16,
+                        color: AppTheme.black,
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -79,13 +330,17 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
   bool _isInWishlist = false;
   bool _isSaving = false;
   String? _destinationId;
-  bool _initialized = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_initialized) {
-      _initialized = true;
+  void initState() {
+    super.initState();
+    _loadWishlistStatusFromCache();
+  }
+
+  @override
+  void didUpdateWidget(FlatPlaceCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.place.id != widget.place.id || oldWidget.place.name != widget.place.name) {
       _loadWishlistStatusFromCache();
     }
   }
@@ -176,7 +431,9 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
   Widget _buildRatingOrPhrase(BuildContext context) {
     // AI-only 地点显示推荐短语
     if (widget.place.isAIOnly || !widget.place.hasRating) {
-      final phrase = widget.place.recommendationPhrase ?? 'Recommended';
+      final phrase = widget.place.recommendationPhrase?.isNotEmpty == true 
+          ? widget.place.recommendationPhrase!
+          : _getDefaultPhrase();
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -221,14 +478,46 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
     );
   }
 
-  Widget _buildTags(BuildContext context) {
+  /// 根据地点特征生成默认推荐短语
+  String _getDefaultPhrase() {
     final tags = widget.place.tags ?? [];
-    if (tags.isEmpty) return const SizedBox.shrink();
+    final name = widget.place.name.toLowerCase();
+    
+    if (tags.any((t) => t.toLowerCase().contains('museum') || t.toLowerCase().contains('gallery'))) {
+      return 'Cultural treasure';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('temple') || t.toLowerCase().contains('shrine'))) {
+      return 'Sacred landmark';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('park') || t.toLowerCase().contains('garden'))) {
+      return 'Scenic retreat';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('cafe') || t.toLowerCase().contains('coffee'))) {
+      return 'Local favorite';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('restaurant') || t.toLowerCase().contains('food'))) {
+      return 'Culinary gem';
+    }
+    if (name.contains('castle') || name.contains('palace')) {
+      return 'Historic landmark';
+    }
+    if (name.contains('tower') || name.contains('view')) {
+      return 'Iconic viewpoint';
+    }
+    
+    final phrases = ['Must-visit', 'Hidden gem', 'Local pick', 'Worth exploring', 'Traveler favorite'];
+    return phrases[widget.place.name.length % phrases.length];
+  }
+
+  Widget _buildTags(BuildContext context) {
+    // 优先使用后端计算好的 displayTagsEn，否则回退到 tags
+    final displayTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+    if (displayTags.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
       spacing: 4,
       runSpacing: 4,
-      children: tags.take(2).map((tag) {
+      children: displayTags.take(2).map((tag) {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(

@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
 
@@ -355,6 +357,7 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
         doubleTapToZoomInEnabled: true,
         doubleTouchToZoomOutEnabled: true,
         quickZoomEnabled: true,
+        pitchEnabled: false, // 禁用倾斜
       );
 
       await map.gestures.updateSettings(settings);
@@ -369,7 +372,7 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
 
     return Container(
       height: widget.height,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      // 不设置 margin，让外层控制边距（和地点卡片保持一致）
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
@@ -492,11 +495,31 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
   final Map<String, PointAnnotation> _annotationsByPlaceId = {};
   final Map<String, PlaceResult> _placeByAnnotationId = {};
   PlaceResult? _selectedPlace;
+  final PageController _cardPageController = PageController(viewportFraction: 0.6);
+  int _currentCardIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _selectedPlace = widget.selectedPlace;
+    // 如果有初始选中的地点，找到它的索引
+    if (_selectedPlace != null) {
+      final index = widget.places.indexWhere((p) => (p.id ?? p.name) == (_selectedPlace!.id ?? _selectedPlace!.name));
+      if (index >= 0) {
+        _currentCardIndex = index;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_cardPageController.hasClients) {
+            _cardPageController.jumpToPage(index);
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _cardPageController.dispose();
+    super.dispose();
   }
 
   /// 计算地图中心点和缩放级别
@@ -758,14 +781,55 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
   }
 
   void _handleMarkerTap(PlaceResult place) {
-    setState(() => _selectedPlace = place);
-    widget.onPlaceTap?.call(place);
+    final index = widget.places.indexWhere((p) => (p.id ?? p.name) == (place.id ?? place.name));
+    if (index >= 0) {
+      setState(() {
+        _selectedPlace = place;
+        _currentCardIndex = index;
+      });
+      // 滚动到对应的卡片
+      if (_cardPageController.hasClients) {
+        _cardPageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+      // 刷新标记样式
+      _addMarkers();
+    }
+  }
+
+  /// 卡片滑动时更新选中状态
+  void _onCardPageChanged(int index) {
+    if (index >= 0 && index < widget.places.length) {
+      final place = widget.places[index];
+      setState(() {
+        _selectedPlace = place;
+        _currentCardIndex = index;
+      });
+      // 刷新标记样式
+      _addMarkers();
+      // 移动地图到选中的地点
+      _mapboxMap?.flyTo(
+        CameraOptions(
+          center: Point(coordinates: Position(place.longitude, place.latitude)),
+          zoom: 14.0,
+        ),
+        MapAnimationOptions(duration: 500),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final (center, zoom) = _calculateCameraPosition();
     final topPadding = MediaQuery.of(context).padding.top;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    // 卡片尺寸 - 和其他地图页保持一致 (3:4 比例)
+    const cardWidth = 210.0;
+    const cardHeight = 280.0;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -840,15 +904,33 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
               ),
             ),
           ),
-          // 底部选中地点卡片
-          if (_selectedPlace != null)
+          // 底部横滑卡片列表 - 和其他地图页保持一致
+          if (widget.places.isNotEmpty)
             Positioned(
-              left: 16,
-              right: 16,
-              bottom: MediaQuery.of(context).padding.bottom + 16,
-              child: _SelectedPlaceCard(
-                place: _selectedPlace!,
-                onTap: () => widget.onPlaceTap?.call(_selectedPlace!),
+              left: 0,
+              right: 0,
+              bottom: bottomPadding + 16,
+              height: cardHeight,
+              child: PageView.builder(
+                controller: _cardPageController,
+                onPageChanged: _onCardPageChanged,
+                itemCount: widget.places.length,
+                itemBuilder: (context, index) {
+                  final place = widget.places[index];
+                  final isSelected = (place.id ?? place.name) == (_selectedPlace?.id ?? _selectedPlace?.name);
+                  return AnimatedScale(
+                    scale: isSelected ? 1.0 : 0.9,
+                    duration: const Duration(milliseconds: 200),
+                    child: SizedBox(
+                      width: cardWidth,
+                      height: cardHeight,
+                      child: _BottomPlaceCard(
+                        place: place,
+                        onTap: () => widget.onPlaceTap?.call(place),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
         ],
@@ -857,115 +939,208 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
   }
 }
 
-/// 选中地点卡片
-class _SelectedPlaceCard extends StatelessWidget {
-  const _SelectedPlaceCard({
+/// 底部地点卡片组件 - 全图+渐变覆盖样式（和其他地图页保持一致）
+class _BottomPlaceCard extends StatefulWidget {
+  const _BottomPlaceCard({
     required this.place,
-    this.onTap,
+    required this.onTap,
   });
 
   final PlaceResult place;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
+  State<_BottomPlaceCard> createState() => _BottomPlaceCardState();
+}
+
+class _BottomPlaceCardState extends State<_BottomPlaceCard> {
+  Color _dominantColor = Colors.black;
+
+  @override
+  void initState() {
+    super.initState();
+    _extractDominantColor();
+  }
+
+  @override
+  void didUpdateWidget(_BottomPlaceCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.place.coverImage != widget.place.coverImage) {
+      _extractDominantColor();
+    }
+  }
+
+  Future<void> _extractDominantColor() async {
+    if (widget.place.coverImage.isEmpty) return;
+    
+    try {
+      final ImageProvider imageProvider;
+      if (widget.place.coverImage.startsWith('data:')) {
+        final base64Data = widget.place.coverImage.split(',').last;
+        final bytes = base64Decode(base64Data);
+        imageProvider = MemoryImage(Uint8List.fromList(bytes));
+      } else {
+        imageProvider = NetworkImage(widget.place.coverImage);
+      }
+      
+      final paletteGenerator = await PaletteGenerator.fromImageProvider(
+        imageProvider,
+        size: const ui.Size(100, 100),
+        maximumColorCount: 5,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _dominantColor = paletteGenerator.dominantColor?.color ??
+              paletteGenerator.darkMutedColor?.color ??
+              paletteGenerator.darkVibrantColor?.color ??
+              Colors.black;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _dominantColor = Colors.black);
+      }
+    }
+  }
+
+  Widget _buildCover() {
+    final placeholder = ColoredBox(
+      color: AppTheme.lightGray,
+      child: const Center(
+        child: Icon(Icons.place, size: 52, color: AppTheme.mediumGray),
+      ),
+    );
+
+    if (widget.place.coverImage.isEmpty) return placeholder;
+
+    if (widget.place.coverImage.startsWith('data:')) {
+      try {
+        final base64Data = widget.place.coverImage.split(',').last;
+        final bytes = base64Decode(base64Data);
+        return Image.memory(
+          Uint8List.fromList(bytes),
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder,
+        );
+      } catch (e) {
+        return placeholder;
+      }
+    }
+    return Image.network(
+      widget.place.coverImage,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => placeholder,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+      onTap: widget.onTap,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
           boxShadow: AppTheme.cardShadow,
         ),
-        child: Row(
-          children: [
-            // 封面图
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.black, width: 1),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(7),
-                child: place.coverImage.isNotEmpty
-                    ? Image.network(
-                        place.coverImage,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const ColoredBox(
-                          color: AppTheme.lightGray,
-                          child: Icon(Icons.image, color: AppTheme.mediumGray),
-                        ),
-                      )
-                    : const ColoredBox(
-                        color: AppTheme.lightGray,
-                        child: Icon(Icons.image, color: AppTheme.mediumGray),
-                      ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // 信息
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    place.name,
-                    style: AppTheme.labelLarge(context).copyWith(
-                      fontWeight: FontWeight.bold,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildCover(),
+              // 底部渐变蒙层 - 使用提取的主色
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  height: 140,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        _dominantColor.withOpacity(0.3),
+                        _dominantColor.withOpacity(0.6),
+                        _dominantColor.withOpacity(0.85),
+                      ],
+                      stops: const [0.0, 0.3, 0.6, 1.0],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  if (place.hasRating)
-                    Row(
-                      children: [
-                        const Icon(Icons.star, size: 14, color: AppTheme.primaryYellow),
-                        const SizedBox(width: 4),
-                        Text(
-                          place.rating!.toStringAsFixed(1),
-                          style: AppTheme.bodySmall(context).copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (place.ratingCount != null) ...[
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      widget.place.name,
+                      style: AppTheme.bodyLarge(context).copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    // 评分或推荐短语
+                    if (widget.place.hasRating)
+                      Row(
+                        children: [
+                          const Icon(Icons.star, size: 14, color: AppTheme.primaryYellow),
                           const SizedBox(width: 4),
                           Text(
-                            '(${place.ratingCount})',
+                            widget.place.rating!.toStringAsFixed(1),
                             style: AppTheme.bodySmall(context).copyWith(
-                              color: AppTheme.mediumGray,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (widget.place.ratingCount != null) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              '(${widget.place.ratingCount})',
+                              style: AppTheme.bodySmall(context).copyWith(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
+                      )
+                    else if (widget.place.recommendationPhrase != null)
+                      Row(
+                        children: [
+                          Icon(Icons.auto_awesome, size: 14, color: AppTheme.primaryYellow),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              widget.place.recommendationPhrase!,
+                              style: AppTheme.bodySmall(context).copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
-                      ],
-                    )
-                  else if (place.recommendationPhrase != null)
-                    Row(
-                      children: [
-                        Icon(Icons.auto_awesome, size: 14, color: AppTheme.primaryYellow),
-                        const SizedBox(width: 4),
-                        Text(
-                          place.recommendationPhrase!,
-                          style: AppTheme.bodySmall(context).copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
+                      ),
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right, color: AppTheme.mediumGray),
-          ],
+            ],
+          ),
         ),
       ),
     );
-  }
 }
 
 /// 标记点击监听器

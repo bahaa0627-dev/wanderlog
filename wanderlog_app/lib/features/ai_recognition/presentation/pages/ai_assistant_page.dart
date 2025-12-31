@@ -20,6 +20,7 @@ import 'package:wanderlog/features/ai_recognition/presentation/widgets/recommend
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' show Spot, SpotSource;
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/core/providers/locale_provider.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 
@@ -82,6 +83,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     _preloadWishlistStatus();
     _loadHistories();
     _loadQuota();
+    
+    // 首次构建完成后滚动到底部
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottomWithRetry();
+    });
   }
 
   /// 预加载收藏状态，确保卡片显示时状态已就绪
@@ -161,20 +167,38 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     }
 
     setState(() => _isLoading = false);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    // 多次尝试滚动，确保内容完全渲染后滚动到底部
+    _scrollToBottomWithRetry();
+  }
+
+  /// 多次尝试滚动到底部，确保内容完全渲染
+  void _scrollToBottomWithRetry() {
+    // 立即尝试一次
+    _scrollToBottom();
+    // 100ms 后再试
+    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+    // 300ms 后再试（等待图片等异步内容）
+    Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
+    // 500ms 后最后一次
+    Future.delayed(const Duration(milliseconds: 500), _scrollToBottom);
   }
 
   void _scrollToBottom({bool animated = false}) {
+    if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (_scrollController.hasClients) {
-        if (animated) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        } else {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        final maxExtent = _scrollController.position.maxScrollExtent;
+        if (maxExtent > 0) {
+          if (animated) {
+            _scrollController.animateTo(
+              maxExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          } else {
+            _scrollController.jumpTo(maxExtent);
+          }
         }
       }
     });
@@ -346,9 +370,18 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     // 不在前端检查配额，让后端来判断
     // 后端会返回 429 错误如果配额用完
 
+    // 语言检测逻辑：
+    // 1. 默认使用用户 Settings 里的语言
+    // 2. 但检测用户输入的语言，回复保持一致（支持自由切换）
+    final userSettingsLanguage = ref.read(localeProvider).languageCode;
+    final detectedLanguage = _detectQueryLanguage(query);
+    final language = detectedLanguage ?? userSettingsLanguage;
+    debugPrint('🌐 [SearchV2] Settings language: $userSettingsLanguage, Detected: $detectedLanguage, Using: $language');
+
     final result = await _searchV2Service.searchV2(
       query: query,
       userId: user.id,
+      language: language,
       onStageChange: (state) {
         if (mounted) {
           setState(() => _searchLoadingState = state);
@@ -432,6 +465,82 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       );
       await _historyService.saveHistory(history);
     }
+  }
+
+  /// 检测用户输入的语言
+  /// 根据 query 整体判断语言，不只是看地名
+  /// 返回检测到的语言代码，如果无法确定则返回 null（使用默认设置）
+  String? _detectQueryLanguage(String query) {
+    final lowerQuery = query.toLowerCase().trim();
+    
+    // 检测中文字符（包括简体和繁体）
+    final chineseRegex = RegExp(r'[\u4e00-\u9fff\u3400-\u4dbf]');
+    // 检测日文字符（平假名、片假名）
+    final japaneseRegex = RegExp(r'[\u3040-\u309f\u30a0-\u30ff]');
+    // 检测韩文字符
+    final koreanRegex = RegExp(r'[\uac00-\ud7af\u1100-\u11ff]');
+    
+    final chineseCount = chineseRegex.allMatches(query).length;
+    final japaneseCount = japaneseRegex.allMatches(query).length;
+    final koreanCount = koreanRegex.allMatches(query).length;
+    
+    // 如果有明显的非拉丁字符，根据数量判断语言
+    if (chineseCount > 0 || japaneseCount > 0 || koreanCount > 0) {
+      // 日文优先（因为日文可能混合汉字）
+      if (japaneseCount > 0) {
+        return 'ja';
+      }
+      // 韩文
+      if (koreanCount > chineseCount) {
+        return 'ko';
+      }
+      // 中文
+      if (chineseCount > 0) {
+        return 'zh';
+      }
+    }
+    
+    // 检测法语特征字符和词汇
+    if (RegExp(r'[àâéèêëïîôùûüÿœæç]', caseSensitive: false).hasMatch(query) ||
+        RegExp(r'\b(je|tu|il|nous|vous|ils|le|la|les|un|une|des|du|de|et|ou|mais|donc|car|ni|que|qui|quoi|où|quand|comment|pourquoi|avec|pour|dans|sur|sous|chez|vers|par|entre|sans|avant|après|pendant|depuis|jusqu|contre|malgré|selon|sauf|voici|voilà|très|bien|mal|peu|beaucoup|trop|assez|plus|moins|aussi|encore|toujours|jamais|souvent|parfois|déjà|bientôt|maintenant|hier|aujourd|demain|ici|là|partout|ailleurs|dedans|dehors|dessus|dessous|devant|derrière|près|loin|autour|café|restaurant|hôtel|musée|église|château|jardin|plage|montagne|ville|rue|place|pont|gare|aéroport|boulangerie|pâtisserie|librairie|pharmacie|hôpital|école|université|théâtre|cinéma|stade|parc|forêt|lac|rivière|mer|océan|île|côte|nord|sud|est|ouest|centre|quartier|arrondissement|avenue|boulevard|impasse|passage|allée|chemin|route|autoroute|métro|bus|train|avion|bateau|voiture|vélo|moto|taxi|uber|réservation|billet|ticket|entrée|sortie|ouvert|fermé|gratuit|payant|cher|bon|mauvais|grand|petit|nouveau|ancien|vieux|jeune|beau|joli|laid|propre|sale|chaud|froid|sec|humide|clair|sombre|calme|bruyant|rapide|lent|facile|difficile|simple|compliqué|possible|impossible|nécessaire|important|intéressant|ennuyeux|amusant|triste|heureux|content|fâché|surpris|déçu|fatigué|malade|sain|fort|faible|riche|pauvre|plein|vide|lourd|léger|dur|mou|doux|rugueux|lisse|pointu|rond|carré|long|court|large|étroit|haut|bas|profond|superficiel|épais|mince|serré|lâche|mouillé|sec|frais|tiède|brûlant|glacé|sucré|salé|amer|acide|épicé|fade|délicieux|dégoûtant|appétissant|nourrissant|léger|lourd|copieux|frugal|végétarien|végétalien|bio|local|traditionnel|moderne|classique|contemporain|populaire|célèbre|inconnu|rare|commun|unique|spécial|ordinaire|extraordinaire|magnifique|superbe|splendide|merveilleux|fantastique|incroyable|étonnant|surprenant|choquant|effrayant|terrifiant|horrible|affreux|atroce|abominable|détestable|haïssable|méprisable|ignoble|infâme|odieux|répugnant|repoussant|dégoûtant|écœurant|nauséabond|puant|malodorant|fétide|pestilentiel)\b', caseSensitive: false).hasMatch(lowerQuery)) {
+      return 'fr';
+    }
+    
+    // 检测西班牙语特征字符和词汇
+    if (RegExp(r'[áéíóúñ¿¡]', caseSensitive: false).hasMatch(query) ||
+        RegExp(r'\b(yo|tú|él|ella|nosotros|vosotros|ellos|el|la|los|las|un|una|unos|unas|del|al|y|o|pero|sino|porque|que|quien|cual|donde|cuando|como|por|para|con|sin|sobre|bajo|entre|hacia|desde|hasta|según|durante|mediante|ante|tras|contra|excepto|salvo|incluso|además|también|tampoco|ni|ya|aún|todavía|siempre|nunca|jamás|a veces|muchas veces|pocas veces|casi|apenas|solo|solamente|únicamente|principalmente|especialmente|particularmente|generalmente|normalmente|habitualmente|frecuentemente|raramente|ocasionalmente|probablemente|posiblemente|seguramente|ciertamente|evidentemente|obviamente|claramente|realmente|verdaderamente|efectivamente|prácticamente|virtualmente|literalmente|figuradamente|metafóricamente|simbólicamente|alegóricamente|irónicamente|sarcásticamente|humorísticamente|cómicamente|trágicamente|dramáticamente|épicamente|líricamente|poéticamente|prosaicamente|elegantemente|graciosamente|torpemente|hábilmente|diestramente|magistralmente|brillantemente|espléndidamente|maravillosamente|fantásticamente|increíblemente|asombrosamente|sorprendentemente|impresionantemente|extraordinariamente|excepcionalmente|notablemente|considerablemente|significativamente|sustancialmente|enormemente|inmensamente|vastamente|ampliamente|extensamente|profundamente|intensamente|fuertemente|poderosamente|vigorosamente|enérgicamente|dinámicamente|activamente|pasivamente|tranquilamente|pacíficamente|serenamente|calmadamente|sosegadamente|apaciblemente|plácidamente|suavemente|delicadamente|tiernamente|cariñosamente|amorosamente|afectuosamente|cordialmente|amablemente|gentilmente|cortésmente|educadamente|respetuosamente|atentamente|cuidadosamente|meticulosamente|minuciosamente|detalladamente|exhaustivamente|completamente|totalmente|enteramente|plenamente|absolutamente|definitivamente|categóricamente|rotundamente|tajantemente|terminantemente|irrevocablemente|irreversiblemente|irremediablemente|inevitablemente|inexorablemente|indefectiblemente|infaliblemente|indudablemente|incuestionablemente|indiscutiblemente|innegablemente|irrefutablemente|incontrovertiblemente|incontestablemente|café|restaurante|hotel|museo|iglesia|castillo|jardín|playa|montaña|ciudad|calle|plaza|puente|estación|aeropuerto|panadería|pastelería|librería|farmacia|hospital|escuela|universidad|teatro|cine|estadio|parque|bosque|lago|río|mar|océano|isla|costa|norte|sur|este|oeste|centro|barrio|avenida|bulevar|callejón|pasaje|camino|carretera|autopista|metro|autobús|tren|avión|barco|coche|bicicleta|moto|taxi)\b', caseSensitive: false).hasMatch(lowerQuery)) {
+      return 'es';
+    }
+    
+    // 检测德语特征字符和词汇
+    if (RegExp(r'[äöüß]', caseSensitive: false).hasMatch(query) ||
+        RegExp(r'\b(ich|du|er|sie|es|wir|ihr|der|die|das|ein|eine|und|oder|aber|denn|weil|dass|wenn|als|ob|wie|wo|wann|warum|wer|was|welch|mit|ohne|für|gegen|durch|um|bei|nach|von|zu|aus|seit|bis|während|trotz|wegen|anstatt|außer|innerhalb|außerhalb|oberhalb|unterhalb|diesseits|jenseits|beiderseits|längs|entlang|gemäß|laut|zufolge|entsprechend|ungeachtet|unbeschadet|einschließlich|ausschließlich|hinsichtlich|bezüglich|betreffs|zwecks|mittels|vermittels|kraft|dank|infolge|aufgrund|anlässlich|gelegentlich|angesichts|café|restaurant|hotel|museum|kirche|schloss|garten|strand|berg|stadt|straße|platz|brücke|bahnhof|flughafen|bäckerei|konditorei|buchhandlung|apotheke|krankenhaus|schule|universität|theater|kino|stadion|park|wald|see|fluss|meer|ozean|insel|küste|norden|süden|osten|westen|zentrum|viertel|allee|boulevard|gasse|passage|weg|landstraße|autobahn|ubahn|bus|zug|flugzeug|schiff|auto|fahrrad|motorrad)\b', caseSensitive: false).hasMatch(lowerQuery)) {
+      return 'de';
+    }
+    
+    // 检测英语词汇（最后检测，因为很多语言会混用英语词）
+    // 使用更全面的英语词汇列表
+    final englishPatterns = [
+      // 常见介词、冠词、连词
+      r'\b(in|at|near|around|the|a|an|to|for|with|from|of|on|by|about|into|through|during|before|after|above|below|between|under|over|behind|beside|next|across|along|among|within|without|against|toward|towards|upon|onto|off|out|up|down|away|back|here|there|where|when|how|why|what|which|who|whom|whose|that|this|these|those|it|its|is|are|was|were|be|been|being|have|has|had|having|do|does|did|doing|will|would|shall|should|can|could|may|might|must|need|dare|ought|used)\b',
+      // 旅行相关动词和形容词
+      r'\b(recommend|find|show|best|top|good|nice|great|beautiful|amazing|wonderful|fantastic|excellent|perfect|lovely|gorgeous|stunning|incredible|awesome|cool|interesting|famous|popular|historic|ancient|modern|traditional|local|authentic|hidden|secret|must-see|must-visit|worth|visiting|exploring|discovering|experiencing)\b',
+      // 地点类型
+      r'\b(cafe|cafes|coffee|coffeeshop|restaurant|restaurants|hotel|hotels|hostel|museum|museums|gallery|galleries|park|parks|garden|gardens|beach|beaches|temple|temples|shrine|shrines|church|churches|cathedral|cathedrals|mosque|mosques|palace|palaces|castle|castles|tower|towers|bridge|bridges|square|squares|street|streets|market|markets|shop|shops|store|stores|mall|malls|bar|bars|pub|pubs|club|clubs|theater|theatre|cinema|stadium|arena|zoo|aquarium|library|bookstore|bakery|pastry|dessert|ice cream|pizza|burger|sushi|ramen|noodle|dumpling|dim sum|seafood|steak|bbq|barbecue|vegetarian|vegan|brunch|breakfast|lunch|dinner|snack|drink|cocktail|wine|beer|tea|bubble tea|juice|smoothie)\b',
+      // 旅行相关名词
+      r'\b(place|places|spot|spots|location|locations|destination|destinations|attraction|attractions|landmark|landmarks|sight|sights|view|views|scenery|area|areas|neighborhood|neighbourhoods|district|districts|quarter|quarters|city|cities|town|towns|village|villages|country|countries|region|regions|island|islands|mountain|mountains|lake|lakes|river|rivers|ocean|sea|coast|coastline|bay|harbor|harbour|port|airport|station|terminal|stop|tour|tours|trip|trips|travel|travels|journey|journeys|adventure|adventures|vacation|vacations|holiday|holidays|getaway|escape|retreat|experience|experiences)\b',
+      // 请求和疑问
+      r'\b(please|want|looking|search|searching|seeking|need|help|suggest|suggestion|suggestions|idea|ideas|tip|tips|advice|guide|guides|information|info|detail|details|list|options|choice|choices|alternative|alternatives|similar|like|such as|example|examples|any|some|few|many|more|most|all|every|each|other|another|different|same|similar|nearby|close|closest|nearest|around here|in this area)\b',
+    ];
+    
+    for (final pattern in englishPatterns) {
+      if (RegExp(pattern, caseSensitive: false).hasMatch(lowerQuery)) {
+        return 'en';
+      }
+    }
+    
+    // 无法确定，返回 null 使用默认设置
+    return null;
   }
 
   /// 将 PlaceResult 转换为 Spot
@@ -633,6 +742,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     controller: _scrollController,
     padding: const EdgeInsets.all(16),
     itemCount: _messages.length + (_isSendingMessage ? 1 : 0),
+    // 确保列表可以滚动到底部
+    shrinkWrap: false,
     itemBuilder: (context, index) {
       if (index == _messages.length) return _buildLoadingIndicator();
       final message = _messages[index];
@@ -778,6 +889,18 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           const SizedBox(height: 20),
         ],
 
+        // 没有分类时，在地点列表前显示 overallSummary 作为开头介绍
+        if (!result.hasCategories && result.overallSummary.isNotEmpty) ...[
+          Text(
+            result.overallSummary,
+            style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.black,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
         // 分类展示或平铺展示 - Requirements: 9.1
         if (result.hasCategories)
           // 有分类时使用分类展示组件
@@ -794,8 +917,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
         const SizedBox(height: 20),
 
-        // 总结 summary - Requirements: 10.1, 10.2 - 黑色文字
-        if (result.overallSummary.isNotEmpty) ...[
+        // 有分类时，在地点列表后显示 overallSummary（如果有的话）
+        if (result.hasCategories && result.overallSummary.isNotEmpty) ...[
           Text(
             result.overallSummary,
             style: AppTheme.bodyMedium(context).copyWith(

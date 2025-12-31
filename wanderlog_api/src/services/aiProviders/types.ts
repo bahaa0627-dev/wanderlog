@@ -135,6 +135,14 @@ export interface AIProvider {
   generateText(prompt: string, systemPrompt?: string): Promise<string>;
 
   /**
+   * Search for a place image using web search (optional)
+   * @param placeName Name of the place
+   * @param city Optional city name for better results
+   * @returns Image URL or null
+   */
+  searchPlaceImage?(placeName: string, city?: string): Promise<string | null>;
+
+  /**
    * Check if the provider is available (configured and ready)
    * @returns true if provider can be used
    */

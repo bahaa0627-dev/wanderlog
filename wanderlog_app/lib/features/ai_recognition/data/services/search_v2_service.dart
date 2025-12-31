@@ -23,6 +23,7 @@ class SearchV2Service {
   /// [userId] 用户 ID（用于配额检查）
   /// [userLat] 用户纬度（可选）
   /// [userLng] 用户经度（可选）
+  /// [language] 用户语言设置（如 'en', 'zh'）
   /// [onStageChange] 阶段变化回调
   /// [cancelToken] 取消令牌
   /// 
@@ -32,6 +33,7 @@ class SearchV2Service {
     required String userId,
     double? userLat,
     double? userLng,
+    String language = 'en',
     void Function(SearchLoadingState)? onStageChange,
     CancelToken? cancelToken,
   }) async {
@@ -52,13 +54,14 @@ class SearchV2Service {
       // Stage 2: 正在寻找合适地点
       onStageChange?.call(const SearchLoadingState.searching());
 
-      debugPrint('🔍 SearchV2: Calling API with query: $query');
+      debugPrint('🔍 SearchV2: Calling API with query: $query, language: $language');
 
       final response = await _dio.post<Map<String, dynamic>>(
         '$_apiBaseUrl/places/ai/search-v2',
         data: {
           'query': query,
           'userId': userId,
+          'language': language,
           if (userLat != null) 'userLat': userLat,
           if (userLng != null) 'userLng': userLng,
         },

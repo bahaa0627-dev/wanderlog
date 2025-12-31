@@ -3,6 +3,7 @@
  * 
  * Manages user search quotas for AI Search V2.
  * Each user is limited to 10 AI searches per day.
+ * VIP users get 100 searches per day.
  * Uses the existing user_quotas table in Supabase.
  * 
  * Requirements: 13.1, 13.2
@@ -15,6 +16,22 @@ import prisma from '../config/database';
  * Requirement 13.1: limit logged-in users to 10 AI searches per day
  */
 const DAILY_QUOTA = 10;
+
+/**
+ * VIP quota limit - 100 searches per day
+ */
+const VIP_DAILY_QUOTA = 100;
+
+/**
+ * VIP user IDs - these users get higher quota
+ * Can be configured via environment variable VIP_USER_IDS (comma-separated)
+ * Or add user IDs directly here
+ */
+const VIP_USER_IDS: Set<string> = new Set([
+  // VIP users with 100 searches per day
+  'dc4d5f8f-8b52-4853-a180-9f7f5e869005', // blcubahaa0627@gmail.com
+  ...(process.env.VIP_USER_IDS?.split(',').map(id => id.trim()).filter(id => id) || []),
+]);
 
 /**
  * User quota record from database
@@ -46,9 +63,25 @@ export class QuotaExceededError extends Error {
  */
 class QuotaService {
   private readonly dailyLimit: number;
+  private readonly vipDailyLimit: number;
 
-  constructor(dailyLimit: number = DAILY_QUOTA) {
+  constructor(dailyLimit: number = DAILY_QUOTA, vipDailyLimit: number = VIP_DAILY_QUOTA) {
     this.dailyLimit = dailyLimit;
+    this.vipDailyLimit = vipDailyLimit;
+  }
+
+  /**
+   * Check if a user is VIP
+   */
+  private isVipUser(userId: string): boolean {
+    return VIP_USER_IDS.has(userId);
+  }
+
+  /**
+   * Get the daily limit for a specific user
+   */
+  private getUserDailyLimit(userId: string): number {
+    return this.isVipUser(userId) ? this.vipDailyLimit : this.dailyLimit;
   }
 
   /**
@@ -108,6 +141,7 @@ class QuotaService {
   /**
    * Check if a user can perform a search
    * Requirement 13.1: limit logged-in users to 10 AI searches per day
+   * VIP users get 100 searches per day
    * 
    * @param userId User's UUID
    * @returns true if user has remaining quota, false otherwise
@@ -115,7 +149,8 @@ class QuotaService {
   async canSearch(userId: string): Promise<boolean> {
     try {
       const quota = await this.getOrCreateQuotaRecord(userId);
-      return quota.deep_search_count < this.dailyLimit;
+      const userLimit = this.getUserDailyLimit(userId);
+      return quota.deep_search_count < userLimit;
     } catch (error) {
       console.error('[QuotaService] Error checking quota:', error);
       // On error, allow the search (fail open for better UX)
@@ -132,10 +167,11 @@ class QuotaService {
    */
   async consumeQuota(userId: string): Promise<void> {
     const quota = await this.getOrCreateQuotaRecord(userId);
+    const userLimit = this.getUserDailyLimit(userId);
 
-    if (quota.deep_search_count >= this.dailyLimit) {
+    if (quota.deep_search_count >= userLimit) {
       throw new QuotaExceededError(
-        `Daily search quota exceeded. You have used all ${this.dailyLimit} searches for today. Please try again tomorrow.`
+        `Daily search quota exceeded. You have used all ${userLimit} searches for today. Please try again tomorrow.`
       );
     }
 
@@ -156,11 +192,12 @@ class QuotaService {
   async getRemainingQuota(userId: string): Promise<number> {
     try {
       const quota = await this.getOrCreateQuotaRecord(userId);
-      return Math.max(0, this.dailyLimit - quota.deep_search_count);
+      const userLimit = this.getUserDailyLimit(userId);
+      return Math.max(0, userLimit - quota.deep_search_count);
     } catch (error) {
       console.error('[QuotaService] Error getting remaining quota:', error);
       // On error, return full quota (fail open for better UX)
-      return this.dailyLimit;
+      return this.getUserDailyLimit(userId);
     }
   }
 
@@ -187,7 +224,8 @@ class QuotaService {
   }> {
     try {
       const quota = await this.getOrCreateQuotaRecord(userId);
-      const remaining = Math.max(0, this.dailyLimit - quota.deep_search_count);
+      const userLimit = this.getUserDailyLimit(userId);
+      const remaining = Math.max(0, userLimit - quota.deep_search_count);
       
       // Calculate reset time (next midnight UTC)
       const now = new Date();
@@ -199,13 +237,14 @@ class QuotaService {
 
       return {
         remaining,
-        limit: this.dailyLimit,
+        limit: userLimit,
         used: quota.deep_search_count,
         resetsAt: tomorrow,
       };
     } catch (error) {
       console.error('[QuotaService] Error getting quota info:', error);
       // On error, return default values
+      const userLimit = this.getUserDailyLimit(userId);
       const now = new Date();
       const tomorrow = new Date(Date.UTC(
         now.getUTCFullYear(),
@@ -213,8 +252,8 @@ class QuotaService {
         now.getUTCDate() + 1
       ));
       return {
-        remaining: this.dailyLimit,
-        limit: this.dailyLimit,
+        remaining: userLimit,
+        limit: userLimit,
         used: 0,
         resetsAt: tomorrow,
       };

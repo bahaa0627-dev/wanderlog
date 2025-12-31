@@ -52,13 +52,19 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   bool _isInWishlist = false;
   bool _isSaving = false;
   String? _destinationId;
-  bool _initialized = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_initialized) {
-      _initialized = true;
+  void initState() {
+    super.initState();
+    // 立即从缓存同步读取收藏状态
+    _loadWishlistStatusFromCache();
+  }
+
+  @override
+  void didUpdateWidget(AIPlaceCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 如果 place 变化，重新加载状态
+    if (oldWidget.place.id != widget.place.id || oldWidget.place.name != widget.place.name) {
       _loadWishlistStatusFromCache();
     }
   }
@@ -173,7 +179,10 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   Widget _buildRatingOrPhrase(BuildContext context) {
     // AI-only 地点显示推荐短语
     if (widget.place.isAIOnly || !widget.place.hasRating) {
-      final phrase = widget.place.recommendationPhrase ?? 'Recommended';
+      // 使用 AI 返回的推荐短语，如果没有则根据地点特征生成
+      final phrase = widget.place.recommendationPhrase?.isNotEmpty == true 
+          ? widget.place.recommendationPhrase!
+          : _getDefaultPhrase();
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -216,6 +225,39 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         ],
       ],
     );
+  }
+
+  /// 根据地点特征生成默认推荐短语
+  String _getDefaultPhrase() {
+    final tags = widget.place.tags ?? [];
+    final name = widget.place.name.toLowerCase();
+    
+    // 根据标签或名称特征选择短语
+    if (tags.any((t) => t.toLowerCase().contains('museum') || t.toLowerCase().contains('gallery'))) {
+      return 'Cultural treasure';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('temple') || t.toLowerCase().contains('shrine'))) {
+      return 'Sacred landmark';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('park') || t.toLowerCase().contains('garden'))) {
+      return 'Scenic retreat';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('cafe') || t.toLowerCase().contains('coffee'))) {
+      return 'Local favorite';
+    }
+    if (tags.any((t) => t.toLowerCase().contains('restaurant') || t.toLowerCase().contains('food'))) {
+      return 'Culinary gem';
+    }
+    if (name.contains('castle') || name.contains('palace')) {
+      return 'Historic landmark';
+    }
+    if (name.contains('tower') || name.contains('view')) {
+      return 'Iconic viewpoint';
+    }
+    
+    // 随机选择一个通用短语
+    final phrases = ['Must-visit', 'Hidden gem', 'Local pick', 'Worth exploring', 'Traveler favorite'];
+    return phrases[widget.place.name.length % phrases.length];
   }
 
   /// 构建标签列表

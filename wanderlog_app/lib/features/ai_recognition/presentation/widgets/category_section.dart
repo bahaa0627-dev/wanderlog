@@ -105,8 +105,7 @@ class _PlaceCardWithSummary extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Summary 在卡片下方，跟随卡片一起滑动，显示 2-3 行
-        // 高度自适应文字内容，最多 3 行
+        // Summary 在卡片下方，最多 3 行，超出显示...
         if (place.summary.isNotEmpty)
           Text(
             place.summary,

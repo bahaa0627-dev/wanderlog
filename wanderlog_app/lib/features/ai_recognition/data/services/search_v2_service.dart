@@ -86,6 +86,7 @@ class SearchV2Service {
       }
 
       debugPrint('✅ SearchV2: Response received');
+      debugPrint('🔍 SearchV2: Raw response data: $data');
 
       // 解析响应
       final result = SearchV2Result.fromJson(data);

@@ -49,39 +49,34 @@ class AIPlaceCard extends ConsumerStatefulWidget {
 }
 
 class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
-  bool _isInWishlist = false;
   bool _isSaving = false;
-  String? _destinationId;
+  int _imageRetryCount = 0;
+  static const int _maxRetries = 3;
+  String? _currentImageUrl;
+
+  /// 获取当前地点的 spotId
+  String get _spotId => widget.place.id ?? widget.place.name;
+
+  /// 从 provider 获取收藏状态（响应式）
+  (bool, String?) _getWishlistStatus(Map<String, String?> statusMap) {
+    return checkWishlistStatus(statusMap, _spotId);
+  }
 
   @override
   void initState() {
     super.initState();
-    // 立即从缓存同步读取收藏状态
-    _loadWishlistStatusFromCache();
+    _currentImageUrl = widget.place.coverImage;
   }
 
   @override
   void didUpdateWidget(AIPlaceCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 如果 place 变化，重新加载状态
-    if (oldWidget.place.id != widget.place.id || oldWidget.place.name != widget.place.name) {
-      _loadWishlistStatusFromCache();
+    // 如果 place 变化，重置图片状态
+    if (oldWidget.place.id != widget.place.id || 
+        oldWidget.place.coverImage != widget.place.coverImage) {
+      _imageRetryCount = 0;
+      _currentImageUrl = widget.place.coverImage;
     }
-  }
-
-  /// 从缓存加载收藏状态（同步，无需等待）
-  void _loadWishlistStatusFromCache() {
-    final statusAsync = ref.read(wishlistStatusProvider);
-    statusAsync.whenData((statusMap) {
-      final spotId = widget.place.id ?? widget.place.name;
-      final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
-      if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
-        setState(() {
-          _isInWishlist = isInWishlist;
-          _destinationId = destId;
-        });
-      }
-    });
   }
 
   /// 解码 base64 图片
@@ -93,7 +88,23 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
     }
   }
 
-  /// 构建封面图片
+  /// 重试加载图片
+  void _retryImageLoad() {
+    if (_imageRetryCount < _maxRetries && mounted) {
+      setState(() {
+        _imageRetryCount++;
+        // 添加时间戳强制刷新缓存
+        final baseUrl = widget.place.coverImage;
+        if (baseUrl.isNotEmpty && !baseUrl.startsWith('data:')) {
+          final separator = baseUrl.contains('?') ? '&' : '?';
+          _currentImageUrl = '$baseUrl${separator}_retry=$_imageRetryCount&_t=${DateTime.now().millisecondsSinceEpoch}';
+        }
+      });
+      debugPrint('🔄 [AIPlaceCard] Retrying image load for "${widget.place.name}" (attempt $_imageRetryCount/$_maxRetries)');
+    }
+  }
+
+  /// 构建封面图片（带重试机制）
   Widget _buildCoverImage(String imageUrl) {
     // AI 地点的占位符 - 使用渐变背景和图标
     Widget buildAIPlaceholder() {
@@ -139,13 +150,16 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
       ),
     );
 
+    // 使用当前图片 URL（可能包含重试参数）
+    final effectiveUrl = _currentImageUrl ?? imageUrl;
+
     // 如果是 AI-only 地点且没有图片，使用特殊占位符
-    if (imageUrl.isEmpty) {
+    if (effectiveUrl.isEmpty) {
       return widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder;
     }
 
-    if (imageUrl.startsWith('data:')) {
-      final bytes = _decodeBase64Image(imageUrl);
+    if (effectiveUrl.startsWith('data:')) {
+      final bytes = _decodeBase64Image(effectiveUrl);
       if (bytes != null) {
         return Image.memory(
           bytes,
@@ -157,7 +171,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
     }
 
     return Image.network(
-      imageUrl,
+      effectiveUrl,
       fit: BoxFit.cover,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
@@ -171,7 +185,26 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
           ),
         );
       },
-      errorBuilder: (_, __, ___) => widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder,
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint('❌ [AIPlaceCard] Image load failed for "${widget.place.name}": $error');
+        // 如果还有重试次数，延迟后重试
+        if (_imageRetryCount < _maxRetries) {
+          Future.delayed(Duration(milliseconds: 500 * (_imageRetryCount + 1)), _retryImageLoad);
+        }
+        // 显示加载中状态（等待重试）
+        if (_imageRetryCount < _maxRetries) {
+          return const ColoredBox(
+            color: AppTheme.lightGray,
+            child: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryYellow),
+              ),
+            ),
+          );
+        }
+        return widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder;
+      },
     );
   }
 
@@ -264,6 +297,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   Widget _buildTags(BuildContext context) {
     // 优先使用后端计算好的 displayTagsEn，否则回退到 tags
     final displayTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+    debugPrint('🏷️ [AIPlaceCard._buildTags] "${widget.place.name}" displayTagsEn: ${widget.place.displayTagsEn}, tags: ${widget.place.tags}, final: $displayTags');
     if (displayTags.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
@@ -290,7 +324,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   }
 
   /// 处理收藏点击
-  Future<void> _handleWishlistTap() async {
+  Future<void> _handleWishlistTap(bool isInWishlist, String? destinationId) async {
     if (_isSaving) return;
 
     final auth = ref.read(authProvider);
@@ -302,19 +336,15 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
     setState(() => _isSaving = true);
 
     try {
-      if (_isInWishlist && _destinationId != null) {
+      if (isInWishlist && destinationId != null) {
         // 已收藏，移除
         await ref.read(tripRepositoryProvider).manageTripSpot(
-          tripId: _destinationId!,
-          spotId: widget.place.id ?? widget.place.name,
+          tripId: destinationId,
+          spotId: _spotId,
           remove: true,
         );
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
-        setState(() {
-          _isInWishlist = false;
-          _destinationId = null;
-        });
         widget.onWishlistChanged?.call(false);
         CustomToast.showSuccess(context, 'Removed from wishlist');
       } else {
@@ -337,7 +367,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
 
         await ref.read(tripRepositoryProvider).manageTripSpot(
           tripId: destId,
-          spotId: widget.place.id ?? widget.place.name,
+          spotId: _spotId,
           status: TripSpotStatus.wishlist,
           spotPayload: {
             'name': widget.place.name,
@@ -357,10 +387,6 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
 
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
-        setState(() {
-          _isInWishlist = true;
-          _destinationId = destId;
-        });
         widget.onWishlistChanged?.call(true);
         CustomToast.showSuccess(context, 'Saved to wishlist');
       }
@@ -376,6 +402,119 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
 
   @override
   Widget build(BuildContext context) {
+    // 使用 ref.watch 响应式获取收藏状态
+    final wishlistAsync = ref.watch(wishlistStatusProvider);
+    
+    return wishlistAsync.when(
+      data: (statusMap) {
+        final (isInWishlist, destinationId) = _getWishlistStatus(statusMap);
+        
+        return GestureDetector(
+          onTap: widget.onTap,
+          child: AspectRatio(
+            aspectRatio: widget.aspectRatio,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // 封面图片
+                    _buildCoverImage(widget.place.coverImage),
+                    // 渐变遮罩
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.7),
+                            ],
+                            stops: const [0.4, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // 右上角收藏按钮 - 收藏后黄底黑桃心
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () => _handleWishlistTap(isInWishlist, destinationId),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: isInWishlist ? AppTheme.primaryYellow : Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppTheme.black, width: 1.5),
+                          ),
+                          child: _isSaving
+                              ? const Padding(
+                                  padding: EdgeInsets.all(6),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
+                                  ),
+                                )
+                              : Icon(
+                                  isInWishlist ? Icons.favorite : Icons.favorite_border,
+                                  size: 16,
+                                  color: AppTheme.black,
+                                ),
+                        ),
+                      ),
+                    ),
+                    // 底部信息
+                    Positioned(
+                      left: 12,
+                      right: 12,
+                      bottom: 12,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 标签
+                          _buildTags(context),
+                          const SizedBox(height: 6),
+                          // 地点名称
+                          Text(
+                            widget.place.name,
+                            style: AppTheme.labelLarge(context).copyWith(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          // 评分或推荐短语
+                          _buildRatingOrPhrase(context),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      loading: () => _buildCardWithWishlistState(context, false),
+      error: (_, __) => _buildCardWithWishlistState(context, false),
+    );
+  }
+  
+  /// 构建带有指定收藏状态的卡片（用于 loading/error 状态）
+  Widget _buildCardWithWishlistState(BuildContext context, bool isInWishlist) {
     return GestureDetector(
       onTap: widget.onTap,
       child: AspectRatio(
@@ -391,9 +530,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // 封面图片
                 _buildCoverImage(widget.place.coverImage),
-                // 渐变遮罩
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -409,37 +546,23 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                     ),
                   ),
                 ),
-                // 右上角收藏按钮 - 收藏后黄底黑桃心
                 Positioned(
                   top: 8,
                   right: 8,
                   child: GestureDetector(
-                    onTap: _handleWishlistTap,
+                    onTap: () => _handleWishlistTap(false, null),
                     child: Container(
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: _isInWishlist ? AppTheme.primaryYellow : Colors.white,
+                        color: Colors.white,
                         shape: BoxShape.circle,
                         border: Border.all(color: AppTheme.black, width: 1.5),
                       ),
-                      child: _isSaving
-                          ? const Padding(
-                              padding: EdgeInsets.all(6),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
-                              ),
-                            )
-                          : Icon(
-                              _isInWishlist ? Icons.favorite : Icons.favorite_border,
-                              size: 16,
-                              color: AppTheme.black,
-                            ),
+                      child: const Icon(Icons.favorite_border, size: 16, color: AppTheme.black),
                     ),
                   ),
                 ),
-                // 底部信息
                 Positioned(
                   left: 12,
                   right: 12,
@@ -448,10 +571,8 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // 标签
                       _buildTags(context),
                       const SizedBox(height: 6),
-                      // 地点名称
                       Text(
                         widget.place.name,
                         style: AppTheme.labelLarge(context).copyWith(
@@ -463,7 +584,6 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      // 评分或推荐短语
                       _buildRatingOrPhrase(context),
                     ],
                   ),

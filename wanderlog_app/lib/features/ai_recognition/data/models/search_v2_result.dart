@@ -3,6 +3,8 @@
 /// 对应后端 /places/ai/search-v2 API 的响应结构
 /// Requirements: 3.5, 9.1
 
+import 'package:flutter/foundation.dart';
+
 /// 搜索阶段枚举
 enum SearchStage {
   analyzing,    // Stage 1: 分析用户诉求 (1s)
@@ -33,6 +35,18 @@ class SearchV2Result {
 
   /// 从 JSON 创建
   factory SearchV2Result.fromJson(Map<String, dynamic> json) {
+    debugPrint('🏷️ [SearchV2Result.fromJson] Parsing response...');
+    debugPrint('🏷️ [SearchV2Result.fromJson] places count: ${(json['places'] as List?)?.length ?? 0}');
+    
+    // Log first few places' tags for debugging
+    final placesRaw = json['places'] as List?;
+    if (placesRaw != null && placesRaw.isNotEmpty) {
+      for (int i = 0; i < placesRaw.length && i < 3; i++) {
+        final p = placesRaw[i] as Map<String, dynamic>;
+        debugPrint('🏷️ [SearchV2Result.fromJson] Place ${i + 1}: ${p['name']}, tags: ${p['tags']}');
+      }
+    }
+    
     return SearchV2Result(
       success: json['success'] as bool? ?? false,
       acknowledgment: json['acknowledgment'] as String? ?? '',
@@ -205,6 +219,10 @@ class PlaceResult {
 
   /// 从 JSON 创建
   factory PlaceResult.fromJson(Map<String, dynamic> json) {
+    debugPrint('🏷️ [PlaceResult.fromJson] name: ${json['name']}, tags raw: ${json['tags']}');
+    final parsedTags = _parseAiTags(json['tags']);
+    debugPrint('🏷️ [PlaceResult.fromJson] name: ${json['name']}, parsedTags: $parsedTags');
+    
     return PlaceResult(
       id: json['id'] as String?,
       googlePlaceId: json['googlePlaceId'] as String?,
@@ -218,7 +236,7 @@ class PlaceResult {
       rating: (json['rating'] as num?)?.toDouble(),
       ratingCount: json['ratingCount'] as int?,
       recommendationPhrase: json['recommendationPhrase'] as String?,
-      tags: _parseAiTags(json['tags']),
+      tags: parsedTags,
       displayTagsEn: _parseStringList(json['display_tags_en']),
       displayTagsZh: _parseStringList(json['display_tags_zh']),
       isVerified: json['isVerified'] as bool? ?? false,
@@ -347,8 +365,16 @@ class PlaceResult {
 
   /// 解析 aiTags - 支持对象数组格式 [{en, zh, kind, id, priority}]
   static List<String>? _parseAiTags(dynamic value) {
-    if (value == null) return null;
-    if (value is! List) return null;
+    if (value == null) {
+      debugPrint('🏷️ [_parseAiTags] value is null');
+      return null;
+    }
+    if (value is! List) {
+      debugPrint('🏷️ [_parseAiTags] value is not a List: ${value.runtimeType}');
+      return null;
+    }
+    
+    debugPrint('🏷️ [_parseAiTags] Processing ${value.length} items: $value');
     
     final List<String> result = [];
     for (final item in value) {
@@ -365,6 +391,8 @@ class PlaceResult {
         }
       }
     }
+    
+    debugPrint('🏷️ [_parseAiTags] Result: $result');
     return result.isEmpty ? null : result;
   }
 

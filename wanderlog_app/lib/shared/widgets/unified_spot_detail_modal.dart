@@ -789,6 +789,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         spotPayload: _spotPayload(),
       );
       ref.invalidate(tripsProvider);
+      ref.invalidate(wishlistStatusProvider); // 同步更新卡片收藏状态
       if (mounted) {
         setState(() => _hasStatusChanged = true);
       }
@@ -816,6 +817,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         remove: true,
       );
       ref.invalidate(tripsProvider);
+      ref.invalidate(wishlistStatusProvider); // 同步更新卡片收藏状态
       if (mounted) {
         setState(() => _hasStatusChanged = true);
       }

@@ -545,6 +545,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
   /// 将 PlaceResult 转换为 Spot
   Spot _placeResultToSpot(PlaceResult place) {
+    debugPrint('🏷️ [_placeResultToSpot] Converting "${place.name}" - tags: ${place.tags}');
+    
     // 解析 openingHours（可能是 JSON 字符串数组或 Map）
     Map<String, dynamic>? parsedOpeningHours;
     if (place.openingHours != null && place.openingHours!.isNotEmpty) {
@@ -564,11 +566,14 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       }
     }
     
+    final category = (place.tags?.isNotEmpty ?? false) ? place.tags!.first : 'Place';
+    debugPrint('🏷️ [_placeResultToSpot] "${place.name}" category: $category, all tags: ${place.tags}');
+    
     return Spot(
       id: place.id ?? place.name,
       name: place.name,
       city: place.city ?? '',
-      category: (place.tags?.isNotEmpty ?? false) ? place.tags!.first : 'Place',
+      category: category,
       latitude: place.latitude,
       longitude: place.longitude,
       rating: place.rating ?? 0.0,

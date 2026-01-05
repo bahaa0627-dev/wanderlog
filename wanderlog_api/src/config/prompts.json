@@ -1,0 +1,96 @@
+{
+  "version": "1.0.0",
+  "intents": [
+    {
+      "intentType": "general_search",
+      "name": "General Search",
+      "description": "Finding multiple places with criteria",
+      "prompts": [
+        {
+          "id": "classification",
+          "purpose": "Classify user query into intent types",
+          "template": "Analyze this query and determine the user's intent.\n\nQuery: \"{query}\"\n\nClassify into ONE of these intents:\n\n1. \"specific_place\" - User wants info about a SPECIFIC named place\n   Examples: \"Eiffel Tower\", \"help me find Louvre Museum\", \"tell me about Central Park\", \"Denmark Design Museum\"\n   Key signal: Contains a proper noun that is a specific place name\n\n2. \"general_search\" - User wants to discover MULTIPLE places with criteria\n   Examples: \"8 restaurants in Tokyo\", \"cafes in Paris\", \"best museums in Rome\", \"recommend places in Barcelona\"\n   Key signal: Contains quantity, category, or city for place discovery\n\n3. \"travel_consultation\" - Travel-related advice WITHOUT specific place requests\n   Examples: \"欧洲哪里好玩\", \"Plan a 3-day trip to Rome\", \"Louvre vs Orsay which is better\", \"东京和京都哪个更值得去\"\n   Key signal: Asking for travel advice, comparisons, or trip planning\n\n4. \"non_travel\" - NOT travel-related at all\n   Examples: \"北京天气\", \"推荐运动方案\", \"心情不好怎么办\", \"Python怎么学\"\n   Key signal: Weather, health, emotions, technology, etc.\n\nReturn JSON only:\n{\n  \"intent\": \"specific_place\" | \"general_search\" | \"travel_consultation\" | \"non_travel\",\n  \"placeName\": \"exact place name if specific_place\",\n  \"placeNames\": [\"place1\", \"place2\"] if travel_consultation mentions specific places,\n  \"city\": \"city name if mentioned\",\n  \"category\": \"restaurant/cafe/museum/etc if mentioned\",\n  \"count\": number if mentioned,\n  \"confidence\": 0.0-1.0\n}",
+          "variables": [
+            {
+              "name": "query",
+              "description": "User's search query",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "intentType": "specific_place",
+      "name": "Specific Place",
+      "description": "Getting info about a specific named place",
+      "prompts": [
+        {
+          "id": "description",
+          "purpose": "Generate a brief description of a specific place",
+          "template": "Write a brief, engaging introduction about \"{placeName}\" for a traveler.\n\nRequirements:\n1. Include what it is and why it's notable\n2. Add a practical tip for visitors if relevant\n3. Keep it 2-3 sentences, STRICTLY under 60 words\n4. Be informative but concise\n5. CRITICAL: You MUST respond ONLY in {language}. Do NOT use any other language.\n\nReturn ONLY the description text, no JSON or formatting.",
+          "variables": [
+            {
+              "name": "placeName",
+              "description": "Name of the specific place",
+              "required": true
+            },
+            {
+              "name": "language",
+              "description": "Response language (Chinese/English)",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "intentType": "travel_consultation",
+      "name": "Travel Consultation",
+      "description": "Travel advice without specific place requests",
+      "prompts": [
+        {
+          "id": "response",
+          "purpose": "Generate travel consultation response with place mentions",
+          "template": "You are a friendly travel expert. Answer the user's travel question.\n\nQuery: \"{query}\"\nLanguage: {language}\n\nRequirements:\n1. Provide a helpful, engaging response in Markdown format\n2. Use headings (##, ###) for structure when appropriate\n3. Use emoji to make it friendly 🌍✈️🏛️\n4. Keep response concise but informative (200-400 words)\n5. When mentioning specific places, include the city they belong to\n6. At the end, you may add a prompt like \"想了解具体地点推荐吗？\" or \"Would you like specific place recommendations?\"\n\nReturn JSON:\n{\n  \"textContent\": \"Your Markdown response here...\",\n  \"mentionedPlaces\": [\n    { \"name\": \"Place Name 1\", \"city\": \"City Name\" },\n    { \"name\": \"Place Name 2\", \"city\": \"City Name\" }\n  ],\n  \"cities\": [\"City1\", \"City2\"]\n}",
+          "variables": [
+            {
+              "name": "query",
+              "description": "User's travel question",
+              "required": true
+            },
+            {
+              "name": "language",
+              "description": "Response language (Chinese/English)",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "intentType": "non_travel",
+      "name": "Non-Travel",
+      "description": "Non-travel related queries",
+      "prompts": [
+        {
+          "id": "response",
+          "purpose": "Generate helpful response for non-travel queries",
+          "template": "You are a helpful assistant. Answer the user's question.\n\nQuery: \"{query}\"\nLanguage: {language}\n\nRequirements:\n1. Provide a helpful response in Markdown format\n2. Use headings (##, ###) for structure when appropriate\n3. Use emoji where appropriate\n4. Keep response concise but helpful\n\nReturn the response as plain Markdown text (not JSON).",
+          "variables": [
+            {
+              "name": "query",
+              "description": "User's question",
+              "required": true
+            },
+            {
+              "name": "language",
+              "description": "Response language (Chinese/English)",
+              "required": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

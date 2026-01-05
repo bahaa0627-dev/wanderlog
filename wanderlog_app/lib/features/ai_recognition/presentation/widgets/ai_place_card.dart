@@ -297,7 +297,6 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   Widget _buildTags(BuildContext context) {
     // 优先使用后端计算好的 displayTagsEn，否则回退到 tags
     final displayTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
-    debugPrint('🏷️ [AIPlaceCard._buildTags] "${widget.place.name}" displayTagsEn: ${widget.place.displayTagsEn}, tags: ${widget.place.tags}, final: $displayTags');
     if (displayTags.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
@@ -324,6 +323,12 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   }
 
   /// 处理收藏点击
+  /// 
+  /// Requirements: 2.1, 2.2, 2.3, 2.4
+  /// - Invalidate and refresh wishlist status cache after API call
+  /// - Update heart icon to filled/unfilled state
+  /// - Show success/error toast message
+  /// - Revert state on failure
   Future<void> _handleWishlistTap(bool isInWishlist, String? destinationId) async {
     if (_isSaving) return;
 
@@ -343,10 +348,21 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
           spotId: _spotId,
           remove: true,
         );
+        
+        // Invalidate providers and wait for refresh to complete
+        // This ensures UI updates with fresh data before showing toast
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
+        
+        // Force provider refresh by reading the future - ensures UI state is updated
+        await ref.read(wishlistStatusProvider.future);
+        
+        // Call callback after provider refresh completes
         widget.onWishlistChanged?.call(false);
-        CustomToast.showSuccess(context, 'Removed from wishlist');
+        
+        if (mounted) {
+          CustomToast.showSuccess(context, 'Removed from wishlist');
+        }
       } else {
         // 未收藏，添加
         // 使用 city，如果为空则使用 country，如果都为空则使用 "Saved Places"
@@ -358,7 +374,10 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         
         final destId = await ensureDestinationForCity(ref, cityName);
         if (destId == null) {
-          CustomToast.showError(context, 'Failed to save - please try again');
+          if (mounted) {
+            CustomToast.showError(context, 'Failed to save - please try again');
+            setState(() => _isSaving = false);
+          }
           return;
         }
 
@@ -385,14 +404,26 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
           },
         );
 
+        // Invalidate providers and wait for refresh to complete
+        // This ensures UI updates with fresh data before showing toast
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
+        
+        // Force provider refresh by reading the future - ensures UI state is updated
+        await ref.read(wishlistStatusProvider.future);
+        
+        // Call callback after provider refresh completes
         widget.onWishlistChanged?.call(true);
-        CustomToast.showSuccess(context, 'Saved to wishlist');
+        
+        if (mounted) {
+          CustomToast.showSuccess(context, 'Saved to wishlist');
+        }
       }
     } catch (e) {
       debugPrint('❌ [AIPlaceCard] Wishlist error: $e');
-      CustomToast.showError(context, 'Error saving - please try again');
+      if (mounted) {
+        CustomToast.showError(context, 'Error saving - please try again');
+      }
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);

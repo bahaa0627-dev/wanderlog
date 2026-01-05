@@ -96,18 +96,22 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
   @override
   void initState() {
     super.initState();
-    _loadWishlistStatusFromCache();
+    // 初始化时从缓存读取状态
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncWishlistStatus();
+    });
   }
 
   @override
   void didUpdateWidget(TextOnlyPlaceItem oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.place.id != widget.place.id || oldWidget.place.name != widget.place.name) {
-      _loadWishlistStatusFromCache();
+      _syncWishlistStatus();
     }
   }
 
-  void _loadWishlistStatusFromCache() {
+  /// 同步收藏状态（使用 watch 监听变化）
+  void _syncWishlistStatus() {
     final statusAsync = ref.read(wishlistStatusProvider);
     statusAsync.whenData((statusMap) {
       final spotId = widget.place.id ?? widget.place.name;
@@ -203,6 +207,20 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
 
   @override
   Widget build(BuildContext context) {
+    // 监听收藏状态变化，自动更新 UI
+    ref.listen<AsyncValue<Map<String, String?>>>(wishlistStatusProvider, (previous, next) {
+      next.whenData((statusMap) {
+        final spotId = widget.place.id ?? widget.place.name;
+        final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
+        if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
+          setState(() {
+            _isInWishlist = isInWishlist;
+            _destinationId = destId;
+          });
+        }
+      });
+    });
+
     // 获取 summary 或 recommendationPhrase
     final description = widget.place.summary.isNotEmpty 
         ? widget.place.summary 
@@ -334,19 +352,22 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
   @override
   void initState() {
     super.initState();
-    _loadWishlistStatusFromCache();
+    // 初始化时从缓存读取状态
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncWishlistStatus();
+    });
   }
 
   @override
   void didUpdateWidget(FlatPlaceCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.place.id != widget.place.id || oldWidget.place.name != widget.place.name) {
-      _loadWishlistStatusFromCache();
+      _syncWishlistStatus();
     }
   }
 
-  /// 从缓存加载收藏状态（同步，无需等待）
-  void _loadWishlistStatusFromCache() {
+  /// 同步收藏状态
+  void _syncWishlistStatus() {
     final statusAsync = ref.read(wishlistStatusProvider);
     statusAsync.whenData((statusMap) {
       final spotId = widget.place.id ?? widget.place.name;
@@ -624,6 +645,20 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
 
   @override
   Widget build(BuildContext context) {
+    // 监听收藏状态变化，自动更新 UI
+    ref.listen<AsyncValue<Map<String, String?>>>(wishlistStatusProvider, (previous, next) {
+      next.whenData((statusMap) {
+        final spotId = widget.place.id ?? widget.place.name;
+        final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
+        if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
+          setState(() {
+            _isInWishlist = isInWishlist;
+            _destinationId = destId;
+          });
+        }
+      });
+    });
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

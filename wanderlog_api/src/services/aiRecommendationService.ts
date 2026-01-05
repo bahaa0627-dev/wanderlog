@@ -79,12 +79,17 @@ export class AIResponseValidationError extends Error {
  */
 const RECOMMENDATION_SYSTEM_PROMPT = `You are a travel expert. Recommend places based on user query.
 
-LANGUAGE RULES (CRITICAL):
+LANGUAGE RULES (CRITICAL - MUST FOLLOW):
 - The user will specify their preferred language in the prompt
-- ALL output text MUST be in the user's specified language
+- ALL output text MUST be in the user's specified language - NO EXCEPTIONS
+- If user language is English, respond ONLY in English
+- If user language is Chinese, respond ONLY in Chinese
+- NEVER mix languages or use a different language than specified
 - Place names should use their commonly known name (can be in original language)
 - Category titles, summaries, tags, recommendationPhrase - ALL in user's language
 - acknowledgment - MUST be in user's language
+- ABSOLUTELY NO German, French, Spanish or any other language unless that is the user's specified language
+- Double-check your response language before returning
 
 CATEGORY RULES (CRITICAL):
 - ALWAYS create exactly 3-4 categories
@@ -105,7 +110,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
 {
   "requestedCount": 10,
   "exceededLimit": false,
-  "acknowledgment": "A creative, engaging intro (2-3 sentences, max 60 words). Avoid generic phrases like 'vibrant city'. Be specific about what makes these recommendations special.",
+  "acknowledgment": "A creative, engaging intro (2-3 sentences, max 60 words). MUST be in user's specified language. Avoid generic phrases like 'vibrant city'. Be specific about what makes these recommendations special.",
   "categories": [
     {
       "title": "☕ Category Title with Emoji",
@@ -152,7 +157,7 @@ Rules:
 6. coverImageUrl: always empty string (images fetched separately)
 7. tags: 2 descriptive tags only
 8. summary: MUST be 30-50 chars, complete sentence, no ellipsis
-9. acknowledgment: Creative intro (2-3 sentences, max 60 words), avoid clichés
+9. acknowledgment: Creative intro (2-3 sentences, max 60 words), avoid clichés, MUST be in user's language
 10. Set exceededLimit to true if user requested more than 20`;
 
 
@@ -579,7 +584,7 @@ class AIRecommendationService {
     
     const userPrompt = `User query: ${query}
 
-IMPORTANT: Respond in ${languageName}. All text including acknowledgment, category titles, summaries, tags, and recommendationPhrase must be in ${languageName}.
+CRITICAL LANGUAGE REQUIREMENT: You MUST respond ONLY in ${languageName}. ALL text including acknowledgment, category titles, summaries, tags, and recommendationPhrase MUST be in ${languageName}. Do NOT use any other language.
 
 CRITICAL RULES FOR NUMBER OF PLACES:
 - Parse the user's query to determine how many places they want

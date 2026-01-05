@@ -337,19 +337,23 @@ If you cannot identify the place with reasonable confidence, set confidence to 0
     const url = this.buildResponsesApiUrl();
     const searchQuery = city ? `${placeName} ${city}` : placeName;
     
-    const prompt = `Find a direct image URL for "${searchQuery}".
-IMPORTANT: Return ONLY a direct image file URL (must end with .jpg, .jpeg, .png, .webp, or .gif).
-Do NOT return webpage URLs from Getty Images, Alamy, Shutterstock, or similar stock photo sites.
-Prefer images from Wikipedia, Wikimedia Commons, or official tourism websites.
+    const prompt = `Search the web for a photo of "${searchQuery}" and find a direct image URL.
 
-Return JSON: {"imageUrl": "https://example.com/image.jpg", "source": "website name"}
-If no direct image URL found: {"imageUrl": null, "source": null}`;
+I need a direct link to an image file (URL must contain .jpg, .jpeg, .png, .webp, or .gif).
+Prefer images from Wikipedia, Wikimedia Commons, or official tourism websites.
+Do NOT use stock photo sites like Getty, Alamy, Shutterstock.
+
+Return ONLY this JSON:
+{"imageUrl": "https://example.com/image.jpg", "source": "website"}
+
+If no direct image URL found, return:
+{"imageUrl": null, "source": null}`;
 
     const requestBody = {
       model: this.config.chatModel,
       input: prompt,
       tools: [{ type: 'web_search_preview' }],
-      tool_choice: 'required', // 强制使用 web search
+      tool_choice: 'auto', // Let AI decide, same as generateText
     };
 
     try {
@@ -357,10 +361,10 @@ If no direct image URL found: {"imageUrl": null, "source": null}`;
       
       const response = await axios.post<KouriResponsesResponse>(url, requestBody, {
         headers: this.getHeaders(),
-        timeout: 30000,
+        timeout: 45000, // 45 second timeout
       });
 
-      // Extract text content from the response
+      // Extract text content from the response (same logic as generateText)
       const output = response.data.output;
       let content = '';
       
@@ -376,12 +380,20 @@ If no direct image URL found: {"imageUrl": null, "source": null}`;
       }
 
       if (!content) {
-        console.log('[Kouri] Empty response for image search');
+        console.log('[Kouri] No text content in image search response');
         return null;
       }
 
+      console.log('[Kouri] Image search response:', content.substring(0, 300));
+
       // Remove markdown code blocks if present
       content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+      // Try to extract JSON from the response
+      const jsonMatch = content.match(/\{[\s\S]*?\}/);
+      if (jsonMatch) {
+        content = jsonMatch[0];
+      }
 
       // Parse JSON response
       try {
@@ -396,11 +408,13 @@ If no direct image URL found: {"imageUrl": null, "source": null}`;
             console.log(`[Kouri] Found image from ${result.source}: ${result.imageUrl}`);
             return result.imageUrl;
           } else {
-            console.log(`[Kouri] Skipping non-direct image URL: ${result.imageUrl.substring(0, 50)}...`);
+            console.log(`[Kouri] Skipping non-direct image URL: ${result.imageUrl.substring(0, 80)}...`);
           }
+        } else {
+          console.log('[Kouri] No imageUrl in parsed response');
         }
       } catch (parseError) {
-        console.log('[Kouri] Failed to parse image search response:', content.substring(0, 100));
+        console.log('[Kouri] Failed to parse image search response:', content.substring(0, 200));
       }
       
       return null;

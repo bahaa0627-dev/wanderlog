@@ -879,6 +879,78 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 构建 SearchV2 结果展示
   /// Requirements: 8.1, 8.2, 8.3, 9.1, 10.1, 10.2
   Widget _buildSearchV2Result(SearchV2Result result) {
+    // 处理文本响应（non_travel 或 travel_consultation）
+    if (result.isTextResponse && result.textContent != null && result.textContent!.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 文本内容 - 支持 Markdown 格式
+          _buildMarkdownText(result.textContent!),
+          
+          // travel_consultation 可能有相关地点
+          if (result.places.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text(
+              '相关地点',
+              style: AppTheme.titleMedium(context).copyWith(
+                color: AppTheme.black,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            FlatPlaceList(
+              places: result.places,
+              onPlaceTap: _showPlaceDetail,
+            ),
+            const SizedBox(height: 20),
+            // 地图展示
+            RecommendationMapView(
+              places: result.places,
+              height: 200,
+              onPlaceTap: _showPlaceDetail,
+            ),
+          ],
+        ],
+      );
+    }
+    
+    // 处理 specific_place 意图（单个地点）
+    if (result.isSpecificPlace && result.places.isNotEmpty) {
+      final place = result.places.first;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 描述文案
+          if (result.acknowledgment.isNotEmpty) ...[
+            Text(
+              result.acknowledgment,
+              style: AppTheme.bodyMedium(context).copyWith(
+                color: AppTheme.black,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+          
+          // 单个地点卡片
+          FlatPlaceList(
+            places: result.places,
+            onPlaceTap: _showPlaceDetail,
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // 地图展示
+          RecommendationMapView(
+            places: result.places,
+            height: 200,
+            onPlaceTap: _showPlaceDetail,
+          ),
+        ],
+      );
+    }
+    
+    // 默认处理（general_search）
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -942,6 +1014,139 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             onPlaceTap: _showPlaceDetail,
           ),
       ],
+    );
+  }
+  
+  /// 构建 Markdown 文本（简单实现）
+  Widget _buildMarkdownText(String text) {
+    // 简单的 Markdown 解析：处理标题和列表
+    final lines = text.split('\n');
+    final widgets = <Widget>[];
+    
+    for (final line in lines) {
+      if (line.trim().isEmpty) {
+        widgets.add(const SizedBox(height: 8));
+        continue;
+      }
+      
+      if (line.startsWith('## ')) {
+        // 二级标题
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 8),
+          child: Text(
+            line.substring(3),
+            style: AppTheme.titleMedium(context).copyWith(
+              color: AppTheme.black,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ));
+      } else if (line.startsWith('### ')) {
+        // 三级标题
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          child: Text(
+            line.substring(4),
+            style: AppTheme.bodyLarge(context).copyWith(
+              color: AppTheme.black,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ));
+      } else if (line.startsWith('- ') || line.startsWith('  - ')) {
+        // 列表项
+        final indent = line.startsWith('  - ') ? 16.0 : 0.0;
+        final content = line.startsWith('  - ') ? line.substring(4) : line.substring(2);
+        widgets.add(Padding(
+          padding: EdgeInsets.only(left: indent, top: 2, bottom: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('• ', style: AppTheme.bodyMedium(context).copyWith(color: AppTheme.black)),
+              Expanded(
+                child: _buildRichText(content),
+              ),
+            ],
+          ),
+        ));
+      } else {
+        // 普通段落 - 支持内联加粗
+        widgets.add(_buildRichText(line));
+      }
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
+  }
+  
+  /// 构建支持加粗的富文本
+  /// **地点名** 会显示为加粗加大的样式
+  Widget _buildRichText(String text) {
+    final spans = <InlineSpan>[];
+    final regex = RegExp(r'\*\*([^*]+)\*\*');
+    int lastEnd = 0;
+    
+    for (final match in regex.allMatches(text)) {
+      // 添加匹配前的普通文本
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(
+          text: text.substring(lastEnd, match.start),
+          style: AppTheme.bodyMedium(context).copyWith(
+            color: AppTheme.black,
+            height: 1.5,
+          ),
+        ));
+      }
+      
+      // 添加加粗文本（地点名）- 加粗 + 加大字号
+      spans.add(TextSpan(
+        text: match.group(1),
+        style: AppTheme.bodyLarge(context).copyWith(
+          color: AppTheme.black,
+          fontWeight: FontWeight.w700,
+          fontSize: 16,
+          height: 1.5,
+        ),
+      ));
+      
+      lastEnd = match.end;
+    }
+    
+    // 添加剩余的普通文本
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastEnd),
+        style: AppTheme.bodyMedium(context).copyWith(
+          color: AppTheme.black,
+          height: 1.5,
+        ),
+      ));
+    }
+    
+    // 如果没有加粗标记，返回普通文本
+    if (spans.isEmpty) {
+      return Text(
+        text,
+        style: AppTheme.bodyMedium(context).copyWith(
+          color: AppTheme.black,
+          height: 1.5,
+        ),
+      );
+    }
+    
+    return RichText(
+      text: TextSpan(children: spans),
+    );
+  }
+  
+  /// 解析内联 Markdown（移除 ** 等格式标记）- 保留用于兼容
+  String _parseInlineMarkdown(String text) {
+    // 移除 **bold** 标记
+    return text.replaceAllMapped(
+      RegExp(r'\*\*([^*]+)\*\*'),
+      (match) => match.group(1) ?? '',
     );
   }
 

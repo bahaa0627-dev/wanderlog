@@ -158,10 +158,10 @@ class WikipediaImageService {
       const imageUrl = response.data.originalimage?.source || response.data.thumbnail?.source;
       
       if (imageUrl) {
-        // 如果是缩略图，尝试获取更大尺寸
-        const largerUrl = this.getLargerImageUrl(imageUrl);
+        // 获取有效的图片 URL（带回退机制）
+        const validUrl = await this.getValidImageUrl(imageUrl);
         return {
-          imageUrl: largerUrl,
+          imageUrl: validUrl,
           source: 'wikipedia',
           title: response.data.title,
         };
@@ -200,11 +200,11 @@ class WikipediaImageService {
             imageUrl = 'https:' + imageUrl;
           }
           
-          // 尝试获取更大尺寸
-          const largerUrl = this.getLargerImageUrl(imageUrl);
+          // 获取有效的图片 URL（带回退机制）
+          const validUrl = await this.getValidImageUrl(imageUrl);
           
           return {
-            imageUrl: largerUrl,
+            imageUrl: validUrl,
             source: 'wikipedia',
             title: page.title,
           };
@@ -227,6 +227,9 @@ class WikipediaImageService {
    * .../commons/a/ab/Image.jpg
    * 
    * 只有缩略图 URL（包含 /thumb/）才能修改尺寸
+   * 
+   * 注意：不要请求过大的尺寸，可能导致 404
+   * 使用 800px 作为安全的中等尺寸
    */
   private getLargerImageUrl(url: string): string {
     // 只处理缩略图 URL（必须包含 /thumb/ 路径）
@@ -238,10 +241,53 @@ class WikipediaImageService {
     // 匹配缩略图 URL 中的尺寸部分
     const thumbMatch = url.match(/\/(\d+)px-[^/]+$/);
     if (thumbMatch) {
-      // 替换为 1280px（更高分辨率，适合现代设备）
-      return url.replace(/\/\d+px-/, '/1280px-');
+      const currentSize = parseInt(thumbMatch[1], 10);
+      // 如果当前尺寸已经 >= 600px，保持原样避免 404
+      if (currentSize >= 600) {
+        return url;
+      }
+      // 使用 800px 作为安全的中等尺寸（避免 1280px 可能不存在）
+      return url.replace(/\/\d+px-/, '/800px-');
     }
     return url;
+  }
+
+  /**
+   * 验证图片 URL 是否可访问
+   * 使用 HEAD 请求快速检查，避免下载整个图片
+   */
+  async validateImageUrl(url: string): Promise<boolean> {
+    try {
+      const response = await this.axiosInstance.head(url, {
+        timeout: 3000,
+        validateStatus: (status) => status < 400,
+      });
+      return response.status >= 200 && response.status < 400;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * 获取有效的图片 URL，带回退机制
+   * 如果大尺寸不可用，回退到原始尺寸
+   */
+  private async getValidImageUrl(originalUrl: string): Promise<string> {
+    const largerUrl = this.getLargerImageUrl(originalUrl);
+    
+    // 如果 URL 没有变化，直接返回
+    if (largerUrl === originalUrl) {
+      return originalUrl;
+    }
+    
+    // 验证大尺寸 URL 是否可用
+    const isLargerValid = await this.validateImageUrl(largerUrl);
+    if (isLargerValid) {
+      return largerUrl;
+    }
+    
+    console.log(`⚠️ [Wikipedia] Larger image not available, using original: ${originalUrl.substring(0, 80)}...`);
+    return originalUrl;
   }
 
   /**

@@ -6,7 +6,6 @@
 [AIService] Initializing providers...
 [AIService] Provider order: kouri
 [AzureOpenAI] Configuration incomplete - missing endpoint or API key
-[Gemini] Using proxy: http://127.0.0.1:7893
 [Gemini] Provider initialized successfully
 [Gemini] Model: gemini-2.0-flash
 [AIService] Gemini provider registered
@@ -28,11 +27,14 @@
 [Kouri] Vision model: gpt-4o-mini
 [AIRecommendationService] Kouri provider registered
 [AzureOpenAI] Configuration incomplete - missing endpoint or API key
-[Gemini] Using proxy: http://127.0.0.1:7893
 [Gemini] Provider initialized successfully
 [Gemini] Model: gemini-2.0-flash
 [AIRecommendationService] Gemini provider registered
 [AIRecommendationService] Available providers: kouri, gemini
+[Kouri] Provider initialized successfully
+[Kouri] Base URL: https://api.kourichat.com/v1
+[Kouri] Chat model: gpt-4o-mini
+[Kouri] Vision model: gpt-4o-mini
 [Kouri] Provider initialized successfully
 [Kouri] Base URL: https://api.kourichat.com/v1
 [Kouri] Chat model: gpt-4o-mini
@@ -44,7 +46,7 @@
 BOOT: index.ts running
 PORT = 3000
 📍 APIFY_API_TOKEN loaded: Yes (apify_api_gBQqN3ENAw...)
-🌐 Using proxy: http://127.0.0.1:7893
+ℹ️  No proxy configured
 ✅ Core modules loaded
 📁 Static files path: /Users/bahaa/Desktop/bahaa-dev-repo/wanderlog/wanderlog_api/public
 🔄 Loading routes...
@@ -61,5 +63,32 @@ PORT = 3000
 🚀 Starting server on port 3000...
 ✅ Server is running on 0.0.0.0:3000
 🏥 Health check available at /health
-[32minfo[39m: Server is running on port 3000 {"timestamp":"2025-12-31 03:19:29"}
+[32minfo[39m: Server is running on port 3000 {"timestamp":"2026-01-03 19:57:07"}
 ✅ Database connection established
+➡️  GET /health
+🏥 Health check requested
+➡️  POST /api/places/ai/search-v2
+[32minfo[39m: [SearchV2] Starting search for: "Café Hana" {"timestamp":"2026-01-03 19:58:08"}
+[32minfo[39m: [IntentClassifier] Classifying query: "Café Hana" {"timestamp":"2026-01-03 19:58:08"}
+[Kouri] Sending responses request to: https://api.kourichat.com/v1/responses
+[Kouri] Responses request successful
+[Kouri] Tokens used: 693
+[32minfo[39m: [IntentClassifier] AI classified as: specific_place (confidence: 0.9) {"timestamp":"2026-01-03 19:58:11"}
+[32minfo[39m: [SearchV2] Detected intent: specific_place (confidence: 0.9) {"timestamp":"2026-01-03 19:58:11"}
+[32minfo[39m: [SearchV2] Handling specific_place intent for: "Café Hana" {"timestamp":"2026-01-03 19:58:11"}
+[32minfo[39m: [IntentClassifier] Handling specific place query: "Café Hana" {"timestamp":"2026-01-03 19:58:11"}
+[Kouri] Sending responses request to: https://api.kourichat.com/v1/responses
+[32minfo[39m: [IntentClassifier] Searching database for: "Café Hana" {"timestamp":"2026-01-03 19:58:11"}
+[32minfo[39m: [IntentClassifier] Found 20 candidates for "Café Hana" {"timestamp":"2026-01-03 19:58:11"}
+[32minfo[39m: [IntentClassifier] No candidates met similarity threshold for "Café Hana" {"timestamp":"2026-01-03 19:58:11"}
+[Kouri] Responses request successful
+[Kouri] Tokens used: 398
+[32minfo[39m: [IntentClassifier] Generated description: 283 chars, 50 words {"timestamp":"2026-01-03 19:58:12"}
+[32minfo[39m: [IntentClassifier] Specific place result: description=283 chars, place=null {"timestamp":"2026-01-03 19:58:12"}
+[32minfo[39m: [SearchV2] specific_place completed in 4681ms {"timestamp":"2026-01-03 19:58:13"}
+➡️  GET /api/public-places?page=1&limit=20
+➡️  GET /api/public-places?page=1&limit=20&search=cafe+hana
+➡️  GET /api/public-places?page=1&limit=20&search=hana
+➡️  GET /api/public-places?page=1&limit=20&search=Caf%C3%A9+Hana
+➡️  GET /api/public-places?page=1&limit=20&search=Hana
+➡️  GET /api/public-places?page=1&limit=20&search=design+museum

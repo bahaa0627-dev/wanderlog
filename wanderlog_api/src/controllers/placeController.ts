@@ -162,6 +162,15 @@ export const getPlaces = async (req: Request, res: Response) => {
 export const getPlaceById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    
+    // 验证 ID 是否为有效的 UUID 格式
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (!uuidRegex.test(id)) {
+      // 如果是 ai_xxx 格式的临时 ID，返回 404
+      logger.info(`[PlaceController] Invalid UUID format: ${id}`);
+      return res.status(404).json({ message: 'Place not found (invalid ID format)' });
+    }
+    
     const place = await prisma.place.findUnique({ where: { id } });
     
     if (!place) {

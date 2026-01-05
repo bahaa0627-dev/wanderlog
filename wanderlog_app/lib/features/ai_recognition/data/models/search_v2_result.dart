@@ -3,8 +3,6 @@
 /// 对应后端 /places/ai/search-v2 API 的响应结构
 /// Requirements: 3.5, 9.1
 
-import 'package:flutter/foundation.dart';
-
 /// 搜索阶段枚举
 enum SearchStage {
   analyzing,    // Stage 1: 分析用户诉求 (1s)
@@ -20,6 +18,15 @@ enum PlaceSource {
   ai,      // 来自 AI 生成（未验证）
 }
 
+/// 意图类型枚举
+enum IntentType {
+  generalSearch,       // 通用搜索（返回地点列表）
+  generalSearchText,   // 通用搜索但数量不足（返回文本格式）
+  specificPlace,       // 特定地点查询（返回单个地点）
+  travelConsultation,  // 旅行咨询（返回文本 + 相关地点）
+  nonTravel,           // 非旅行问题（返回纯文本）
+}
+
 /// SearchV2 完整响应结果
 class SearchV2Result {
   SearchV2Result({
@@ -31,39 +38,120 @@ class SearchV2Result {
     required this.quotaRemaining,
     required this.stage,
     this.error,
+    this.intent,
+    this.textContent,
   });
+
+  /// 意图类型
+  final IntentType? intent;
+
+  /// 文本内容（用于 non_travel 和 travel_consultation 意图）
+  final String? textContent;
 
   /// 从 JSON 创建
   factory SearchV2Result.fromJson(Map<String, dynamic> json) {
-    debugPrint('🏷️ [SearchV2Result.fromJson] Parsing response...');
-    debugPrint('🏷️ [SearchV2Result.fromJson] places count: ${(json['places'] as List?)?.length ?? 0}');
+    // 解析意图类型
+    final intentStr = json['intent'] as String?;
+    final intent = _parseIntent(intentStr);
     
-    // Log first few places' tags for debugging
-    final placesRaw = json['places'] as List?;
-    if (placesRaw != null && placesRaw.isNotEmpty) {
-      for (int i = 0; i < placesRaw.length && i < 3; i++) {
-        final p = placesRaw[i] as Map<String, dynamic>;
-        debugPrint('🏷️ [SearchV2Result.fromJson] Place ${i + 1}: ${p['name']}, tags: ${p['tags']}');
-      }
+    // 根据意图类型处理不同的响应格式
+    switch (intent) {
+      case IntentType.specificPlace:
+        // specific_place 意图返回单个 place 对象
+        final placeData = json['place'] as Map<String, dynamic>?;
+        final places = placeData != null ? [PlaceResult.fromJson(placeData)] : <PlaceResult>[];
+        final description = json['description'] as String? ?? '';
+        
+        return SearchV2Result(
+          success: json['success'] as bool? ?? false,
+          acknowledgment: description,
+          categories: null,
+          places: places,
+          overallSummary: '',
+          quotaRemaining: json['quotaRemaining'] as int? ?? 0,
+          stage: _parseStage(json['stage'] as String?),
+          error: json['error'] as String?,
+          intent: intent,
+          textContent: null,
+        );
+        
+      case IntentType.nonTravel:
+        // non_travel 意图返回纯文本
+        final textContent = json['textContent'] as String? ?? '';
+        
+        return SearchV2Result(
+          success: json['success'] as bool? ?? false,
+          acknowledgment: '',
+          categories: null,
+          places: [],
+          overallSummary: '',
+          quotaRemaining: json['quotaRemaining'] as int? ?? 0,
+          stage: _parseStage(json['stage'] as String?),
+          error: json['error'] as String?,
+          intent: intent,
+          textContent: textContent,
+        );
+        
+      case IntentType.travelConsultation:
+        // travel_consultation 意图返回文本 + 相关地点
+        final textContent = json['textContent'] as String? ?? '';
+        final relatedPlaces = (json['relatedPlaces'] as List?)
+            ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
+            .toList() ?? [];
+        
+        return SearchV2Result(
+          success: json['success'] as bool? ?? false,
+          acknowledgment: '',
+          categories: null,
+          places: relatedPlaces,
+          overallSummary: '',
+          quotaRemaining: json['quotaRemaining'] as int? ?? 0,
+          stage: _parseStage(json['stage'] as String?),
+          error: json['error'] as String?,
+          intent: intent,
+          textContent: textContent,
+        );
+        
+      case IntentType.generalSearch:
+      default:
+        // general_search 意图使用原有逻辑
+        return SearchV2Result(
+          success: json['success'] as bool? ?? false,
+          acknowledgment: json['acknowledgment'] as String? ?? '',
+          categories: json['categories'] != null
+              ? (json['categories'] as List)
+                  .map((e) => CategoryGroup.fromJson(e as Map<String, dynamic>))
+                  .toList()
+              : null,
+          places: (json['places'] as List?)
+                  ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
+                  .toList() ??
+              [],
+          overallSummary: json['overallSummary'] as String? ?? '',
+          quotaRemaining: json['quotaRemaining'] as int? ?? 0,
+          stage: _parseStage(json['stage'] as String?),
+          error: json['error'] as String?,
+          intent: intent,
+          textContent: json['textContent'] as String?,
+        );
     }
-    
-    return SearchV2Result(
-      success: json['success'] as bool? ?? false,
-      acknowledgment: json['acknowledgment'] as String? ?? '',
-      categories: json['categories'] != null
-          ? (json['categories'] as List)
-              .map((e) => CategoryGroup.fromJson(e as Map<String, dynamic>))
-              .toList()
-          : null,
-      places: (json['places'] as List?)
-              ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      overallSummary: json['overallSummary'] as String? ?? '',
-      quotaRemaining: json['quotaRemaining'] as int? ?? 0,
-      stage: _parseStage(json['stage'] as String?),
-      error: json['error'] as String?,
-    );
+  }
+  
+  /// 解析意图类型
+  static IntentType _parseIntent(String? intent) {
+    switch (intent) {
+      case 'specific_place':
+        return IntentType.specificPlace;
+      case 'non_travel':
+        return IntentType.nonTravel;
+      case 'travel_consultation':
+        return IntentType.travelConsultation;
+      case 'general_search_text':
+        return IntentType.generalSearchText;
+      case 'general_search':
+      default:
+        return IntentType.generalSearch;
+    }
   }
 
   /// 请求是否成功
@@ -92,6 +180,14 @@ class SearchV2Result {
 
   /// 是否有分类
   bool get hasCategories => categories != null && categories!.isNotEmpty;
+  
+  /// 是否是文本响应（non_travel、travel_consultation 或 general_search_text）
+  bool get isTextResponse => intent == IntentType.nonTravel || 
+                             intent == IntentType.travelConsultation ||
+                             intent == IntentType.generalSearchText;
+  
+  /// 是否是特定地点查询
+  bool get isSpecificPlace => intent == IntentType.specificPlace;
 
   /// 获取所有地点（包括分类中的）
   List<PlaceResult> get allPlaces {
@@ -112,6 +208,8 @@ class SearchV2Result {
       'quotaRemaining': quotaRemaining,
       'stage': stage.name,
       'error': error,
+      'intent': intent?.name,
+      'textContent': textContent,
     };
   }
 
@@ -140,6 +238,8 @@ class SearchV2Result {
       overallSummary: '',
       quotaRemaining: 0,
       stage: SearchStage.complete,
+      intent: null,
+      textContent: null,
     );
   }
 
@@ -153,6 +253,8 @@ class SearchV2Result {
       quotaRemaining: 0,
       stage: SearchStage.complete,
       error: errorMessage,
+      intent: null,
+      textContent: null,
     );
   }
 }
@@ -219,9 +321,7 @@ class PlaceResult {
 
   /// 从 JSON 创建
   factory PlaceResult.fromJson(Map<String, dynamic> json) {
-    debugPrint('🏷️ [PlaceResult.fromJson] name: ${json['name']}, tags raw: ${json['tags']}');
     final parsedTags = _parseAiTags(json['tags']);
-    debugPrint('🏷️ [PlaceResult.fromJson] name: ${json['name']}, parsedTags: $parsedTags');
     
     return PlaceResult(
       id: json['id'] as String?,
@@ -365,16 +465,8 @@ class PlaceResult {
 
   /// 解析 aiTags - 支持对象数组格式 [{en, zh, kind, id, priority}]
   static List<String>? _parseAiTags(dynamic value) {
-    if (value == null) {
-      debugPrint('🏷️ [_parseAiTags] value is null');
-      return null;
-    }
-    if (value is! List) {
-      debugPrint('🏷️ [_parseAiTags] value is not a List: ${value.runtimeType}');
-      return null;
-    }
-    
-    debugPrint('🏷️ [_parseAiTags] Processing ${value.length} items: $value');
+    if (value == null) return null;
+    if (value is! List) return null;
     
     final List<String> result = [];
     for (final item in value) {
@@ -392,7 +484,6 @@ class PlaceResult {
       }
     }
     
-    debugPrint('🏷️ [_parseAiTags] Result: $result');
     return result.isEmpty ? null : result;
   }
 

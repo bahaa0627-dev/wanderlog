@@ -5,7 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
 
 /// SearchV2 服务
-/// 
+///
 /// 调用后端 /places/ai/search-v2 API 实现并行搜索
 /// Requirements: 2.1
 class SearchV2Service {
@@ -18,7 +18,7 @@ class SearchV2Service {
       dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000/api';
 
   /// 执行 V2 搜索
-  /// 
+  ///
   /// [query] 用户搜索查询
   /// [userId] 用户 ID（用于配额检查）
   /// [userLat] 用户纬度（可选）
@@ -26,7 +26,7 @@ class SearchV2Service {
   /// [language] 用户语言设置（如 'en', 'zh'）
   /// [onStageChange] 阶段变化回调
   /// [cancelToken] 取消令牌
-  /// 
+  ///
   /// Returns [SearchV2Result] 搜索结果
   Future<SearchV2Result> searchV2({
     required String query,
@@ -54,23 +54,32 @@ class SearchV2Service {
       // Stage 2: 正在寻找合适地点
       onStageChange?.call(const SearchLoadingState.searching());
 
-      debugPrint('🔍 SearchV2: Calling API with query: $query, language: $language');
+      debugPrint(
+          '🔍 SearchV2: Calling API with query: $query, language: $language');
 
-      final response = await _dio.post<Map<String, dynamic>>(
-        '$_apiBaseUrl/places/ai/search-v2',
-        data: {
-          'query': query,
-          'userId': userId,
-          'language': language,
-          if (userLat != null) 'userLat': userLat,
-          if (userLng != null) 'userLng': userLng,
-        },
-        cancelToken: cancelToken,
-        options: Options(
-          sendTimeout: const Duration(seconds: 120),
-          receiveTimeout: const Duration(seconds: 120),
-        ),
-      );
+      final previousConnectTimeout = _dio.options.connectTimeout;
+      _dio.options.connectTimeout = const Duration(seconds: 120);
+
+      late final Response<Map<String, dynamic>> response;
+      try {
+        response = await _dio.post<Map<String, dynamic>>(
+          '$_apiBaseUrl/places/ai/search-v2',
+          data: {
+            'query': query,
+            'userId': userId,
+            'language': language,
+            if (userLat != null) 'userLat': userLat,
+            if (userLng != null) 'userLng': userLng,
+          },
+          cancelToken: cancelToken,
+          options: Options(
+            sendTimeout: const Duration(seconds: 120),
+            receiveTimeout: const Duration(seconds: 120),
+          ),
+        );
+      } finally {
+        _dio.options.connectTimeout = previousConnectTimeout;
+      }
 
       // 检查是否已取消
       if (cancelToken?.isCancelled ?? false) {
@@ -97,11 +106,11 @@ class SearchV2Service {
       return result;
     } on DioException catch (e) {
       debugPrint('❌ SearchV2 DioException: ${e.message}');
-      
+
       if (e.type == DioExceptionType.cancel) {
         return SearchV2Result.error('Request cancelled');
       }
-      
+
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout) {
         return SearchV2Result.error(
@@ -128,9 +137,9 @@ class SearchV2Service {
   }
 
   /// 获取剩余配额
-  /// 
+  ///
   /// [userId] 用户 ID
-  /// 
+  ///
   /// Returns 剩余搜索次数
   Future<int> getRemainingQuota(String userId) async {
     try {
@@ -152,7 +161,7 @@ class SearchV2Service {
 }
 
 /// SearchV2 服务的状态管理扩展
-/// 
+///
 /// 提供更细粒度的加载状态控制
 class SearchV2StateManager {
   SearchV2StateManager();

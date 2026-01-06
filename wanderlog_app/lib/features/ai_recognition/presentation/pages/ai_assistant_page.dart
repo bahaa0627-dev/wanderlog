@@ -12,7 +12,6 @@ import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_res
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_history_service.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
-import 'package:wanderlog/features/ai_recognition/data/services/chatgpt_service.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/search_v2_service.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/widgets/category_section.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/widgets/flat_place_list.dart';
@@ -58,7 +57,6 @@ class AIAssistantPage extends ConsumerStatefulWidget {
 
 class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   final _historyService = AIRecognitionHistoryService();
-  final _chatGPTService = ChatGPTService(dio: Dio());
   final _aiService = AIRecognitionService(dio: Dio());
   late final SearchV2Service _searchV2Service;
   final _scrollController = ScrollController();
@@ -374,7 +372,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     // 1. 默认使用用户 Settings 里的语言
     // 2. 但检测用户输入的语言，回复保持一致（支持自由切换）
     final userSettingsLanguage = ref.read(localeProvider).languageCode;
-    final detectedLanguage = _detectQueryLanguage(query);
+    final detectedLanguage = _detectQueryLanguage(query, userSettingsLanguage);
     final language = detectedLanguage ?? userSettingsLanguage;
     debugPrint('🌐 [SearchV2] Settings language: $userSettingsLanguage, Detected: $detectedLanguage, Using: $language');
 
@@ -468,78 +466,75 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
 
   /// 检测用户输入的语言
-  /// 根据 query 整体判断语言，不只是看地名
-  /// 返回检测到的语言代码，如果无法确定则返回 null（使用默认设置）
-  String? _detectQueryLanguage(String query) {
+  /// 只有在“可以明确判定是其他语言”时才返回语言代码
+  /// 返回 null 表示保持用户当前设置
+  String? _detectQueryLanguage(String query, String defaultLanguage) {
     final lowerQuery = query.toLowerCase().trim();
-    
-    // 检测中文字符（包括简体和繁体）
+    if (lowerQuery.isEmpty) {
+      return null;
+    }
+
+    String? _returnIfDifferent(String languageCode) {
+      return languageCode == defaultLanguage ? null : languageCode;
+    }
+
+    int _countMatches(RegExp pattern) => pattern.allMatches(lowerQuery).length;
+
+    // 检测中文、日文、韩文字符（这些语言有独特字符，判断可靠）
     final chineseRegex = RegExp(r'[\u4e00-\u9fff\u3400-\u4dbf]');
-    // 检测日文字符（平假名、片假名）
     final japaneseRegex = RegExp(r'[\u3040-\u309f\u30a0-\u30ff]');
-    // 检测韩文字符
     final koreanRegex = RegExp(r'[\uac00-\ud7af\u1100-\u11ff]');
-    
+
     final chineseCount = chineseRegex.allMatches(query).length;
     final japaneseCount = japaneseRegex.allMatches(query).length;
     final koreanCount = koreanRegex.allMatches(query).length;
-    
-    // 如果有明显的非拉丁字符，根据数量判断语言
+
     if (chineseCount > 0 || japaneseCount > 0 || koreanCount > 0) {
-      // 日文优先（因为日文可能混合汉字）
       if (japaneseCount > 0) {
-        return 'ja';
+        return _returnIfDifferent('ja');
       }
-      // 韩文
       if (koreanCount > chineseCount) {
-        return 'ko';
+        return _returnIfDifferent('ko');
       }
-      // 中文
       if (chineseCount > 0) {
-        return 'zh';
+        return _returnIfDifferent('zh');
       }
     }
-    
-    // 检测法语特征字符和词汇
-    if (RegExp(r'[àâéèêëïîôùûüÿœæç]', caseSensitive: false).hasMatch(query) ||
-        RegExp(r'\b(je|tu|il|nous|vous|ils|le|la|les|un|une|des|du|de|et|ou|mais|donc|car|ni|que|qui|quoi|où|quand|comment|pourquoi|avec|pour|dans|sur|sous|chez|vers|par|entre|sans|avant|après|pendant|depuis|jusqu|contre|malgré|selon|sauf|voici|voilà|très|bien|mal|peu|beaucoup|trop|assez|plus|moins|aussi|encore|toujours|jamais|souvent|parfois|déjà|bientôt|maintenant|hier|aujourd|demain|ici|là|partout|ailleurs|dedans|dehors|dessus|dessous|devant|derrière|près|loin|autour|café|restaurant|hôtel|musée|église|château|jardin|plage|montagne|ville|rue|place|pont|gare|aéroport|boulangerie|pâtisserie|librairie|pharmacie|hôpital|école|université|théâtre|cinéma|stade|parc|forêt|lac|rivière|mer|océan|île|côte|nord|sud|est|ouest|centre|quartier|arrondissement|avenue|boulevard|impasse|passage|allée|chemin|route|autoroute|métro|bus|train|avion|bateau|voiture|vélo|moto|taxi|uber|réservation|billet|ticket|entrée|sortie|ouvert|fermé|gratuit|payant|cher|bon|mauvais|grand|petit|nouveau|ancien|vieux|jeune|beau|joli|laid|propre|sale|chaud|froid|sec|humide|clair|sombre|calme|bruyant|rapide|lent|facile|difficile|simple|compliqué|possible|impossible|nécessaire|important|intéressant|ennuyeux|amusant|triste|heureux|content|fâché|surpris|déçu|fatigué|malade|sain|fort|faible|riche|pauvre|plein|vide|lourd|léger|dur|mou|doux|rugueux|lisse|pointu|rond|carré|long|court|large|étroit|haut|bas|profond|superficiel|épais|mince|serré|lâche|mouillé|sec|frais|tiède|brûlant|glacé|sucré|salé|amer|acide|épicé|fade|délicieux|dégoûtant|appétissant|nourrissant|léger|lourd|copieux|frugal|végétarien|végétalien|bio|local|traditionnel|moderne|classique|contemporain|populaire|célèbre|inconnu|rare|commun|unique|spécial|ordinaire|extraordinaire|magnifique|superbe|splendide|merveilleux|fantastique|incroyable|étonnant|surprenant|choquant|effrayant|terrifiant|horrible|affreux|atroce|abominable|détestable|haïssable|méprisable|ignoble|infâme|odieux|répugnant|repoussant|dégoûtant|écœurant|nauséabond|puant|malodorant|fétide|pestilentiel)\b', caseSensitive: false).hasMatch(lowerQuery)) {
-      return 'fr';
+
+    // 法语：带有重音字符或 >=2 个关键词时才认为是法语
+    final frenchAccentRegex = RegExp(r'[àâéèêëïîôùûüÿœæç]', caseSensitive: false);
+    final frenchKeywordRegex = RegExp(
+      r'\b(je|tu|il|nous|vous|ils|le|la|les|un|une|des|du|de|et|ou|mais|donc|car|ni|que|qui|quoi|où|quand|comment|pourquoi|avec|pour|dans|sur|sous|chez|vers|par|entre|sans|avant|après|pendant|depuis|jusqu|contre|malgré|selon|sauf|voici|voilà|café|restaurant|hôtel|musée|église|château|jardin|plage|montagne|ville|rue|place|pont|gare|aéroport|boulangerie|pâtisserie|librairie|pharmacie|hôpital|école|université|théâtre|cinéma|stade|parc|forêt|lac|rivière|mer|océan|île|quartier|arrondissement|avenue|boulevard)\b',
+      caseSensitive: false,
+    );
+    final frenchKeywordMatches = _countMatches(frenchKeywordRegex);
+    if (frenchAccentRegex.hasMatch(query) || frenchKeywordMatches >= 2) {
+      return _returnIfDifferent('fr');
     }
-    
-    // 检测西班牙语特征字符和词汇
-    if (RegExp(r'[áéíóúñ¿¡]', caseSensitive: false).hasMatch(query) ||
-        RegExp(r'\b(yo|tú|él|ella|nosotros|vosotros|ellos|el|la|los|las|un|una|unos|unas|del|al|y|o|pero|sino|porque|que|quien|cual|donde|cuando|como|por|para|con|sin|sobre|bajo|entre|hacia|desde|hasta|según|durante|mediante|ante|tras|contra|excepto|salvo|incluso|además|también|tampoco|ni|ya|aún|todavía|siempre|nunca|jamás|a veces|muchas veces|pocas veces|casi|apenas|solo|solamente|únicamente|principalmente|especialmente|particularmente|generalmente|normalmente|habitualmente|frecuentemente|raramente|ocasionalmente|probablemente|posiblemente|seguramente|ciertamente|evidentemente|obviamente|claramente|realmente|verdaderamente|efectivamente|prácticamente|virtualmente|literalmente|figuradamente|metafóricamente|simbólicamente|alegóricamente|irónicamente|sarcásticamente|humorísticamente|cómicamente|trágicamente|dramáticamente|épicamente|líricamente|poéticamente|prosaicamente|elegantemente|graciosamente|torpemente|hábilmente|diestramente|magistralmente|brillantemente|espléndidamente|maravillosamente|fantásticamente|increíblemente|asombrosamente|sorprendentemente|impresionantemente|extraordinariamente|excepcionalmente|notablemente|considerablemente|significativamente|sustancialmente|enormemente|inmensamente|vastamente|ampliamente|extensamente|profundamente|intensamente|fuertemente|poderosamente|vigorosamente|enérgicamente|dinámicamente|activamente|pasivamente|tranquilamente|pacíficamente|serenamente|calmadamente|sosegadamente|apaciblemente|plácidamente|suavemente|delicadamente|tiernamente|cariñosamente|amorosamente|afectuosamente|cordialmente|amablemente|gentilmente|cortésmente|educadamente|respetuosamente|atentamente|cuidadosamente|meticulosamente|minuciosamente|detalladamente|exhaustivamente|completamente|totalmente|enteramente|plenamente|absolutamente|definitivamente|categóricamente|rotundamente|tajantemente|terminantemente|irrevocablemente|irreversiblemente|irremediablemente|inevitablemente|inexorablemente|indefectiblemente|infaliblemente|indudablemente|incuestionablemente|indiscutiblemente|innegablemente|irrefutablemente|incontrovertiblemente|incontestablemente|café|restaurante|hotel|museo|iglesia|castillo|jardín|playa|montaña|ciudad|calle|plaza|puente|estación|aeropuerto|panadería|pastelería|librería|farmacia|hospital|escuela|universidad|teatro|cine|estadio|parque|bosque|lago|río|mar|océano|isla|costa|norte|sur|este|oeste|centro|barrio|avenida|bulevar|callejón|pasaje|camino|carretera|autopista|metro|autobús|tren|avión|barco|coche|bicicleta|moto|taxi)\b', caseSensitive: false).hasMatch(lowerQuery)) {
-      return 'es';
+
+    // 西班牙语：同样要求有重音/倒置标点或至少两个关键词
+    final spanishAccentRegex = RegExp(r'[áéíóúñ¿¡]', caseSensitive: false);
+    final spanishKeywordRegex = RegExp(
+      r'\b(yo|tú|él|ella|nosotros|vosotros|ellos|el|la|los|las|un|una|unos|unas|del|al|porque|qué|quién|dónde|cuándo|cómo|por|para|con|sin|sobre|entre|hasta|café|restaurante|hotel|museo|iglesia|castillo|jardín|playa|montaña|ciudad|calle|plaza|puente|estación|aeropuerto|metro|autobús|tren|avión|barco|coche|bicicleta|taxi)\b',
+      caseSensitive: false,
+    );
+    final spanishKeywordMatches = _countMatches(spanishKeywordRegex);
+    if (spanishAccentRegex.hasMatch(query) || spanishKeywordMatches >= 2) {
+      return _returnIfDifferent('es');
     }
-    
-    // 检测德语特征字符和词汇
-    if (RegExp(r'[äöüß]', caseSensitive: false).hasMatch(query) ||
-        RegExp(r'\b(ich|du|er|sie|es|wir|ihr|der|die|das|ein|eine|und|oder|aber|denn|weil|dass|wenn|als|ob|wie|wo|wann|warum|wer|was|welch|mit|ohne|für|gegen|durch|um|bei|nach|von|zu|aus|seit|bis|während|trotz|wegen|anstatt|außer|innerhalb|außerhalb|oberhalb|unterhalb|diesseits|jenseits|beiderseits|längs|entlang|gemäß|laut|zufolge|entsprechend|ungeachtet|unbeschadet|einschließlich|ausschließlich|hinsichtlich|bezüglich|betreffs|zwecks|mittels|vermittels|kraft|dank|infolge|aufgrund|anlässlich|gelegentlich|angesichts|café|restaurant|hotel|museum|kirche|schloss|garten|strand|berg|stadt|straße|platz|brücke|bahnhof|flughafen|bäckerei|konditorei|buchhandlung|apotheke|krankenhaus|schule|universität|theater|kino|stadion|park|wald|see|fluss|meer|ozean|insel|küste|norden|süden|osten|westen|zentrum|viertel|allee|boulevard|gasse|passage|weg|landstraße|autobahn|ubahn|bus|zug|flugzeug|schiff|auto|fahrrad|motorrad)\b', caseSensitive: false).hasMatch(lowerQuery)) {
-      return 'de';
+
+    // 德语：必须包含变音符/ß，或至少两个典型德语词汇
+    final germanAccentRegex = RegExp(r'[äöüß]', caseSensitive: false);
+    final germanKeywordRegex = RegExp(
+      r'\b(ich|du|er|sie|es|wir|ihr|der|die|das|ein|eine|und|oder|aber|weil|dass|wenn|wie|warum|mit|ohne|für|gegen|durch|bei|nach|von|zu|aus|seit|bis|straße|platz|brücke|bahnhof|flughafen|bäckerei|schloss|garten|strand|stadt|viertel|ubahn|zug|flugzeug|schiff|fahrrad|motorrad)\b',
+      caseSensitive: false,
+    );
+    final germanKeywordMatches = _countMatches(germanKeywordRegex);
+    if (germanAccentRegex.hasMatch(query) || germanKeywordMatches >= 2) {
+      return _returnIfDifferent('de');
     }
-    
-    // 检测英语词汇（最后检测，因为很多语言会混用英语词）
-    // 使用更全面的英语词汇列表
-    final englishPatterns = [
-      // 常见介词、冠词、连词
-      r'\b(in|at|near|around|the|a|an|to|for|with|from|of|on|by|about|into|through|during|before|after|above|below|between|under|over|behind|beside|next|across|along|among|within|without|against|toward|towards|upon|onto|off|out|up|down|away|back|here|there|where|when|how|why|what|which|who|whom|whose|that|this|these|those|it|its|is|are|was|were|be|been|being|have|has|had|having|do|does|did|doing|will|would|shall|should|can|could|may|might|must|need|dare|ought|used)\b',
-      // 旅行相关动词和形容词
-      r'\b(recommend|find|show|best|top|good|nice|great|beautiful|amazing|wonderful|fantastic|excellent|perfect|lovely|gorgeous|stunning|incredible|awesome|cool|interesting|famous|popular|historic|ancient|modern|traditional|local|authentic|hidden|secret|must-see|must-visit|worth|visiting|exploring|discovering|experiencing)\b',
-      // 地点类型
-      r'\b(cafe|cafes|coffee|coffeeshop|restaurant|restaurants|hotel|hotels|hostel|museum|museums|gallery|galleries|park|parks|garden|gardens|beach|beaches|temple|temples|shrine|shrines|church|churches|cathedral|cathedrals|mosque|mosques|palace|palaces|castle|castles|tower|towers|bridge|bridges|square|squares|street|streets|market|markets|shop|shops|store|stores|mall|malls|bar|bars|pub|pubs|club|clubs|theater|theatre|cinema|stadium|arena|zoo|aquarium|library|bookstore|bakery|pastry|dessert|ice cream|pizza|burger|sushi|ramen|noodle|dumpling|dim sum|seafood|steak|bbq|barbecue|vegetarian|vegan|brunch|breakfast|lunch|dinner|snack|drink|cocktail|wine|beer|tea|bubble tea|juice|smoothie)\b',
-      // 旅行相关名词
-      r'\b(place|places|spot|spots|location|locations|destination|destinations|attraction|attractions|landmark|landmarks|sight|sights|view|views|scenery|area|areas|neighborhood|neighbourhoods|district|districts|quarter|quarters|city|cities|town|towns|village|villages|country|countries|region|regions|island|islands|mountain|mountains|lake|lakes|river|rivers|ocean|sea|coast|coastline|bay|harbor|harbour|port|airport|station|terminal|stop|tour|tours|trip|trips|travel|travels|journey|journeys|adventure|adventures|vacation|vacations|holiday|holidays|getaway|escape|retreat|experience|experiences)\b',
-      // 请求和疑问
-      r'\b(please|want|looking|search|searching|seeking|need|help|suggest|suggestion|suggestions|idea|ideas|tip|tips|advice|guide|guides|information|info|detail|details|list|options|choice|choices|alternative|alternatives|similar|like|such as|example|examples|any|some|few|many|more|most|all|every|each|other|another|different|same|similar|nearby|close|closest|nearest|around here|in this area)\b',
-    ];
-    
-    for (final pattern in englishPatterns) {
-      if (RegExp(pattern, caseSensitive: false).hasMatch(lowerQuery)) {
-        return 'en';
-      }
-    }
-    
-    // 无法确定，返回 null 使用默认设置
+
+    // 其他语言暂不强制覆写
     return null;
   }
 
@@ -609,9 +604,16 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 如果详情字段缺失但有 ID，会从后端获取完整数据
   void _showPlaceDetail(PlaceResult place) async {
     debugPrint('🔍 [AIAssistant] _showPlaceDetail for: ${place.name}');
+
+    final placeId = place.id;
+    final isAiGeneratedPlace = (place.source == PlaceSource.ai) || (placeId?.startsWith('ai_') ?? false);
+    final isUuid = placeId != null && RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(placeId);
     
     // 检查是否需要从后端获取详情（有 ID 但缺少详情字段）
-    final needsFetch = place.id != null && 
+    // 注意：AI 生成的 placeId（ai_xxx）不是数据库 UUID，后端通常无法按 ID 返回详情。
+    final needsFetch = isUuid && !isAiGeneratedPlace &&
         place.address == null && 
         place.phoneNumber == null && 
         place.website == null;
@@ -640,7 +642,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         builder: (context) => UnifiedSpotDetailModal(
           spot: spot,
           keepOpenOnAction: true,
-          hideCollectionEntry: true,
         ),
       );
     }
@@ -916,7 +917,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     
     // 处理 specific_place 意图（单个地点）
     if (result.isSpecificPlace && result.places.isNotEmpty) {
-      final place = result.places.first;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -941,6 +941,14 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           const SizedBox(height: 20),
           
           // 地图展示
+          Text(
+            'find more place on the map',
+            style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.black,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 8),
           RecommendationMapView(
             places: result.places,
             height: 200,
@@ -1008,10 +1016,23 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
         // 地图展示 - Requirements: 10.3, 10.4, 10.5
         if (result.allPlaces.isNotEmpty)
-          RecommendationMapView(
-            places: result.allPlaces,
-            height: 200,
-            onPlaceTap: _showPlaceDetail,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'find more place on the map',
+                style: AppTheme.bodySmall(context).copyWith(
+                  color: AppTheme.darkGray,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              RecommendationMapView(
+                places: result.allPlaces,
+                height: 200,
+                onPlaceTap: _showPlaceDetail,
+              ),
+            ],
           ),
       ],
     );
@@ -1141,15 +1162,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     );
   }
   
-  /// 解析内联 Markdown（移除 ** 等格式标记）- 保留用于兼容
-  String _parseInlineMarkdown(String text) {
-    // 移除 **bold** 标记
-    return text.replaceAllMapped(
-      RegExp(r'\*\*([^*]+)\*\*'),
-      (match) => match.group(1) ?? '',
-    );
-  }
-
   Widget _buildImageGrid(List<String> imageUrls) {
     if (imageUrls.length == 1) {
       return ClipRRect(
@@ -1297,7 +1309,7 @@ class _SpotCardOverlayState extends State<_SpotCardOverlay> {
   Widget build(BuildContext context) => GestureDetector(
     onTap: () => showModalBottomSheet<void>(
       context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
-      builder: (context) => UnifiedSpotDetailModal(spot: widget.spot, keepOpenOnAction: true, hideCollectionEntry: true),
+      builder: (context) => UnifiedSpotDetailModal(spot: widget.spot, keepOpenOnAction: true),
     ),
     child: AspectRatio(
       aspectRatio: 4 / 3,
@@ -1426,6 +1438,16 @@ class _PlaceDetailLoaderState extends State<_PlaceDetailLoader> {
 
   Future<void> _fetchPlaceDetails() async {
     try {
+      // AI 生成的 placeId（ai_xxx）不是数据库 UUID，直接用 fallback 数据展示。
+      if (widget.placeId.startsWith('ai_')) {
+        if (!mounted) return;
+        setState(() {
+          _spot = widget.placeResultToSpot(widget.fallbackPlace);
+          _isLoading = false;
+        });
+        return;
+      }
+
       final dio = Dio();
       final apiBaseUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000/api';
       
@@ -1512,7 +1534,6 @@ class _PlaceDetailLoaderState extends State<_PlaceDetailLoader> {
     return UnifiedSpotDetailModal(
       spot: _spot!,
       keepOpenOnAction: true,
-      hideCollectionEntry: true,
     );
   }
 }

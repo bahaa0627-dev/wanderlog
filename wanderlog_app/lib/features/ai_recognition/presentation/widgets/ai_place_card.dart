@@ -8,12 +8,13 @@ import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.d
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
-import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpotStatus;
+import 'package:wanderlog/shared/models/trip_spot_model.dart'
+    show TripSpotStatus;
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 
 /// AI 地点卡片组件
-/// 
+///
 /// Requirements: 11.1, 11.2, 11.4
 /// - 显示 recommendationPhrase 替代评分（AI-only 地点）
 /// - 显示标签和 summary
@@ -72,7 +73,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   void didUpdateWidget(AIPlaceCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     // 如果 place 变化，重置图片状态
-    if (oldWidget.place.id != widget.place.id || 
+    if (oldWidget.place.id != widget.place.id ||
         oldWidget.place.coverImage != widget.place.coverImage) {
       _imageRetryCount = 0;
       _currentImageUrl = widget.place.coverImage;
@@ -97,10 +98,12 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         final baseUrl = widget.place.coverImage;
         if (baseUrl.isNotEmpty && !baseUrl.startsWith('data:')) {
           final separator = baseUrl.contains('?') ? '&' : '?';
-          _currentImageUrl = '$baseUrl${separator}_retry=$_imageRetryCount&_t=${DateTime.now().millisecondsSinceEpoch}';
+          _currentImageUrl =
+              '$baseUrl${separator}_retry=$_imageRetryCount&_t=${DateTime.now().millisecondsSinceEpoch}';
         }
       });
-      debugPrint('🔄 [AIPlaceCard] Retrying image load for "${widget.place.name}" (attempt $_imageRetryCount/$_maxRetries)');
+      debugPrint(
+          '🔄 [AIPlaceCard] Retrying image load for "${widget.place.name}" (attempt $_imageRetryCount/$_maxRetries)');
     }
   }
 
@@ -146,7 +149,8 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
     const defaultPlaceholder = ColoredBox(
       color: AppTheme.lightGray,
       child: Center(
-        child: Icon(Icons.image_not_supported, size: 48, color: AppTheme.mediumGray),
+        child: Icon(Icons.image_not_supported,
+            size: 48, color: AppTheme.mediumGray),
       ),
     );
 
@@ -164,7 +168,8 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         return Image.memory(
           bytes,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder,
+          errorBuilder: (_, __, ___) =>
+              widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder,
         );
       }
       return widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder;
@@ -186,10 +191,12 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         );
       },
       errorBuilder: (context, error, stackTrace) {
-        debugPrint('❌ [AIPlaceCard] Image load failed for "${widget.place.name}": $error');
+        debugPrint(
+            '❌ [AIPlaceCard] Image load failed for "${widget.place.name}": $error');
         // 如果还有重试次数，延迟后重试
         if (_imageRetryCount < _maxRetries) {
-          Future.delayed(Duration(milliseconds: 500 * (_imageRetryCount + 1)), _retryImageLoad);
+          Future.delayed(Duration(milliseconds: 500 * (_imageRetryCount + 1)),
+              _retryImageLoad);
         }
         // 显示加载中状态（等待重试）
         if (_imageRetryCount < _maxRetries) {
@@ -198,12 +205,15 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
             child: Center(
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryYellow),
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(AppTheme.primaryYellow),
               ),
             ),
           );
         }
-        return widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder;
+        return widget.place.isAIOnly
+            ? buildAIPlaceholder()
+            : defaultPlaceholder;
       },
     );
   }
@@ -213,7 +223,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
     // AI-only 地点显示推荐短语
     if (widget.place.isAIOnly || !widget.place.hasRating) {
       // 使用 AI 返回的推荐短语，如果没有则根据地点特征生成
-      final phrase = widget.place.recommendationPhrase?.isNotEmpty == true 
+      final phrase = widget.place.recommendationPhrase?.isNotEmpty == true
           ? widget.place.recommendationPhrase!
           : _getDefaultPhrase();
       return Row(
@@ -264,21 +274,31 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   String _getDefaultPhrase() {
     final tags = widget.place.tags ?? [];
     final name = widget.place.name.toLowerCase();
-    
+
     // 根据标签或名称特征选择短语
-    if (tags.any((t) => t.toLowerCase().contains('museum') || t.toLowerCase().contains('gallery'))) {
+    if (tags.any((t) =>
+        t.toLowerCase().contains('museum') ||
+        t.toLowerCase().contains('gallery'))) {
       return 'Cultural treasure';
     }
-    if (tags.any((t) => t.toLowerCase().contains('temple') || t.toLowerCase().contains('shrine'))) {
+    if (tags.any((t) =>
+        t.toLowerCase().contains('temple') ||
+        t.toLowerCase().contains('shrine'))) {
       return 'Sacred landmark';
     }
-    if (tags.any((t) => t.toLowerCase().contains('park') || t.toLowerCase().contains('garden'))) {
+    if (tags.any((t) =>
+        t.toLowerCase().contains('park') ||
+        t.toLowerCase().contains('garden'))) {
       return 'Scenic retreat';
     }
-    if (tags.any((t) => t.toLowerCase().contains('cafe') || t.toLowerCase().contains('coffee'))) {
+    if (tags.any((t) =>
+        t.toLowerCase().contains('cafe') ||
+        t.toLowerCase().contains('coffee'))) {
       return 'Local favorite';
     }
-    if (tags.any((t) => t.toLowerCase().contains('restaurant') || t.toLowerCase().contains('food'))) {
+    if (tags.any((t) =>
+        t.toLowerCase().contains('restaurant') ||
+        t.toLowerCase().contains('food'))) {
       return 'Culinary gem';
     }
     if (name.contains('castle') || name.contains('palace')) {
@@ -287,9 +307,15 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
     if (name.contains('tower') || name.contains('view')) {
       return 'Iconic viewpoint';
     }
-    
+
     // 随机选择一个通用短语
-    final phrases = ['Must-visit', 'Hidden gem', 'Local pick', 'Worth exploring', 'Traveler favorite'];
+    final phrases = [
+      'Must-visit',
+      'Hidden gem',
+      'Local pick',
+      'Worth exploring',
+      'Traveler favorite'
+    ];
     return phrases[widget.place.name.length % phrases.length];
   }
 
@@ -323,13 +349,14 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   }
 
   /// 处理收藏点击
-  /// 
+  ///
   /// Requirements: 2.1, 2.2, 2.3, 2.4
   /// - Invalidate and refresh wishlist status cache after API call
   /// - Update heart icon to filled/unfilled state
   /// - Show success/error toast message
   /// - Revert state on failure
-  Future<void> _handleWishlistTap(bool isInWishlist, String? destinationId) async {
+  Future<void> _handleWishlistTap(
+      bool isInWishlist, String? destinationId) async {
     if (_isSaving) return;
 
     final auth = ref.read(authProvider);
@@ -344,34 +371,34 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
       if (isInWishlist && destinationId != null) {
         // 已收藏，移除
         await ref.read(tripRepositoryProvider).manageTripSpot(
-          tripId: destinationId,
-          spotId: _spotId,
-          remove: true,
-        );
-        
+              tripId: destinationId,
+              spotId: _spotId,
+              remove: true,
+            );
+
         // Invalidate providers and wait for refresh to complete
         // This ensures UI updates with fresh data before showing toast
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
-        
+
         // Force provider refresh by reading the future - ensures UI state is updated
         await ref.read(wishlistStatusProvider.future);
-        
+
         // Call callback after provider refresh completes
         widget.onWishlistChanged?.call(false);
-        
+
         if (mounted) {
           CustomToast.showSuccess(context, 'Removed from wishlist');
         }
       } else {
         // 未收藏，添加
         // 使用 city，如果为空则使用 country，如果都为空则使用 "Saved Places"
-        final cityName = widget.place.city?.isNotEmpty == true 
-            ? widget.place.city! 
-            : (widget.place.country?.isNotEmpty == true 
-                ? widget.place.country! 
+        final cityName = widget.place.city?.isNotEmpty == true
+            ? widget.place.city!
+            : (widget.place.country?.isNotEmpty == true
+                ? widget.place.country!
                 : 'Saved Places');
-        
+
         final destId = await ensureDestinationForCity(ref, cityName);
         if (destId == null) {
           if (mounted) {
@@ -382,7 +409,8 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         }
 
         // 使用 displayTagsEn 作为 tags，如果没有则回退到原始 tags
-        final effectiveTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+        final effectiveTags =
+            widget.place.displayTagsEn ?? widget.place.tags ?? [];
 
         await ref.read(tripRepositoryProvider).manageTripSpot(
           tripId: destId,
@@ -408,13 +436,13 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         // This ensures UI updates with fresh data before showing toast
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
-        
+
         // Force provider refresh by reading the future - ensures UI state is updated
         await ref.read(wishlistStatusProvider.future);
-        
+
         // Call callback after provider refresh completes
         widget.onWishlistChanged?.call(true);
-        
+
         if (mounted) {
           CustomToast.showSuccess(context, 'Saved to wishlist');
         }
@@ -435,115 +463,149 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   Widget build(BuildContext context) {
     // 使用 ref.watch 响应式获取收藏状态
     final wishlistAsync = ref.watch(wishlistStatusProvider);
-    
+
+    Widget wrapWithSummary(Widget card) {
+      if (!widget.showSummary || widget.place.summary.isEmpty) return card;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          card,
+          const SizedBox(height: 8),
+          Text(
+            widget.place.summary,
+            style: AppTheme.bodySmall(context).copyWith(
+              color: AppTheme.darkGray,
+              height: 1.4,
+              fontSize: 13,
+            ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      );
+    }
+
     return wishlistAsync.when(
       data: (statusMap) {
         final (isInWishlist, destinationId) = _getWishlistStatus(statusMap);
-        
-        return GestureDetector(
-          onTap: widget.onTap,
-          child: AspectRatio(
-            aspectRatio: widget.aspectRatio,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-                boxShadow: AppTheme.cardShadow,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // 封面图片
-                    _buildCoverImage(widget.place.coverImage),
-                    // 渐变遮罩
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.7),
-                            ],
-                            stops: const [0.4, 1.0],
-                          ),
-                        ),
-                      ),
-                    ),
-                    // 右上角收藏按钮 - 收藏后黄底黑桃心
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: () => _handleWishlistTap(isInWishlist, destinationId),
+
+        return wrapWithSummary(
+          GestureDetector(
+            onTap: widget.onTap,
+            child: AspectRatio(
+              aspectRatio: widget.aspectRatio,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  border: Border.all(
+                      color: AppTheme.black, width: AppTheme.borderMedium),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: ClipRRect(
+                  borderRadius:
+                      BorderRadius.circular(AppTheme.radiusMedium - 2),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // 封面图片
+                      _buildCoverImage(widget.place.coverImage),
+                      // 渐变遮罩
+                      Positioned.fill(
                         child: Container(
-                          width: 32,
-                          height: 32,
                           decoration: BoxDecoration(
-                            color: isInWishlist ? AppTheme.primaryYellow : Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.black, width: 1.5),
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withOpacity(0.7),
+                              ],
+                              stops: const [0.4, 1.0],
+                            ),
                           ),
-                          child: _isSaving
-                              ? const Padding(
-                                  padding: EdgeInsets.all(6),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
-                                  ),
-                                )
-                              : Icon(
-                                  isInWishlist ? Icons.favorite : Icons.favorite_border,
-                                  size: 16,
-                                  color: AppTheme.black,
-                                ),
                         ),
                       ),
-                    ),
-                    // 底部信息
-                    Positioned(
-                      left: 12,
-                      right: 12,
-                      bottom: 12,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // 标签
-                          _buildTags(context),
-                          const SizedBox(height: 6),
-                          // 地点名称
-                          Text(
-                            widget.place.name,
-                            style: AppTheme.labelLarge(context).copyWith(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                      // 右上角收藏按钮 - 收藏后黄底黑桃心
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: GestureDetector(
+                          onTap: () =>
+                              _handleWishlistTap(isInWishlist, destinationId),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: isInWishlist
+                                  ? AppTheme.primaryYellow
+                                  : Colors.white,
+                              shape: BoxShape.circle,
+                              border:
+                                  Border.all(color: AppTheme.black, width: 1.5),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            child: _isSaving
+                                ? const Padding(
+                                    padding: EdgeInsets.all(6),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          AppTheme.black),
+                                    ),
+                                  )
+                                : Icon(
+                                    isInWishlist
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    size: 16,
+                                    color: AppTheme.black,
+                                  ),
                           ),
-                          const SizedBox(height: 4),
-                          // 评分或推荐短语
-                          _buildRatingOrPhrase(context),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                      // 底部信息
+                      Positioned(
+                        left: 12,
+                        right: 12,
+                        bottom: 12,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 标签
+                            _buildTags(context),
+                            const SizedBox(height: 6),
+                            // 地点名称
+                            Text(
+                              widget.place.name,
+                              style: AppTheme.labelLarge(context).copyWith(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            // 评分或推荐短语
+                            _buildRatingOrPhrase(context),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         );
       },
-      loading: () => _buildCardWithWishlistState(context, false),
-      error: (_, __) => _buildCardWithWishlistState(context, false),
+      loading: () =>
+          wrapWithSummary(_buildCardWithWishlistState(context, false)),
+      error: (_, __) =>
+          wrapWithSummary(_buildCardWithWishlistState(context, false)),
     );
   }
-  
+
   /// 构建带有指定收藏状态的卡片（用于 loading/error 状态）
   Widget _buildCardWithWishlistState(BuildContext context, bool isInWishlist) {
     return GestureDetector(
@@ -553,7 +615,8 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+            border:
+                Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
             boxShadow: AppTheme.cardShadow,
           ),
           child: ClipRRect(
@@ -590,7 +653,8 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                         shape: BoxShape.circle,
                         border: Border.all(color: AppTheme.black, width: 1.5),
                       ),
-                      child: const Icon(Icons.favorite_border, size: 16, color: AppTheme.black),
+                      child: const Icon(Icons.favorite_border,
+                          size: 16, color: AppTheme.black),
                     ),
                   ),
                 ),

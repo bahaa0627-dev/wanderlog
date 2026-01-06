@@ -34,6 +34,7 @@ class SearchV2Result {
     required this.acknowledgment,
     this.categories,
     required this.places,
+    this.mapPlaces,
     required this.overallSummary,
     required this.quotaRemaining,
     required this.stage,
@@ -127,6 +128,9 @@ class SearchV2Result {
                   ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
                   .toList() ??
               [],
+          mapPlaces: (json['mapPlaces'] as List?)
+                  ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
+                  .toList(),
           overallSummary: json['overallSummary'] as String? ?? '',
           quotaRemaining: json['quotaRemaining'] as int? ?? 0,
           stage: _parseStage(json['stage'] as String?),
@@ -166,6 +170,9 @@ class SearchV2Result {
   /// 无分类时的平铺结果（最多 5 个）
   final List<PlaceResult> places;
 
+  /// 地图页可额外展示的地点（可选，通常比 places 更多）
+  final List<PlaceResult>? mapPlaces;
+
   /// 总结 summary（包含友好的结束语）
   final String overallSummary;
 
@@ -191,6 +198,10 @@ class SearchV2Result {
 
   /// 获取所有地点（包括分类中的）
   List<PlaceResult> get allPlaces {
+    // 如果后端提供了 mapPlaces，优先用于地图展示
+    if (mapPlaces != null && mapPlaces!.isNotEmpty) {
+      return mapPlaces!;
+    }
     if (hasCategories) {
       return categories!.expand((cat) => cat.places).toList();
     }
@@ -204,6 +215,7 @@ class SearchV2Result {
       'acknowledgment': acknowledgment,
       'categories': categories?.map((e) => e.toJson()).toList(),
       'places': places.map((e) => e.toJson()).toList(),
+      'mapPlaces': mapPlaces?.map((e) => e.toJson()).toList(),
       'overallSummary': overallSummary,
       'quotaRemaining': quotaRemaining,
       'stage': stage.name,

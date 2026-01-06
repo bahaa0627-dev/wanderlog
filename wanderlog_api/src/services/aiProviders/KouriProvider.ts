@@ -7,6 +7,7 @@
  */
 
 import axios, { AxiosError } from 'axios';
+import net from 'net';
 import {
   AIProvider,
   AIProviderName,
@@ -133,6 +134,43 @@ export class KouriProvider implements AIProvider {
     return this.configValid && this.config !== null;
   }
 
+  /**
+   * If user configured a localhost proxy (common dev setup), but it isn't running,
+   * axios will fail with ECONNREFUSED. We detect that case and disable proxy for
+   * this request so it can go direct.
+   */
+  private async shouldDisableProxyForRequest(): Promise<boolean> {
+    const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
+    if (!proxyUrl) return false;
+
+    // Only guard the common local proxy scenario.
+    const match = proxyUrl.match(/^(https?:\/\/)?(localhost|127\.0\.0\.1):(\d+)/i);
+    if (!match) return false;
+
+    const host = match[2];
+    const port = Number(match[3]);
+    if (!Number.isFinite(port)) return false;
+
+    // Quick TCP connect probe.
+    const ok = await new Promise<boolean>((resolve) => {
+      const socket = new net.Socket();
+      const done = (value: boolean) => {
+        try { socket.destroy(); } catch (_) {}
+        resolve(value);
+      };
+
+      socket.setTimeout(300);
+      socket.once('connect', () => done(true));
+      socket.once('timeout', () => done(false));
+      socket.once('error', () => done(false));
+      socket.connect(port, host);
+    });
+
+    if (ok) return false;
+    console.warn(`[Kouri] Local proxy ${host}:${port} not reachable; disabling proxy for this request`);
+    return true;
+  }
+
 
   /**
    * Build API URL for chat completions endpoint
@@ -211,10 +249,14 @@ export class KouriProvider implements AIProvider {
 
     try {
       console.log(`[Kouri] Sending responses request to: ${url}`);
+
+      const disableProxy = await this.shouldDisableProxyForRequest();
       
       const response = await axios.post<KouriResponsesResponse>(url, requestBody, {
         headers: this.getHeaders(),
         timeout: 90000, // 90 second timeout for web search
+        // If disableProxy is true, this prevents axios from attempting to use env proxy.
+        proxy: disableProxy ? false : undefined,
       });
 
       // Extract text content from the response

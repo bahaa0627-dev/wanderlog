@@ -10,7 +10,7 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
 
 /// 推荐结果地图组件
-/// 
+///
 /// Requirements: 10.3, 10.4, 10.5
 /// - 显示所有推荐地点标记
 /// - 支持缩放和滑动
@@ -55,13 +55,13 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
   @override
   void didUpdateWidget(RecommendationMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     if (!_isMapReady) return;
 
     // 检查地点列表是否变化
     final oldPlaceIds = oldWidget.places.map((p) => p.id ?? p.name).toSet();
     final newPlaceIds = widget.places.map((p) => p.id ?? p.name).toSet();
-    
+
     if (!_setsEqual(oldPlaceIds, newPlaceIds)) {
       _addMarkers();
     } else if (oldWidget.selectedPlace?.id != widget.selectedPlace?.id) {
@@ -167,7 +167,8 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
           orElse: () => widget.places.first,
         );
         try {
-          final annotation = await _createAnnotation(selectedPlace, isSelected: true);
+          final annotation =
+              await _createAnnotation(selectedPlace, isSelected: true);
           _annotationsByPlaceId[selectedId] = annotation;
           _placeByAnnotationId[annotation.id] = selectedPlace;
         } catch (e) {
@@ -207,15 +208,17 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
     PlaceResult place, {
     required bool isSelected,
   }) async {
-    final truncatedName = place.name.length > 10 
-        ? '${place.name.substring(0, 10)}...' 
+    final truncatedName = place.name.length > 10
+        ? '${place.name.substring(0, 10)}...'
         : place.name;
-    final cacheKey = '${truncatedName}_${isSelected ? 'selected' : 'default'}_${place.isVerified ? 'verified' : 'ai'}';
-    
+    final cacheKey =
+        '${truncatedName}_${isSelected ? 'selected' : 'default'}_${place.isVerified ? 'verified' : 'ai'}';
+
     final cached = _markerBitmapCache[cacheKey];
     if (cached != null) return cached;
 
-    final Color markerColor = isSelected ? AppTheme.primaryYellow : Colors.white;
+    final Color markerColor =
+        isSelected ? AppTheme.primaryYellow : Colors.white;
     final bitmap = await _createMarkerBitmap(
       place.name,
       markerColor,
@@ -391,16 +394,18 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
               ),
               onMapCreated: (mapboxMap) async {
                 _mapboxMap = mapboxMap;
-                _pointAnnotationManager = await mapboxMap.annotations.createPointAnnotationManager();
-                
+                _pointAnnotationManager =
+                    await mapboxMap.annotations.createPointAnnotationManager();
+
                 await _enableMapGestures();
                 await _addMarkers();
-                
+
                 // 设置点击监听
                 _pointAnnotationManager?.addOnPointAnnotationClickListener(
                   _MarkerClickListener(
                     onMarkerTap: (place) => widget.onPlaceTap?.call(place),
-                    annotationPlaceResolver: (annotationId) => _placeByAnnotationId[annotationId],
+                    annotationPlaceResolver: (annotationId) =>
+                        _placeByAnnotationId[annotationId],
                   ),
                 );
 
@@ -412,7 +417,8 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
               top: 12,
               left: 12,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.95),
                   borderRadius: BorderRadius.circular(8),
@@ -448,7 +454,8 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: AppTheme.black, width: 1),
                   ),
-                  child: const Icon(Icons.fullscreen, size: 20, color: AppTheme.black),
+                  child: const Icon(Icons.fullscreen,
+                      size: 20, color: AppTheme.black),
                 ),
               ),
             ),
@@ -485,18 +492,20 @@ class _FullscreenRecommendationMap extends StatefulWidget {
   final PlaceResult? selectedPlace;
 
   @override
-  State<_FullscreenRecommendationMap> createState() => _FullscreenRecommendationMapState();
+  State<_FullscreenRecommendationMap> createState() =>
+      _FullscreenRecommendationMapState();
 }
 
-class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationMap> {
+class _FullscreenRecommendationMapState
+    extends State<_FullscreenRecommendationMap> {
   MapboxMap? _mapboxMap;
   PointAnnotationManager? _pointAnnotationManager;
   final Map<String, Uint8List> _markerBitmapCache = {};
   final Map<String, PointAnnotation> _annotationsByPlaceId = {};
   final Map<String, PlaceResult> _placeByAnnotationId = {};
   PlaceResult? _selectedPlace;
-  final PageController _cardPageController = PageController(viewportFraction: 0.6);
-  int _currentCardIndex = 0;
+  final PageController _cardPageController =
+      PageController(viewportFraction: 0.6);
 
   @override
   void initState() {
@@ -504,9 +513,9 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
     _selectedPlace = widget.selectedPlace;
     // 如果有初始选中的地点，找到它的索引
     if (_selectedPlace != null) {
-      final index = widget.places.indexWhere((p) => (p.id ?? p.name) == (_selectedPlace!.id ?? _selectedPlace!.name));
+      final index = widget.places.indexWhere((p) =>
+          (p.id ?? p.name) == (_selectedPlace!.id ?? _selectedPlace!.name));
       if (index >= 0) {
-        _currentCardIndex = index;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_cardPageController.hasClients) {
             _cardPageController.jumpToPage(index);
@@ -604,7 +613,8 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
           orElse: () => widget.places.first,
         );
         try {
-          final annotation = await _createAnnotation(selectedPlace, isSelected: true);
+          final annotation =
+              await _createAnnotation(selectedPlace, isSelected: true);
           _annotationsByPlaceId[selectedId] = annotation;
           _placeByAnnotationId[annotation.id] = selectedPlace;
         } catch (e) {
@@ -640,15 +650,17 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
     PlaceResult place, {
     required bool isSelected,
   }) async {
-    final truncatedName = place.name.length > 10 
-        ? '${place.name.substring(0, 10)}...' 
+    final truncatedName = place.name.length > 10
+        ? '${place.name.substring(0, 10)}...'
         : place.name;
-    final cacheKey = '${truncatedName}_${isSelected ? 'selected' : 'default'}_${place.isVerified ? 'verified' : 'ai'}';
-    
+    final cacheKey =
+        '${truncatedName}_${isSelected ? 'selected' : 'default'}_${place.isVerified ? 'verified' : 'ai'}';
+
     final cached = _markerBitmapCache[cacheKey];
     if (cached != null) return cached;
 
-    final Color markerColor = isSelected ? AppTheme.primaryYellow : Colors.white;
+    final Color markerColor =
+        isSelected ? AppTheme.primaryYellow : Colors.white;
     final bitmap = await _createMarkerBitmap(
       place.name,
       markerColor,
@@ -781,11 +793,11 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
   }
 
   void _handleMarkerTap(PlaceResult place) {
-    final index = widget.places.indexWhere((p) => (p.id ?? p.name) == (place.id ?? place.name));
+    final index = widget.places
+        .indexWhere((p) => (p.id ?? p.name) == (place.id ?? place.name));
     if (index >= 0) {
       setState(() {
         _selectedPlace = place;
-        _currentCardIndex = index;
       });
       // 滚动到对应的卡片
       if (_cardPageController.hasClients) {
@@ -806,7 +818,6 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
       final place = widget.places[index];
       setState(() {
         _selectedPlace = place;
-        _currentCardIndex = index;
       });
       // 刷新标记样式
       _addMarkers();
@@ -826,7 +837,7 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
     final (center, zoom) = _calculateCameraPosition();
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    
+
     // 卡片尺寸 - 和其他地图页保持一致 (3:4 比例)
     const cardWidth = 210.0;
     const cardHeight = 280.0;
@@ -844,15 +855,17 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
             ),
             onMapCreated: (mapboxMap) async {
               _mapboxMap = mapboxMap;
-              _pointAnnotationManager = await mapboxMap.annotations.createPointAnnotationManager();
-              
+              _pointAnnotationManager =
+                  await mapboxMap.annotations.createPointAnnotationManager();
+
               await _enableMapGestures();
               await _addMarkers();
-              
+
               _pointAnnotationManager?.addOnPointAnnotationClickListener(
                 _MarkerClickListener(
                   onMarkerTap: _handleMarkerTap,
-                  annotationPlaceResolver: (annotationId) => _placeByAnnotationId[annotationId],
+                  annotationPlaceResolver: (annotationId) =>
+                      _placeByAnnotationId[annotationId],
                 ),
               );
             },
@@ -872,7 +885,8 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
                   border: Border.all(color: AppTheme.black, width: 1.5),
                   boxShadow: AppTheme.cardShadow,
                 ),
-                child: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppTheme.black),
+                child: const Icon(Icons.arrow_back_ios_new,
+                    size: 18, color: AppTheme.black),
               ),
             ),
           ),
@@ -917,7 +931,8 @@ class _FullscreenRecommendationMapState extends State<_FullscreenRecommendationM
                 itemCount: widget.places.length,
                 itemBuilder: (context, index) {
                   final place = widget.places[index];
-                  final isSelected = (place.id ?? place.name) == (_selectedPlace?.id ?? _selectedPlace?.name);
+                  final isSelected = (place.id ?? place.name) ==
+                      (_selectedPlace?.id ?? _selectedPlace?.name);
                   return AnimatedScale(
                     scale: isSelected ? 1.0 : 0.9,
                     duration: const Duration(milliseconds: 200),
@@ -972,7 +987,7 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
 
   Future<void> _extractDominantColor() async {
     if (widget.place.coverImage.isEmpty) return;
-    
+
     try {
       final ImageProvider imageProvider;
       if (widget.place.coverImage.startsWith('data:')) {
@@ -982,13 +997,13 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
       } else {
         imageProvider = NetworkImage(widget.place.coverImage);
       }
-      
+
       final paletteGenerator = await PaletteGenerator.fromImageProvider(
         imageProvider,
         size: const ui.Size(100, 100),
         maximumColorCount: 5,
       );
-      
+
       if (mounted) {
         setState(() {
           _dominantColor = paletteGenerator.dominantColor?.color ??
@@ -1036,111 +1051,128 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-      onTap: widget.onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _buildCover(),
-              // 底部渐变蒙层 - 使用提取的主色
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  height: 140,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        _dominantColor.withOpacity(0.3),
-                        _dominantColor.withOpacity(0.6),
-                        _dominantColor.withOpacity(0.85),
-                      ],
-                      stops: const [0.0, 0.3, 0.6, 1.0],
+        onTap: widget.onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            border:
+                Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildCover(),
+                // 底部渐变蒙层 - 使用提取的主色
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: 140,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          _dominantColor.withOpacity(0.3),
+                          _dominantColor.withOpacity(0.6),
+                          _dominantColor.withOpacity(0.85),
+                        ],
+                        stops: const [0.0, 0.3, 0.6, 1.0],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      widget.place.name,
-                      style: AppTheme.bodyLarge(context).copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        widget.place.name,
+                        style: AppTheme.bodyLarge(context).copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    // 评分或推荐短语
-                    if (widget.place.hasRating)
-                      Row(
-                        children: [
-                          const Icon(Icons.star, size: 14, color: AppTheme.primaryYellow),
-                          const SizedBox(width: 4),
-                          Text(
-                            widget.place.rating!.toStringAsFixed(1),
-                            style: AppTheme.bodySmall(context).copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (widget.place.ratingCount != null) ...[
+                      const SizedBox(height: 8),
+                      // 评分或推荐短语
+                      if (widget.place.hasRating)
+                        Row(
+                          children: [
+                            const Icon(Icons.star,
+                                size: 14, color: AppTheme.primaryYellow),
                             const SizedBox(width: 4),
                             Text(
-                              '(${widget.place.ratingCount})',
-                              style: AppTheme.bodySmall(context).copyWith(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ],
-                      )
-                    else if (widget.place.recommendationPhrase != null)
-                      Row(
-                        children: [
-                          Icon(Icons.auto_awesome, size: 14, color: AppTheme.primaryYellow),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              widget.place.recommendationPhrase!,
+                              widget.place.rating!.toStringAsFixed(1),
                               style: AppTheme.bodySmall(context).copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
+                            if (widget.place.ratingCount != null) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                '(${widget.place.ratingCount})',
+                                style: AppTheme.bodySmall(context).copyWith(
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ],
+                        )
+                      else if (widget.place.recommendationPhrase != null)
+                        Row(
+                          children: [
+                            Icon(Icons.auto_awesome,
+                                size: 14, color: AppTheme.primaryYellow),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                widget.place.recommendationPhrase!,
+                                style: AppTheme.bodySmall(context).copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                      // AI summary - 显示在卡片下方（最多 2 行）
+                      if (widget.place.summary.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.place.summary,
+                          style: AppTheme.bodySmall(context).copyWith(
+                            color: Colors.white.withOpacity(0.92),
+                            height: 1.25,
                           ),
-                        ],
-                      ),
-                  ],
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
 }
 
 /// 标记点击监听器

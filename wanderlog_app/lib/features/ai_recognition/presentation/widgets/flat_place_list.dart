@@ -662,17 +662,6 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Summary 在卡片上方，流文本形式，黑色
-        if (widget.place.summary.isNotEmpty) ...[
-          Text(
-            widget.place.summary,
-            style: AppTheme.bodyMedium(context).copyWith(
-              color: AppTheme.black,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
         // 3:2 卡片
         GestureDetector(
           onTap: widget.onTap,
@@ -772,6 +761,19 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
             ),
           ),
         ),
+        const SizedBox(height: 8),
+        // Summary 在卡片下方，最多 3 行
+        if (widget.place.summary.isNotEmpty)
+          Text(
+            widget.place.summary,
+            style: AppTheme.bodySmall(context).copyWith(
+              color: AppTheme.darkGray,
+              height: 1.4,
+              fontSize: 13,
+            ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
       ],
     );
   }

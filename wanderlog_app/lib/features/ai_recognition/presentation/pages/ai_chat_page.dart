@@ -13,7 +13,6 @@ import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_history_service.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
-import 'package:wanderlog/features/ai_recognition/data/services/chatgpt_service.dart';
 import 'package:wanderlog/features/auth/presentation/pages/login_page.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
@@ -51,7 +50,6 @@ class AIChatPage extends StatefulWidget {
 
 class _AIChatPageState extends State<AIChatPage> {
   final _historyService = AIRecognitionHistoryService();
-  final _chatGPTService = ChatGPTService(dio: Dio());
   final _aiService = AIRecognitionService(dio: Dio());
   final _quotaService = QuotaService();
   final _scrollController = ScrollController();
@@ -1058,7 +1056,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
     // Prevent concurrent cache loads
     if (_SpotCardOverlay._isLoadingCache) {
       // Wait a bit and check cache again
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future<void>.delayed(const Duration(milliseconds: 500));
       if (_SpotCardOverlay._wishlistCache.containsKey(spotId)) {
         if (mounted) {
           setState(() {
@@ -1100,7 +1098,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
       if (mounted && _SpotCardOverlay._wishlistCache.containsKey(spotId)) {
         setState(() {
           _isInWishlist = true;
-          _destinationId = _SpotCardOverlay._destinationCache[spotId] as String?;
+          _destinationId = _SpotCardOverlay._destinationCache[spotId];
         });
       }
     } catch (_) {}
@@ -1222,7 +1220,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
   Widget build(BuildContext context) => GestureDetector(
     onTap: () => showModalBottomSheet<void>(
       context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
-      builder: (context) => UnifiedSpotDetailModal(spot: widget.spot, keepOpenOnAction: true, hideCollectionEntry: true),
+      builder: (context) => UnifiedSpotDetailModal(spot: widget.spot, keepOpenOnAction: true),
     ),
     child: AspectRatio(
       aspectRatio: 4 / 3,

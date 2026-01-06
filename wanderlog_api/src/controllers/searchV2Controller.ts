@@ -113,6 +113,58 @@ const CATEGORY_MAPPING: Record<string, string[]> = {
 
 const kouriProvider = new KouriProvider();
 
+function formatNumberCompact(n: number): string {
+  if (!Number.isFinite(n)) return '';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+  return `${n}`;
+}
+
+function buildFallbackPlaceSummary(place: PlaceResult, parsedQuery: ParsedQuery, language: string): string {
+  const city = (place.city || parsedQuery.city || '').trim();
+  const hasRating = typeof place.rating === 'number' && place.rating > 0;
+  const hasCount = typeof place.ratingCount === 'number' && place.ratingCount > 0;
+  const tags = Array.isArray(place.tags) ? place.tags.filter(t => typeof t === 'string' && t.trim()).slice(0, 2) : [];
+  const category = (parsedQuery.category || '').trim();
+
+  if (language === 'zh') {
+    const parts: string[] = [];
+    if (hasRating) {
+      parts.push(`评分${place.rating!.toFixed(1)}`);
+      if (hasCount) parts.push(`（${formatNumberCompact(place.ratingCount!)}条评价）`);
+    }
+    const tagText = tags.length ? `，关键词：${tags.join(' / ')}` : '';
+    const cityText = city ? `，位于${city}` : '';
+    const catText = category ? `${category}` : '地点';
+    const ratingText = parts.join('');
+    if (ratingText) return `${catText}${cityText}。${ratingText}${tagText}。`;
+    return `${catText}${cityText}${tagText}。`;
+  }
+
+  const firstSentence = (() => {
+    const cityText = city ? ` in ${city}` : '';
+    const catText = category ? `${category}` : 'place';
+    if (hasRating && hasCount) {
+      return `Rated ${place.rating!.toFixed(1)} (${formatNumberCompact(place.ratingCount!)} reviews), a solid ${catText}${cityText}.`;
+    }
+    if (hasRating) {
+      return `Rated ${place.rating!.toFixed(1)}, a solid ${catText}${cityText}.`;
+    }
+    return `A recommended ${catText}${cityText}.`;
+  })();
+
+  const secondSentence = tags.length ? `Known for ${tags.join(' and ')}.` : '';
+  return secondSentence ? `${firstSentence} ${secondSentence}` : firstSentence;
+}
+
+function buildFallbackOverallSummary(parsedQuery: ParsedQuery, count: number, language: string): string {
+  const categoryText = parsedQuery.category?.trim() ? parsedQuery.category.trim() : (language === 'zh' ? '地点' : 'places');
+  const cityText = parsedQuery.city?.trim() ? parsedQuery.city.trim() : (language === 'zh' ? '附近' : 'near you');
+  return language === 'zh'
+    ? `以上是为你整理的${count}个${cityText}${categoryText}推荐。想看更多选项，可以在地图上继续探索。`
+    : `That’s a quick list of ${count} ${categoryText} ${cityText}. Want more options? Explore them on the map.`;
+}
+
 /**
  * 构建展示标签：category_en + ai_tags 的并集
  * @param categoryEn 分类英文名
@@ -374,8 +426,10 @@ function parseQuery(query: string): ParsedQuery {
     if (match && match[1]) {
       const potentialCity = match[1].trim();
       // 排除常见的非城市词
-      const nonCityWords = ['help', 'find', 'show', 'recommend', 'interesting', 'best', 'good', 'nice', 'great', 'some', 'any', 'the', 'me', 'please'];
-      if (!nonCityWords.includes(potentialCity.toLowerCase())) {
+      const nonCityWords = ['help', 'find', 'show', 'recommend', 'interesting', 'best', 'good', 'nice', 'great', 'some', 'any', 'the', 'me', 'please', 'design'];
+      const potentialCityLower = potentialCity.toLowerCase();
+      const categoryKeywordsLower = Object.keys(CATEGORY_MAPPING).map(k => k.toLowerCase());
+      if (!nonCityWords.includes(potentialCityLower) && !categoryKeywordsLower.includes(potentialCityLower)) {
         result.city = correctCityName(potentialCity);
         break;
       }
@@ -586,7 +640,7 @@ async function matchAIPlacesFromDB(aiPlaces: AIPlace[], language: 'en' | 'zh' = 
       matchedPlaces.set(aiPlace.name, {
         id: bestMatch.id,
         name: bestMatch.name,
-        summary: aiPlace.summary || bestMatch.aiDescription || '',
+        summary: aiPlace.summary || bestMatch.aiSummary || bestMatch.aiDescription || '',
         coverImage: bestMatch.coverImage || '',
         latitude: bestMatch.latitude,
         longitude: bestMatch.longitude,
@@ -727,6 +781,237 @@ async function getPlacesByCategory(
   return places;
 }
 
+async function getPlacesByQueryAllowNoImage(
+  parsedQuery: ParsedQuery,
+  excludeIds: string[],
+  limit: number,
+  excludeNames: string[] = []
+): Promise<any[]> {
+  // 过滤掉非 UUID 格式的 ID（如 ai_xxx 格式）
+  const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  const validExcludeIds = excludeIds.filter(id => uuidRegex.test(id));
+
+  const seenNames = new Set(excludeNames.map(n => n.toLowerCase().trim()));
+  const query = (parsedQuery.originalQuery || '').trim();
+  const lowerQuery = query.toLowerCase();
+
+  // 粗粒度 token 过滤：去掉停用词和太短的 token
+  const stopWords = new Set([
+    'in', 'at', 'near', 'around', 'best', 'top', 'good', 'nice', 'great', 'some', 'any', 'the', 'a', 'an',
+    'me', 'please', 'show', 'find', 'recommend', 'recommendation', 'recommendations',
+  ]);
+  const tokens = lowerQuery
+    .split(/[^a-z0-9\u4e00-\u9fff]+/i)
+    .map(t => t.trim())
+    .filter(t => t.length >= 3 && !stopWords.has(t))
+    .slice(0, 6);
+
+  const andConditions: any[] = [
+    { id: { notIn: validExcludeIds } },
+  ];
+
+  if (parsedQuery.city && parsedQuery.city.trim()) {
+    andConditions.unshift({ city: { contains: parsedQuery.city.trim(), mode: 'insensitive' as const } });
+  }
+
+  if (parsedQuery.category && parsedQuery.category.trim()) {
+    const categoryValues = CATEGORY_MAPPING[parsedQuery.category] || [parsedQuery.category];
+    andConditions.push({
+      OR: [
+        { categorySlug: { in: categoryValues } },
+        { categoryEn: { in: categoryValues, mode: 'insensitive' as const } },
+        { category: { in: categoryValues, mode: 'insensitive' as const } },
+      ],
+    });
+  }
+
+  if (tokens.length > 0) {
+    andConditions.push({
+      OR: [
+        ...tokens.map(t => ({ name: { contains: t, mode: 'insensitive' as const } })),
+        ...tokens.map(t => ({ description: { contains: t, mode: 'insensitive' as const } })),
+        ...tokens.map(t => ({ aiDescription: { contains: t, mode: 'insensitive' as const } })),
+        ...tokens.map(t => ({ aiSummary: { contains: t, mode: 'insensitive' as const } })),
+      ],
+    });
+  }
+
+  // 多取一些，后面按 name 去重
+  const rawPlaces = await prisma.place.findMany({
+    where: { AND: andConditions },
+    orderBy: [{ rating: 'desc' }, { ratingCount: 'desc' }, { isVerified: 'desc' }],
+    take: limit * 4,
+  });
+
+  const places: any[] = [];
+  for (const p of rawPlaces) {
+    const normalizedName = (p.name || '').toLowerCase().trim();
+    if (!normalizedName) continue;
+    if (seenNames.has(normalizedName)) continue;
+    seenNames.add(normalizedName);
+    places.push(p);
+    if (places.length >= limit) break;
+  }
+
+  logger.info(`[SearchV2] DB fallback found ${places.length} places for query "${parsedQuery.originalQuery}" (allow no image)`);
+  return places;
+}
+
+async function getPlacesByQueryWithImage(
+  parsedQuery: ParsedQuery,
+  excludeIds: string[],
+  limit: number,
+  excludeNames: string[] = []
+): Promise<any[]> {
+  // 过滤掉非 UUID 格式的 ID（如 ai_xxx 格式）
+  const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  const validExcludeIds = excludeIds.filter(id => uuidRegex.test(id));
+
+  const seenNames = new Set(excludeNames.map(n => n.toLowerCase().trim()));
+  const query = (parsedQuery.originalQuery || '').trim();
+  const lowerQuery = query.toLowerCase();
+
+  // 粗粒度 token 过滤：去掉停用词和太短的 token
+  const stopWords = new Set([
+    'in', 'at', 'near', 'around', 'best', 'top', 'good', 'nice', 'great', 'some', 'any', 'the', 'a', 'an',
+    'me', 'please', 'show', 'find', 'recommend', 'recommendation', 'recommendations',
+  ]);
+  const tokens = lowerQuery
+    .split(/[^a-z0-9\u4e00-\u9fff]+/i)
+    .map(t => t.trim())
+    .filter(t => t.length >= 3 && !stopWords.has(t))
+    .slice(0, 6);
+
+  const andConditions: any[] = [
+    { id: { notIn: validExcludeIds } },
+    { coverImage: { not: null } },
+    { coverImage: { not: '' } },
+  ];
+
+  if (parsedQuery.city && parsedQuery.city.trim()) {
+    andConditions.unshift({ city: { contains: parsedQuery.city.trim(), mode: 'insensitive' as const } });
+  }
+
+  if (parsedQuery.category && parsedQuery.category.trim()) {
+    const categoryValues = CATEGORY_MAPPING[parsedQuery.category] || [parsedQuery.category];
+    andConditions.push({
+      OR: [
+        { categorySlug: { in: categoryValues } },
+        { categoryEn: { in: categoryValues, mode: 'insensitive' as const } },
+        { category: { in: categoryValues, mode: 'insensitive' as const } },
+      ],
+    });
+  }
+
+  if (tokens.length > 0) {
+    andConditions.push({
+      OR: [
+        ...tokens.map(t => ({ name: { contains: t, mode: 'insensitive' as const } })),
+        ...tokens.map(t => ({ description: { contains: t, mode: 'insensitive' as const } })),
+        ...tokens.map(t => ({ aiDescription: { contains: t, mode: 'insensitive' as const } })),
+        ...tokens.map(t => ({ aiSummary: { contains: t, mode: 'insensitive' as const } })),
+      ],
+    });
+  }
+
+  const rawPlaces = await prisma.place.findMany({
+    where: { AND: andConditions },
+    orderBy: [{ rating: 'desc' }, { ratingCount: 'desc' }, { isVerified: 'desc' }],
+    take: limit * 4,
+  });
+
+  const places: any[] = [];
+  for (const p of rawPlaces) {
+    const normalizedName = (p.name || '').toLowerCase().trim();
+    if (!normalizedName) continue;
+    if (seenNames.has(normalizedName)) continue;
+    seenNames.add(normalizedName);
+    places.push(p);
+    if (places.length >= limit) break;
+  }
+
+  logger.info(`[SearchV2] Query supplement found ${places.length} places for query "${parsedQuery.originalQuery}" (images only)`);
+  return places;
+}
+
+async function getPlacesByQueryWithImageForMap(
+  parsedQuery: ParsedQuery,
+  excludeIds: string[],
+  limit: number,
+  excludeNames: string[] = []
+): Promise<any[]> {
+  // Similar to getPlacesByQueryWithImage, but biased toward lower ratingCount
+  // so the map can surface more niche/less-reviewed places.
+  const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  const validExcludeIds = excludeIds.filter(id => uuidRegex.test(id));
+
+  const seenNames = new Set(excludeNames.map(n => n.toLowerCase().trim()));
+  const query = (parsedQuery.originalQuery || '').trim();
+  const lowerQuery = query.toLowerCase();
+
+  const stopWords = new Set([
+    'in', 'at', 'near', 'around', 'best', 'top', 'good', 'nice', 'great', 'some', 'any', 'the', 'a', 'an',
+    'me', 'please', 'show', 'find', 'recommend', 'recommendation', 'recommendations',
+  ]);
+  const tokens = lowerQuery
+    .split(/[^a-z0-9\u4e00-\u9fff]+/i)
+    .map(t => t.trim())
+    .filter(t => t.length >= 3 && !stopWords.has(t))
+    .slice(0, 6);
+
+  const andConditions: any[] = [
+    { id: { notIn: validExcludeIds } },
+    { coverImage: { not: null } },
+    { coverImage: { not: '' } },
+  ];
+
+  if (parsedQuery.city && parsedQuery.city.trim()) {
+    andConditions.unshift({ city: { contains: parsedQuery.city.trim(), mode: 'insensitive' as const } });
+  }
+
+  if (parsedQuery.category && parsedQuery.category.trim()) {
+    const categoryValues = CATEGORY_MAPPING[parsedQuery.category] || [parsedQuery.category];
+    andConditions.push({
+      OR: [
+        { categorySlug: { in: categoryValues } },
+        { categoryEn: { in: categoryValues, mode: 'insensitive' as const } },
+        { category: { in: categoryValues, mode: 'insensitive' as const } },
+      ],
+    });
+  }
+
+  if (tokens.length > 0) {
+    andConditions.push({
+      OR: [
+        ...tokens.map(t => ({ name: { contains: t, mode: 'insensitive' as const } })),
+        ...tokens.map(t => ({ description: { contains: t, mode: 'insensitive' as const } })),
+        ...tokens.map(t => ({ aiDescription: { contains: t, mode: 'insensitive' as const } })),
+        ...tokens.map(t => ({ aiSummary: { contains: t, mode: 'insensitive' as const } })),
+      ],
+    });
+  }
+
+  const rawPlaces = await prisma.place.findMany({
+    where: { AND: andConditions },
+    // For map: bias toward less-reviewed places; rating breaks ties.
+    orderBy: [{ ratingCount: 'asc' }, { rating: 'desc' }, { isVerified: 'desc' }],
+    take: limit * 4,
+  });
+
+  const places: any[] = [];
+  for (const p of rawPlaces) {
+    const normalizedName = (p.name || '').toLowerCase().trim();
+    if (!normalizedName) continue;
+    if (seenNames.has(normalizedName)) continue;
+    seenNames.add(normalizedName);
+    places.push(p);
+    if (places.length >= limit) break;
+  }
+
+  logger.info(`[SearchV2] Map supplement found ${places.length} places for query "${parsedQuery.originalQuery}" (images only, low reviews)`);
+  return places;
+}
+
 /**
  * 当有图片的地点数量不足时，生成 Markdown 格式的文本回复
  * 格式：**地点名**\n描述
@@ -849,7 +1134,7 @@ Return JSON:
           const placeResult: PlaceResult = {
             id: dbPlace.id,
             name: dbPlace.name,
-            summary: aiPlace.summary || dbPlace.aiDescription || '',
+            summary: aiPlace.summary || dbPlace.aiSummary || dbPlace.aiDescription || '',
             coverImage: dbPlace.coverImage || '',
             latitude: dbPlace.latitude,
             longitude: dbPlace.longitude,
@@ -882,7 +1167,7 @@ Return JSON:
     const fallbackPlaces: PlaceResult[] = places.map(p => ({
       id: p.id,
       name: p.name,
-      summary: p.aiDescription || '',
+      summary: p.aiSummary || p.aiDescription || '',
       coverImage: p.coverImage || '',
       latitude: p.latitude,
       longitude: p.longitude,
@@ -1129,18 +1414,21 @@ export const searchV2 = async (req: Request, res: Response) => {
     // 收集最终结果（只包含有图片的地点）
     let finalPlaces: PlaceResult[] = [];
     let acknowledgment = aiRecommendations?.acknowledgment || '';
+    let overallSummary = '';
     const usedIds = new Set<string>();
     const usedNames = new Set<string>();
     
     // 辅助函数：检查地点是否有有效图片（同步版本，用于快速检查）
-    const hasImageSync = (p: PlaceResult | any) => p.coverImage && p.coverImage !== '';
+    // 注意：某些数据源可能会写入空字符串/空白字符，这里统一按 trim 后判断。
+    const hasImageSync = (p: PlaceResult | any) =>
+      typeof p?.coverImage === 'string' && p.coverImage.trim().length > 0;
     
     // 辅助函数：验证图片URL是否可访问（异步版本）
     const validatePlaceImage = async (p: PlaceResult | any): Promise<{ isValid: boolean; reason?: string }> => {
-      if (!p.coverImage || p.coverImage === '') {
+      if (typeof p?.coverImage !== 'string' || p.coverImage.trim() === '') {
         return { isValid: false, reason: 'empty' };
       }
-      const result = await validateImageUrl(p.coverImage);
+      const result = await validateImageUrl(p.coverImage.trim());
       if (!result.isValid) {
         logger.info(`[SearchV2] Image validation failed for "${p.name}": ${result.reason}${result.statusCode ? ` (${result.statusCode})` : ''}`);
       }
@@ -1276,7 +1564,7 @@ export const searchV2 = async (req: Request, res: Response) => {
         const place: PlaceResult = {
           id: p.id,
           name: p.name,
-          summary: p.aiDescription || '',
+          summary: p.aiSummary || p.aiDescription || '',
           coverImage: p.coverImage,
           latitude: p.latitude,
           longitude: p.longitude,
@@ -1297,14 +1585,62 @@ export const searchV2 = async (req: Request, res: Response) => {
       logger.info(`[SearchV2] After Supabase supplement: ${finalPlaces.length}/${targetCount} places`);
     }
 
+    // ========== 第四步补充：按 query token 在库里补充（必须有图片） ==========
+    if (finalPlaces.length < targetCount) {
+      const needed = targetCount - finalPlaces.length;
+      logger.info(`[SearchV2] Step 4b: Need ${needed} more places, supplementing from Supabase by query...`);
+
+      const querySupplement = await getPlacesByQueryWithImage(
+        parsedQuery,
+        Array.from(usedIds),
+        needed * 3,
+        Array.from(usedNames),
+      );
+
+      logger.info(`[SearchV2] Found ${querySupplement.length} query supplement places from Supabase`);
+
+      for (const p of querySupplement) {
+        if (finalPlaces.length >= targetCount) break;
+        if (!p.coverImage || p.coverImage === '') continue;
+
+        const hasRating = p.rating !== null && p.rating > 0;
+        const place: PlaceResult = {
+          id: p.id,
+          name: p.name,
+          summary: p.aiSummary || p.aiDescription || '',
+          coverImage: p.coverImage,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          city: p.city || parsedQuery.city,
+          country: p.country || '',
+          rating: p.rating,
+          ratingCount: p.ratingCount,
+          tags: buildDisplayTags(p.categoryEn, p.aiTags, language as 'en' | 'zh'),
+          isVerified: hasRating || p.isVerified || false,
+          source: 'cache',
+          address: p.address || undefined,
+          phoneNumber: p.phoneNumber || undefined,
+          website: p.website || undefined,
+          openingHours: p.openingHours || undefined,
+        };
+        await addPlace(place);
+      }
+
+      logger.info(`[SearchV2] After query supplement: ${finalPlaces.length}/${targetCount} places`);
+    }
+
     // ========== 最终检查：确保所有地点都有图片 ==========
     // Note: Image validation is now done in addPlace, so this is just a safety check for sync hasImage
-    finalPlaces = finalPlaces.filter(p => hasImageSync(p));
+    // Normalize + filter once more to guarantee response never includes blank images
+    finalPlaces = finalPlaces
+      .map(p => ({ ...p, coverImage: typeof p.coverImage === 'string' ? p.coverImage.trim() : p.coverImage }))
+      .filter(p => hasImageSync(p));
     logger.info(`[SearchV2] Final count after image filter: ${finalPlaces.length}/${targetCount}`);
 
-    // ========== 数量不足时，改用文本格式返回 ==========
-    if (finalPlaces.length < CONFIG.MIN_PLACES_FOR_CARDS) {
-      logger.info(`[SearchV2] Only ${finalPlaces.length} places with images, switching to text-only mode`);
+    // ========== 仅在完全没有图片结果时，改用文本格式返回 ==========
+    // 用户明确要求过滤无图地点，因此即便数量偏少也优先返回卡片结果。
+    if (finalPlaces.length === 0) {
+      logger.info('[SearchV2] No places with images, switching to text-only mode');
       
       let textContent = '';
       
@@ -1495,24 +1831,33 @@ Return JSON only:
     }
 
     // ========== 第六步：为所有地点生成 AI summary（每次都动态生成） ==========
-    // AI summary 是动态的，每次搜索都重新生成，不使用数据库中的 aiDescription
+    // 为了保证前端卡片稳定展示，summary 必须尽量覆盖所有返回地点。
     logger.info(`[SearchV2] Step 6: Generating AI summaries for ${finalPlaces.length} places...`);
     
     if (finalPlaces.length > 0) {
-      const placeNamesForSummary = finalPlaces.map(p => p.name).join(', ');
-      const summaryPrompt = `Write a very brief 1-2 sentence summary for each place. Keep it SHORT and concise.
+      const placesForPrompt = finalPlaces.map(p => ({
+        id: p.id,
+        name: p.name,
+        city: p.city || parsedQuery.city || '',
+      }));
 
-Places: ${placeNamesForSummary}
-City: ${parsedQuery.city || 'this city'}
+      const summaryPrompt = `Write a very brief 1-2 sentence summary for each place.
+
 User search: "${parsedQuery.originalQuery}"
+City context: ${parsedQuery.city || 'unknown'}
 
-CRITICAL: Each summary MUST be 1-2 sentences only, under 30 words. No long descriptions.
-Response in ${language === 'zh' ? 'Chinese' : 'English'}
+CRITICAL:
+- Each summary MUST be 1-2 sentences only, under 30 words.
+- Do NOT change IDs. Return the same id you were given.
+- Output language: ${language === 'zh' ? 'Chinese' : 'English'}
+
+Places JSON:
+${JSON.stringify(placesForPrompt)}
 
 Return JSON only:
 {
   "summaries": [
-    { "name": "Place Name", "summary": "One or two short sentences." }
+    { "id": "<same id>", "summary": "One or two short sentences." }
   ]
 }`;
 
@@ -1527,31 +1872,31 @@ Return JSON only:
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
             if (parsed.summaries && Array.isArray(parsed.summaries)) {
+              const byId = new Map<string, string>();
               for (const item of parsed.summaries) {
-                if (item.name && item.summary) {
-                  // 在 finalPlaces 中找到对应的地点并更新 summary
-                  const place = finalPlaces.find(p => 
-                    p.name.toLowerCase().includes(item.name.toLowerCase()) ||
-                    item.name.toLowerCase().includes(p.name.toLowerCase())
-                  );
-                  if (place) {
-                    place.summary = item.summary;
-                    logger.info(`[SearchV2] Added summary for "${place.name}"`);
-                  }
-                  
-                  // 同时更新 categories 中的地点
-                  for (const cat of finalCategories) {
-                    const catPlace = cat.places.find(p => 
-                      p.name.toLowerCase().includes(item.name.toLowerCase()) ||
-                      item.name.toLowerCase().includes(p.name.toLowerCase())
-                    );
-                    if (catPlace) {
-                      catPlace.summary = item.summary;
-                    }
-                  }
+                const id = typeof item?.id === 'string' ? item.id : '';
+                const summary = typeof item?.summary === 'string' ? item.summary : '';
+                if (id && summary) byId.set(id, summary);
+              }
+
+              for (const place of finalPlaces) {
+                const s = byId.get(place.id);
+                if (s && s.trim()) {
+                  place.summary = s.trim();
+                } else if (!place.summary || !place.summary.trim()) {
+                  place.summary = '';
                 }
               }
-              logger.info(`[SearchV2] Generated summaries for ${parsed.summaries.length} places`);
+
+              // 同时更新 categories 中的地点（保持同一份 summary）
+              for (const cat of finalCategories) {
+                for (const p of cat.places) {
+                  const s = byId.get(p.id);
+                  if (s && s.trim()) p.summary = s.trim();
+                }
+              }
+
+              logger.info(`[SearchV2] Generated summaries for ${byId.size} places (by id)`);
             }
           }
         }
@@ -1560,7 +1905,131 @@ Return JSON only:
       }
     }
 
-    // 不再生成 overallSummary - 只使用 acknowledgment 作为开头承接语
+    // ========== 第七步：生成 overallSummary（结束语） ==========
+    if (finalPlaces.length > 0) {
+      const placeNames = finalPlaces.slice(0, 8).map(p => p.name).join(', ');
+      const overallPrompt = `Write a short closing summary for this recommendation list.
+
+User search: "${parsedQuery.originalQuery}"
+Example places: ${placeNames}
+
+Requirements:
+- 1-2 sentences only
+- Friendly tone
+- Output language: ${language === 'zh' ? 'Chinese' : 'English'}
+
+Return plain text only.`;
+
+      try {
+        const overallResponse = await Promise.race([
+          kouriProvider.generateText(overallPrompt),
+          new Promise<string>((resolve) => setTimeout(() => resolve(''), 12000)),
+        ]);
+        if (overallResponse && overallResponse.trim()) {
+          overallSummary = overallResponse.trim();
+        }
+      } catch (error) {
+        logger.warn(`[SearchV2] Failed to generate overall summary: ${error}`);
+      }
+    }
+
+    // ========== 确保每个地点都有 summary（Kouri 额度不足时走兜底） ==========
+    for (const place of finalPlaces) {
+      if (!place.summary || !place.summary.trim()) {
+        place.summary = buildFallbackPlaceSummary(place, parsedQuery, language);
+      }
+    }
+    for (const cat of finalCategories) {
+      for (const p of cat.places) {
+        if (!p.summary || !p.summary.trim()) {
+          p.summary = buildFallbackPlaceSummary(p, parsedQuery, language);
+        }
+      }
+    }
+
+    if (!overallSummary || !overallSummary.trim()) {
+      overallSummary = buildFallbackOverallSummary(parsedQuery, finalPlaces.length, language);
+    }
+
+    // ========== 补齐承接语（如果 AI 没给） ==========
+    if (!acknowledgment || !acknowledgment.trim()) {
+      const cityText = parsedQuery.city?.trim() ? parsedQuery.city.trim() : (language === 'zh' ? '附近' : 'near you');
+      const categoryText = parsedQuery.category?.trim() ? parsedQuery.category.trim() : (language === 'zh' ? '地点' : 'places');
+      acknowledgment = language === 'zh'
+        ? `我为你挑选了一些${cityText}的${categoryText}，优先考虑综合评分和评价人数。你也可以在地图上查看更多地点。`
+        : `Here are some ${categoryText} picks ${cityText}, prioritizing higher ratings and more reviews. You can also explore more on the map.`;
+    }
+
+    // ========== 排序：列表默认优先高评分 + 高评价人数 ==========
+    const score = (p: PlaceResult) => {
+      const rating = typeof p.rating === 'number' ? p.rating : 0;
+      const count = typeof p.ratingCount === 'number' ? p.ratingCount : 0;
+      // rating 影响更大，其次 ratingCount
+      return rating * 1000000 + count;
+    };
+    finalPlaces.sort((a, b) => score(b) - score(a));
+    for (const cat of finalCategories) {
+      cat.places.sort((a, b) => score(b) - score(a));
+    }
+
+    // ========== Map places：在列表基础上额外补充一些低评价人数地点 ==========
+    // UI：列表用于“默认露出”，地图用于“探索更多”。
+    let mapPlaces: PlaceResult[] | undefined;
+    try {
+      const maxExtra = Math.min(20, Math.max(0, targetCount));
+      if (maxExtra > 0) {
+        const mapUsedIds = new Set<string>(finalPlaces.map(p => p.id));
+        const mapUsedNames = new Set<string>(finalPlaces.map(p => p.name.toLowerCase().trim()));
+        const extraRows = await getPlacesByQueryWithImageForMap(
+          parsedQuery,
+          Array.from(mapUsedIds),
+          maxExtra,
+          Array.from(mapUsedNames),
+        );
+
+        const extraPlaces: PlaceResult[] = [];
+        for (const p of extraRows) {
+          const normalizedName = (p.name || '').toLowerCase().trim();
+          if (!p.id || !normalizedName) continue;
+          if (mapUsedIds.has(p.id) || mapUsedNames.has(normalizedName)) continue;
+          if (!p.coverImage || p.coverImage === '') continue;
+
+          mapUsedIds.add(p.id);
+          mapUsedNames.add(normalizedName);
+
+          const hasRating = p.rating !== null && p.rating > 0;
+          const place: PlaceResult = {
+            id: p.id,
+            name: p.name,
+            summary: (p.aiSummary || p.aiDescription || '').trim() || '',
+            coverImage: (p.coverImage || '').trim(),
+            latitude: p.latitude,
+            longitude: p.longitude,
+            city: p.city || parsedQuery.city,
+            country: p.country || '',
+            rating: p.rating,
+            ratingCount: p.ratingCount,
+            tags: buildDisplayTags(p.categoryEn, p.aiTags, language as 'en' | 'zh'),
+            isVerified: hasRating || p.isVerified || false,
+            source: 'cache',
+            address: p.address || undefined,
+            phoneNumber: p.phoneNumber || undefined,
+            website: p.website || undefined,
+            openingHours: p.openingHours || undefined,
+          };
+          if (!place.summary || !place.summary.trim()) {
+            place.summary = buildFallbackPlaceSummary(place, parsedQuery, language);
+          }
+          extraPlaces.push(place);
+        }
+
+        if (extraPlaces.length > 0) {
+          mapPlaces = [...finalPlaces, ...extraPlaces];
+        }
+      }
+    } catch (error) {
+      logger.warn(`[SearchV2] Map supplement failed: ${error}`);
+    }
 
     if (userId) {
       try {
@@ -1586,7 +2055,8 @@ Return JSON only:
       acknowledgment: acknowledgment || `Found ${finalPlaces.length} ${parsedQuery.category || 'places'} in ${parsedQuery.city}`,
       categories: finalCategories.length >= 2 ? finalCategories : undefined,
       places: finalPlaces,
-      overallSummary: '', // 不再生成中间介绍，只保留开头承接语
+      mapPlaces,
+      overallSummary,
       quotaRemaining,
       stage: 'complete',
     });

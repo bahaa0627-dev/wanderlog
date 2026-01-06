@@ -32,7 +32,7 @@ export async function validateImageUrl(
     return { isValid: false, reason: 'empty' };
   }
 
-  const trimmedUrl = url.trim();
+  const trimmedUrl = normalizeImageUrl(url.trim());
 
   // Check cache first
   const cached = validationCache.get(trimmedUrl);
@@ -71,19 +71,34 @@ export async function validateImageUrl(
     clearTimeout(timeoutId);
 
     if (response.ok) {
-      const result: ImageValidationResult = { isValid: true, statusCode: response.status };
-      cacheResult(trimmedUrl, result);
-      return result;
-    } else {
-      const result: ImageValidationResult = {
-        isValid: false,
-        reason: 'http_error',
-        statusCode: response.status,
-      };
-      cacheResult(trimmedUrl, result);
-      logger.debug(`[ImageValidator] HTTP error for ${trimmedUrl}: ${response.status}`);
-      return result;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.toLowerCase().startsWith('image/')) {
+        const result: ImageValidationResult = { isValid: true, statusCode: response.status };
+        cacheResult(trimmedUrl, result);
+        return result;
+      }
+
+      // Some CDNs return empty content-type for HEAD; confirm with a tiny GET.
+      const getCheck = await validateWithSmallGet(trimmedUrl, timeoutMs);
+      cacheResult(trimmedUrl, getCheck);
+      return getCheck;
     }
+
+    // Many hosts block/limit HEAD; try a small GET for common "blocked HEAD" statuses.
+    if ([401, 403, 405].includes(response.status)) {
+      const getCheck = await validateWithSmallGet(trimmedUrl, timeoutMs);
+      cacheResult(trimmedUrl, getCheck);
+      return getCheck;
+    }
+
+    const result: ImageValidationResult = {
+      isValid: false,
+      reason: 'http_error',
+      statusCode: response.status,
+    };
+    cacheResult(trimmedUrl, result);
+    logger.debug(`[ImageValidator] HTTP error for ${trimmedUrl}: ${response.status}`);
+    return result;
   } catch (error: any) {
     let result: ImageValidationResult;
 
@@ -97,6 +112,61 @@ export async function validateImageUrl(
 
     cacheResult(trimmedUrl, result);
     return result;
+  }
+}
+
+function normalizeImageUrl(url: string): string {
+  // Convert Wikimedia Commons file page URLs into direct file paths.
+  // Example: https://commons.wikimedia.org/wiki/File:Foo.jpg
+  // -> https://commons.wikimedia.org/wiki/Special:FilePath/Foo.jpg
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname;
+
+    if (hostname === 'commons.wikimedia.org' && pathname.startsWith('/wiki/File:')) {
+      const filename = pathname.replace('/wiki/File:', '');
+      return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}`;
+    }
+  } catch {
+    // ignore
+  }
+
+  return url;
+}
+
+async function validateWithSmallGet(url: string, timeoutMs: number): Promise<ImageValidationResult> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; ImageValidator/1.0)',
+        'Range': 'bytes=0-1023',
+        'Accept': 'image/*,*/*;q=0.8',
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return { isValid: false, reason: 'http_error', statusCode: response.status };
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.toLowerCase().startsWith('image/')) {
+      return { isValid: true, statusCode: response.status };
+    }
+
+    return { isValid: false, reason: 'http_error', statusCode: response.status };
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      return { isValid: false, reason: 'timeout' };
+    }
+    return { isValid: false, reason: 'network_error' };
   }
 }
 

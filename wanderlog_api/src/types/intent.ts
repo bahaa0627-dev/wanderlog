@@ -43,6 +43,7 @@ export interface PlaceResult {
   name: string;
   summary: string;
   coverImage: string;
+  images?: string[];  // 多张图片用于详情页横滑展示
   latitude: number;
   longitude: number;
   city: string;
@@ -106,6 +107,7 @@ export interface SpecificPlaceResponse extends BaseSearchResponse {
 export interface SpecificPlaceHandlerResult {
   description: string;          // AI-generated description (under 100 words)
   place: PlaceResult | null;    // Matched place from database (prioritizes images)
+  identifiedPlaceName?: string; // AI-identified place name (for vague queries)
 }
 
 /**

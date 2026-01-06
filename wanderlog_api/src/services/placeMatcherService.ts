@@ -73,6 +73,7 @@ export interface PlaceResult {
   name: string;
   summary: string;
   coverImage: string;
+  images?: string[];  // 多张图片用于详情页横滑展示
   latitude: number;
   longitude: number;
   city?: string;
@@ -349,8 +350,26 @@ function containsMatch(name1: string, name2: string): boolean {
   const n1 = normalizeForComparison(name1);
   const n2 = normalizeForComparison(name2);
   
-  // Direct contains check
-  if (n1.includes(n2) || n2.includes(n1)) {
+  // Helper function to check if substring match is valid
+  // Requires minimum length and significant overlap to avoid false positives
+  // e.g., "nice" should NOT match "venice" (nice is only 4 chars, venice is 6, ratio = 0.67)
+  const isValidSubstringMatch = (shorter: string, longer: string): boolean => {
+    if (!longer.includes(shorter)) return false;
+    
+    // Require minimum length of 4 characters for the shorter string
+    if (shorter.length < 4) return false;
+    
+    // Require length ratio of at least 0.75 to avoid false positives
+    // This allows "museum" vs "museums" (0.86) but blocks "nice" vs "venice" (0.67)
+    const ratio = shorter.length / longer.length;
+    return ratio >= 0.75;
+  };
+  
+  // Direct contains check with length validation
+  const shorter = n1.length <= n2.length ? n1 : n2;
+  const longer = n1.length <= n2.length ? n2 : n1;
+  
+  if (isValidSubstringMatch(shorter, longer)) {
     return true;
   }
   
@@ -358,7 +377,10 @@ function containsMatch(name1: string, name2: string): boolean {
   const n1Base = n1.replace(/s$/, ''); // Remove trailing 's'
   const n2Base = n2.replace(/s$/, '');
   
-  if (n1Base.includes(n2Base) || n2Base.includes(n1Base)) {
+  const shorterBase = n1Base.length <= n2Base.length ? n1Base : n2Base;
+  const longerBase = n1Base.length <= n2Base.length ? n2Base : n1Base;
+  
+  if (isValidSubstringMatch(shorterBase, longerBase)) {
     return true;
   }
   
@@ -367,7 +389,10 @@ function containsMatch(name1: string, name2: string): boolean {
   const n1NoArticle = stripArticle(n1);
   const n2NoArticle = stripArticle(n2);
   
-  if (n1NoArticle.includes(n2NoArticle) || n2NoArticle.includes(n1NoArticle)) {
+  const shorterNoArticle = n1NoArticle.length <= n2NoArticle.length ? n1NoArticle : n2NoArticle;
+  const longerNoArticle = n1NoArticle.length <= n2NoArticle.length ? n2NoArticle : n1NoArticle;
+  
+  if (isValidSubstringMatch(shorterNoArticle, longerNoArticle)) {
     return true;
   }
   
@@ -376,8 +401,14 @@ function containsMatch(name1: string, name2: string): boolean {
   const core2 = extractCoreName(name2);
   
   if (core1.length >= 4 && core2.length >= 4) {
-    // Check if core names match or contain each other
-    if (core1 === core2 || core1.includes(core2) || core2.includes(core1)) {
+    // Check if core names match exactly
+    if (core1 === core2) {
+      return true;
+    }
+    // Check substring match with length validation
+    const shorterCore = core1.length <= core2.length ? core1 : core2;
+    const longerCore = core1.length <= core2.length ? core2 : core1;
+    if (isValidSubstringMatch(shorterCore, longerCore)) {
       return true;
     }
   }

@@ -3,6 +3,142 @@ import googleMapsService from './googleMapsService';
 import { normalizationService, NormalizationInput, StructuredTags } from './normalizationService';
 import { mergePolicyService, SourceData } from './mergePolicyService';
 
+// 国家名称映射：将外文名称转换为英文
+const COUNTRY_NAME_MAP: Record<string, string> = {
+  // 德语
+  'Deutschland': 'Germany',
+  'Schweiz': 'Switzerland',
+  'Österreich': 'Austria',
+  'Niederlande': 'Netherlands',
+  'Belgien': 'Belgium',
+  'Dänemark': 'Denmark',
+  'Schweden': 'Sweden',
+  'Norwegen': 'Norway',
+  'Finnland': 'Finland',
+  'Polen': 'Poland',
+  'Tschechien': 'Czech Republic',
+  'Ungarn': 'Hungary',
+  'Griechenland': 'Greece',
+  'Türkei': 'Turkey',
+  'Russland': 'Russia',
+  'Vereinigtes Königreich': 'United Kingdom',
+  'Vereinigte Staaten': 'United States',
+  // 法语
+  'Allemagne': 'Germany',
+  'Suisse': 'Switzerland',
+  'Autriche': 'Austria',
+  'Pays-Bas': 'Netherlands',
+  'Belgique': 'Belgium',
+  'Danemark': 'Denmark',
+  'Suède': 'Sweden',
+  'Norvège': 'Norway',
+  'Finlande': 'Finland',
+  'Pologne': 'Poland',
+  'Tchéquie': 'Czech Republic',
+  'Hongrie': 'Hungary',
+  'Grèce': 'Greece',
+  'Turquie': 'Turkey',
+  'Russie': 'Russia',
+  'Royaume-Uni': 'United Kingdom',
+  'États-Unis': 'United States',
+  'Espagne': 'Spain',
+  'Italie': 'Italy',
+  'Portugal': 'Portugal',
+  // 西班牙语
+  'Alemania': 'Germany',
+  'Suiza': 'Switzerland',
+  'Países Bajos': 'Netherlands',
+  'Bélgica': 'Belgium',
+  'Dinamarca': 'Denmark',
+  'Suecia': 'Sweden',
+  'Noruega': 'Norway',
+  'Finlandia': 'Finland',
+  'Polonia': 'Poland',
+  'Chequia': 'Czech Republic',
+  'Hungría': 'Hungary',
+  'Grecia': 'Greece',
+  'Turquía': 'Turkey',
+  'Rusia': 'Russia',
+  'Reino Unido': 'United Kingdom',
+  'Estados Unidos': 'United States',
+  'España': 'Spain',
+  'Italia': 'Italy',
+  // 意大利语
+  'Germania': 'Germany',
+  'Svizzera': 'Switzerland',
+  'Paesi Bassi': 'Netherlands',
+  'Belgio': 'Belgium',
+  'Danimarca': 'Denmark',
+  'Svezia': 'Sweden',
+  'Norvegia': 'Norway',
+  // 'Finlandia' 已在西班牙语中定义
+  // 'Grecia' 已在西班牙语中定义
+  'Turchia': 'Turkey',
+  'Regno Unito': 'United Kingdom',
+  'Stati Uniti': 'United States',
+  'Spagna': 'Spain',
+  // 日语
+  '日本': 'Japan',
+  'アメリカ': 'United States',
+  'イギリス': 'United Kingdom',
+  'フランス': 'France',
+  'ドイツ': 'Germany',
+  'イタリア': 'Italy',
+  'スペイン': 'Spain',
+  '中国': 'China',
+  '韓国': 'South Korea',
+  'オーストラリア': 'Australia',
+  'カナダ': 'Canada',
+  // 中文
+  '美国': 'United States',
+  '英国': 'United Kingdom',
+  '法国': 'France',
+  '德国': 'Germany',
+  '意大利': 'Italy',
+  '西班牙': 'Spain',
+  '瑞士': 'Switzerland',
+  '奥地利': 'Austria',
+  '荷兰': 'Netherlands',
+  '比利时': 'Belgium',
+  '丹麦': 'Denmark',
+  '瑞典': 'Sweden',
+  '挪威': 'Norway',
+  '芬兰': 'Finland',
+  '波兰': 'Poland',
+  '捷克': 'Czech Republic',
+  '匈牙利': 'Hungary',
+  '希腊': 'Greece',
+  '土耳其': 'Turkey',
+  '俄罗斯': 'Russia',
+  '澳大利亚': 'Australia',
+  '加拿大': 'Canada',
+  '韩国': 'South Korea',
+  '新加坡': 'Singapore',
+  '泰国': 'Thailand',
+  '越南': 'Vietnam',
+  '印度': 'India',
+  '印度尼西亚': 'Indonesia',
+  '马来西亚': 'Malaysia',
+  '菲律宾': 'Philippines',
+  '新西兰': 'New Zealand',
+  '墨西哥': 'Mexico',
+  '巴西': 'Brazil',
+  '阿根廷': 'Argentina',
+  '南非': 'South Africa',
+  '埃及': 'Egypt',
+  '摩洛哥': 'Morocco',
+  '葡萄牙': 'Portugal',
+  '爱尔兰': 'Ireland',
+  '苏格兰': 'Scotland',
+  '冰岛': 'Iceland',
+};
+
+// 将国家名称转换为英文
+function normalizeCountryName(country: string | null | undefined): string | null {
+  if (!country) return null;
+  return COUNTRY_NAME_MAP[country] || country;
+}
+
 export interface PublicPlaceData {
   placeId: string;
   name: string;
@@ -330,6 +466,7 @@ class PublicPlaceService {
     minRating?: number;
     maxRating?: number;
     tag?: string;
+    hasCoverImage?: boolean;
     sortBy?: 'rating' | 'ratingCount' | 'createdAt';
     sortOrder?: 'asc' | 'desc';
   }) {
@@ -345,12 +482,33 @@ class PublicPlaceService {
     if (options?.category) where.categoryEn = options.category; // 使用 categoryEn 筛选
     if (options?.source) where.source = options.source;
 
+    // 是否有封面图筛选
+    if (options?.hasCoverImage === true) {
+      where.coverImage = { not: null };
+      where.NOT = { coverImage: '' };
+    } else if (options?.hasCoverImage === false) {
+      where.OR = [
+        { coverImage: null },
+        { coverImage: '' },
+      ];
+    }
+
     // 名称搜索（模糊匹配）- 使用 mode: 'insensitive' 提高兼容性
     if (options?.search) {
-      where.OR = [
-        { name: { contains: options.search, mode: 'insensitive' } },
-        { address: { contains: options.search, mode: 'insensitive' } }
-      ];
+      // 如果已经有 OR 条件（来自 hasCoverImage），需要用 AND 组合
+      const searchCondition = {
+        OR: [
+          { name: { contains: options.search, mode: 'insensitive' } },
+          { address: { contains: options.search, mode: 'insensitive' } }
+        ]
+      };
+      if (where.OR) {
+        // hasCoverImage=false 已经设置了 OR，需要用 AND 组合
+        where.AND = [{ OR: where.OR }, searchCondition];
+        delete where.OR;
+      } else {
+        where.OR = searchCondition.OR;
+      }
     }
 
     // 标签筛选 - aiTags 是 JSON 数组，需要特殊处理
@@ -813,17 +971,18 @@ class PublicPlaceService {
   }
 
   /**
-   * 获取筛选选项（国家、城市、分类、标签及其数量）
+   * 获取筛选选项（国家、城市、分类、标签、来源及其数量）
    * 用于后台管理的筛选器
    */
   async getFilterOptions() {
-    // 获取所有地点的 aiTags
+    // 获取所有地点的 aiTags 和 source
     const placesWithTags = await prisma.place.findMany({
       select: {
         country: true,
         city: true,
         categoryEn: true,
         aiTags: true,
+        source: true,
       },
       where: {
         OR: [
@@ -844,11 +1003,15 @@ class PublicPlaceService {
     const tagsByCountry: Record<string, Record<string, number>> = {};
     // 全局标签统计
     const globalTagMap: Record<string, number> = {};
+    // 统计来源
+    const sourceMap: Record<string, number> = {};
 
     for (const place of placesWithTags) {
-      const country = place.country;
+      // 将国家名称转换为英文
+      const country = normalizeCountryName(place.country);
       const city = place.city;
       const categoryEn = place.categoryEn;
+      const source = place.source;
       
       // 统计国家
       if (country) {
@@ -866,6 +1029,11 @@ class PublicPlaceService {
       // 统计分类
       if (categoryEn) {
         categoryMap[categoryEn] = (categoryMap[categoryEn] || 0) + 1;
+      }
+      
+      // 统计来源
+      if (source) {
+        sourceMap[source] = (sourceMap[source] || 0) + 1;
       }
       
       // 统计标签
@@ -906,6 +1074,11 @@ class PublicPlaceService {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
+    // 格式化来源数据
+    const sources = Object.entries(sourceMap)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count); // 按数量降序
+
     // 格式化标签数据（全局）
     const tags = Object.entries(globalTagMap)
       .map(([name, count]) => ({ name, count }))
@@ -923,6 +1096,7 @@ class PublicPlaceService {
       countries,
       citiesByCountry: formattedCitiesByCountry,
       categories,
+      sources,
       tags,
       tagsByCountry: formattedTagsByCountry
     };

@@ -54,12 +54,19 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   int _imageRetryCount = 0;
   static const int _maxRetries = 3;
   String? _currentImageUrl;
+  
+  // 乐观更新状态
+  bool? _optimisticWishlistState;
 
   /// 获取当前地点的 spotId
   String get _spotId => widget.place.id ?? widget.place.name;
 
   /// 从 provider 获取收藏状态（响应式）
   (bool, String?) _getWishlistStatus(Map<String, String?> statusMap) {
+    // 如果有乐观更新状态，优先使用
+    if (_optimisticWishlistState != null) {
+      return (_optimisticWishlistState!, statusMap[_spotId]);
+    }
     return checkWishlistStatus(statusMap, _spotId);
   }
 
@@ -72,11 +79,12 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   @override
   void didUpdateWidget(AIPlaceCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 如果 place 变化，重置图片状态
+    // 如果 place 变化，重置图片状态和乐观更新状态
     if (oldWidget.place.id != widget.place.id ||
         oldWidget.place.coverImage != widget.place.coverImage) {
       _imageRetryCount = 0;
       _currentImageUrl = widget.place.coverImage;
+      _optimisticWishlistState = null;
     }
   }
 
@@ -366,6 +374,10 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
     }
 
     setState(() => _isSaving = true);
+    
+    // 乐观更新：立即更新 UI 状态
+    final previousState = _optimisticWishlistState;
+    setState(() => _optimisticWishlistState = !isInWishlist);
 
     try {
       if (isInWishlist && destinationId != null) {
@@ -383,6 +395,11 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
 
         // Force provider refresh by reading the future - ensures UI state is updated
         await ref.read(wishlistStatusProvider.future);
+        
+        // 清除乐观更新状态，使用真实数据
+        if (mounted) {
+          setState(() => _optimisticWishlistState = null);
+        }
 
         // Call callback after provider refresh completes
         widget.onWishlistChanged?.call(false);
@@ -402,8 +419,12 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         final destId = await ensureDestinationForCity(ref, cityName);
         if (destId == null) {
           if (mounted) {
+            // 回滚乐观更新
+            setState(() {
+              _optimisticWishlistState = previousState;
+              _isSaving = false;
+            });
             CustomToast.showError(context, 'Failed to save - please try again');
-            setState(() => _isSaving = false);
           }
           return;
         }
@@ -439,6 +460,11 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
 
         // Force provider refresh by reading the future - ensures UI state is updated
         await ref.read(wishlistStatusProvider.future);
+        
+        // 清除乐观更新状态，使用真实数据
+        if (mounted) {
+          setState(() => _optimisticWishlistState = null);
+        }
 
         // Call callback after provider refresh completes
         widget.onWishlistChanged?.call(true);
@@ -449,7 +475,9 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
       }
     } catch (e) {
       debugPrint('❌ [AIPlaceCard] Wishlist error: $e');
+      // 回滚乐观更新
       if (mounted) {
+        setState(() => _optimisticWishlistState = previousState);
         CustomToast.showError(context, 'Error saving - please try again');
       }
     } finally {
@@ -509,7 +537,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                     children: [
                       // 封面图片
                       _buildCoverImage(widget.place.coverImage),
-                      // 渐变遮罩
+                      // 渐变遮罩 - 增强底部遮罩确保白字可读
                       Positioned.fill(
                         child: Container(
                           decoration: BoxDecoration(
@@ -518,9 +546,10 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                               end: Alignment.bottomCenter,
                               colors: [
                                 Colors.transparent,
-                                Colors.black.withOpacity(0.7),
+                                Colors.black.withOpacity(0.3),
+                                Colors.black.withOpacity(0.75),
                               ],
-                              stops: const [0.4, 1.0],
+                              stops: const [0.35, 0.65, 1.0],
                             ),
                           ),
                         ),
@@ -633,9 +662,10 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.7),
+                          Colors.black.withOpacity(0.3),
+                          Colors.black.withOpacity(0.75),
                         ],
-                        stops: const [0.4, 1.0],
+                        stops: const [0.35, 0.65, 1.0],
                       ),
                     ),
                   ),

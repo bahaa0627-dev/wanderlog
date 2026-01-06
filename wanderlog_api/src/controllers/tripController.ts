@@ -73,9 +73,44 @@ export const getMyTrips = async (req: Request, res: Response) => {
       ORDER BY t.updated_at DESC
     `;
 
-    const result = trips.map((t: any) => ({
-      ...toCamelCase(t),
-      _count: { tripSpots: Number(t.spot_count) || 0 },
+    // Load tripSpots with spot data for each trip (needed for wishlist status)
+    const result = await Promise.all(trips.map(async (t: any) => {
+      const tripSpots = await prismaAny.$queryRaw`
+        SELECT * FROM trip_spots 
+        WHERE trip_id = ${t.id}::uuid
+        ORDER BY created_at DESC
+      `;
+      
+      // Load place data for each trip spot
+      const normalizedTripSpots = await Promise.all(
+        (tripSpots as any[]).map(async (ts: any) => {
+          const placeId = ts.place_id;
+          let normalizedPlace = null;
+          
+          if (placeId) {
+            const places = await prismaAny.$queryRaw`
+              SELECT * FROM places WHERE id = ${placeId}::uuid LIMIT 1
+            `;
+            if (places && places.length > 0) {
+              normalizedPlace = normalizePlace(places[0]);
+            }
+          }
+          
+          const tripSpotData = tripSpotToCamelCase(ts);
+
+          return {
+            ...tripSpotData,
+            place: normalizedPlace,
+            spot: normalizedPlace,
+          };
+        }),
+      );
+      
+      return {
+        ...toCamelCase(t),
+        _count: { tripSpots: Number(t.spot_count) || 0 },
+        tripSpots: normalizedTripSpots,
+      };
     }));
 
     return res.json(JSON.parse(JSON.stringify(result, (_, v) => typeof v === 'bigint' ? Number(v) : v)));

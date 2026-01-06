@@ -319,9 +319,29 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 .toList();
                                                 
                                                 final collectionName = collection['name'] as String? ?? 'Collection';
-                                                final coverImage = collection['coverImage'] as String? ??
-                                (firstSpot?['coverImage'] as String? ??
-                                    'https://via.placeholder.com/400x600');
+                                                
+                                                // 获取封面图：优先使用 collection 的 coverImage，否则遍历所有地点找第一个有效图片
+                                                String coverImage = '';
+                                                final collectionCoverImage = collection['coverImage'] as String?;
+                                                if (collectionCoverImage != null && collectionCoverImage.isNotEmpty) {
+                                                  coverImage = collectionCoverImage;
+                                                } else {
+                                                  // 遍历所有地点找第一个有效的封面图
+                                                  for (final spot in collectionSpots) {
+                                                    final place = spot['place'] as Map<String, dynamic>?;
+                                                    if (place == null) continue;
+                                                    final placeCoverImage = place['coverImage'] as String?;
+                                                    if (placeCoverImage != null && placeCoverImage.isNotEmpty) {
+                                                      coverImage = placeCoverImage;
+                                                      break;
+                                                    }
+                                                  }
+                                                }
+                                                // 如果还是没有图片，使用占位图
+                                                if (coverImage.isEmpty) {
+                                                  coverImage = 'https://via.placeholder.com/400x600';
+                                                }
+                                                
                                                 final count = collectionSpots.length;
                                                 
                                                 return Padding(
@@ -713,7 +733,7 @@ class _TripCardState extends State<_TripCard> {
                   left: 12,
                   right: 12,
                   top: 12,
-                  bottom: 12,
+                  bottom: 16, // 增加底部 padding 防止 overflow
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -809,38 +829,46 @@ class _TripCardState extends State<_TripCard> {
 
                       const Spacer(),
 
-                      // 底部标题和标签
-                      Text(
-                        widget.title,
-                        style: AppTheme.headlineMedium(context).copyWith(
-                          fontSize: 16,
-                          color: AppTheme.white,
-                          shadows: [
-                            const Shadow(
-                              color: Colors.black,
-                              blurRadius: 4,
+                      // 底部标题和标签 - 限制高度防止 overflow
+                      Flexible(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.title,
+                              style: AppTheme.headlineMedium(context).copyWith(
+                                fontSize: 16,
+                                color: AppTheme.white,
+                                shadows: [
+                                  const Shadow(
+                                    color: Colors.black,
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: widget.tags
+                                  .take(2)
+                                  .map(
+                                    (tag) => Text(
+                                      tag,
+                                      style: AppTheme.labelSmall(context).copyWith(
+                                        fontSize: 12,
+                                        color: AppTheme.white.withOpacity(0.9),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
                             ),
                           ],
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: widget.tags
-                            .take(2)
-                            .map(
-                              (tag) => Text(
-                                tag,
-                                style: AppTheme.labelSmall(context).copyWith(
-                                  fontSize: 12,
-                                  color: AppTheme.white.withOpacity(0.9),
-                                ),
-                              ),
-                            )
-                            .toList(),
                       ),
                     ],
                   ),

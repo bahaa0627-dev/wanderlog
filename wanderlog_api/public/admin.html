@@ -923,10 +923,24 @@
                 </div>
             </div>
             <div class="filter-row">
-                <div class="filter-group" style="flex: 2;">
+                <div class="filter-group">
                     <label for="tagFilter">🏷️ 标签 <small style="color: #999;">(联动)</small></label>
                     <select id="tagFilter">
                         <option value="">全部</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="sourceFilter">📦 来源</label>
+                    <select id="sourceFilter">
+                        <option value="">全部</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="hasCoverImage">🖼️ 封面图</label>
+                    <select id="hasCoverImage">
+                        <option value="">全部</option>
+                        <option value="true">有封面图</option>
+                        <option value="false">无封面图</option>
                     </select>
                 </div>
             </div>
@@ -1194,13 +1208,21 @@
             </div>
             
             <div class="form-row">
-                <div class="form-group">
-                    <label>城市</label>
-                    <input id="placeCity" type="text" placeholder="如：Tokyo" autocomplete="off">
-                </div>
-                <div class="form-group">
+                <div class="form-group dropdown">
                     <label>国家</label>
-                    <input id="placeCountry" type="text" placeholder="如：Japan" autocomplete="off">
+                    <div style="position: relative;">
+                        <input id="placeCountry" type="text" placeholder="输入或选择国家..." autocomplete="off" onclick="showCountryDropdown()" oninput="filterCountryDropdown(this.value)" onchange="updatePlaceCityOptions()" style="padding-right: 30px;">
+                        <span onclick="toggleCountryDropdown()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666;">▼</span>
+                        <div id="placeCountryDropdown" class="dropdown-list" style="display:none;"></div>
+                    </div>
+                </div>
+                <div class="form-group dropdown">
+                    <label>城市</label>
+                    <div style="position: relative;">
+                        <input id="placeCity" type="text" placeholder="输入或选择城市..." autocomplete="off" onclick="showCityDropdown()" oninput="filterCityDropdown(this.value)" style="padding-right: 30px;">
+                        <span onclick="toggleCityDropdown()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666;">▼</span>
+                        <div id="placeCityDropdown" class="dropdown-list" style="display:none;"></div>
+                    </div>
                 </div>
             </div>
             
@@ -1583,12 +1605,14 @@
             const citySelect = document.getElementById('city');
             const categorySelect = document.getElementById('category');
             const tagSelect = document.getElementById('tagFilter');
+            const sourceSelect = document.getElementById('sourceFilter');
             
             // 保存当前选中值
             const currentCountry = countrySelect.value;
             const currentCity = citySelect.value;
             const currentCategory = categorySelect.value;
             const currentTag = tagSelect.value;
+            const currentSource = sourceSelect ? sourceSelect.value : '';
             
             // 更新国家选项
             countrySelect.innerHTML = '<option value="">全部</option>';
@@ -1613,8 +1637,23 @@
                 categorySelect.appendChild(option);
             });
             
+            // 更新来源选项
+            if (sourceSelect && filterOptions.sources) {
+                sourceSelect.innerHTML = '<option value="">全部</option>';
+                filterOptions.sources.forEach(s => {
+                    const option = document.createElement('option');
+                    option.value = s.name;
+                    option.textContent = `${s.name} (${s.count})`;
+                    option.selected = s.name === currentSource;
+                    sourceSelect.appendChild(option);
+                });
+            }
+            
             // 更新标签选项（根据选中的国家）
             updateTagOptions(currentCountry, currentTag);
+            
+            // 更新编辑表单的城市/国家下拉选项
+            updatePlaceFormOptions();
         }
         
         // 更新城市选项（根据选中的国家）
@@ -1690,6 +1729,134 @@
             updateCityOptions(selectedCountry, currentCity);
             updateTagOptions(selectedCountry, currentTag);
         }
+
+        // 更新编辑表单的城市/国家下拉选项
+        function updatePlaceFormOptions() {
+            // 更新下拉列表数据
+            updatePlaceFormDropdowns();
+        }
+        
+        // 城市下拉列表相关函数
+        let allCitiesForDropdown = [];
+        let allCountriesForDropdown = [];
+        
+        // 更新编辑表单的城市选项（根据选中的国家）- 兼容旧调用
+        function updatePlaceCityOptions() {
+            updateCityDropdownOptions();
+        }
+        
+        function updatePlaceFormDropdowns() {
+            // 更新国家列表
+            allCountriesForDropdown = [];
+            if (filterOptions.countries) {
+                allCountriesForDropdown = filterOptions.countries.map(c => c.name).sort();
+            }
+            
+            // 更新城市列表
+            updateCityDropdownOptions();
+        }
+        
+        function updateCityDropdownOptions() {
+            const selectedCountry = document.getElementById('placeCountry').value.trim();
+            allCitiesForDropdown = [];
+            
+            if (selectedCountry && filterOptions.citiesByCountry && filterOptions.citiesByCountry[selectedCountry]) {
+                allCitiesForDropdown = filterOptions.citiesByCountry[selectedCountry].map(c => c.name).sort();
+            } else if (filterOptions.citiesByCountry) {
+                const allCities = new Set();
+                Object.values(filterOptions.citiesByCountry).forEach(cities => {
+                    cities.forEach(c => allCities.add(c.name));
+                });
+                allCitiesForDropdown = Array.from(allCities).sort();
+            }
+        }
+        
+        function showCityDropdown() {
+            updateCityDropdownOptions();
+            renderCityDropdown(allCitiesForDropdown);
+        }
+        
+        function toggleCityDropdown() {
+            const dropdown = document.getElementById('placeCityDropdown');
+            if (dropdown.style.display === 'none') {
+                showCityDropdown();
+            } else {
+                dropdown.style.display = 'none';
+            }
+        }
+        
+        function filterCityDropdown(query) {
+            updateCityDropdownOptions();
+            const filtered = allCitiesForDropdown.filter(c => 
+                c.toLowerCase().includes(query.toLowerCase())
+            );
+            renderCityDropdown(filtered);
+        }
+        
+        function renderCityDropdown(cities) {
+            const dropdown = document.getElementById('placeCityDropdown');
+            dropdown.innerHTML = '';
+            cities.slice(0, 50).forEach(city => {
+                const item = document.createElement('div');
+                item.className = 'dropdown-item';
+                item.textContent = city;
+                item.onclick = () => selectCity(city);
+                dropdown.appendChild(item);
+            });
+            dropdown.style.display = cities.length > 0 ? 'block' : 'none';
+        }
+        
+        function selectCity(city) {
+            document.getElementById('placeCity').value = city;
+            document.getElementById('placeCityDropdown').style.display = 'none';
+        }
+        
+        function showCountryDropdown() {
+            renderCountryDropdown(allCountriesForDropdown);
+        }
+        
+        function toggleCountryDropdown() {
+            const dropdown = document.getElementById('placeCountryDropdown');
+            if (dropdown.style.display === 'none') {
+                showCountryDropdown();
+            } else {
+                dropdown.style.display = 'none';
+            }
+        }
+        
+        function filterCountryDropdown(query) {
+            const filtered = allCountriesForDropdown.filter(c => 
+                c.toLowerCase().includes(query.toLowerCase())
+            );
+            renderCountryDropdown(filtered);
+        }
+        
+        function renderCountryDropdown(countries) {
+            const dropdown = document.getElementById('placeCountryDropdown');
+            dropdown.innerHTML = '';
+            countries.slice(0, 50).forEach(country => {
+                const item = document.createElement('div');
+                item.className = 'dropdown-item';
+                item.textContent = country;
+                item.onclick = () => selectCountry(country);
+                dropdown.appendChild(item);
+            });
+            dropdown.style.display = countries.length > 0 ? 'block' : 'none';
+        }
+        
+        function selectCountry(country) {
+            document.getElementById('placeCountry').value = country;
+            document.getElementById('placeCountryDropdown').style.display = 'none';
+            updatePlaceCityOptions();
+            updateCityDropdownOptions();
+        }
+        
+        // 点击其他地方关闭下拉列表
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.dropdown')) {
+                document.querySelectorAll('.dropdown-list').forEach(d => d.style.display = 'none');
+            }
+        });
 
         // 监听筛选器变化
         function setupFilterListeners() {
@@ -2045,14 +2212,21 @@
                 city: '🏙️ 城市',
                 category: '🏷️ 分类',
                 minRating: '⭐ 最低评分',
-                maxRating: '⭐ 最高评分'
+                maxRating: '⭐ 最高评分',
+                source: '📦 来源',
+                hasCoverImage: '🖼️ 封面图'
             };
 
             filterKeys.forEach(key => {
                 const tag = document.createElement('div');
                 tag.className = 'filter-tag';
+                let displayValue = filters[key];
+                // 特殊处理 hasCoverImage 的显示
+                if (key === 'hasCoverImage') {
+                    displayValue = filters[key] === 'true' ? '有' : '无';
+                }
                 tag.innerHTML = `
-                    ${labels[key]}: <strong>${filters[key]}</strong>
+                    ${labels[key]}: <strong>${displayValue}</strong>
                     <button onclick="removeFilter('${key}')">×</button>
                 `;
                 container.appendChild(tag);
@@ -2071,6 +2245,8 @@
             const minRating = document.getElementById('minRating').value;
             const maxRating = document.getElementById('maxRating').value;
             const tagFilter = document.getElementById('tagFilter').value.trim();
+            const sourceFilter = document.getElementById('sourceFilter').value;
+            const hasCoverImage = document.getElementById('hasCoverImage').value;
             const sortBy = document.getElementById('sortBy').value;
             const sortOrder = document.getElementById('sortOrder').value;
 
@@ -2081,6 +2257,8 @@
             if (category) newFilters.category = category;
             if (minRating) newFilters.minRating = minRating;
             if (maxRating) newFilters.maxRating = maxRating;
+            if (sourceFilter) newFilters.source = sourceFilter;
+            if (hasCoverImage) newFilters.hasCoverImage = hasCoverImage;
             if (sortBy) newFilters.sortBy = sortBy;
             if (sortBy) newFilters.sortOrder = sortOrder;
 
@@ -2101,6 +2279,8 @@
             document.getElementById('minRating').value = '';
             document.getElementById('maxRating').value = '';
             document.getElementById('tagFilter').value = '';
+            document.getElementById('sourceFilter').value = '';
+            document.getElementById('hasCoverImage').value = '';
             document.getElementById('sortBy').value = '';
             document.getElementById('sortOrder').value = 'desc';
 
@@ -2111,7 +2291,10 @@
         // 移除单个筛选
         function removeFilter(key) {
             delete filters[key];
-            document.getElementById(key).value = '';
+            // 处理不同的元素 ID
+            const elementId = key === 'source' ? 'sourceFilter' : key;
+            const element = document.getElementById(elementId);
+            if (element) element.value = '';
             currentPage = 1;
             
             // 如果移除的是国家、城市或分类，需要更新筛选选项

@@ -29,7 +29,7 @@ class CategorySection extends StatelessWidget {
   Widget build(BuildContext context) {
     // 只显示有图片的地点
     final placesWithImage = category.places
-        .where((p) => p.coverImage.isNotEmpty)
+        .where((p) => p.hasValidCoverImage)
         .take(10)
         .toList();
     
@@ -111,7 +111,7 @@ class _PlaceCardWithSummary extends StatelessWidget {
             place.summary,
             style: AppTheme.bodySmall(context).copyWith(
               color: AppTheme.darkGray,
-              height: 1.4,
+              height: 1.3,
               fontSize: 13,
             ),
             maxLines: 3,
@@ -140,7 +140,7 @@ class CategorizedPlacesList extends StatelessWidget {
   Widget build(BuildContext context) {
     // 过滤掉没有任何有图片地点的分类
     final validCategories = categories.where((c) {
-      final placesWithImage = c.places.where((p) => p.coverImage.isNotEmpty).length;
+      final placesWithImage = c.places.where((p) => p.hasValidCoverImage).length;
       return placesWithImage >= 1; // 至少 1 个有图片的地点
     }).toList();
 

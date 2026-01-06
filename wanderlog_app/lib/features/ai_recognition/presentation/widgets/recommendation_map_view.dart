@@ -451,7 +451,7 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
                   height: 36,
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(8),
+                    shape: BoxShape.circle,
                     border: Border.all(color: AppTheme.black, width: 1),
                   ),
                   child: const Icon(Icons.fullscreen,
@@ -881,7 +881,7 @@ class _FullscreenRecommendationMapState
                 height: 40,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+                  shape: BoxShape.circle,
                   border: Border.all(color: AppTheme.black, width: 1.5),
                   boxShadow: AppTheme.cardShadow,
                 ),
@@ -1089,83 +1089,90 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        widget.place.name,
-                        style: AppTheme.bodyLarge(context).copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          height: 1.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-                      // 评分或推荐短语
-                      if (widget.place.hasRating)
-                        Row(
-                          children: [
-                            const Icon(Icons.star,
-                                size: 14, color: AppTheme.primaryYellow),
-                            const SizedBox(width: 4),
-                            Text(
-                              widget.place.rating!.toStringAsFixed(1),
-                              style: AppTheme.bodySmall(context).copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (widget.place.ratingCount != null) ...[
-                              const SizedBox(width: 4),
-                              Text(
-                                '(${widget.place.ratingCount})',
-                                style: AppTheme.bodySmall(context).copyWith(
-                                  color: Colors.white.withOpacity(0.8),
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ],
-                        )
-                      else if (widget.place.recommendationPhrase != null)
-                        Row(
-                          children: [
-                            Icon(Icons.auto_awesome,
-                                size: 14, color: AppTheme.primaryYellow),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                widget.place.recommendationPhrase!,
-                                style: AppTheme.bodySmall(context).copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                      // AI summary - 显示在卡片下方（最多 2 行）
-                      if (widget.place.summary.isNotEmpty) ...[
-                        const SizedBox(height: 6),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         Text(
-                          widget.place.summary,
-                          style: AppTheme.bodySmall(context).copyWith(
-                            color: Colors.white.withOpacity(0.92),
-                            height: 1.25,
+                          widget.place.name,
+                          style: AppTheme.bodyLarge(context).copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            height: 1.2,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        const SizedBox(height: 6),
+                        // 评分或推荐短语
+                        if (widget.place.hasRating)
+                          Row(
+                            children: [
+                              const Icon(Icons.star,
+                                  size: 14, color: AppTheme.primaryYellow),
+                              const SizedBox(width: 4),
+                              Text(
+                                widget.place.rating!.toStringAsFixed(1),
+                                style: AppTheme.bodySmall(context).copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (widget.place.ratingCount != null) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  '(${widget.place.ratingCount})',
+                                  style: AppTheme.bodySmall(context).copyWith(
+                                    color: Colors.white.withOpacity(0.8),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          )
+                        else if (widget.place.recommendationPhrase != null)
+                          Row(
+                            children: [
+                              Icon(Icons.auto_awesome,
+                                  size: 14, color: AppTheme.primaryYellow),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  widget.place.recommendationPhrase!,
+                                  style: AppTheme.bodySmall(context).copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                        // AI summary - 显示在卡片下方（最多 2 行）
+                        if (widget.place.summary.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.place.summary,
+                            style: AppTheme.bodySmall(context).copyWith(
+                              color: Colors.white.withOpacity(0.92),
+                              height: 1.2,
+                              fontSize: 12,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ],

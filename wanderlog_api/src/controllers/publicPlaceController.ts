@@ -122,7 +122,7 @@ class PublicPlaceController {
    */
   async getAllPlaces(req: Request, res: Response): Promise<void> {
     try {
-      const { page, limit, city, country, category, source, search, minRating, maxRating, tag, sortBy, sortOrder } = req.query;
+      const { page, limit, city, country, category, source, search, minRating, maxRating, tag, hasCoverImage, sortBy, sortOrder } = req.query;
 
       const result = await publicPlaceService.getAllPlaces({
         page: page ? parseInt(page as string) : undefined,
@@ -135,6 +135,7 @@ class PublicPlaceController {
         minRating: minRating ? parseFloat(minRating as string) : undefined,
         maxRating: maxRating ? parseFloat(maxRating as string) : undefined,
         tag: tag as string,
+        hasCoverImage: hasCoverImage === 'true' ? true : (hasCoverImage === 'false' ? false : undefined),
         sortBy: sortBy as 'rating' | 'ratingCount' | 'createdAt' | undefined,
         sortOrder: sortOrder as 'asc' | 'desc' | undefined,
       });

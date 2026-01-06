@@ -33,9 +33,10 @@ import {
 const CONFIG = {
   AI_TIMEOUT_MS: 10000,  // 10 second timeout for intent classification
   DESCRIPTION_TIMEOUT_MS: 15000, // 15 second timeout for description generation
-  CONSULTATION_TIMEOUT_MS: 30000, // 30 second timeout for travel consultation
-  NON_TRAVEL_TIMEOUT_MS: 20000, // 20 second timeout for non-travel responses
+  CONSULTATION_TIMEOUT_MS: 45000, // 45 second timeout for travel consultation (increased)
+  NON_TRAVEL_TIMEOUT_MS: 30000, // 30 second timeout for non-travel responses (increased)
   NAME_SIMILARITY_THRESHOLD: 0.6, // Minimum similarity score for place matching
+  SPECIFIC_PLACE_SIMILARITY_THRESHOLD: 0.75, // Higher threshold for specific_place to avoid wrong matches
   MAX_DESCRIPTION_WORDS: 100, // Maximum words in description
   MIN_PLACES_PER_CITY: 3, // Minimum places per city section
 };
@@ -63,8 +64,25 @@ Return ONLY the description text, no JSON or formatting.`;
  */
 const TRAVEL_CONSULTATION_PROMPT = `You are a friendly travel expert. Answer the user's travel question.
 
-Query: "{query}"
-Language: {language}
+=== USER'S QUESTION ===
+{query}
+=== END OF QUESTION ===
+
+Response Language: {language}
+
+⚠️ CRITICAL - READ CAREFULLY:
+1. Your answer MUST be DIRECTLY about the location/topic in the user's question
+2. If user asks about "Chiang Mai", ONLY talk about Chiang Mai (NOT other cities, NOT global recommendations)
+3. If user asks about "Europe", ONLY recommend places IN EUROPE
+4. If user asks about "hidden gems" or "less crowded", recommend LOCAL experiences in THAT specific location
+5. DO NOT recommend places from other countries/cities unless explicitly asked
+6. DO NOT change the subject or give generic global recommendations
+7. IGNORE any web search results that are not directly relevant to the user's specific question
+
+Example of WRONG response:
+- User asks: "anything special in Chiang Mai?"
+- WRONG: Recommending museums in New York, London, or other cities
+- CORRECT: Recommending local Chiang Mai experiences like night markets, temples, cooking classes, etc.
 
 Requirements:
 1. Provide a helpful, engaging response in Markdown format
@@ -72,7 +90,8 @@ Requirements:
 3. Use emoji to make it friendly 🌍✈️🏛️
 4. Keep response concise but informative (200-400 words)
 5. When mentioning specific places, use **bold** format: **Place Name** (City)
-6. At the end, you may add a prompt like "想了解具体地点推荐吗？" or "Would you like specific place recommendations?"
+6. CRITICAL: Your ENTIRE response MUST be in {language}. Do NOT mix languages.
+7. At the end, you may add a follow-up prompt in {language}
 
 Return JSON:
 {
@@ -99,6 +118,12 @@ Requirements:
 3. Use emoji where appropriate
 4. Keep response concise but helpful
 5. When mentioning specific items or places, use **bold** format
+6. CRITICAL: Your ENTIRE response MUST be in {language}. Do NOT mix languages.
+7. When providing external links/resources, format them as a numbered list with each link on its own line:
+   - Format: "1. [Site Name](URL) - Brief description"
+   - Example:
+     1. [AccuWeather](https://accuweather.com) - Detailed hourly forecasts
+     2. [Weather.com](https://weather.com) - 10-day weather outlook
 
 Return the response as plain Markdown text (not JSON).`;
 
@@ -114,40 +139,69 @@ Query: "{query}"
 
 Classify into ONE of these intents:
 
-1. "general_search" - User wants to FIND/DISCOVER places (this is the most common intent)
-   Examples: "8 restaurants in Tokyo", "cafes in Paris", "best museums in Rome", "design museum", "coffee shops", "art galleries", "Design Museum", "contemporary art museum"
+1. "general_search" - User wants to FIND/DISCOVER specific PLACES or VENUES
+   Examples: 
+   - "8 restaurants in Tokyo" (searching for restaurants)
+   - "cafes in Paris" (searching for cafes)
+   - "best museums in Rome" (searching for museums)
+   - "what to eat in Osaka" (searching for food places)
+   - "大阪有什么好吃的" (searching for food places)
+   - "coffee shops near me"
    Key signals:
-   - Contains a place CATEGORY/TYPE (museum, cafe, restaurant, gallery, shop, bar, hotel, etc.)
-   - Contains city/location + category
-   - Contains quantity + category
-   - User wants to FIND places to visit
-   IMPORTANT: "Design Museum", "Art Museum", "Coffee Shop" are CATEGORY searches, NOT specific places!
+   - Contains a place CATEGORY/TYPE (museum, cafe, restaurant, gallery, shop, bar, hotel, market, etc.)
+   - User wants a LIST of specific venues/locations to visit
+   - Food-related searches ("what to eat", "好吃的", "美食") = general_search for restaurants
 
-2. "specific_place" - User wants info about ONE SPECIFIC named place with a UNIQUE proper name
-   Examples: "Eiffel Tower", "Louvre Museum", "Central Park", "Vitra Design Museum (Weil am Rhein)", "Museum für Gestaltung Zürich"
-   Key signal: Contains a UNIQUE proper noun that identifies ONE specific place (usually includes location or founder name)
-   - "Vitra Design Museum" = specific (Vitra is a brand name)
-   - "Design Museum" = general_search (just a category)
+2. "specific_place" - User wants BASIC INFO about ONE SPECIFIC named place (NOT asking how-to questions)
+   Examples: "Eiffel Tower", "Louvre Museum", "Central Park", "what is Sagrada Familia"
+   Key signal: 
+   - Contains a UNIQUE proper noun that identifies ONE specific place
+   - User just wants to KNOW ABOUT the place (not asking how to do something)
+   - Simple queries like just the place name, or "tell me about X", "what is X"
+   IMPORTANT: If user asks "how to...", "when to...", "tips for..." about a place, it's travel_consultation!
 
-3. "travel_consultation" - Travel-related advice WITHOUT wanting to find specific places
-   Examples: "欧洲哪里好玩", "Plan a 3-day trip to Rome", "Louvre vs Orsay which is better", "best time to visit Japan"
-   Key signal: Asking for travel advice, comparisons, trip planning
+3. "travel_consultation" - Travel-related ADVICE, TIPS, HOW-TO, or PRACTICAL QUESTIONS
+   Covers: 规划、天气、交通、门票、预算、旅行清单、注意事项、签证、语言、网络等
+   Examples: 
+   - "how to buy ticket of Sagrada Familia" (门票购买)
+   - "how to get to Eiffel Tower from airport" (交通)
+   - "best time to visit Japan" (时间)
+   - "what to pack for Iceland" (旅行清单)
+   - "things to avoid in Rome" (注意事项)
+   - "do I need visa for Japan" (签证)
+   - "weather in Paris in April" (天气)
+   - "budget for 7 days in Tokyo" (预算)
+   - "Plan a 3-day trip to Rome" (规划)
+   - "Louvre vs Orsay which is better" (比较)
+   - "which area to stay in London" (住宿区域建议)
+   Key signals:
+   - Questions starting with "how to", "how do I", "how can I"
+   - Questions about tickets, booking, prices, costs, budget
+   - Questions about timing, weather, season, best time
+   - Questions about transportation, getting there
+   - Questions about packing, preparation, checklist
+   - Questions about safety, scams, things to avoid
+   - Questions about visa, entry requirements
+   - Comparisons between places
+   - Trip planning questions
 
 4. "non_travel" - NOT travel-related at all
-   Examples: "北京天气", "推荐运动方案", "心情不好怎么办", "Python怎么学"
-   Key signal: Weather, health, emotions, technology, etc.
+   Examples: "推荐运动方案", "心情不好怎么办", "Python怎么学"
+   Key signal: Health, emotions, technology, work, study, etc.
 
 DECISION RULES (in order):
-1. If query contains category words (museum, cafe, restaurant, gallery, etc.) AND user wants to FIND places → "general_search"
-2. If query is a unique proper noun identifying ONE specific place → "specific_place"
-3. If query asks for travel advice/planning without finding places → "travel_consultation"
-4. If not travel-related → "non_travel"
+1. If query contains "how to", "how do", "tips for", "best way to", "should I" about travel → "travel_consultation"
+2. If query asks about tickets, booking, prices, budget, weather, transport, visa, packing → "travel_consultation"
+3. If query asks "what to eat", "好吃的", "美食", or searches for food/restaurants → "general_search"
+4. If query contains a place CATEGORY AND wants to FIND venues → "general_search"
+5. If query is JUST a place name or simple "what is X" → "specific_place"
+6. If not travel-related → "non_travel"
 
 Return JSON only:
 {
   "intent": "specific_place" | "general_search" | "travel_consultation" | "non_travel",
-  "placeName": "exact place name if specific_place",
-  "placeNames": ["place1", "place2"] if travel_consultation mentions specific places,
+  "placeName": "exact place name if specific_place or travel_consultation mentions a specific place",
+  "placeNames": ["place1", "place2"] if multiple places mentioned,
   "city": "city name if mentioned",
   "category": "restaurant/cafe/museum/gallery/etc if mentioned",
   "count": number if mentioned,
@@ -180,6 +234,7 @@ const GENERIC_WORDS = [
 const CATEGORY_KEYWORDS = [
   'cafe', 'coffee', 'bakery', 'restaurant', 'ramen', 'sushi', 'museum', 'gallery',
   'temple', 'shrine', 'park', 'garden', 'bar', 'pub', 'shop', 'shopping', 'hotel',
+  'market', 'flea market', 'food market',
   '咖啡', '餐厅', '博物馆', '公园', '酒吧', '商店', '酒店',
 ];
 
@@ -215,16 +270,74 @@ const NON_TRAVEL_KEYWORDS = [
 
 /**
  * Travel consultation keywords
+ * 用于判断旅游咨询类问题（规划、天气、交通、门票、预算、注意事项等）
+ * 注意：美食类问题（what to eat, 吃什么）属于 general_search，不在此列表
  */
 const TRAVEL_CONSULTATION_KEYWORDS = [
-  // Comparison
-  'vs', '还是', '哪个更', 'which is better', 'compare',
-  // Planning
-  'plan', '计划', 'itinerary', '行程', 'trip', '旅行',
-  // Advice
-  '哪里好玩', '推荐', 'recommend', 'suggest', '建议', 'advice',
-  // Duration
-  'day trip', '一日游', '几天', 'how many days',
+  // === How-to questions (最高优先级) ===
+  'how to', 'how do', 'how can', 'how much', 'how long', 'how far',
+  '怎么', '如何', '怎样', '多久', '多远',
+
+  // === 规划 Planning ===
+  'plan', 'itinerary', 'schedule', 'route', 'day trip', 'day plan',
+  '计划', '行程', '路线', '安排', '规划', '几天', '一日游',
+
+  // === 天气 Weather ===
+  'weather', 'climate', 'season', 'temperature', 'rainy', 'sunny', 'cold', 'hot',
+  '天气', '气候', '季节', '温度', '穿什么', '冷不冷', '热不热',
+
+  // === 交通 Transportation ===
+  'transport', 'get to', 'get there', 'metro', 'subway', 'bus', 'taxi', 'uber',
+  'train', 'flight', 'airport', 'transfer',
+  '交通', '怎么去', '地铁', '公交', '打车', '机场', '高铁', '火车', '转机',
+
+  // === 门票 Tickets ===
+  'ticket', 'admission', 'entry fee', 'pass', 'skip the line', 'queue', 'book', 'reserve',
+  '门票', '票价', '排队', '免排队', '通票', '预约', '预订', '买票', '订票',
+
+  // === 预算 Budget ===
+  'budget', 'cost', 'expensive', 'cheap', 'afford', 'spend',
+  '预算', '花费', '贵不贵', '便宜', '花多少',
+
+  // === 旅行清单 Packing ===
+  'pack', 'packing', 'bring', 'luggage', 'checklist', 'prepare', 'essentials',
+  '带什么', '准备', '行李', '清单', '必备', '装备',
+
+  // === 注意事项 Tips/Warnings ===
+  'tips for', 'advice for', 'avoid', 'scam', 'safety', 'warning', 'careful', 'danger',
+  '注意', '小心', '骗局', '安全', '禁忌', '避免', '危险', '陷阱',
+
+  // === 住宿区域建议 (不是搜索酒店) ===
+  'where to stay', 'which area', 'best area', 'neighborhood',
+  '住哪个区', '哪个区好',
+
+  // === 签证/入境 Visa ===
+  'visa', 'entry requirement', 'customs', 'immigration', 'passport', 'border',
+  '签证', '入境', '海关', '护照', '过境',
+
+  // === 语言 Language ===
+  'language', 'speak english', 'translate', 'communication',
+  '语言', '说英语', '沟通', '翻译', '说什么语',
+
+  // === 网络/通讯 Connectivity ===
+  'sim card', 'roaming', 'data plan',
+  '电话卡', '流量', '漫游',
+
+  // === 时间 Timing ===
+  'best time', 'when to', 'when should', 'peak season', 'off season',
+  '什么时候', '最佳时间', '旺季', '淡季',
+
+  // === 比较 Comparison ===
+  'vs', 'versus', 'compare', 'which is better', 'difference',
+  '还是', '哪个更', '对比', '区别', '选哪个',
+
+  // === 体验咨询 (不是搜索地点) ===
+  'worth visiting', 'is it worth', 'should i',
+  '值得去吗', '要不要去',
+
+  // === 推荐/建议 ===
+  'recommend', 'suggest', 'advice',
+  '推荐', '建议',
 ];
 
 // ============ Intent Classifier Service ============
@@ -297,7 +410,17 @@ class IntentClassifierService implements IIntentClassifier {
       };
     }
 
-    // 2. Check for category keywords FIRST (before specific place)
+    // 2. Check for travel consultation FIRST (how-to questions, tips, booking, etc.)
+    // This ensures "how to buy ticket of Sagrada Familia" is travel_consultation, not specific_place
+    if (this.isTravelConsultation(lower)) {
+      logger.info('[IntentClassifier] Fallback: travel_consultation');
+      return {
+        intent: 'travel_consultation',
+        confidence: 0.8,
+      };
+    }
+
+    // 3. Check for category keywords (before specific place)
     // This ensures "design museum" is classified as general_search, not specific_place
     const hasCategory = this.detectCategory(lower);
     const hasCity = this.detectCity(lower);
@@ -331,7 +454,7 @@ class IntentClassifierService implements IIntentClassifier {
       };
     }
 
-    // 3. Check for specific place query (only if no category detected)
+    // 4. Check for specific place query (only if no category and no consultation keywords)
     const specificPlace = this.detectSpecificPlace(query);
     if (specificPlace) {
       logger.info(`[IntentClassifier] Fallback: specific_place (${specificPlace})`);
@@ -339,15 +462,6 @@ class IntentClassifierService implements IIntentClassifier {
         intent: 'specific_place',
         placeName: specificPlace,
         confidence: 0.7,
-      };
-    }
-
-    // 4. Check for travel consultation
-    if (this.isTravelConsultation(lower)) {
-      logger.info('[IntentClassifier] Fallback: travel_consultation');
-      return {
-        intent: 'travel_consultation',
-        confidence: 0.6,
       };
     }
 
@@ -452,24 +566,36 @@ class IntentClassifierService implements IIntentClassifier {
   /**
    * Handle specific_place intent - generates AI description and matches database
    * If no image found, uses web search to find one
-   * @param placeName The name of the specific place to look up
+   * @param placeName The name of the specific place to look up (or vague description)
    * @param language User's preferred language ('en' or 'zh')
+   * @param originalQuery The original user query (for AI to identify the place)
    * @returns Handler result with description and optional matched place
    */
-  async handleSpecificPlace(placeName: string, language: string): Promise<SpecificPlaceHandlerResult> {
+  async handleSpecificPlace(placeName: string, language: string, originalQuery?: string): Promise<SpecificPlaceHandlerResult> {
     logger.info(`[IntentClassifier] Handling specific place query: "${placeName}"`);
 
-    // Run AI description generation and database matching in parallel
+    // Step 1: If the query is vague (user doesn't remember the name), ask AI to identify it first
+    let identifiedPlaceName = placeName;
+    if (originalQuery && this.isVagueQuery(originalQuery)) {
+      logger.info(`[IntentClassifier] Vague query detected, asking AI to identify the place...`);
+      const identified = await this.identifyPlaceFromQuery(originalQuery, language);
+      if (identified) {
+        identifiedPlaceName = identified;
+        logger.info(`[IntentClassifier] AI identified place: "${identified}"`);
+      }
+    }
+
+    // Step 2: Run AI description generation and database matching in parallel
     const [description, matchedPlace] = await Promise.all([
-      this.generatePlaceDescription(placeName, language),
-      this.matchPlaceFromDatabase(placeName, language as 'en' | 'zh'),
+      this.generatePlaceDescription(identifiedPlaceName, language),
+      this.matchPlaceFromDatabaseStrict(identifiedPlaceName, language as 'en' | 'zh'),
     ]);
 
-    // If place found but no image, or no place found at all, search for image
+    // Step 3: If place found but no image, search for image
     if (matchedPlace && (!matchedPlace.coverImage || matchedPlace.coverImage === '')) {
       logger.info(`[IntentClassifier] Place "${matchedPlace.name}" has no image, searching online...`);
       try {
-        const imageUrl = await this.kouriProvider.searchPlaceImage(placeName, matchedPlace.city || '');
+        const imageUrl = await this.kouriProvider.searchPlaceImage(identifiedPlaceName, matchedPlace.city || '');
         if (imageUrl) {
           matchedPlace.coverImage = imageUrl;
           logger.info(`[IntentClassifier] Found image for "${matchedPlace.name}": ${imageUrl}`);
@@ -480,16 +606,93 @@ class IntentClassifierService implements IIntentClassifier {
           );
         }
       } catch (error) {
-        logger.warn(`[IntentClassifier] Image search failed for "${placeName}": ${error}`);
+        logger.warn(`[IntentClassifier] Image search failed for "${identifiedPlaceName}": ${error}`);
       }
     }
 
-    logger.info(`[IntentClassifier] Specific place result: description=${description.length} chars, place=${matchedPlace ? matchedPlace.name : 'null'}`);
+    logger.info(`[IntentClassifier] Specific place result: description=${description.length} chars, place=${matchedPlace ? matchedPlace.name : 'null'}, identified="${identifiedPlaceName}"`);
 
     return {
       description,
       place: matchedPlace,
+      identifiedPlaceName, // Return the AI-identified name for frontend display
     };
+  }
+
+  /**
+   * Check if the query is vague (user doesn't remember the exact name)
+   */
+  private isVagueQuery(query: string): boolean {
+    const vaguePatterns = [
+      /don'?t remember/i,
+      /forgot the name/i,
+      /can'?t recall/i,
+      /what'?s the name/i,
+      /help (me )?find/i,
+      /不记得.*名/,
+      /忘了.*名/,
+      /叫什么/,
+      /是什么/,
+      /哪个/,
+    ];
+    return vaguePatterns.some(pattern => pattern.test(query));
+  }
+
+  /**
+   * Ask AI to identify a specific place from a vague query
+   */
+  private async identifyPlaceFromQuery(query: string, _language: string): Promise<string | null> {
+    const prompt = `The user is trying to find a specific place but doesn't remember the exact name.
+
+Query: "${query}"
+
+Based on the description, identify the most likely place they're referring to.
+Return ONLY the place name (e.g., "La Boqueria", "Eiffel Tower"), nothing else.
+If you cannot identify a specific place, return "UNKNOWN".`;
+
+    try {
+      const response = await Promise.race([
+        this.kouriProvider.generateText(prompt),
+        new Promise<string>((resolve) => 
+          setTimeout(() => resolve('UNKNOWN'), 5000)
+        ),
+      ]);
+
+      const identified = response.trim().replace(/^["']|["']$/g, '');
+      if (identified && identified !== 'UNKNOWN' && identified.length > 0 && identified.length < 100) {
+        return identified;
+      }
+      return null;
+    } catch (error) {
+      logger.warn(`[IntentClassifier] Failed to identify place from query: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Match place from database with STRICT similarity threshold
+   * Only returns a match if similarity is very high to avoid wrong matches
+   */
+  private async matchPlaceFromDatabaseStrict(placeName: string, language: 'en' | 'zh' = 'en'): Promise<PlaceResult | null> {
+    const result = await this.matchPlaceFromDatabase(placeName, language);
+    
+    if (!result) return null;
+    
+    // Verify the match is accurate by checking similarity
+    const similarity = Math.max(
+      calculateNameSimilarity(placeName, result.name),
+      this.calculateWordBasedSimilarity(placeName, result.name)
+    );
+    
+    logger.info(`[IntentClassifier] Strict match check: "${placeName}" vs "${result.name}" = ${similarity.toFixed(3)}`);
+    
+    // Only return if similarity is above the strict threshold
+    if (similarity >= CONFIG.SPECIFIC_PLACE_SIMILARITY_THRESHOLD) {
+      return result;
+    }
+    
+    logger.info(`[IntentClassifier] Match rejected: similarity ${similarity.toFixed(3)} < threshold ${CONFIG.SPECIFIC_PLACE_SIMILARITY_THRESHOLD}`);
+    return null;
   }
 
   /**
@@ -843,11 +1046,34 @@ class IntentClassifierService implements IIntentClassifier {
         if (usedDbWords.has(i)) continue;
         
         const dbWord = dbWords[i];
-        // Check for exact match or substring match
-        if (inputWord === dbWord || 
-            inputWord.includes(dbWord) || 
-            dbWord.includes(inputWord) ||
-            this.levenshteinSimilarity(inputWord, dbWord) > 0.8) {
+        
+        // Check for exact match first
+        if (inputWord === dbWord) {
+          matchCount++;
+          usedDbWords.add(i);
+          break;
+        }
+        
+        // For substring matching, require minimum length and significant overlap
+        // to avoid false positives like "nice" matching "venice"
+        const minLen = Math.min(inputWord.length, dbWord.length);
+        const maxLen = Math.max(inputWord.length, dbWord.length);
+        
+        // Only allow substring match if:
+        // 1. The shorter word is at least 4 characters
+        // 2. The length ratio is at least 0.7 (e.g., "museum" vs "museums" is OK, but "nice" vs "venice" is not)
+        const lengthRatio = minLen / maxLen;
+        const allowSubstringMatch = minLen >= 4 && lengthRatio >= 0.7;
+        
+        if (allowSubstringMatch && (inputWord.includes(dbWord) || dbWord.includes(inputWord))) {
+          matchCount++;
+          usedDbWords.add(i);
+          break;
+        }
+        
+        // Check Levenshtein similarity for typos/variations
+        // But require high similarity (0.85) to avoid false positives
+        if (this.levenshteinSimilarity(inputWord, dbWord) > 0.85) {
           matchCount++;
           usedDbWords.add(i);
           break;
@@ -950,9 +1176,13 @@ class IntentClassifierService implements IIntentClassifier {
     // Step 1: Generate AI response with place mentions
     const aiResult = await this.generateTravelConsultationResponse(query, language);
     
-    if (!aiResult.textContent) {
-      logger.warn('[IntentClassifier] Failed to generate travel consultation response');
-      return { textContent: '' };
+    // 即使 textContent 为空也返回（generateTravelConsultationResponse 已经处理了超时/错误消息）
+    if (!aiResult.textContent || aiResult.textContent.length === 0) {
+      logger.warn('[IntentClassifier] Empty travel consultation response');
+      const fallbackMsg = language === 'zh' 
+        ? '抱歉，无法生成回复。请稍后再试。'
+        : 'Sorry, unable to generate a response. Please try again.';
+      return { textContent: fallbackMsg };
     }
 
     // Step 2: If no places mentioned, return just the text content
@@ -984,19 +1214,23 @@ class IntentClassifierService implements IIntentClassifier {
     const languageText = language === 'zh' ? 'Chinese' : 'English';
     const prompt = TRAVEL_CONSULTATION_PROMPT
       .replace('{query}', query)
-      .replace('{language}', languageText);
+      .replace(/\{language\}/g, languageText);
 
     try {
       const response = await Promise.race([
         this.kouriProvider.generateText(prompt),
         new Promise<string>((resolve) => 
-          setTimeout(() => resolve(''), CONFIG.CONSULTATION_TIMEOUT_MS)
+          setTimeout(() => resolve('__TIMEOUT__'), CONFIG.CONSULTATION_TIMEOUT_MS)
         ),
       ]);
 
-      if (!response) {
+      if (!response || response === '__TIMEOUT__') {
         logger.warn('[IntentClassifier] Travel consultation generation timed out');
-        return { textContent: '', mentionedPlaces: [], cities: [] };
+        // 返回友好的超时消息
+        const timeoutMsg = language === 'zh' 
+          ? '抱歉，响应超时了。请稍后再试。'
+          : 'Sorry, the request timed out. Please try again.';
+        return { textContent: timeoutMsg, mentionedPlaces: [], cities: [] };
       }
 
       // Parse JSON response
@@ -1017,7 +1251,11 @@ class IntentClassifierService implements IIntentClassifier {
 
     } catch (error) {
       logger.warn(`[IntentClassifier] Failed to generate travel consultation: ${error}`);
-      return { textContent: '', mentionedPlaces: [], cities: [] };
+      // 返回友好的错误消息
+      const errorMsg = language === 'zh' 
+        ? '抱歉，处理请求时出错了。请稍后再试。'
+        : 'Sorry, something went wrong. Please try again.';
+      return { textContent: errorMsg, mentionedPlaces: [], cities: [] };
     }
   }
 
@@ -1088,6 +1326,86 @@ class IntentClassifierService implements IIntentClassifier {
   }
 
   /**
+   * Get all variants of a city name (e.g., Rome/Roma, Venice/Venezia)
+   * This helps with exact matching while supporting multiple language variants
+   * @param city City name
+   * @returns Array of city name variants
+   */
+  private getCityVariants(city: string): string[] {
+    const cityLower = city.toLowerCase().trim();
+    
+    // 城市名称变体映射
+    const cityVariantsMap: Record<string, string[]> = {
+      // Italy
+      'rome': ['Rome', 'Roma'],
+      'roma': ['Rome', 'Roma'],
+      'venice': ['Venice', 'Venezia'],
+      'venezia': ['Venice', 'Venezia'],
+      'florence': ['Florence', 'Firenze'],
+      'firenze': ['Florence', 'Firenze'],
+      'milan': ['Milan', 'Milano'],
+      'milano': ['Milan', 'Milano'],
+      'naples': ['Naples', 'Napoli'],
+      'napoli': ['Naples', 'Napoli'],
+      'turin': ['Turin', 'Torino'],
+      'torino': ['Turin', 'Torino'],
+      'genoa': ['Genoa', 'Genova'],
+      'genova': ['Genoa', 'Genova'],
+      // Spain
+      'barcelona': ['Barcelona'],
+      'madrid': ['Madrid'],
+      'seville': ['Seville', 'Sevilla'],
+      'sevilla': ['Seville', 'Sevilla'],
+      // France
+      'paris': ['Paris'],
+      'nice': ['Nice'],
+      'marseille': ['Marseille', 'Marseilles'],
+      'marseilles': ['Marseille', 'Marseilles'],
+      'lyon': ['Lyon', 'Lyons'],
+      'lyons': ['Lyon', 'Lyons'],
+      // Germany
+      'munich': ['Munich', 'München'],
+      'münchen': ['Munich', 'München'],
+      'cologne': ['Cologne', 'Köln'],
+      'köln': ['Cologne', 'Köln'],
+      // Netherlands
+      'the hague': ['The Hague', 'Den Haag'],
+      'den haag': ['The Hague', 'Den Haag'],
+      // Czech Republic
+      'prague': ['Prague', 'Praha'],
+      'praha': ['Prague', 'Praha'],
+      // Austria
+      'vienna': ['Vienna', 'Wien'],
+      'wien': ['Vienna', 'Wien'],
+      // Denmark
+      'copenhagen': ['Copenhagen', 'København'],
+      'københavn': ['Copenhagen', 'København'],
+      // Japan
+      'tokyo': ['Tokyo', '東京'],
+      'kyoto': ['Kyoto', '京都'],
+      'osaka': ['Osaka', '大阪'],
+      // China
+      'beijing': ['Beijing', '北京'],
+      'shanghai': ['Shanghai', '上海'],
+      'hong kong': ['Hong Kong', '香港'],
+      // Greece
+      'athens': ['Athens', 'Athina', 'Αθήνα'],
+      // Portugal
+      'lisbon': ['Lisbon', 'Lisboa'],
+      'lisboa': ['Lisbon', 'Lisboa'],
+    };
+    
+    // 查找变体
+    const variants = cityVariantsMap[cityLower];
+    if (variants) {
+      return variants;
+    }
+    
+    // 如果没有找到变体，返回原始城市名
+    return [city];
+  }
+
+  /**
    * Match places for a single city from database
    * Only returns places with cover images
    * @param placeNames Place names to match
@@ -1098,6 +1416,9 @@ class IntentClassifierService implements IIntentClassifier {
     const results: PlaceResult[] = [];
     const usedIds = new Set<string>();
 
+    // 获取城市的所有变体名称（如 Rome/Roma, Venice/Venezia 等）
+    const cityVariants = this.getCityVariants(city);
+
     for (const name of placeNames) {
       try {
         const candidates = await prisma.place.findMany({
@@ -1106,7 +1427,8 @@ class IntentClassifierService implements IIntentClassifier {
               { name: { contains: name, mode: 'insensitive' } },
               { name: { contains: name.split(' ')[0], mode: 'insensitive' } },
             ],
-            city: { contains: city, mode: 'insensitive' },
+            // 使用精确匹配城市名（支持多个变体）
+            city: { in: cityVariants, mode: 'insensitive' },
             AND: [
               { coverImage: { not: null } },
               { coverImage: { not: '' } },
@@ -1162,11 +1484,13 @@ class IntentClassifierService implements IIntentClassifier {
     if (needed <= 0) return [];
 
     const excludeIds = existingPlaces.map(p => p.id);
+    const cityVariants = this.getCityVariants(city);
 
     try {
       const supplemented = await prisma.place.findMany({
         where: {
-          city: { contains: city, mode: 'insensitive' },
+          // 使用精确匹配城市名（支持多个变体）
+          city: { in: cityVariants, mode: 'insensitive' },
           AND: [
             { coverImage: { not: null } },
             { coverImage: { not: '' } },
@@ -1196,11 +1520,34 @@ class IntentClassifierService implements IIntentClassifier {
    */
   private toPlaceResult(dbPlace: any, language: 'en' | 'zh' = 'en'): PlaceResult {
     const hasRating = dbPlace.rating !== null && dbPlace.rating > 0;
+    
+    // 解析 images 字段
+    let images: string[] = [];
+    if (dbPlace.images) {
+      if (Array.isArray(dbPlace.images)) {
+        images = dbPlace.images.filter((img: string) => img && img.length > 0);
+      } else if (typeof dbPlace.images === 'string') {
+        try {
+          const parsed = JSON.parse(dbPlace.images);
+          if (Array.isArray(parsed)) {
+            images = parsed.filter((img: string) => img && img.length > 0);
+          }
+        } catch (e) {
+          // 忽略解析错误
+        }
+      }
+    }
+    // 如果没有 images，使用 coverImage
+    if (images.length === 0 && dbPlace.coverImage) {
+      images = [dbPlace.coverImage];
+    }
+    
     return {
       id: dbPlace.id,
       name: dbPlace.name,
       summary: dbPlace.aiDescription || '',
       coverImage: dbPlace.coverImage || '',
+      images: images,
       latitude: dbPlace.latitude,
       longitude: dbPlace.longitude,
       city: dbPlace.city || '',
@@ -1245,19 +1592,22 @@ class IntentClassifierService implements IIntentClassifier {
     const languageText = language === 'zh' ? 'Chinese' : 'English';
     const prompt = NON_TRAVEL_PROMPT
       .replace('{query}', query)
-      .replace('{language}', languageText);
+      .replace(/\{language\}/g, languageText);
 
     try {
       const response = await Promise.race([
         this.kouriProvider.generateText(prompt),
         new Promise<string>((resolve) => 
-          setTimeout(() => resolve(''), CONFIG.NON_TRAVEL_TIMEOUT_MS)
+          setTimeout(() => resolve('__TIMEOUT__'), CONFIG.NON_TRAVEL_TIMEOUT_MS)
         ),
       ]);
 
-      if (!response) {
+      if (!response || response === '__TIMEOUT__') {
         logger.warn('[IntentClassifier] Non-travel response generation timed out');
-        return '';
+        // 返回友好的超时消息
+        return language === 'zh' 
+          ? '抱歉，响应超时了。请稍后再试。'
+          : 'Sorry, the request timed out. Please try again.';
       }
 
       // Clean up the response - remove any JSON wrapping if present
@@ -1277,7 +1627,10 @@ class IntentClassifierService implements IIntentClassifier {
 
     } catch (error) {
       logger.warn(`[IntentClassifier] Failed to generate non-travel response: ${error}`);
-      return '';
+      // 返回友好的错误消息
+      return language === 'zh' 
+        ? '抱歉，处理请求时出错了。请稍后再试。'
+        : 'Sorry, something went wrong. Please try again.';
     }
   }
 }

@@ -235,10 +235,19 @@ export class KouriProvider implements AIProvider {
 
     const url = this.buildResponsesApiUrl();
     
+    // Build a system instruction that emphasizes staying on topic
+    const systemInstruction = `You are a helpful AI assistant. 
+
+CRITICAL INSTRUCTION: 
+- When using web search, ONLY use results that are DIRECTLY relevant to the user's specific question
+- If the user asks about a specific city/location, ONLY provide information about THAT location
+- IGNORE any search results that are about different locations or unrelated topics
+- Your response must DIRECTLY answer what the user asked, not provide generic or tangential information
+
+${systemPrompt || ''}`;
+    
     // Combine system prompt and user prompt for the responses API
-    const fullPrompt = systemPrompt 
-      ? `${systemPrompt}\n\n${prompt}`
-      : prompt;
+    const fullPrompt = `${systemInstruction}\n\n${prompt}`;
 
     const requestBody = {
       model: this.config.chatModel,

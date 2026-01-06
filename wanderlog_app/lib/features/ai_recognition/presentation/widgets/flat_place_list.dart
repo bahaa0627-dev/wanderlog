@@ -13,15 +13,15 @@ import 'package:wanderlog/shared/widgets/custom_toast.dart';
 /// 
 /// Requirements: 9.4, 9.5
 /// - 无分类时使用此组件
-/// - 最多显示 5 个地点
-/// - 3:2 横向卡片，summary 在卡片上方
+/// - 最多显示 maxPlaces 个地点
+/// - 3:2 横向卡片，summary 在卡片下方
 /// - 去掉 AI/Verified 标签
-/// - 没有图片的地点以文字形式展示，排在最后
+/// - 只显示有图片的地点，没有图片的地点会被过滤掉
 class FlatPlaceList extends StatelessWidget {
   const FlatPlaceList({
     required this.places,
     this.onPlaceTap,
-    this.maxPlaces = 5,
+    this.maxPlaces = 10,
     super.key,
   });
 
@@ -31,38 +31,30 @@ class FlatPlaceList extends StatelessWidget {
   /// 地点点击回调
   final void Function(PlaceResult place)? onPlaceTap;
 
-  /// 最大显示数量
+  /// 最大显示数量（默认10个，用户明确要求时应展示全部）
   final int maxPlaces;
 
   @override
   Widget build(BuildContext context) {
-    // 限制最多显示 5 个地点
-    final displayPlaces = places.take(maxPlaces).toList();
+    // 只显示有图片的地点，过滤掉没有图片的
+    final placesWithImage = places
+        .where((p) => p.hasValidCoverImage)
+        .take(maxPlaces)
+        .toList();
 
-    if (displayPlaces.isEmpty) {
+    if (placesWithImage.isEmpty) {
       return const SizedBox.shrink();
     }
-
-    // 分离有图片和无图片的地点，有图片的在前，无图片的在后
-    final placesWithImage = displayPlaces.where((p) => p.coverImage.isNotEmpty).toList();
-    final placesWithoutImage = displayPlaces.where((p) => p.coverImage.isEmpty).toList();
-    final sortedPlaces = [...placesWithImage, ...placesWithoutImage];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (int i = 0; i < sortedPlaces.length; i++) ...[
-          if (sortedPlaces[i].coverImage.isNotEmpty)
-            FlatPlaceCard(
-              place: sortedPlaces[i],
-              onTap: () => onPlaceTap?.call(sortedPlaces[i]),
-            )
-          else
-            TextOnlyPlaceItem(
-              place: sortedPlaces[i],
-              onTap: () => onPlaceTap?.call(sortedPlaces[i]),
-            ),
-          if (i < sortedPlaces.length - 1) const SizedBox(height: 16),
+        for (int i = 0; i < placesWithImage.length; i++) ...[
+          FlatPlaceCard(
+            place: placesWithImage[i],
+            onTap: () => onPlaceTap?.call(placesWithImage[i]),
+          ),
+          if (i < placesWithImage.length - 1) const SizedBox(height: 16),
         ],
       ],
     );
@@ -680,7 +672,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
                   children: [
                     // 封面图片铺满
                     _buildCoverImage(),
-                    // 渐变遮罩
+                    // 渐变遮罩 - 增强底部遮罩确保白字可读
                     Positioned.fill(
                       child: Container(
                         decoration: BoxDecoration(
@@ -689,9 +681,10 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withOpacity(0.7),
+                              Colors.black.withOpacity(0.3),
+                              Colors.black.withOpacity(0.75),
                             ],
-                            stops: const [0.5, 1.0],
+                            stops: const [0.4, 0.7, 1.0],
                           ),
                         ),
                       ),
@@ -762,17 +755,15 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
           ),
         ),
         const SizedBox(height: 8),
-        // Summary 在卡片下方，最多 3 行
+        // Summary 在卡片下方，完整展示不截断
         if (widget.place.summary.isNotEmpty)
           Text(
             widget.place.summary,
             style: AppTheme.bodySmall(context).copyWith(
               color: AppTheme.darkGray,
-              height: 1.4,
+              height: 1.3,
               fontSize: 13,
             ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
           ),
       ],
     );

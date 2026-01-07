@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-01-07T19:46:38.676Z",
+  "options": {
+    "dryRun": true,
+    "limit": 10,
+    "skipImages": true,
+    "resume": false,
+    "help": false
+  },
+  "stats": {
+    "totalFilesProcessed": 42,
+    "totalEntriesRead": 13822,
+    "parseErrors": 2,
+    "uniqueRecords": 5922,
+    "duplicatesMerged": 7898,
+    "successfulImports": 10,
+    "failedImports": 0,
+    "skippedRecords": 0,
+    "errors": []
+  },
+  "registryStats": {
+    "total": 13820,
+    "unique": 5922,
+    "duplicates": 7898
+  }
+}

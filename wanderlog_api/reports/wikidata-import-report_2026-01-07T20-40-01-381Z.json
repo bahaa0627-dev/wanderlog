@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-01-07T20:40:01.381Z",
+  "options": {
+    "dryRun": false,
+    "skipImages": true,
+    "resume": true,
+    "help": false
+  },
+  "stats": {
+    "totalFilesProcessed": 42,
+    "totalEntriesRead": 13822,
+    "parseErrors": 2,
+    "uniqueRecords": 5922,
+    "duplicatesMerged": 7898,
+    "successfulImports": 4821,
+    "failedImports": 1,
+    "skippedRecords": 1100,
+    "errors": [
+      {
+        "qid": "Q515026",
+        "error": "Database insert failed"
+      }
+    ]
+  },
+  "registryStats": {
+    "total": 13820,
+    "unique": 5922,
+    "duplicates": 7898
+  }
+}

@@ -149,6 +149,7 @@ export interface PlaceTags {
   style?: string[];
   architect?: string[];
   theme?: string[];
+  type?: string[];  // Building type tag (e.g., "Architecture")
 }
 
 /**
@@ -826,27 +827,107 @@ export interface CategoryInfo {
 }
 
 /**
- * Assign category based on data type
+ * Category slug to display name mapping
+ * Matches the mapping in googlePlacesEnterpriseService.ts
+ */
+const CATEGORY_NAMES: Record<string, { en: string; zh: string }> = {
+  'landmark': { en: 'Landmark', zh: '地标' },
+  'museum': { en: 'Museum', zh: '博物馆' },
+  'art_gallery': { en: 'Gallery', zh: '美术馆' },
+  'church': { en: 'Church', zh: '教堂' },
+  'castle': { en: 'Castle', zh: '城堡' },
+  'library': { en: 'Library', zh: '图书馆' },
+  'university': { en: 'University', zh: '大学' },
+  'temple': { en: 'Temple', zh: '寺庙' },
+  'hotel': { en: 'Hotel', zh: '酒店' },
+  'cemetery': { en: 'Cemetery', zh: '墓园' },
+  'park': { en: 'Park', zh: '公园' },
+  'zoo': { en: 'Zoo', zh: '动物园' },
+};
+
+/**
+ * Keyword patterns for detecting building type from name
+ * Order matters - more specific patterns should come first
+ */
+const BUILDING_TYPE_PATTERNS: Array<{ pattern: RegExp; slug: string }> = [
+  // Religious buildings
+  { pattern: /\b(cathedral|basilica|church|chapel|abbey|monastery|priory|minster)\b/i, slug: 'church' },
+  { pattern: /\b(mosque|masjid|jami)\b/i, slug: 'temple' },
+  { pattern: /\b(temple|shrine|pagoda|stupa|wat|synagogue)\b/i, slug: 'temple' },
+  
+  // Castles and palaces
+  { pattern: /\b(castle|palace|château|chateau|schloss|palacio|palazzo|fort|fortress|citadel|alcázar|alcazar)\b/i, slug: 'castle' },
+  
+  // Museums and galleries
+  { pattern: /\b(museum|musée|museo|muzeum)\b/i, slug: 'museum' },
+  { pattern: /\b(gallery|galleria|galerie)\b/i, slug: 'art_gallery' },
+  
+  // Educational
+  { pattern: /\b(university|college|school|academy|institute|polytechnic)\b/i, slug: 'university' },
+  { pattern: /\b(library|bibliothèque|biblioteca)\b/i, slug: 'library' },
+  
+  // Hotels
+  { pattern: /\b(hotel|inn|resort|hostel)\b/i, slug: 'hotel' },
+  
+  // Parks and gardens
+  { pattern: /\b(park|garden|botanical|arboretum)\b/i, slug: 'park' },
+  { pattern: /\b(zoo|aquarium|safari)\b/i, slug: 'zoo' },
+];
+
+/**
+ * Detect category from building name using keyword patterns
+ * 
+ * @param name - Building name (workLabel)
+ * @returns Category slug, or 'landmark' as default
+ */
+export function detectCategoryFromName(name: string): string {
+  if (!name || typeof name !== 'string') {
+    return 'landmark';
+  }
+
+  const normalizedName = name.trim();
+  
+  for (const { pattern, slug } of BUILDING_TYPE_PATTERNS) {
+    if (pattern.test(normalizedName)) {
+      return slug;
+    }
+  }
+
+  // Default to landmark for architecture
+  return 'landmark';
+}
+
+/**
+ * Assign category based on data type and optionally building name
+ * 
+ * For architecture records, the category is determined by analyzing the building name
+ * to detect the actual building type (church, museum, castle, etc.).
+ * For cemetery records, the category is always 'cemetery'.
  * 
  * @param dataType - The type of data ('architecture' or 'cemetery')
+ * @param name - Optional building name for architecture records (used for category detection)
  * @returns Category information with slug and display names
  * 
  * Requirements: 3.1, 4.1
  */
-export function assignCategory(dataType: WikidataDataType): CategoryInfo {
-  if (dataType === 'architecture') {
-    return {
-      categorySlug: 'architecture',
-      categoryEn: 'Architecture',
-      categoryZh: '建筑',
-    };
-  } else {
+export function assignCategory(dataType: WikidataDataType, name?: string): CategoryInfo {
+  if (dataType === 'cemetery') {
     return {
       categorySlug: 'cemetery',
       categoryEn: 'Cemetery',
       categoryZh: '墓地',
     };
   }
+
+  // For architecture, detect category from name
+  const categorySlug = detectCategoryFromName(name || '');
+  const names = CATEGORY_NAMES[categorySlug] || { en: 'Landmark', zh: '地标' };
+
+  return {
+    categorySlug,
+    categoryEn: names.en,
+    categoryZh: names.zh,
+  };
 }
 
 // ============================================================================
@@ -1177,12 +1258,15 @@ export class TagsBuilder {
    * Build tags for architecture records
    * 
    * @param record - The merged architecture record
-   * @returns PlaceTags object with style and architect arrays
+   * @returns PlaceTags object with style, architect, and type arrays
    * 
    * Requirements: 3.2, 3.3, 3.4, 3.5
    */
   buildArchitectureTags(record: MergedRecord): PlaceTags {
     const tags: PlaceTags = {};
+
+    // Always add type: ["Architecture"] for architecture records
+    tags.type = ['Architecture'];
 
     // Add architect tags if available
     if (record.architects && record.architects.length > 0) {
@@ -1302,8 +1386,9 @@ export function mapToPlaceData(
   images: WikidataImages,
   tags: PlaceTags
 ): PlaceImportData {
-  // Get category information based on data type
-  const category = assignCategory(record.dataType);
+  // Get category information based on data type and name
+  // For architecture, the name is used to detect the actual building type
+  const category = assignCategory(record.dataType, record.name);
 
   // Build custom fields to preserve all unmapped data
   const customFields: Record<string, unknown> = {};

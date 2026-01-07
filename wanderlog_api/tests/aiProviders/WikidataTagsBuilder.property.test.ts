@@ -238,6 +238,42 @@ describe('Wikidata Tags Builder - Property Tests', () => {
         { numRuns: 100 }
       );
     });
+
+    /**
+     * Type tag should always be ["Architecture"] for architecture records
+     */
+    it('should always add type: ["Architecture"] for architecture records', () => {
+      fc.assert(
+        fc.property(
+          fc.oneof(topArchitectureFileArbitrary, styleNamedFileArbitrary),
+          fc.array(architectNameArbitrary, { minLength: 0, maxLength: 3 }),
+          fc.array(styleNameArbitrary, { minLength: 0, maxLength: 3 }),
+          (sourceFile: string, architects: string[], styles: string[]) => {
+            const record: MergedRecord = {
+              qid: 'Q123',
+              name: 'Test Building',
+              coordinates: { latitude: 48.8, longitude: 2.3 },
+              architects,
+              styles,
+              images: [],
+              sourceUrls: {},
+              dataType: 'architecture',
+              sourceFile,
+            };
+            
+            const tags = tagsBuilder.buildArchitectureTags(record);
+            
+            // Type tag should always be ["Architecture"]
+            return (
+              tags.type !== undefined &&
+              tags.type.length === 1 &&
+              tags.type[0] === 'Architecture'
+            );
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
   });
 
 

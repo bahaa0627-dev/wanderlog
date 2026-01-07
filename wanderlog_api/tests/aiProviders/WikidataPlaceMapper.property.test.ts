@@ -558,7 +558,9 @@ describe('Wikidata Place Mapper - Property Tests', () => {
     });
 
     /**
-     * categorySlug should be correct based on dataType
+     * categorySlug should be correct based on dataType and name
+     * For architecture: detected from name (defaults to 'landmark')
+     * For cemetery: always 'cemetery'
      */
     it('should set correct categorySlug based on dataType', () => {
       fc.assert(
@@ -569,10 +571,13 @@ describe('Wikidata Place Mapper - Property Tests', () => {
           (record: MergedRecord, images: WikidataImages, tags: PlaceTags) => {
             const result = mapToPlaceData(record, images, tags);
             
-            if (record.dataType === 'architecture') {
-              return result.categorySlug === 'architecture';
-            } else {
+            if (record.dataType === 'cemetery') {
               return result.categorySlug === 'cemetery';
+            } else {
+              // For architecture, category is detected from name
+              // Valid categories include: landmark, museum, church, castle, temple, university, library, etc.
+              const validCategories = ['landmark', 'museum', 'art_gallery', 'church', 'castle', 'library', 'university', 'temple', 'hotel', 'park', 'zoo'];
+              return validCategories.includes(result.categorySlug);
             }
           }
         ),
@@ -581,7 +586,9 @@ describe('Wikidata Place Mapper - Property Tests', () => {
     });
 
     /**
-     * categoryEn should be correct based on dataType
+     * categoryEn should be correct based on dataType and name
+     * For architecture: detected from name (defaults to 'Landmark')
+     * For cemetery: always 'Cemetery'
      */
     it('should set correct categoryEn based on dataType', () => {
       fc.assert(
@@ -592,10 +599,13 @@ describe('Wikidata Place Mapper - Property Tests', () => {
           (record: MergedRecord, images: WikidataImages, tags: PlaceTags) => {
             const result = mapToPlaceData(record, images, tags);
             
-            if (record.dataType === 'architecture') {
-              return result.categoryEn === 'Architecture';
-            } else {
+            if (record.dataType === 'cemetery') {
               return result.categoryEn === 'Cemetery';
+            } else {
+              // For architecture, category is detected from name
+              // Valid English names include: Landmark, Museum, Church, Castle, Temple, University, Library, etc.
+              const validCategoryNames = ['Landmark', 'Museum', 'Gallery', 'Church', 'Castle', 'Library', 'University', 'Temple', 'Hotel', 'Park', 'Zoo'];
+              return validCategoryNames.includes(result.categoryEn);
             }
           }
         ),

@@ -1,332 +1,270 @@
 /**
- * 修复城市名称 - 将区/郊区归并到主城市
+ * Migration Script: Fix City Names
+ * 
+ * This script normalizes city names by removing district/arrondissement prefixes
+ * and converting them to the main city name in English.
+ * 
+ * Examples:
+ * - "14th arrondissement of Paris" → "Paris"
+ * - "5th arrondissement of Lyon" → "Lyon"
+ * - "2nd arrondissement of Marseille" → "Marseille"
+ * - "Shibuya City" → "Tokyo"
+ * - "Westminster" → "London"
+ * 
+ * Usage:
+ *   npx ts-node scripts/fix-city-names.ts [--dry-run]
  */
+
 import prisma from '../src/config/database';
 
-// 区/郊区 -> 主城市 映射
-const CITY_MAPPING: Record<string, string> = {
-  // New York 区域
-  'Brooklyn': 'New York',
-  'Bronx': 'New York',
-  'Queens': 'New York',
-  'Jersey City': 'New York',
-  'Far Rockaway': 'New York',
-  'Rockaway Park': 'New York',
-  'Ridgewood': 'New York',
-  'Jamaica': 'New York',
-  'Elmhurst': 'New York',
-  'Jackson Heights': 'New York',
-  'Hoboken': 'New York',
+/**
+ * Patterns to extract city name from district names
+ */
+const CITY_EXTRACTION_PATTERNS: Array<{ pattern: RegExp; replacement: string | null }> = [
+  // French arrondissements: "Xth arrondissement of City" → "City"
+  { pattern: /^\d+(?:st|nd|rd|th)\s+arrondissement\s+of\s+(.+)$/i, replacement: null },
   
-  // Tokyo 区域
-  'Shibuya': 'Tokyo',
-  'Shinjuku City': 'Tokyo',
-  'Nakano City': 'Tokyo',
-  'Nerima City': 'Tokyo',
-  'Toshima City': 'Tokyo',
-  'Chiyoda City': 'Tokyo',
-  'Suginami City': 'Tokyo',
-  'Minato City': 'Tokyo',
-  'Setagaya City': 'Tokyo',
-  'Bunkyo City': 'Tokyo',
-  'Chuo City': 'Tokyo',
-  'Sumida City': 'Tokyo',
-  'Itabashi City': 'Tokyo',
-  'Adachi City': 'Tokyo',
-  'Arakawa City': 'Tokyo',
-  'Katsushika City': 'Tokyo',
-  'Kita City': 'Tokyo',
-  'Meguro City': 'Tokyo',
-  'Shinagawa City': 'Tokyo',
-  'Hachioji': 'Tokyo',
-  'Chofu': 'Tokyo',
-  'Machida': 'Tokyo',
-  'Musashino': 'Tokyo',
-  'Mitaka': 'Tokyo',
-  'Koganei': 'Tokyo',
-  'Kodaira': 'Tokyo',
-  'Kokubunji': 'Tokyo',
-  'Kunitachi': 'Tokyo',
-  'Nishitokyo': 'Tokyo',
-  'Higashikurume': 'Tokyo',
-  'Niiza': 'Tokyo',
+  // French arrondissements in French: "Xe arrondissement de Paris" → "Paris"
+  { pattern: /^\d+e?\s+arrondissement\s+de\s+(.+)$/i, replacement: null },
   
-  // Seoul 区域
-  'Jongno District': 'Seoul',
-  'Yongsan District': 'Seoul',
-  'Seodaemun-gu': 'Seoul',
-  'Jung District': 'Seoul',
-  'Mapo-gu': 'Seoul',
-  'Eunpyeong District': 'Seoul',
-  'Seongbuk District': 'Seoul',
-  'Seongdong-gu': 'Seoul',
+  // Tokyo 23 special wards and neighborhoods
+  { pattern: /^(Shibuya|Minato|Shinjuku|Chiyoda|Taito|Chuo|Meguro|Setagaya|Nakano|Toshima|Sumida|Koto|Shinagawa|Ota|Bunkyo|Arakawa|Nerima|Suginami|Itabashi|Katsushika|Edogawa|Adachi|Kita)(\s+City)?$/i, replacement: 'Tokyo' },
+  // Tokyo neighborhoods and areas
+  { pattern: /^(Ginza|Marunouchi|Roppongi|Akihabara|Ueno|Asakusa|Ikebukuro|Shimbashi|Shinbashi|Odaiba|Daiba|Ariake|Azabudai|Jingūmae|Jinnan|Sendagaya|Harajuku|Omotesando|Ebisu|Daikanyama|Nakameguro|Shimokitazawa|Kichijoji|Nishi-Shinjuku|Higashi-Shinjuku|Kabukicho|Yoyogi|Akasaka|Toranomon|Nihonbashi|Otemachi|Yurakucho|Yūrakuchō|Hibiya|Tsukiji|Tsukishima|Kanda|Kanda-Surugadai|Ochanomizu|Jimbocho|Iidabashi|Korakuen|Kōraku|Kasuga|Hongo|Yanaka|Nezu|Ueno-kōen|Aoyama|Minami-Aoyama|Kita-Aoyama|Oshiage|Ryogoku|Kinshicho|Monzen-nakacho|Toyosu|Shiodome|Higashi-Shinbashi|Hamamatsucho|Tamachi|Shinagawa|Gotanda|Osaki|Meguro|Nakano|Koenji|Asagaya|Ogikubo|Nishi-Ogikubo|Mitaka|Musashino|Chofu|Fuchu|Tachikawa|Hachioji|Machida|Higashi-Ikebukuro|Minami-Ikebukuro|Otsuka|Sugamo|Komagome|Tabata|Nippori|Uguisudani|Okachimachi|Ameyoko|Sekiguchi|Nagatachō|Kioichō|Sanbanchō|Shirokanedai|Takanawa|Mita|Azabu|Hiroo|Nishi-Azabu|Kamezawa)$/i, replacement: 'Tokyo' },
+  // Tokyo with -ku suffix
+  { pattern: /^(Bunkyō-ku|Shibuya-ku|Shinjuku-ku|Minato-ku|Chiyoda-ku|Chuo-ku|Taito-ku|Sumida-ku|Koto-ku|Shinagawa-ku|Meguro-ku|Ota-ku|Setagaya-ku|Nakano-ku|Suginami-ku|Toshima-ku|Kita-ku|Arakawa-ku|Itabashi-ku|Nerima-ku|Adachi-ku|Katsushika-ku|Edogawa-ku)$/i, replacement: 'Tokyo' },
+  // Tokyo suburbs and nearby cities (within Greater Tokyo Area)
+  { pattern: /^(Yokosuka|Fussa|Kawagoe|Mihama-ku|Nagabusamachi|Maeharachō)$/i, replacement: 'Tokyo' },
   
-  // Los Angeles 区域
-  'Pacific Palisades': 'Los Angeles',
-  'Woodland Hills': 'Los Angeles',
-  'Marina Del Rey': 'Los Angeles',
-  'Playa Del Rey': 'Los Angeles',
-  'North Hollywood': 'Los Angeles',
-  'San Pedro': 'Los Angeles',
-  'Playa Vista': 'Los Angeles',
-  'Northridge': 'Los Angeles',
-  'West Hills': 'Los Angeles',
-  'Canoga Park': 'Los Angeles',
-  'Granada Hills': 'Los Angeles',
-  'Harbor City': 'Los Angeles',
-  'Calabasas': 'Los Angeles',
-  'Malibu': 'Los Angeles',
-  'Santa Monica': 'Los Angeles',
-  'Topanga': 'Los Angeles',
-  'Torrance': 'Los Angeles',
+  // Osaka wards and neighborhoods
+  { pattern: /^(Namba|Umeda|Shinsaibashi|Dotonbori|Tennoji|Kita-ku|Chuo-ku|Nipponbashi|Shinsekai|Abeno|Tsuruhashi|Nakanoshima|Yodoyabashi|Honmachi|Nishi-Umeda|Higashi-Umeda|Temma|Tenjinbashi|Sumiyoshi-ku|Sakai-ku)$/i, replacement: 'Osaka' },
+  // Osaka suburbs and nearby cities
+  { pattern: /^(Ibaraki|Sakai|Takarazuka|Hatahara|Hatobachō|Fujiidera|Kanan|Wakamatsudai|Ōyamazaki-chō)$/i, replacement: 'Osaka' },
   
-  // Sydney 区域
-  'Cronulla': 'Sydney',
-  'Campbelltown': 'Sydney',
-  'Parramatta': 'Sydney',
-  'Caringbah': 'Sydney',
-  'Miranda': 'Sydney',
-  'Surry Hills': 'Sydney',
-  'Newtown': 'Sydney',
-  'Kirrawee': 'Sydney',
-  'Woolooware': 'Sydney',
-  'Auburn': 'Sydney',
-  'Fairfield': 'Sydney',
-  'Stanmore': 'Sydney',
-  'Carlingford': 'Sydney',
-  'Bradbury': 'Sydney',
-  'Gregory Hills': 'Sydney',
-  'Bondi Junction': 'Sydney',
-  'Burraneer': 'Sydney',
-  'Chippendale': 'Sydney',
-  'Coogee': 'Sydney',
-  'Elizabeth Bay': 'Sydney',
-  'Forest Lodge': 'Sydney',
-  'Grays Point': 'Sydney',
-  'Gymea': 'Sydney',
-  'Gymea Bay': 'Sydney',
-  'Harris Park': 'Sydney',
-  'Haymarket': 'Sydney',
-  'Homebush West': 'Sydney',
-  'Ingleburn': 'Sydney',
-  'Kareela': 'Sydney',
-  'Kurnell': 'Sydney',
-  'Lidcombe': 'Sydney',
-  'Liverpool': 'Sydney',
-  'Macquarie Links': 'Sydney',
-  'Marrickville': 'Sydney',
-  'McMahons Point': 'Sydney',
-  'Moorebank': 'Sydney',
-  'Narellan': 'Sydney',
-  'Neutral Bay': 'Sydney',
-  'North Parramatta': 'Sydney',
-  'Oatley': 'Sydney',
-  'Penshurst': 'Sydney',
-  'Potts Point': 'Sydney',
-  'Seven Hills': 'Sydney',
-  'Smithfield': 'Sydney',
-  'St Leonards': 'Sydney',
-  'Sydney Olympic Park': 'Sydney',
-  'Sylvania': 'Sydney',
-  'Sylvania Waters': 'Sydney',
-  'Taren Point': 'Sydney',
-  'The Rocks': 'Sydney',
-  'Toongabbie': 'Sydney',
-  'Westmead': 'Sydney',
-  'Woolloomooloo': 'Sydney',
-  'Rookwood': 'Sydney',
-  'Cobbitty': 'Sydney',
-  'Harrington Park': 'Sydney',
-  'Horsley Park': 'Sydney',
-  'Kentlyn': 'Sydney',
-  'Kirkham': 'Sydney',
-  'Minchinbury': 'Sydney',
-  'Mulgoa': 'Sydney',
-  'St Helens Park': 'Sydney',
-  'Warragamba': 'Sydney',
-  'Camden': 'Sydney',
+  // Kyoto wards and neighborhoods
+  { pattern: /^(Sakyō-ku|Nakagyō Ward|Nakagyō-ku|Shimogyō-ku|Kamigyō-ku|Ukyō-ku|Fushimi-ku|Yamashina-ku|Nishikyō-ku|Kita-ku|Minami-ku|Higashiyama-ku|Gion|Arashiyama|Kinkakuji|Ginkakuji|Fushimi|Nijo|Sanjo|Shijo|Kawaramachi|Pontocho|Kiyomizu)$/i, replacement: 'Kyoto' },
+  // Kyoto suburbs
+  { pattern: /^(Otsu)$/i, replacement: 'Kyoto' },
   
-  // Melbourne 区域
-  'Werribee': 'Melbourne',
-  'Cape Schanck': 'Melbourne',
-  'Mitcham': 'Melbourne',
-  'Manor Lakes': 'Melbourne',
-  'Williamstown': 'Melbourne',
-  'Wyndham Vale': 'Melbourne',
-  'Healesville': 'Melbourne',
-  'Ringwood': 'Melbourne',
-  'Lilydale': 'Melbourne',
-  'Flinders': 'Melbourne',
-  'Wantirna South': 'Melbourne',
-  'Warburton': 'Melbourne',
-  'Rosebud': 'Melbourne',
-  'Mulgrave': 'Melbourne',
-  'Rye': 'Melbourne',
-  'Yarra Junction': 'Melbourne',
-  'Altona Meadows': 'Melbourne',
-  'Altona North': 'Melbourne',
-  'Altona': 'Melbourne',
-  'Eynesbury': 'Melbourne',
-  'Sorrento': 'Melbourne',
-  'Nunawading': 'Melbourne',
-  'Thomastown': 'Melbourne',
-  'Len Waters Estate': 'Melbourne',
-  'Tootgarook': 'Melbourne',
-  'Footscray': 'Melbourne',
-  'Warrandyte': 'Melbourne',
-  'Main Ridge': 'Melbourne',
-  'Boneo': 'Melbourne',
-  'Mambourin': 'Melbourne',
-  'West Footscray': 'Melbourne',
-  'Williams Landing': 'Melbourne',
-  'Ascot Vale': 'Melbourne',
-  'Avondale Heights': 'Melbourne',
-  'Avonsleigh': 'Melbourne',
-  'Bayswater': 'Melbourne',
-  'Bayswater North': 'Melbourne',
-  'Belgrave': 'Melbourne',
-  'Boronia': 'Melbourne',
-  'Broadmeadows': 'Melbourne',
-  'Bulla': 'Melbourne',
-  'Bundoora': 'Melbourne',
-  'Burwood': 'Melbourne',
-  'Cockatoo': 'Melbourne',
-  'Croydon': 'Melbourne',
-  'Eltham': 'Melbourne',
-  'Essendon Fields': 'Melbourne',
-  'Exford': 'Melbourne',
-  'Ferntree Gully': 'Melbourne',
-  'Hoppers Crossing': 'Melbourne',
-  'Keilor East': 'Melbourne',
-  'Kensington': 'Melbourne',
-  'Kilsyth': 'Melbourne',
-  'Kilsyth South': 'Melbourne',
-  'Launching Place': 'Melbourne',
-  'Little River': 'Melbourne',
-  'Macleod': 'Melbourne',
-  'Monbulk': 'Melbourne',
-  'Mount Evelyn': 'Melbourne',
-  'Newport': 'Melbourne',
-  'Niddrie': 'Melbourne',
-  'Olinda': 'Melbourne',
-  'Point Leo': 'Melbourne',
-  'Port Melbourne': 'Melbourne',
-  'Red Hill': 'Melbourne',
-  'Ringwood East': 'Melbourne',
-  'Rockbank': 'Melbourne',
-  'Sassafras': 'Melbourne',
-  'Seddon': 'Melbourne',
-  'Shoreham': 'Melbourne',
-  'Somers': 'Melbourne',
-  'Southbank': 'Melbourne',
-  'Tarneit': 'Melbourne',
-  'The Basin': 'Melbourne',
-  'Thornhill Park': 'Melbourne',
-  'Wandin East': 'Melbourne',
-  'Wandin North': 'Melbourne',
-  'Weir Views': 'Melbourne',
-  'Wesburn': 'Melbourne',
-  'Yarraville': 'Melbourne',
+  // Kobe neighborhoods
+  { pattern: /^(Sannomiya|Motomachi|Harborland|Meriken Park|Kitano|Kitano-chō|Yamamoto-dōri|Rokkōsanchō|Tarumi-ku|Wakinohama Kaigandōri|Kaigandori)$/i, replacement: 'Kobe' },
+  // Kobe suburbs
+  { pattern: /^(Awaji)$/i, replacement: 'Kobe' },
   
-  // London 区域
-  'Upminster': 'London',
-  'Romford': 'London',
-  'Barnet': 'London',
-  'Hornchurch': 'London',
-  'Kingston upon Thames': 'London',
-  'Twickenham': 'London',
-  'Ruislip': 'London',
-  'Harrow': 'London',
-  'Bexleyheath': 'London',
-  'Morden': 'London',
-  'Pinner': 'London',
-  'Isleworth': 'London',
-  'Rainham': 'London',
-  'Hounslow': 'London',
-  'Southall': 'London',
-  'Carshalton': 'London',
-  'Welling': 'London',
-  'Greenford': 'London',
-  'Belvedere': 'London',
-  'Bexley': 'London',
-  'Chessington': 'London',
-  'Dartford': 'London',
-  'Edgware': 'London',
-  'Erith': 'London',
-  'Feltham': 'London',
-  'Hayes': 'London',
-  'New Malden': 'London',
-  'Surbiton': 'London',
-  'Sutton': 'London',
-  'Uxbridge': 'London',
-  'Wembley': 'London',
-  'Woodford': 'London',
-  'Worcester Park': 'London',
-  'Greater London': 'London',
-  'Essex': 'London',
+  // Yokohama neighborhoods
+  { pattern: /^(Minatomirai|Kannai|Chinatown|Yamashita|Motomachi|Sakuragicho|Shin-Yokohama|Tsurumi|Kohoku|Totsuka|Isogo|Kanazawa-ku)$/i, replacement: 'Yokohama' },
   
-  // Paris 区域
-  'Vincennes': 'Paris',
-  'Saint-Mandé': 'Paris',
+  // Fukuoka neighborhoods
+  { pattern: /^(Hakata|Tenjin|Nakasu|Daimyo|Ohori|Momochi|Haruyoshi)$/i, replacement: 'Fukuoka' },
   
-  // Barcelona 区域
-  'L\'Hospitalet de Llobregat': 'Barcelona',
-  'Eixample': 'Barcelona',
+  // Nagoya neighborhoods
+  { pattern: /^(Sakae|Nagoya Station|Osu|Kanayama|Fushimi|Daikō Minami 1-chōme)$/i, replacement: 'Nagoya' },
+  // Nagoya suburbs
+  { pattern: /^(Toyota|Gifu|Tajimi)$/i, replacement: 'Nagoya' },
   
-  // Osaka 区域
-  '大阪市西区': 'Osaka',
-  '大阪市鶴見区': 'Osaka',
-  'Moriguchi': 'Osaka',
-  'Higashiosaka': 'Osaka',
+  // Kitakyushu wards
+  { pattern: /^(Moji-ku|Tobata-ku|Kokura|Yahata|Wakamatsu)$/i, replacement: 'Kitakyushu' },
   
-  // Blue Mountains (Sydney 附近，但保持独立或归入 Sydney)
-  'Katoomba': 'Sydney',
-  'Wentworth Falls': 'Sydney',
-  'Lawson': 'Sydney',
-  'Leura': 'Sydney',
-  'Hazelbrook': 'Sydney',
+  // London boroughs
+  { pattern: /^(Westminster|Camden|Kensington|Chelsea|Shoreditch|Soho|Covent Garden|Notting Hill|Brixton|Greenwich|City of London)$/i, replacement: 'London' },
   
-  // Sapporo 区域 (保持独立)
-  'Otaru': 'Sapporo',
+  // New York boroughs
+  { pattern: /^(Manhattan|Brooklyn|Queens|Bronx|Staten Island)$/i, replacement: 'New York' },
   
-  // 其他
-  'Richmond': 'Melbourne', // 假设是墨尔本的 Richmond
+  // Sydney districts
+  { pattern: /^(North Sydney|Surry Hills|Haymarket|Pyrmont|Darlinghurst|Paddington|Newtown|Bondi|Manly|Parramatta|Chatswood|Circular Quay|The Rocks|Barangaroo|Ultimo|Redfern|Glebe|Chippendale|Alexandria|Waterloo)$/i, replacement: 'Sydney' },
+  
+  // Singapore districts
+  { pattern: /^(Orchard|Marina Bay|Chinatown|Little India|Sentosa)$/i, replacement: 'Singapore' },
+  
+  // Hong Kong districts
+  { pattern: /^(Central|Wan Chai|Causeway Bay|Tsim Sha Tsui|Mong Kok|Kowloon)$/i, replacement: 'Hong Kong' },
+];
+
+/**
+ * Direct city name mappings (localized names to English)
+ */
+const CITY_NAME_MAPPINGS: Record<string, string> = {
+  // Typos and variations
+  'Tokio': 'Tokyo',
+  
+  // Danish
+  'København': 'Copenhagen',
+  'Kobenhavn': 'Copenhagen',
+  
+  // Japanese
+  '東京': 'Tokyo',
+  '東京都': 'Tokyo',
+  '大阪': 'Osaka',
+  '大阪市': 'Osaka',
+  '京都': 'Kyoto',
+  '京都市': 'Kyoto',
+  '札幌': 'Sapporo',
+  '札幌市': 'Sapporo',
+  
+  // Thai
+  'กรุงเทพมหานคร': 'Bangkok',
+  'เชียงใหม่': 'Chiang Mai',
+  
+  // German
+  'München': 'Munich',
+  'Köln': 'Cologne',
+  
+  // Austrian
+  'Wien': 'Vienna',
+  
+  // Italian
+  'Roma': 'Rome',
+  'Milano': 'Milan',
+  'Firenze': 'Florence',
+  'Venezia': 'Venice',
+  'Napoli': 'Naples',
+  
+  // Spanish
+  'Sevilla': 'Seville',
+  
+  // Chinese
+  '北京': 'Beijing',
+  '上海': 'Shanghai',
+  '香港': 'Hong Kong',
+  
+  // Korean
+  '서울': 'Seoul',
+  '부산': 'Busan',
 };
 
-async function main() {
-  console.log('🔍 开始修复城市名称...\n');
+/**
+ * Normalize a city name
+ */
+function normalizeCity(city: string | null): string | null {
+  if (!city) return null;
   
-  let totalUpdated = 0;
+  const trimmed = city.trim();
+  if (!trimmed) return null;
   
-  for (const [oldCity, newCity] of Object.entries(CITY_MAPPING)) {
-    const result = await prisma.place.updateMany({
-      where: { city: oldCity },
-      data: { city: newCity }
-    });
-    
-    if (result.count > 0) {
-      console.log(`✅ ${oldCity} -> ${newCity}: ${result.count} 条记录`);
-      totalUpdated += result.count;
+  // Check direct mappings first
+  if (CITY_NAME_MAPPINGS[trimmed]) {
+    return CITY_NAME_MAPPINGS[trimmed];
+  }
+  
+  // Check extraction patterns
+  for (const { pattern, replacement } of CITY_EXTRACTION_PATTERNS) {
+    const match = trimmed.match(pattern);
+    if (match) {
+      // If replacement is specified, use it; otherwise use captured group
+      return replacement || match[1];
     }
   }
   
-  console.log(`\n=== 完成 ===`);
-  console.log(`总共更新: ${totalUpdated} 条记录`);
-  
-  // 显示更新后的城市分布
-  console.log('\n=== 更新后的城市分布 (前20) ===');
-  const cities = await prisma.place.groupBy({
-    by: ['city'],
-    _count: true,
-    orderBy: { _count: { city: 'desc' } },
-    take: 20
-  });
-  
-  for (const c of cities) {
-    console.log(`${c.city || '(null)'}: ${c._count}`);
-  }
-  
-  await prisma.$disconnect();
+  return trimmed;
 }
 
-main().catch(console.error);
+interface PlaceRecord {
+  id: string;
+  name: string;
+  city: string | null;
+}
+
+async function fixCityNames(dryRun: boolean = false): Promise<void> {
+  console.log('🔧 Fix City Names Migration');
+  console.log(`Mode: ${dryRun ? 'DRY RUN (no changes will be made)' : 'LIVE'}`);
+  console.log('');
+
+  // Find all records with city values (all sources)
+  const records = await prisma.place.findMany({
+    where: {
+      city: { not: null },
+    },
+    select: {
+      id: true,
+      name: true,
+      city: true,
+    },
+  }) as PlaceRecord[];
+
+  console.log(`📊 Found ${records.length} records with city values`);
+  console.log('');
+
+  // Statistics
+  const stats = {
+    total: records.length,
+    changed: 0,
+    unchanged: 0,
+    changes: {} as Record<string, { newCity: string; count: number }>,
+  };
+
+  // Process each record
+  for (const record of records) {
+    const originalCity = record.city;
+    const normalizedCity = normalizeCity(originalCity);
+    
+    if (normalizedCity !== originalCity) {
+      stats.changed++;
+      
+      // Track changes
+      const key = `${originalCity} → ${normalizedCity}`;
+      if (!stats.changes[key]) {
+        stats.changes[key] = { newCity: normalizedCity || '', count: 0 };
+      }
+      stats.changes[key].count++;
+      
+      // Log changes for dry run (limit output)
+      if (dryRun && stats.changed <= 50) {
+        console.log(`📝 "${record.name}": ${originalCity} → ${normalizedCity}`);
+      }
+      
+      // Update the record if not dry run
+      if (!dryRun) {
+        await prisma.place.update({
+          where: { id: record.id },
+          data: { city: normalizedCity },
+        });
+      }
+    } else {
+      stats.unchanged++;
+    }
+  }
+
+  // Print summary
+  console.log('');
+  console.log('📊 Summary');
+  console.log('==========');
+  console.log(`Total records: ${stats.total}`);
+  console.log(`Changed: ${stats.changed}`);
+  console.log(`Unchanged: ${stats.unchanged}`);
+  console.log('');
+  
+  if (Object.keys(stats.changes).length > 0) {
+    console.log('City name changes:');
+    
+    // Sort by count descending
+    const sortedChanges = Object.entries(stats.changes)
+      .sort((a, b) => b[1].count - a[1].count);
+    
+    for (const [change, { count }] of sortedChanges) {
+      console.log(`  ${change}: ${count} records`);
+    }
+  }
+
+  if (dryRun) {
+    console.log('');
+    console.log('⚠️  This was a dry run. No changes were made.');
+    console.log('   Run without --dry-run to apply changes.');
+  } else {
+    console.log('');
+    console.log('✅ Migration complete!');
+  }
+}
+
+// Main execution
+const args = process.argv.slice(2);
+const dryRun = args.includes('--dry-run');
+
+fixCityNames(dryRun)
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('❌ Migration failed:', error);
+    process.exit(1);
+  });

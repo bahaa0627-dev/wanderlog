@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-01-07T12:43:14.573Z",
+  "config": {
+    "maxImages": 10,
+    "limit": 3,
+    "dryRun": true,
+    "skipExisting": false
+  },
+  "summary": {
+    "total": 3,
+    "success": 1,
+    "noCategory": 2,
+    "noImages": 0,
+    "errors": 0
+  },
+  "results": [
+    {
+      "placeId": "f25d8ea6-a8cc-45cb-b167-746b66a4c299",
+      "name": "Power Center for the Performing Arts",
+      "wikidataQID": "Q66770162",
+      "commonsCategory": null,
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_category"
+    },
+    {
+      "placeId": "a0b40277-b0f3-4242-85d2-01f44a70612a",
+      "name": "Shanghai Symphony Hall",
+      "wikidataQID": "Q63396848",
+      "commonsCategory": "Shanghai Symphony Hall",
+      "imagesFound": 8,
+      "imagesBefore": 1,
+      "imagesAfter": 9,
+      "status": "success"
+    },
+    {
+      "placeId": "a791e9ad-838e-49cf-87a3-9e11a5ee1d6a",
+      "name": "The Ware Center of Millersville University",
+      "wikidataQID": "Q30634451",
+      "commonsCategory": null,
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_category"
+    }
+  ]
+}

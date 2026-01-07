@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-01-07T13:20:51.225Z",
+  "config": {
+    "maxImages": 10,
+    "limit": 1,
+    "dryRun": false,
+    "skipExisting": false
+  },
+  "summary": {
+    "total": 1,
+    "success": 1,
+    "noCategory": 0,
+    "noImages": 0,
+    "errors": 0
+  },
+  "results": [
+    {
+      "placeId": "f25d8ea6-a8cc-45cb-b167-746b66a4c299",
+      "name": "Power Center for the Performing Arts",
+      "wikidataQID": "Q66770162",
+      "commonsCategory": "Power Center for the Performing Arts",
+      "imagesFound": 3,
+      "imagesBefore": 1,
+      "imagesAfter": 4,
+      "status": "success"
+    }
+  ]
+}

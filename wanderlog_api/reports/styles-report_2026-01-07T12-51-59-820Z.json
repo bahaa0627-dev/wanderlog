@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-01-07T12:51:59.822Z",
+  "config": {
+    "limit": 10,
+    "dryRun": true
+  },
+  "summary": {
+    "total": 10,
+    "success": 2,
+    "noStyles": 8,
+    "errors": 0
+  },
+  "results": [
+    {
+      "placeId": "fd9dfa89-9df0-4222-99f0-d83fd4d87980",
+      "name": "La Seine Musicale",
+      "wikidataQID": "Q19944990",
+      "stylesFound": [
+        "high-tech architecture"
+      ],
+      "stylesBefore": [
+        "Architecture"
+      ],
+      "stylesAfter": [
+        "high-tech architecture"
+      ],
+      "status": "success"
+    },
+    {
+      "placeId": "2f29ce76-4aec-4b26-bc19-374431bba638",
+      "name": "New World Center",
+      "wikidataQID": "Q11884284",
+      "stylesFound": [
+        "postmodern architecture"
+      ],
+      "stylesBefore": [
+        "Architecture"
+      ],
+      "stylesAfter": [
+        "postmodern architecture"
+      ],
+      "status": "success"
+    }
+  ]
+}

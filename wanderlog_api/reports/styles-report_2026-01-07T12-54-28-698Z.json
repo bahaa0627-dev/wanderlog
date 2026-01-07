@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-01-07T12:54:28.700Z",
+  "config": {
+    "limit": 50,
+    "dryRun": true
+  },
+  "summary": {
+    "total": 50,
+    "success": 6,
+    "noStyles": 44,
+    "errors": 0
+  },
+  "results": [
+    {
+      "placeId": "fd9dfa89-9df0-4222-99f0-d83fd4d87980",
+      "name": "La Seine Musicale",
+      "wikidataQID": "Q19944990",
+      "stylesFound": [
+        "high-tech architecture"
+      ],
+      "stylesBefore": [
+        "Architecture"
+      ],
+      "stylesAfter": [
+        "high-tech architecture"
+      ],
+      "status": "success"
+    },
+    {
+      "placeId": "2f29ce76-4aec-4b26-bc19-374431bba638",
+      "name": "New World Center",
+      "wikidataQID": "Q11884284",
+      "stylesFound": [
+        "postmodern architecture"
+      ],
+      "stylesBefore": [
+        "Architecture"
+      ],
+      "stylesAfter": [
+        "postmodern architecture"
+      ],
+      "status": "success"
+    },
+    {
+      "placeId": "a42acf23-d312-4788-85e0-855c7fd20616",
+      "name": "Walt Disney Concert Hall",
+      "wikidataQID": "Q474326",
+      "stylesFound": [
+        "deconstructivism",
+        "expressionist architecture"
+      ],
+      "stylesBefore": [
+        "Architecture"
+      ],
+      "stylesAfter": [
+        "deconstructivism",
+        "expressionist architecture"
+      ],
+      "status": "success"
+    },
+    {
+      "placeId": "2db5dbdd-a7a6-48e4-ad34-9364c90732d5",
+      "name": "Heydar Aliyev Cultural Center",
+      "wikidataQID": "Q43928",
+      "stylesFound": [
+        "Futurism"
+      ],
+      "stylesBefore": [
+        "Architecture"
+      ],
+      "stylesAfter": [
+        "Futurism"
+      ],
+      "status": "success"
+    },
+    {
+      "placeId": "f4ddfcac-5db9-46cc-a291-eacb1ae7e74a",
+      "name": "Church of Saint Francis of Assisi",
+      "wikidataQID": "Q636642",
+      "stylesFound": [
+        "modern architecture"
+      ],
+      "stylesBefore": [
+        "Architecture"
+      ],
+      "stylesAfter": [
+        "modern architecture"
+      ],
+      "status": "success"
+    },
+    {
+      "placeId": "1acab1de-1e84-441c-bb69-a4e6fc27bff3",
+      "name": "ONYX theater",
+      "wikidataQID": "Q16511540",
+      "stylesFound": [
+        "contemporary architecture"
+      ],
+      "stylesBefore": [
+        "Architecture"
+      ],
+      "stylesAfter": [
+        "contemporary architecture"
+      ],
+      "status": "success"
+    }
+  ]
+}

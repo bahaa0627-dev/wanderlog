@@ -85,28 +85,16 @@
    ```json
    {
      "award": ["Pritzker"],
-     "style": ["Modernism", "Architecture"],
+     "style": ["Architecture"],
      "architect": ["OscarNiemeyer"]
    }
    ```
    - award: 具体奖项名称，固定为 "Pritzker"（普利兹克奖）
-   - style: 建筑风格标签，包含具体风格（如 Modernism）和通用标签 "Architecture"
+   - style: 建筑风格标签，初始只包含通用标签 "Architecture"，具体风格后续通过 AI 增强获取
    - architect: 建筑师名称标签，无空格格式
 2. THE Importer SHALL format architect tags by removing spaces and special characters from architectLabel (e.g., "Oscar Niemeyer" → "OscarNiemeyer", "I. M. Pei" → "IMPei", "Kenzō Tange" → "KenzoTange")
-3. WHEN the architect is known to have a specific style, THE Importer SHALL add style tags:
-   - Oscar Niemeyer → ["Modernism", "BrazilianModernism"]
-   - Zaha Hadid → ["Deconstructivism", "Parametricism"]
-   - Tadao Ando → ["Minimalism", "CriticalRegionalism"]
-   - Frank Gehry → ["Deconstructivism"]
-   - Norman Foster → ["HighTech"]
-   - Renzo Piano → ["HighTech"]
-   - Peter Zumthor → ["Minimalism"]
-   - Herzog & de Meuron → ["Minimalism"]
-   - Kenzō Tange → ["Metabolism"]
-   - Jean Nouvel → ["HighTech", "Deconstructivism"]
-   - Frei Otto → ["Tensile", "Organic"]
-   - RCR Arquitectes → ["Minimalism", "Regionalism"]
-4. THE Importer SHALL always include "Architecture" as a generic style tag (用于搜索所有建筑作品)
+3. THE Importer SHALL always include "Architecture" as a generic style tag (用于搜索所有建筑作品)
+4. WHEN AI enrichment is available, THE Importer MAY add specific style tags based on the individual work (not the architect's general style)
 
 ### Requirement 6: AI 标签生成
 
@@ -114,50 +102,21 @@
 
 #### Acceptance Criteria
 
-1. WHEN importing a building, THE Importer SHALL generate aiTags array containing ALL tags from the tags object, each with priority:
+1. WHEN importing a building, THE Importer SHALL generate aiTags array containing tags with priority:
    ```json
    [
-     {"en": "Pritzker", "zh": "普利兹克奖", "priority": 100},
-     {"en": "Oscar Niemeyer", "zh": "奥斯卡·尼迈耶", "priority": 90},
-     {"en": "Modernism", "zh": "现代主义", "priority": 80},
-     {"en": "Architecture", "zh": "建筑", "priority": 50}
+     {"en": "Pritzker", "priority": 100},
+     {"en": "OscarNiemeyer", "priority": 90},
+     {"en": "Architecture", "priority": 50}
    ]
    ```
 2. THE Importer SHALL assign priority values based on tag type:
-   - award 标签 (如 Pritzker): priority 100 - 最高优先级，展示具体奖项名
+   - award 标签 (如 Pritzker): priority 100 - 最高优先级
    - architect 标签 (如 OscarNiemeyer): priority 90 - 展示建筑师名字
-   - style 具体风格标签 (如 Modernism, Brutalism, Deconstructivism): priority 80
-   - style 通用标签 "Architecture": priority 50 - 最低优先级，仅用于搜索归类
-3. THE Importer SHALL use the architect's Chinese name from a predefined mapping:
-   - Oscar Niemeyer → 奥斯卡·尼迈耶
-   - Zaha Hadid → 扎哈·哈迪德
-   - Norman Foster → 诺曼·福斯特
-   - Frank Gehry → 弗兰克·盖里
-   - I. M. Pei → 贝聿铭
-   - Tadao Ando → 安藤忠雄
-   - Kenzō Tange → 丹下健三
-   - Peter Zumthor → 彼得·卒姆托
-   - Jean Nouvel → 让·努维尔
-   - Renzo Piano → 伦佐·皮亚诺
-   - Frei Otto → 弗雷·奥托
-   - RCR Arquitectes → RCR建筑事务所
-   - Diébédo Francis Kéré → 弗朗西斯·凯雷
-   - Shelley McNamara → 谢莉·麦克纳马拉
-   - Yvonne Farrell → 伊冯·法雷尔
-   - Hans Hollein → 汉斯·霍莱因
-4. THE Importer SHALL use Chinese translations for style tags:
-   - Modernism → 现代主义
-   - Brutalism → 粗野主义
-   - Deconstructivism → 解构主义
-   - Minimalism → 极简主义
-   - HighTech → 高技派
-   - Parametricism → 参数化主义
-   - Metabolism → 新陈代谢派
-   - Organic → 有机建筑
-   - Regionalism → 地域主义
-   - Architecture → 建筑
-5. IF no Chinese name mapping exists, THE Importer SHALL use the English name for both en and zh fields
-6. THE UI SHALL display up to 3 tags sorted by priority (highest first)
+   - style 具体风格标签 (如 Modernism, Brutalism): priority 80
+   - style 通用标签 "Architecture": priority 50 - 最低优先级
+3. THE Importer SHALL store only English tags initially; translations will be handled by i18n system
+4. THE UI SHALL display up to 3 tags sorted by priority (highest first)
 
 ### Requirement 7: 图片处理
 
@@ -183,3 +142,24 @@
    - Records skipped (with reasons)
    - Records requiring manual review (e.g., missing names)
 2. THE Importer SHALL save the report to a JSON file with timestamp
+
+### Requirement 9: AI 数据增强（可选）
+
+**User Story:** As a data administrator, I want to enrich building data with additional information, so that users have more complete building profiles.
+
+#### Acceptance Criteria
+
+1. WHEN AI enrichment is enabled, THE Importer MAY fetch additional data from:
+   - Wikidata API (建造年份、建筑风格、官方网站、地址)
+   - OpenAI with web search (建筑描述、开放时间、特色介绍)
+2. WHEN fetching from Wikidata API, THE Importer SHALL extract:
+   - P571 (成立或创建时间) → yearBuilt in customFields
+   - P149 (建筑风格) → style tags
+   - P856 (官方网站) → website
+   - P6375 (街道地址) → address
+3. WHEN using OpenAI for description generation, THE Importer SHALL:
+   - Generate a 100-200 word description highlighting architectural significance
+   - Store the description in the description field
+   - Mark AI-generated content in customFields.aiGenerated = true
+4. THE Importer SHALL rate-limit API calls to avoid exceeding quotas
+5. IF AI enrichment fails, THE Importer SHALL continue with basic import and log the failure

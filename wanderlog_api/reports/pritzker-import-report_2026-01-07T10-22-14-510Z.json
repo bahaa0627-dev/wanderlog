@@ -1,0 +1,190 @@
+{
+  "timestamp": "2026-01-07T10:22:14.509Z",
+  "totalEntriesInJson": 4506,
+  "uniqueBuildingsAfterDedup": 794,
+  "newRecordsCreated": 794,
+  "existingRecordsUpdated": 0,
+  "recordsSkipped": [],
+  "recordsNeedingReview": [
+    {
+      "wikidataQID": "Q29415302",
+      "issue": "Work label is a Q-number: Q29415302"
+    },
+    {
+      "wikidataQID": "Q118424126",
+      "issue": "Work label is a Q-number: Q118424126"
+    },
+    {
+      "wikidataQID": "Q118424837",
+      "issue": "Work label is a Q-number: Q118424837"
+    },
+    {
+      "wikidataQID": "Q122751246",
+      "issue": "Work label is a Q-number: Q122751246"
+    },
+    {
+      "wikidataQID": "Q123925341",
+      "issue": "Work label is a Q-number: Q123925341"
+    },
+    {
+      "wikidataQID": "Q8341610",
+      "issue": "Work label is a Q-number: Q8341610"
+    },
+    {
+      "wikidataQID": "Q117255504",
+      "issue": "Work label is a Q-number: Q117255504"
+    },
+    {
+      "wikidataQID": "Q118289103",
+      "issue": "Work label is a Q-number: Q118289103"
+    },
+    {
+      "wikidataQID": "Q2947978",
+      "issue": "Work label is a Q-number: Q2947978"
+    },
+    {
+      "wikidataQID": "Q19788708",
+      "issue": "Work label is a Q-number: Q19788708"
+    },
+    {
+      "wikidataQID": "Q128602753",
+      "issue": "Work label is a Q-number: Q128602753"
+    },
+    {
+      "wikidataQID": "Q118636577",
+      "issue": "Work label is a Q-number: Q118636577"
+    },
+    {
+      "wikidataQID": "Q118637632",
+      "issue": "Work label is a Q-number: Q118637632"
+    },
+    {
+      "wikidataQID": "Q119214319",
+      "issue": "Work label is a Q-number: Q119214319"
+    },
+    {
+      "wikidataQID": "Q119215281",
+      "issue": "Work label is a Q-number: Q119215281"
+    },
+    {
+      "wikidataQID": "Q120742346",
+      "issue": "Work label is a Q-number: Q120742346"
+    },
+    {
+      "wikidataQID": "Q118636942",
+      "issue": "Work label is a Q-number: Q118636942"
+    },
+    {
+      "wikidataQID": "Q119719767",
+      "issue": "Work label is a Q-number: Q119719767"
+    },
+    {
+      "wikidataQID": "Q119720686",
+      "issue": "Work label is a Q-number: Q119720686"
+    },
+    {
+      "wikidataQID": "Q124149594",
+      "issue": "Work label is a Q-number: Q124149594"
+    },
+    {
+      "wikidataQID": "Q125398396",
+      "issue": "Work label is a Q-number: Q125398396"
+    },
+    {
+      "wikidataQID": "Q104190885",
+      "issue": "Work label is a Q-number: Q104190885"
+    },
+    {
+      "wikidataQID": "Q118601750",
+      "issue": "Work label is a Q-number: Q118601750"
+    },
+    {
+      "wikidataQID": "Q36524470",
+      "issue": "Work label is a Q-number: Q36524470"
+    },
+    {
+      "wikidataQID": "Q118905462",
+      "issue": "Work label is a Q-number: Q118905462"
+    },
+    {
+      "wikidataQID": "Q123118032",
+      "issue": "Work label is a Q-number: Q123118032"
+    },
+    {
+      "wikidataQID": "Q679969",
+      "issue": "Work label is a Q-number: Q679969"
+    },
+    {
+      "wikidataQID": "Q20014920",
+      "issue": "Work label is a Q-number: Q20014920"
+    },
+    {
+      "wikidataQID": "Q120716618",
+      "issue": "Work label is a Q-number: Q120716618"
+    },
+    {
+      "wikidataQID": "Q130315060",
+      "issue": "Work label is a Q-number: Q130315060"
+    },
+    {
+      "wikidataQID": "Q124149581",
+      "issue": "Work label is a Q-number: Q124149581"
+    },
+    {
+      "wikidataQID": "Q28714993",
+      "issue": "Work label is a Q-number: Q28714993"
+    },
+    {
+      "wikidataQID": "Q106501077",
+      "issue": "Work label is a Q-number: Q106501077"
+    },
+    {
+      "wikidataQID": "Q120716510",
+      "issue": "Work label is a Q-number: Q120716510"
+    },
+    {
+      "wikidataQID": "Q118905870",
+      "issue": "Work label is a Q-number: Q118905870"
+    },
+    {
+      "wikidataQID": "Q118611161",
+      "issue": "Work label is a Q-number: Q118611161"
+    },
+    {
+      "wikidataQID": "Q119843207",
+      "issue": "Work label is a Q-number: Q119843207"
+    },
+    {
+      "wikidataQID": "Q119843323",
+      "issue": "Work label is a Q-number: Q119843323"
+    },
+    {
+      "wikidataQID": "Q124358268",
+      "issue": "Work label is a Q-number: Q124358268"
+    },
+    {
+      "wikidataQID": "Q120904070",
+      "issue": "Work label is a Q-number: Q120904070"
+    },
+    {
+      "wikidataQID": "Q118287911",
+      "issue": "Work label is a Q-number: Q118287911"
+    },
+    {
+      "wikidataQID": "Q5761063",
+      "issue": "Work label is a Q-number: Q5761063"
+    },
+    {
+      "wikidataQID": "Q119819436",
+      "issue": "Work label is a Q-number: Q119819436"
+    },
+    {
+      "wikidataQID": "Q125966383",
+      "issue": "Work label is a Q-number: Q125966383"
+    },
+    {
+      "wikidataQID": "Q133883088",
+      "issue": "Work label is a Q-number: Q133883088"
+    }
+  ]
+}

@@ -1,0 +1,148 @@
+{
+  "timestamp": "2026-01-07T13:31:14.222Z",
+  "config": {
+    "maxImages": 10,
+    "limit": 20,
+    "dryRun": false,
+    "skipExisting": true
+  },
+  "summary": {
+    "total": 13,
+    "success": 8,
+    "noCategory": 4,
+    "noImages": 1,
+    "errors": 0
+  },
+  "results": [
+    {
+      "placeId": "a0b40277-b0f3-4242-85d2-01f44a70612a",
+      "name": "Shanghai Symphony Hall",
+      "wikidataQID": "Q63396848",
+      "commonsCategory": null,
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_category"
+    },
+    {
+      "placeId": "a791e9ad-838e-49cf-87a3-9e11a5ee1d6a",
+      "name": "The Ware Center of Millersville University",
+      "wikidataQID": "Q30634451",
+      "commonsCategory": null,
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_category"
+    },
+    {
+      "placeId": "0bf35729-10fb-435c-a885-9a02a392b2b5",
+      "name": "Pierre Boulez Saal",
+      "wikidataQID": "Q28870831",
+      "commonsCategory": "Barenboim-Said Akademie",
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_images"
+    },
+    {
+      "placeId": "5e82ece9-f41a-45b8-a749-689a904beaaa",
+      "name": "Sleep Train Pavilion",
+      "wikidataQID": "Q7539731",
+      "commonsCategory": null,
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_category"
+    },
+    {
+      "placeId": "d7026367-0446-4818-ae67-ff31ac20ea60",
+      "name": "Kyoto Concert Hall",
+      "wikidataQID": "Q6452137",
+      "commonsCategory": "Kyoto Concert Hall",
+      "imagesFound": 1,
+      "imagesBefore": 1,
+      "imagesAfter": 2,
+      "status": "success"
+    },
+    {
+      "placeId": "1d880da7-42ac-4492-a9b6-32234a4dd020",
+      "name": "Randolph W. Bromery Center for the Arts",
+      "wikidataQID": "Q5450046",
+      "commonsCategory": "Fine Arts Center (Amherst, Massachusetts)",
+      "imagesFound": 10,
+      "imagesBefore": 1,
+      "imagesAfter": 10,
+      "status": "success"
+    },
+    {
+      "placeId": "8c7a09b8-982a-4bb5-8b0d-49ab3f037742",
+      "name": "Le Volcan",
+      "wikidataQID": "Q3228210",
+      "commonsCategory": "Le Volcan, Le Havre",
+      "imagesFound": 10,
+      "imagesBefore": 1,
+      "imagesAfter": 10,
+      "status": "success"
+    },
+    {
+      "placeId": "0868c7cc-7132-4448-9e6f-c72ef1bf29bb",
+      "name": "Centre International de Congrès de Tours",
+      "wikidataQID": "Q2945812",
+      "commonsCategory": "Centre international de congrès de Tours - Vinci",
+      "imagesFound": 2,
+      "imagesBefore": 1,
+      "imagesAfter": 3,
+      "status": "success"
+    },
+    {
+      "placeId": "af674fec-e376-43c1-85d7-61ba84540798",
+      "name": "L'Auditori",
+      "wikidataQID": "Q2713088",
+      "commonsCategory": "L'Auditori (Barcelona)",
+      "imagesFound": 10,
+      "imagesBefore": 1,
+      "imagesAfter": 10,
+      "status": "success"
+    },
+    {
+      "placeId": "09926420-6235-494a-8907-128256b9b152",
+      "name": "Stadtcasino Basel",
+      "wikidataQID": "Q2327045",
+      "commonsCategory": "Stadtcasino Basel",
+      "imagesFound": 10,
+      "imagesBefore": 1,
+      "imagesAfter": 10,
+      "status": "success"
+    },
+    {
+      "placeId": "18af23fa-be05-44ce-b9ed-1e1fb44ab008",
+      "name": "Paard van Troje",
+      "wikidataQID": "Q1704368",
+      "commonsCategory": "Paard van Troje",
+      "imagesFound": 10,
+      "imagesBefore": 1,
+      "imagesAfter": 10,
+      "status": "success"
+    },
+    {
+      "placeId": "77ccd857-2bc7-4898-8439-41d1a3b7a60d",
+      "name": "Philharmonie Luxembourg",
+      "wikidataQID": "Q976457",
+      "commonsCategory": null,
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_category"
+    },
+    {
+      "placeId": "bd3597bb-0f58-4532-a783-3ae93393e400",
+      "name": "Ibirapuera Auditorium",
+      "wikidataQID": "Q758948",
+      "commonsCategory": "Auditório Ibirapuera",
+      "imagesFound": 10,
+      "imagesBefore": 1,
+      "imagesAfter": 10,
+      "status": "success"
+    }
+  ]
+}

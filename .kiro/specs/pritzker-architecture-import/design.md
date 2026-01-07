@@ -115,77 +115,72 @@ interface ImportReport {
 
 ## Data Models
 
-### Architect Style Mapping
+### Building Style Detection (基于作品名称)
+
+建筑风格应该跟着作品本身走，而不是建筑师。通过分析作品名称和 Wikidata 信息来推断风格：
 
 ```typescript
-const ARCHITECT_STYLES: Record<string, string[]> = {
-  'Oscar Niemeyer': ['Modernism', 'BrazilianModernism'],
-  'Zaha Hadid': ['Deconstructivism', 'Parametricism'],
-  'Tadao Ando': ['Minimalism', 'CriticalRegionalism'],
-  'Frank Gehry': ['Deconstructivism'],
-  'Norman Foster': ['HighTech'],
-  'Renzo Piano': ['HighTech'],
-  'Peter Zumthor': ['Minimalism'],
-  'Herzog & de Meuron': ['Minimalism'],
-  'Kenzō Tange': ['Metabolism'],
-  'Kenzo Tange': ['Metabolism'],
-  'Jean Nouvel': ['HighTech', 'Deconstructivism'],
-  'Frei Otto': ['Tensile', 'Organic'],
-  'RCR Arquitectes': ['Minimalism', 'Regionalism'],
-  'I. M. Pei': ['Modernism'],
-  'Hans Hollein': ['Postmodernism'],
-  'Diébédo Francis Kéré': ['Vernacular', 'Sustainable'],
-  'Shelley McNamara': ['Brutalism'],
-  'Yvonne Farrell': ['Brutalism'],
+// 基于作品名称关键词推断风格
+const WORK_STYLE_KEYWORDS: Record<string, string[]> = {
+  'Brutalist': ['Brutalism'],
+  'Modernist': ['Modernism'],
+  'Gothic': ['Gothic'],
+  'Art Deco': ['ArtDeco'],
+  'Pavilion': ['Pavilion'],
+  'Tensile': ['Tensile'],
+  'Organic': ['Organic'],
 };
+
+// 默认风格：如果无法从作品名称推断，则不添加具体风格标签
+// 只保留通用的 "Architecture" 标签
 ```
 
-### Architect Chinese Name Mapping
+### AI 增强数据获取
+
+导入后可通过 AI 服务增强数据，获取更多字段信息：
 
 ```typescript
-const ARCHITECT_CHINESE_NAMES: Record<string, string> = {
-  'Oscar Niemeyer': '奥斯卡·尼迈耶',
-  'Zaha Hadid': '扎哈·哈迪德',
-  'Norman Foster': '诺曼·福斯特',
-  'Frank Gehry': '弗兰克·盖里',
-  'I. M. Pei': '贝聿铭',
-  'Tadao Ando': '安藤忠雄',
-  'Kenzō Tange': '丹下健三',
-  'Kenzo Tange': '丹下健三',
-  'Peter Zumthor': '彼得·卒姆托',
-  'Jean Nouvel': '让·努维尔',
-  'Renzo Piano': '伦佐·皮亚诺',
-  'Frei Otto': '弗雷·奥托',
-  'RCR Arquitectes': 'RCR建筑事务所',
-  'Diébédo Francis Kéré': '弗朗西斯·凯雷',
-  'Shelley McNamara': '谢莉·麦克纳马拉',
-  'Yvonne Farrell': '伊冯·法雷尔',
-  'Hans Hollein': '汉斯·霍莱因',
-};
+interface AIEnrichmentRequest {
+  name: string;           // 建筑作品名称
+  architect: string;      // 建筑师名称
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+}
+
+interface AIEnrichmentResponse {
+  description?: string;      // AI 生成的建筑描述
+  address?: string;          // 详细地址
+  website?: string;          // 官方网站
+  openingHours?: string;     // 营业时间
+  architecturalStyle?: string[]; // 建筑风格（基于作品本身）
+  yearBuilt?: number;        // 建造年份
+  significance?: string;     // 建筑意义/特色
+}
 ```
 
-### Style Chinese Name Mapping
+### 多语言支持策略
+
+不在导入时硬编码中文翻译，而是：
+1. 导入时只存储英文原始数据
+2. 使用 i18n 字段存储多语言内容
+3. 后续通过翻译服务或 AI 批量生成多语言版本
 
 ```typescript
-const STYLE_CHINESE_NAMES: Record<string, string> = {
-  'Modernism': '现代主义',
-  'BrazilianModernism': '巴西现代主义',
-  'Brutalism': '粗野主义',
-  'Deconstructivism': '解构主义',
-  'Minimalism': '极简主义',
-  'HighTech': '高技派',
-  'Parametricism': '参数化主义',
-  'Metabolism': '新陈代谢派',
-  'Organic': '有机建筑',
-  'Tensile': '张拉结构',
-  'Regionalism': '地域主义',
-  'CriticalRegionalism': '批判地域主义',
-  'Postmodernism': '后现代主义',
-  'Vernacular': '乡土建筑',
-  'Sustainable': '可持续建筑',
-  'Architecture': '建筑',
-  'Pritzker': '普利兹克奖',
-};
+interface I18nContent {
+  en: {
+    name: string;
+    description?: string;
+    tags?: string[];
+  };
+  zh?: {
+    name: string;
+    description?: string;
+    tags?: string[];
+  };
+  // 其他语言...
+}
 ```
 
 ### Category Classification Rules
@@ -288,3 +283,270 @@ function convertWikimediaUrl(url: string): string {
 }
 ```
 
+### 6. enrichBuildingWithAI (AI 增强)
+
+```typescript
+async function enrichBuildingWithAI(building: DeduplicatedBuilding): Promise<AIEnrichmentResponse> {
+  // 使用 OpenAI 联网搜索获取更多信息
+  const prompt = `
+    请搜索以下建筑作品的详细信息：
+    - 作品名称: ${building.workLabel}
+    - 建筑师: ${building.architectLabel}
+    - 城市: ${building.cities[0]}
+    - 国家: ${building.country}
+    
+    请提供以下信息（如果能找到）：
+    1. 建筑描述（100-200字，介绍建筑特色和意义）
+    2. 详细地址
+    3. 官方网站
+    4. 开放时间（如果是公共建筑）
+    5. 建筑风格（基于这个具体作品，不是建筑师的一般风格）
+    6. 建造年份
+    
+    以 JSON 格式返回。
+  `;
+  
+  // 调用 OpenAI API with web search
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [{ role: 'user', content: prompt }],
+    // 启用联网搜索（如果可用）
+  });
+  
+  return parseAIResponse(response);
+}
+```
+
+### 7. fetchWikidataDetails (Wikidata API 增强)
+
+```typescript
+async function fetchWikidataDetails(qid: string): Promise<WikidataDetails | null> {
+  // 从 Wikidata API 获取更多属性
+  const url = `https://www.wikidata.org/wiki/Special:EntityData/${qid}.json`;
+  const response = await fetch(url);
+  const data = await response.json();
+  
+  const entity = data.entities[qid];
+  if (!entity) return null;
+  
+  return {
+    // P571 - 成立或创建时间
+    yearBuilt: extractYear(entity.claims?.P571),
+    // P149 - 建筑风格
+    architecturalStyle: extractStyles(entity.claims?.P149),
+    // P856 - 官方网站
+    website: extractUrl(entity.claims?.P856),
+    // P6375 - 街道地址
+    address: extractAddress(entity.claims?.P6375),
+    // P373 - Commons 分类
+    commonsCategory: extractString(entity.claims?.P373),
+  };
+}
+```
+
+
+
+## Correctness Properties
+
+*A property is a characteristic or behavior that should hold true across all valid executions of a system—essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+
+### Property 1: Coordinate Parsing Round Trip
+
+*For any* valid coordinate string in "Point(lng lat)" format, parsing it should produce a latitude and longitude pair where the values match the original input numbers.
+
+**Validates: Requirements 1.2**
+
+### Property 2: Wikidata QID Extraction
+
+*For any* valid Wikidata URL containing a QID (e.g., "http://www.wikidata.org/entity/Q123456"), extracting the QID should return the exact Q-number from the URL.
+
+**Validates: Requirements 1.3**
+
+### Property 3: Deduplication by QID
+
+*For any* set of JSON entries where multiple entries share the same Wikidata QID, the deduplication process should produce exactly one building record per unique QID.
+
+**Validates: Requirements 2.1, 2.2**
+
+### Property 4: City Selection Preference
+
+*For any* set of city names associated with a building, the selected city should not contain "arrondissement", "District", or "Subdistrict" if a cleaner alternative exists.
+
+**Validates: Requirements 2.2**
+
+### Property 5: Architect Tag Formatting
+
+*For any* architect name string, the formatted tag should contain only ASCII letters (no spaces, dots, accents, or special characters).
+
+**Validates: Requirements 5.2**
+
+### Property 6: Tag Structure Completeness
+
+*For any* imported building, the tags object should contain exactly three keys: "award", "style", and "architect", where "award" always contains "Pritzker" and "style" always contains "Architecture".
+
+**Validates: Requirements 5.1, 5.4**
+
+### Property 7: AI Tags Priority Ordering
+
+*For any* imported building, the aiTags array should be sorted by priority in descending order, with award tags (priority 100) first, architect tags (priority 90) second, specific style tags (priority 80) third, and generic tags (priority 50) last.
+
+**Validates: Requirements 6.1, 6.2**
+
+### Property 8: Image URL HTTPS Conversion
+
+*For any* Wikimedia Commons URL starting with "http://", the converted URL should start with "https://" while preserving the rest of the path.
+
+**Validates: Requirements 7.1**
+
+### Property 9: Image Collection Uniqueness
+
+*For any* set of duplicate entries for the same building, the merged images array should contain only unique URLs with no duplicates.
+
+**Validates: Requirements 7.3**
+
+### Property 10: Category Classification Consistency
+
+*For any* work label containing a category keyword (e.g., "Museum", "Church"), the assigned category should match the expected category for that keyword.
+
+**Validates: Requirements 4.1**
+
+### Property 11: Report Counts Accuracy
+
+*For any* import operation, the sum of (new records created + existing records updated + records skipped) should equal the number of unique buildings after deduplication.
+
+**Validates: Requirements 2.4, 8.1**
+
+## Error Handling
+
+### Invalid JSON Entry Handling
+
+```typescript
+interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+
+function validateEntry(entry: WikidataArchitectureEntry): ValidationResult {
+  const errors: string[] = [];
+  
+  if (!entry.work) errors.push('Missing work URL');
+  if (!entry.workLabel) errors.push('Missing work label');
+  if (!entry.architectLabel) errors.push('Missing architect label');
+  if (entry.coord && !parseCoordinates(entry.coord)) {
+    errors.push('Invalid coordinate format');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
+```
+
+### Missing Coordinate Handling
+
+- 如果 coord 字段缺失或无法解析，记录将被标记为需要手动审核
+- 不会阻止导入，但会在报告中列出
+
+### Q-Number Work Label Handling
+
+- 如果 workLabel 是 Q 开头的数字（如 Q118424126），表示 Wikidata 没有该实体的标签
+- 这些记录将被标记为需要手动审核，需要人工补充名称
+
+### Database Upsert Error Handling
+
+```typescript
+async function upsertPlace(data: PlaceImportData): Promise<UpsertResult> {
+  try {
+    const existing = await prisma.place.findFirst({
+      where: {
+        OR: [
+          { sourceDetail: data.sourceDetail },
+          { googlePlaceId: data.sourceDetail }, // 兼容旧数据
+        ],
+      },
+    });
+    
+    if (existing) {
+      await prisma.place.update({
+        where: { id: existing.id },
+        data: { ...data, updatedAt: new Date() },
+      });
+      return { action: 'updated', id: existing.id };
+    } else {
+      const created = await prisma.place.create({ data });
+      return { action: 'created', id: created.id };
+    }
+  } catch (error) {
+    return { action: 'error', error: error.message };
+  }
+}
+```
+
+## Testing Strategy
+
+### Unit Tests
+
+单元测试用于验证各个独立函数的正确性：
+
+1. **parseCoordinates** - 测试各种坐标格式的解析
+2. **extractWikidataQID** - 测试 QID 提取
+3. **formatArchitectTag** - 测试建筑师标签格式化
+4. **selectBestCity** - 测试城市选择逻辑
+5. **convertWikimediaUrl** - 测试 URL 转换
+6. **classifyCategory** - 测试分类识别
+
+### Property-Based Tests
+
+使用 fast-check 库进行属性测试，每个测试运行至少 100 次迭代：
+
+```typescript
+import * as fc from 'fast-check';
+
+// Property 1: Coordinate Parsing
+// Feature: pritzker-architecture-import, Property 1: Coordinate Parsing Round Trip
+fc.assert(
+  fc.property(
+    fc.float({ min: -180, max: 180 }),
+    fc.float({ min: -90, max: 90 }),
+    (lng, lat) => {
+      const coordStr = `Point(${lng} ${lat})`;
+      const result = parseCoordinates(coordStr);
+      return result !== null && 
+             Math.abs(result.longitude - lng) < 0.0001 &&
+             Math.abs(result.latitude - lat) < 0.0001;
+    }
+  ),
+  { numRuns: 100 }
+);
+
+// Property 5: Architect Tag Formatting
+// Feature: pritzker-architecture-import, Property 5: Architect Tag Formatting
+fc.assert(
+  fc.property(
+    fc.string(),
+    (name) => {
+      const tag = formatArchitectTag(name);
+      return /^[a-zA-Z]*$/.test(tag);
+    }
+  ),
+  { numRuns: 100 }
+);
+```
+
+### Integration Tests
+
+集成测试验证完整的导入流程：
+
+1. **End-to-end import** - 使用测试 JSON 文件进行完整导入
+2. **Deduplication verification** - 验证重复条目被正确合并
+3. **Database state verification** - 验证数据库中的记录符合预期
+
+### Test Data
+
+创建测试用的 JSON 文件，包含：
+- 正常条目
+- 重复条目（相同 QID，不同城市）
+- 缺失字段的条目
+- Q-number 作为名称的条目
+- 各种分类关键词的条目

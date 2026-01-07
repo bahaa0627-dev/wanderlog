@@ -1,0 +1,118 @@
+{
+  "timestamp": "2026-01-07T13:19:11.361Z",
+  "config": {
+    "maxImages": 10,
+    "limit": 10,
+    "dryRun": false,
+    "skipExisting": false
+  },
+  "summary": {
+    "total": 10,
+    "success": 6,
+    "noCategory": 1,
+    "noImages": 3,
+    "errors": 0
+  },
+  "results": [
+    {
+      "placeId": "f25d8ea6-a8cc-45cb-b167-746b66a4c299",
+      "name": "Power Center for the Performing Arts",
+      "wikidataQID": "Q66770162",
+      "commonsCategory": "Power Center for the Performing Arts",
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_images"
+    },
+    {
+      "placeId": "a0b40277-b0f3-4242-85d2-01f44a70612a",
+      "name": "Shanghai Symphony Hall",
+      "wikidataQID": "Q63396848",
+      "commonsCategory": "Shanghai Symphony Hall",
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_images"
+    },
+    {
+      "placeId": "a791e9ad-838e-49cf-87a3-9e11a5ee1d6a",
+      "name": "The Ware Center of Millersville University",
+      "wikidataQID": "Q30634451",
+      "commonsCategory": null,
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_category"
+    },
+    {
+      "placeId": "0bf35729-10fb-435c-a885-9a02a392b2b5",
+      "name": "Pierre Boulez Saal",
+      "wikidataQID": "Q28870831",
+      "commonsCategory": "Barenboim-Said Akademie",
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_images"
+    },
+    {
+      "placeId": "1878cb01-28f8-482b-a35e-0db44766ae9f",
+      "name": "Zénith de Lille",
+      "wikidataQID": "Q20055541",
+      "commonsCategory": "Zénith de Lille",
+      "imagesFound": 2,
+      "imagesBefore": 1,
+      "imagesAfter": 3,
+      "status": "success"
+    },
+    {
+      "placeId": "fd9dfa89-9df0-4222-99f0-d83fd4d87980",
+      "name": "La Seine Musicale",
+      "wikidataQID": "Q19944990",
+      "commonsCategory": "La Seine musicale",
+      "imagesFound": 10,
+      "imagesBefore": 1,
+      "imagesAfter": 10,
+      "status": "success"
+    },
+    {
+      "placeId": "62586f35-86c2-4c4f-99aa-83cf02134c3e",
+      "name": "National Centre for the Performing Arts",
+      "wikidataQID": "Q17057162",
+      "commonsCategory": "National Centre for the Performing Arts (India)",
+      "imagesFound": 6,
+      "imagesBefore": 1,
+      "imagesAfter": 7,
+      "status": "success"
+    },
+    {
+      "placeId": "2f29ce76-4aec-4b26-bc19-374431bba638",
+      "name": "New World Center",
+      "wikidataQID": "Q11884284",
+      "commonsCategory": "New World Center",
+      "imagesFound": 6,
+      "imagesBefore": 1,
+      "imagesAfter": 7,
+      "status": "success"
+    },
+    {
+      "placeId": "c446b3da-9384-4a8d-916f-e2dc30d6fbd7",
+      "name": "Nova Hall",
+      "wikidataQID": "Q11325716",
+      "commonsCategory": "Nova Hall",
+      "imagesFound": 4,
+      "imagesBefore": 1,
+      "imagesAfter": 5,
+      "status": "success"
+    },
+    {
+      "placeId": "9564bc8c-0525-4308-a62d-6a18397dd20a",
+      "name": "Matsumoto Performing Arts Centre",
+      "wikidataQID": "Q11278411",
+      "commonsCategory": "Matsumoto Performing Arts Centre",
+      "imagesFound": 7,
+      "imagesBefore": 1,
+      "imagesAfter": 8,
+      "status": "success"
+    }
+  ]
+}

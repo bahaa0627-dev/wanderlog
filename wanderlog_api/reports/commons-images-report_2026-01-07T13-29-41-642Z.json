@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-01-07T13:29:41.642Z",
+  "config": {
+    "maxImages": 10,
+    "limit": 10,
+    "dryRun": false,
+    "skipExisting": true
+  },
+  "summary": {
+    "total": 4,
+    "success": 1,
+    "noCategory": 1,
+    "noImages": 2,
+    "errors": 0
+  },
+  "results": [
+    {
+      "placeId": "a0b40277-b0f3-4242-85d2-01f44a70612a",
+      "name": "Shanghai Symphony Hall",
+      "wikidataQID": "Q63396848",
+      "commonsCategory": "Shanghai Symphony Hall",
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_images"
+    },
+    {
+      "placeId": "a791e9ad-838e-49cf-87a3-9e11a5ee1d6a",
+      "name": "The Ware Center of Millersville University",
+      "wikidataQID": "Q30634451",
+      "commonsCategory": null,
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_category"
+    },
+    {
+      "placeId": "0bf35729-10fb-435c-a885-9a02a392b2b5",
+      "name": "Pierre Boulez Saal",
+      "wikidataQID": "Q28870831",
+      "commonsCategory": "Barenboim-Said Akademie",
+      "imagesFound": 0,
+      "imagesBefore": 1,
+      "imagesAfter": 1,
+      "status": "no_images"
+    },
+    {
+      "placeId": "fd9dfa89-9df0-4222-99f0-d83fd4d87980",
+      "name": "La Seine Musicale",
+      "wikidataQID": "Q19944990",
+      "commonsCategory": "La Seine musicale",
+      "imagesFound": 4,
+      "imagesBefore": 1,
+      "imagesAfter": 5,
+      "status": "success"
+    }
+  ]
+}

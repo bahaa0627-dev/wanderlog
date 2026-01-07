@@ -1319,7 +1319,7 @@ class SpotCardOverlay extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               // 背景图片
-              if (spot.coverImage.isNotEmpty)
+              if (spot.hasValidCoverImage)
                 Image.network(
                   spot.coverImage,
                   fit: BoxFit.cover,
@@ -1424,7 +1424,7 @@ class _SpotDetailSheet extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 图片
-                  if (spot.coverImage.isNotEmpty)
+                  if (spot.hasValidCoverImage)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.network(

@@ -551,6 +551,7 @@ class PlaceResult {
   bool get hasValidCoverImage {
     if (coverImage.isEmpty) return false;
     if (coverImage.contains('example.com')) return false;
+    if (coverImage.contains('placeholder')) return false;
     return coverImage.startsWith('http');
   }
 

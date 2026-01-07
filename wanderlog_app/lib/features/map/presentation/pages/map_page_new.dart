@@ -101,6 +101,14 @@ class Spot {
   /// 是否有评分
   bool get hasRating => rating > 0;
   
+  /// 是否有有效的封面图片（排除占位符 URL）
+  bool get hasValidCoverImage {
+    if (coverImage.isEmpty) return false;
+    if (coverImage.contains('example.com')) return false;
+    if (coverImage.contains('placeholder')) return false;
+    return true;
+  }
+  
   /// 复制并修改
   Spot copyWith({
     String? id,

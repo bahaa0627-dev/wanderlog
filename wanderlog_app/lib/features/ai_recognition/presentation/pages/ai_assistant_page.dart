@@ -974,10 +974,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     // 处理 specific_place 意图（单个地点）
     if (result.isSpecificPlace) {
       // 如果有匹配到数据库的地点且有图片，显示卡片
-      final hasMatchedPlace = result.places.isNotEmpty && 
-          result.places.first.coverImage.isNotEmpty;
+      final validPlaces = result.places.where((p) => p.hasValidCoverImage).toList();
+      final hasMatchedPlace = validPlaces.isNotEmpty;
       
       if (hasMatchedPlace) {
+        // 只有一个地点时，不显示地图，卡片放大
+        final isSinglePlace = validPlaces.length == 1;
+        
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -993,20 +996,25 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               const SizedBox(height: 20),
             ],
             
-            // 单个地点卡片
-            FlatPlaceList(
-              places: result.places,
-              onPlaceTap: _showPlaceDetail,
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // 地图展示 - 只显示有图片的地点
-            RecommendationMapView(
-              places: result.places.where((p) => p.coverImage.isNotEmpty).toList(),
-              height: 200,
-              onPlaceTap: _showPlaceDetail,
-            ),
+            // 单个地点卡片 - 使用更大的卡片
+            if (isSinglePlace)
+              _LargePlaceCard(
+                place: validPlaces.first,
+                onTap: () => _showPlaceDetail(validPlaces.first),
+              )
+            else ...[
+              FlatPlaceList(
+                places: validPlaces,
+                onPlaceTap: _showPlaceDetail,
+              ),
+              const SizedBox(height: 20),
+              // 多个地点时显示地图
+              RecommendationMapView(
+                places: validPlaces,
+                height: 200,
+                onPlaceTap: _showPlaceDetail,
+              ),
+            ],
           ],
         );
       } else {
@@ -1097,7 +1105,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
         // 地图展示 - Requirements: 10.3, 10.4, 10.5
         // 只显示有图片的地点
-        if (result.allPlaces.where((p) => p.coverImage.isNotEmpty).isNotEmpty)
+        if (result.allPlaces.where((p) => p.hasValidCoverImage).isNotEmpty)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1110,7 +1118,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               ),
               const SizedBox(height: 8),
               RecommendationMapView(
-                places: result.allPlaces.where((p) => p.coverImage.isNotEmpty).toList(),
+                places: result.allPlaces.where((p) => p.hasValidCoverImage).toList(),
                 height: 200,
                 onPlaceTap: _showPlaceDetail,
               ),
@@ -1199,7 +1207,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       if (section.cityKey != null && cityPlacesMap.containsKey(section.cityKey)) {
         final group = cityPlacesMap[section.cityKey]!;
         debugPrint('🏙️ [_buildInterleavedCityContent] City "${group.city}" has ${group.places.length} places');
-        final placesWithImage = group.places.where((p) => p.coverImage.isNotEmpty).toList();
+        final placesWithImage = group.places.where((p) => p.hasValidCoverImage).toList();
         debugPrint('🏙️ [_buildInterleavedCityContent] After filter: ${placesWithImage.length} places with images');
         if (placesWithImage.isNotEmpty) {
           widgets.add(const SizedBox(height: 12));
@@ -1216,7 +1224,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       widgets.add(_buildMarkdownText(textContent));
       for (final group in cityPlaces) {
         // 只显示有图片的地点
-        final placesWithImage = group.places.where((p) => p.coverImage.isNotEmpty).toList();
+        final placesWithImage = group.places.where((p) => p.hasValidCoverImage).toList();
         if (placesWithImage.isNotEmpty) {
           widgets.add(const SizedBox(height: 16));
           widgets.add(Text(
@@ -1245,7 +1253,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     for (final p in places) {
       debugPrint('🖼️ [_buildHorizontalSpotCards] "${p.name}" coverImage: "${p.coverImage.isEmpty ? 'EMPTY' : p.coverImage.substring(0, 50)}..."');
     }
-    final placesWithImage = places.where((p) => p.coverImage.isNotEmpty).toList();
+    final placesWithImage = places.where((p) => p.hasValidCoverImage).toList();
     debugPrint('🖼️ [_buildHorizontalSpotCards] After filter: ${placesWithImage.length} places with images');
     if (placesWithImage.isEmpty) return const SizedBox.shrink();
     
@@ -1558,7 +1566,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 构建横滑地点卡片列表
   Widget _buildHorizontalPlaceCards(List<PlaceResult> places) {
     // 过滤掉没有图片的地点
-    final placesWithImage = places.where((p) => p.coverImage.isNotEmpty).toList();
+    final placesWithImage = places.where((p) => p.hasValidCoverImage).toList();
     if (placesWithImage.isEmpty) return const SizedBox.shrink();
     
     return SizedBox(
@@ -2108,4 +2116,388 @@ class _CitySection {
   final String content;
   
   _CitySection({this.cityKey, required this.content});
+}
+
+/// 大尺寸地点卡片 - 用于单个地点展示
+/// 比普通卡片更大，占满宽度，比例为 4:3
+class _LargePlaceCard extends ConsumerStatefulWidget {
+  const _LargePlaceCard({
+    required this.place,
+    this.onTap,
+  });
+
+  final PlaceResult place;
+  final VoidCallback? onTap;
+
+  @override
+  ConsumerState<_LargePlaceCard> createState() => _LargePlaceCardState();
+}
+
+class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
+  bool _isInWishlist = false;
+  bool _isSaving = false;
+  String? _destinationId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncWishlistStatus();
+    });
+  }
+
+  void _syncWishlistStatus() {
+    final statusAsync = ref.read(wishlistStatusProvider);
+    statusAsync.whenData((statusMap) {
+      final spotId = widget.place.id ?? widget.place.name;
+      final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
+      if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
+        setState(() {
+          _isInWishlist = isInWishlist;
+          _destinationId = destId;
+        });
+      }
+    });
+  }
+
+  Future<void> _handleWishlistTap() async {
+    if (_isSaving) return;
+
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated) {
+      final authed = await requireAuth(context, ref);
+      if (!authed) return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      if (_isInWishlist && _destinationId != null) {
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: _destinationId!,
+          spotId: widget.place.id ?? widget.place.name,
+          remove: true,
+        );
+        ref.invalidate(tripsProvider);
+        ref.invalidate(wishlistStatusProvider);
+        setState(() {
+          _isInWishlist = false;
+          _destinationId = null;
+        });
+        CustomToast.showSuccess(context, 'Removed from wishlist');
+      } else {
+        final cityName = widget.place.city?.isNotEmpty == true 
+            ? widget.place.city! 
+            : (widget.place.country?.isNotEmpty == true 
+                ? widget.place.country! 
+                : 'Saved Places');
+        
+        final destId = await ensureDestinationForCity(ref, cityName);
+        if (destId == null) {
+          CustomToast.showError(context, 'Failed to save - please try again');
+          return;
+        }
+
+        final effectiveTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: destId,
+          spotId: widget.place.id ?? widget.place.name,
+          status: TripSpotStatus.wishlist,
+          spotPayload: {
+            'name': widget.place.name,
+            'city': widget.place.city ?? '',
+            'country': widget.place.country ?? '',
+            'latitude': widget.place.latitude,
+            'longitude': widget.place.longitude,
+            'rating': widget.place.rating,
+            'ratingCount': widget.place.ratingCount,
+            'tags': effectiveTags,
+            'coverImage': widget.place.coverImage,
+            'images': [widget.place.coverImage],
+            'googlePlaceId': widget.place.googlePlaceId,
+            'source': widget.place.source.name,
+          },
+        );
+
+        ref.invalidate(tripsProvider);
+        ref.invalidate(wishlistStatusProvider);
+        setState(() {
+          _isInWishlist = true;
+          _destinationId = destId;
+        });
+        CustomToast.showSuccess(context, 'Saved to wishlist');
+      }
+    } catch (e) {
+      debugPrint('❌ [_LargePlaceCard] Wishlist error: $e');
+      CustomToast.showError(context, 'Error saving - please try again');
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 监听收藏状态变化
+    ref.listen<AsyncValue<Map<String, String?>>>(wishlistStatusProvider, (previous, next) {
+      next.whenData((statusMap) {
+        final spotId = widget.place.id ?? widget.place.name;
+        final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
+        if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
+          setState(() {
+            _isInWishlist = isInWishlist;
+            _destinationId = destId;
+          });
+        }
+      });
+    });
+
+    final displayTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 3:2 卡片 - 和平铺一样的比例
+        GestureDetector(
+          onTap: widget.onTap,
+          child: AspectRatio(
+            aspectRatio: 3 / 2,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // 封面图片
+                    if (widget.place.coverImage.isNotEmpty)
+                      Image.network(
+                        widget.place.coverImage,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const ColoredBox(
+                            color: AppTheme.lightGray,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryYellow),
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (_, __, ___) => const ColoredBox(
+                          color: AppTheme.lightGray,
+                          child: Center(
+                            child: Icon(Icons.image_not_supported, size: 48, color: AppTheme.mediumGray),
+                          ),
+                        ),
+                      )
+                    else
+                      const ColoredBox(
+                        color: AppTheme.lightGray,
+                        child: Center(
+                          child: Icon(Icons.place, size: 48, color: AppTheme.mediumGray),
+                        ),
+                      ),
+                    // 渐变遮罩
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.3),
+                              Colors.black.withOpacity(0.75),
+                            ],
+                            stops: const [0.4, 0.7, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // 右上角收藏按钮
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: GestureDetector(
+                        onTap: _handleWishlistTap,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: _isInWishlist ? AppTheme.primaryYellow : Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppTheme.black, width: 2),
+                          ),
+                          child: _isSaving
+                              ? const Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
+                                  ),
+                                )
+                              : Icon(
+                                  _isInWishlist ? Icons.favorite : Icons.favorite_border,
+                                  size: 20,
+                                  color: AppTheme.black,
+                                ),
+                        ),
+                      ),
+                    ),
+                    // 底部信息
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 16,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 标签
+                          if (displayTags.isNotEmpty)
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: displayTags.take(2).map((tag) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryYellow,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    tag,
+                                    style: AppTheme.bodySmall(context).copyWith(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.black,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          const SizedBox(height: 8),
+                          // 地点名称 - 更大字号
+                          Text(
+                            widget.place.name,
+                            style: AppTheme.headlineMedium(context).copyWith(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 6),
+                          // 评分或推荐短语
+                          if (widget.place.isAIOnly || !widget.place.hasRating)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.auto_awesome, size: 16, color: AppTheme.primaryYellow),
+                                const SizedBox(width: 6),
+                                Text(
+                                  widget.place.recommendationPhrase ?? 'AI Recommended',
+                                  style: AppTheme.bodyMedium(context).copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.star, size: 16, color: AppTheme.primaryYellow),
+                                const SizedBox(width: 6),
+                                Text(
+                                  widget.place.rating!.toStringAsFixed(1),
+                                  style: AppTheme.bodyMedium(context).copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                if (widget.place.ratingCount != null) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '(${widget.place.ratingCount})',
+                                    style: AppTheme.bodyMedium(context).copyWith(
+                                      color: Colors.white.withOpacity(0.8),
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        // 卡片下方的丰富信息
+        const SizedBox(height: 16),
+        // Summary 介绍
+        if (widget.place.summary.isNotEmpty)
+          Text(
+            widget.place.summary,
+            style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.darkGray,
+              height: 1.5,
+              fontSize: 14,
+            ),
+          ),
+        // 标签展示（更多标签）
+        if (displayTags.length > 2) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: displayTags.skip(2).take(4).map((tag) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.lightGray,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  tag,
+                  style: AppTheme.bodySmall(context).copyWith(
+                    fontSize: 12,
+                    color: AppTheme.darkGray,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+  
+  /// 格式化评论数量
+  String _formatRatingCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}K';
+    }
+    return count.toString();
+  }
 }

@@ -320,19 +320,27 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                 
                                                 final collectionName = collection['name'] as String? ?? 'Collection';
                                                 
+                                                // 辅助函数：检查 URL 是否是有效的图片 URL
+                                                bool isValidImageUrl(String? url) {
+                                                  if (url == null || url.isEmpty) return false;
+                                                  if (url.contains('example.com')) return false;
+                                                  if (url.contains('placeholder')) return false;
+                                                  return true;
+                                                }
+                                                
                                                 // 获取封面图：优先使用 collection 的 coverImage，否则遍历所有地点找第一个有效图片
                                                 String coverImage = '';
                                                 final collectionCoverImage = collection['coverImage'] as String?;
-                                                if (collectionCoverImage != null && collectionCoverImage.isNotEmpty) {
-                                                  coverImage = collectionCoverImage;
+                                                if (isValidImageUrl(collectionCoverImage)) {
+                                                  coverImage = collectionCoverImage!;
                                                 } else {
                                                   // 遍历所有地点找第一个有效的封面图
                                                   for (final spot in collectionSpots) {
                                                     final place = spot['place'] as Map<String, dynamic>?;
                                                     if (place == null) continue;
                                                     final placeCoverImage = place['coverImage'] as String?;
-                                                    if (placeCoverImage != null && placeCoverImage.isNotEmpty) {
-                                                      coverImage = placeCoverImage;
+                                                    if (isValidImageUrl(placeCoverImage)) {
+                                                      coverImage = placeCoverImage!;
                                                       break;
                                                     }
                                                   }

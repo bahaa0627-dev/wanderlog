@@ -16,7 +16,7 @@ class SupabaseCollectionRepository {
           .eq('is_published', true)
           .order('sort_order');
       
-      return _convertCollectionsList(response);
+      return _convertCollectionsList(response, isFavorited: false);
     } else {
       // 返回当前用户收藏的合集
       final userId = SupabaseConfig.currentUser?.id;
@@ -48,12 +48,13 @@ class SupabaseCollectionRepository {
           .inFilter('id', collectionIds)
           .order('sort_order');
       
-      return _convertCollectionsList(response);
+      // 用户收藏的合集，isFavorited 为 true
+      return _convertCollectionsList(response, isFavorited: true);
     }
   }
   
   /// 转换合集列表，添加 spotCount 和转换字段名
-  List<Map<String, dynamic>> _convertCollectionsList(List<dynamic> collections) {
+  List<Map<String, dynamic>> _convertCollectionsList(List<dynamic> collections, {bool isFavorited = false}) {
     return collections.map((collection) {
       final spots = collection['collection_spots'] as List<dynamic>? ?? [];
       final convertedSpots = spots.map((spot) {
@@ -78,6 +79,7 @@ class SupabaseCollectionRepository {
         'people': collection['people'],
         'works': collection['works'],
         'isPublished': collection['is_published'],
+        'isFavorited': isFavorited,
         'spotCount': spots.length,
         'collectionSpots': convertedSpots,
       };
@@ -169,6 +171,22 @@ class SupabaseCollectionRepository {
       }
     }
     
+    // 安全解析 tags
+    List<String> parsedTags = [];
+    final rawTags = place['tags'];
+    if (rawTags is List) {
+      for (final item in rawTags) {
+        if (item is String) {
+          parsedTags.add(item);
+        } else if (item is Map<String, dynamic>) {
+          final en = item['en'] as String?;
+          if (en != null && en.isNotEmpty) {
+            parsedTags.add(en);
+          }
+        }
+      }
+    }
+    
     return {
       'id': place['id'],
       'name': place['name'],
@@ -183,7 +201,7 @@ class SupabaseCollectionRepository {
       'rating': place['rating'],
       'ratingCount': place['rating_count'],
       'category': place['category'],
-      'tags': (place['tags'] as List?)?.cast<String>() ?? parsedAiTags,
+      'tags': parsedTags.isNotEmpty ? parsedTags : parsedAiTags,
       'aiTags': parsedAiTags,
       'aiSummary': place['ai_summary'],
       'aiDescription': place['ai_description'],
@@ -209,34 +227,43 @@ class SupabaseCollectionRepository {
       final result = <Map<String, dynamic>>[];
       
       for (final rec in recommendations) {
-        final items = await _client
-            .from('collection_recommendation_items')
-            .select('*, collection:collections(*, collectionSpots:collection_spots(*, place:places(*)))')
-            .eq('recommendation_id', rec['id'] as Object)
-            .order('sort_order', ascending: true);
+        try {
+          final items = await _client
+              .from('collection_recommendation_items')
+              .select('*, collection:collections(*, collectionSpots:collection_spots(*, place:places(*)))')
+              .eq('recommendation_id', rec['id'] as Object)
+              .order('sort_order', ascending: true);
 
-        // 过滤出已发布的合集并转换字段名
-        final filteredItems = items
-            .where((item) => item['collection']?['is_published'] == true)
-            .map((item) {
-              final collection = item['collection'] as Map<String, dynamic>?;
-              if (collection == null) return item;
-              
-              // 转换 collection 字段名
-              final convertedCollection = _convertCollectionFields(collection);
-              return {
-                ...item,
-                'collection': convertedCollection,
-              };
-            })
-            .toList();
+          // 过滤出已发布的合集并转换字段名
+          final filteredItems = items
+              .where((item) => item['collection']?['is_published'] == true)
+              .map((item) {
+                try {
+                  final collection = item['collection'] as Map<String, dynamic>?;
+                  if (collection == null) return item;
+                  
+                  // 转换 collection 字段名
+                  final convertedCollection = _convertCollectionFields(collection);
+                  return {
+                    ...item,
+                    'collection': convertedCollection,
+                  };
+                } catch (e) {
+                  print('⚠️ Error converting collection: $e');
+                  return item;
+                }
+              })
+              .toList();
 
-        result.add({
-          'id': rec['id'],
-          'name': rec['name'],
-          'order': rec['sort_order'],
-          'items': filteredItems,
-        });
+          result.add({
+            'id': rec['id'],
+            'name': rec['name'],
+            'order': rec['sort_order'],
+            'items': filteredItems,
+          });
+        } catch (e) {
+          print('⚠️ Error processing recommendation ${rec['id']}: $e');
+        }
       }
 
       print('✅ Returning ${result.length} recommendations');
@@ -244,34 +271,55 @@ class SupabaseCollectionRepository {
     } catch (e, stackTrace) {
       print('❌ Error in listRecommendations: $e');
       print('📋 Stack trace: $stackTrace');
-      rethrow;
+      return [];
     }
   }
 
   /// 转换 collection 字段名从 snake_case 到 camelCase
   Map<String, dynamic> _convertCollectionFields(Map<String, dynamic> collection) {
-    final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
-    final convertedSpots = spots.map((spot) {
-      final spotMap = spot as Map<String, dynamic>;
-      final place = spotMap['place'] as Map<String, dynamic>?;
-      if (place == null) return spotMap;
+    try {
+      final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
+      print('🔄 Converting collection ${collection['id']}, spots count: ${spots.length}');
       
-      return <String, dynamic>{
-        ...spotMap,
-        'place': _convertPlaceFields(place),
-      };
-    }).toList();
+      final convertedSpots = spots.map((spot) {
+        try {
+          final spotMap = spot as Map<String, dynamic>;
+          final place = spotMap['place'] as Map<String, dynamic>?;
+          if (place == null) {
+            print('⚠️ Spot ${spotMap['id']} has no place data');
+            return spotMap;
+          }
+          
+          return <String, dynamic>{
+            ...spotMap,
+            'place': _convertPlaceFields(place),
+            'spot': _convertPlaceToSpot(place),  // 添加 spot 字段
+            'spotId': spotMap['place_id'],  // 添加 spotId 字段
+          };
+        } catch (e) {
+          print('⚠️ Error converting spot: $e');
+          return spot;
+        }
+      }).toList();
 
-    return {
-      'id': collection['id'],
-      'name': collection['name'],
-      'coverImage': collection['cover_image'],
-      'description': collection['description'],
-      'people': collection['people'],
-      'works': collection['works'],
-      'isPublished': collection['is_published'],
-      'collectionSpots': convertedSpots,
-    };
+      return {
+        'id': collection['id'],
+        'name': collection['name'],
+        'coverImage': collection['cover_image'],
+        'description': collection['description'],
+        'people': collection['people'],
+        'works': collection['works'],
+        'isPublished': collection['is_published'],
+        'spotCount': spots.length,
+        'collectionSpots': convertedSpots,
+      };
+    } catch (e, stackTrace) {
+      print('❌ Error in _convertCollectionFields: $e');
+      print('📋 Stack trace: $stackTrace');
+      print('📦 Collection data: $collection');
+      // 返回原始数据而不是抛出异常
+      return collection;
+    }
   }
 
   /// 转换 place 字段名从 snake_case 到 camelCase

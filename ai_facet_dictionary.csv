@@ -58,3 +58,4 @@ facet,Byzantine,Byzantine,拜占庭,70,"","tags:style:Byzantine*;keywords:byzant
 facet,Romanesque,Romanesque,罗曼式,70,"","tags:style:Romanesque*;keywords:romanesque"
 facet,Vernacular,Vernacular,乡土,60,"","tags:style:Vernacular*;keywords:vernacular"
 facet,AdaptiveReuse,AdaptiveReuse,旧改,72,"","tags:theme:adaptive_reuse;keywords:adaptive reuse;converted;former;reuse;repurposed"
+facet,Pilgrimage,Pilgrimage,圣地巡礼,85,"","source:mocation;tags:theme:pilgrimage;keywords:pilgrimage;film location;movie location"

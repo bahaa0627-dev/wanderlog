@@ -60,6 +60,97 @@ function parseAiTags(value: any): AITagElement[] {
 }
 
 /**
+ * 从结构化 tags 对象中提取标签列表
+ * tags 格式: { meal: ['breakfast', 'brunch'], style: ['cozy'] }
+ * 返回: ['breakfast', 'brunch', 'cozy']
+ */
+function extractTagsFromStructured(tags: Record<string, string[]> | null): string[] {
+  if (!tags || typeof tags !== 'object') return [];
+  
+  const result: string[] = [];
+  for (const key of Object.keys(tags)) {
+    const values = tags[key];
+    if (Array.isArray(values)) {
+      for (const v of values) {
+        if (typeof v === 'string' && v.trim()) {
+          result.push(v.trim());
+        }
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * 计算 display_tags，合并 aiTags 和 tags 的并集
+ * 优先级: aiTags (按 priority) > tags
+ * 最多 3 个标签
+ * 注意：不包含 category，因为 category 已经有单独的列显示
+ */
+function computeDisplayTagsWithUnion(
+  categoryEn: string | null | undefined,
+  categoryZh: string | null | undefined,
+  aiTags: AITagElement[],
+  tagsFromStructured: string[]
+): { display_tags_en: string[]; display_tags_zh: string[] } {
+  const MAX_TAGS = 3;
+  const resultEn: string[] = [];
+  const resultZh: string[] = [];
+  const seenEn = new Set<string>();
+  const seenZh = new Set<string>();
+  
+  // 记录 category 用于去重（不添加到结果中，但要避免重复）
+  if (categoryEn && categoryEn.trim()) {
+    seenEn.add(categoryEn.trim().toLowerCase());
+  }
+  if (categoryZh && categoryZh.trim()) {
+    seenZh.add(categoryZh.trim().toLowerCase());
+  }
+  
+  // 1. 添加 aiTags（按 priority 降序）
+  const sortedAiTags = [...aiTags].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  for (const tag of sortedAiTags) {
+    if (resultEn.length >= MAX_TAGS) break;
+    
+    const enValue = tag.en?.trim();
+    const zhValue = tag.zh?.trim();
+    
+    if (enValue && !seenEn.has(enValue.toLowerCase())) {
+      resultEn.push(enValue);
+      seenEn.add(enValue.toLowerCase());
+    }
+    if (zhValue && !seenZh.has(zhValue.toLowerCase()) && resultZh.length < MAX_TAGS) {
+      resultZh.push(zhValue);
+      seenZh.add(zhValue.toLowerCase());
+    }
+  }
+  
+  // 2. 添加 tags 中的标签（补充到 3 个）
+  for (const tag of tagsFromStructured) {
+    if (resultEn.length >= MAX_TAGS) break;
+    
+    const tagLower = tag.toLowerCase();
+    if (!seenEn.has(tagLower)) {
+      // 首字母大写
+      const formatted = tag.charAt(0).toUpperCase() + tag.slice(1);
+      resultEn.push(formatted);
+      seenEn.add(tagLower);
+      
+      // 中文也添加（暂时用英文，因为 tags 没有中文翻译）
+      if (resultZh.length < MAX_TAGS && !seenZh.has(tagLower)) {
+        resultZh.push(formatted);
+        seenZh.add(tagLower);
+      }
+    }
+  }
+  
+  return {
+    display_tags_en: resultEn,
+    display_tags_zh: resultZh,
+  };
+}
+
+/**
  * 转换 place 对象为 API 响应格式
  * 
  * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
@@ -67,9 +158,9 @@ function parseAiTags(value: any): AITagElement[] {
  * - 返回 category_en 和 category_zh 字段
  * - 返回 ai_tags 作为对象数组 {kind, id, en, zh, priority}
  * - 返回计算的 display_tags_en 和 display_tags_zh
- * - 不返回内部 tags 字段给 C 端用户
+ * - 不返回内部 tags 字段给 C 端用户（除非 includeInternalTags=true）
  */
-function transformPlace(place: any): any {
+function transformPlace(place: any, includeInternalTags: boolean = false): any {
   if (!place) return place;
   const images = parseJsonField(place.images);
   const coverImage = place.coverImage || (images.length > 0 ? images[0] : null);
@@ -86,33 +177,70 @@ function transformPlace(place: any): any {
   // 解析 ai_tags 为对象数组格式 (Requirements: 8.2, 8.5)
   const aiTags = parseAiTags(place.aiTags);
   
-  // 计算 display_tags (Requirements: 8.3)
-  const { display_tags_en, display_tags_zh } = displayTagsService.computeDisplayTagsBilingual(
+  // 解析 tags 字段（结构化标签，如 { meal: ['breakfast'], style: ['cozy'] }）
+  let parsedTags: Record<string, string[]> | null = null;
+  if (place.tags) {
+    if (typeof place.tags === 'string') {
+      try {
+        parsedTags = JSON.parse(place.tags);
+      } catch {
+        parsedTags = null;
+      }
+    } else if (typeof place.tags === 'object') {
+      parsedTags = place.tags;
+    }
+  }
+  
+  // 从 tags 字段提取标签用于 display_tags（取 tags 和 aiTags 的并集）
+  const tagsFromStructured = extractTagsFromStructured(parsedTags);
+  
+  // 计算 display_tags (Requirements: 8.3) - 合并 aiTags 和 tags 的并集
+  const { display_tags_en, display_tags_zh } = computeDisplayTagsWithUnion(
     categoryEn,
     categoryZh,
-    aiTags
+    aiTags,
+    tagsFromStructured
   );
   
-  // 构建响应对象，移除内部 tags 字段 (Requirements: 8.4)
-  const { tags: _internalTags, ...placeWithoutTags } = place;
+  // 构建响应对象
+  let result: any;
   
-  return {
-    ...placeWithoutTags,
-    // 确保 placeId 不为空，优先使用 placeId，其次 googlePlaceId，最后 id
-    placeId: place.placeId || place.googlePlaceId || place.id,
-    images,
-    coverImage,
-    // 分类字段 (Requirements: 8.1)
-    category,
-    categorySlug,
-    categoryEn,
-    categoryZh,
-    // AI Tags 对象数组 (Requirements: 8.2, 8.5)
-    aiTags,
-    // 计算的展示标签 (Requirements: 8.3)
-    display_tags_en,
-    display_tags_zh,
-  };
+  if (includeInternalTags) {
+    // 后台管理：保留 tags 字段
+    result = {
+      ...place,
+      placeId: place.placeId || place.googlePlaceId || place.id,
+      images,
+      coverImage,
+      category,
+      categorySlug,
+      categoryEn,
+      categoryZh,
+      aiTags,
+      display_tags_en,
+      display_tags_zh,
+      tags: parsedTags,
+    };
+  } else {
+    // C 端：移除内部 tags 字段 (Requirements: 8.4)
+    const { tags: _internalTags, ...placeWithoutTags } = place;
+    
+    result = {
+      ...placeWithoutTags,
+      placeId: place.placeId || place.googlePlaceId || place.id,
+      images,
+      coverImage,
+      category,
+      categorySlug,
+      categoryEn,
+      categoryZh,
+      aiTags,
+      display_tags_en,
+      display_tags_zh,
+    };
+  }
+  
+  return result;
 }
 
 class PublicPlaceController {
@@ -122,7 +250,7 @@ class PublicPlaceController {
    */
   async getAllPlaces(req: Request, res: Response): Promise<void> {
     try {
-      const { page, limit, city, country, category, source, search, minRating, maxRating, tag, hasCoverImage, sortBy, sortOrder } = req.query;
+      const { page, limit, city, country, category, source, search, minRating, maxRating, tag, tagType, hasCoverImage, sortBy, sortOrder, includeInternalTags } = req.query;
 
       const result = await publicPlaceService.getAllPlaces({
         page: page ? parseInt(page as string) : undefined,
@@ -135,14 +263,18 @@ class PublicPlaceController {
         minRating: minRating ? parseFloat(minRating as string) : undefined,
         maxRating: maxRating ? parseFloat(maxRating as string) : undefined,
         tag: tag as string,
+        tagType: tagType as string,
         hasCoverImage: hasCoverImage === 'true' ? true : (hasCoverImage === 'false' ? false : undefined),
         sortBy: sortBy as 'rating' | 'ratingCount' | 'createdAt' | undefined,
         sortOrder: sortOrder as 'asc' | 'desc' | undefined,
       });
 
+      // 如果请求包含 includeInternalTags=true，则不移除 tags 字段（用于后台管理）
+      const shouldIncludeInternalTags = includeInternalTags === 'true';
+
       res.json({
         success: true,
-        data: result.places.map(transformPlace),
+        data: result.places.map(place => transformPlace(place, shouldIncludeInternalTags)),
         pagination: result.pagination,
       });
     } catch (error: any) {
@@ -160,6 +292,7 @@ class PublicPlaceController {
   async getPlaceByPlaceId(req: Request, res: Response): Promise<void> {
     try {
       const { placeId } = req.params;
+      const includeInternalTags = req.query.includeInternalTags === 'true';
       const place = await publicPlaceService.getPlaceByPlaceId(placeId);
 
       if (!place) {
@@ -171,7 +304,7 @@ class PublicPlaceController {
 
       res.json({
         success: true,
-        data: transformPlace(place),
+        data: transformPlace(place, includeInternalTags),
       });
     } catch (error: any) {
       res.status(500).json({

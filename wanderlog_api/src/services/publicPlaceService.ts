@@ -467,6 +467,7 @@ class PublicPlaceService {
     minRating?: number;
     maxRating?: number;
     tag?: string;
+    tagType?: string;
     hasCoverImage?: boolean;
     sortBy?: 'rating' | 'ratingCount' | 'createdAt';
     sortOrder?: 'asc' | 'desc';
@@ -597,40 +598,72 @@ class PublicPlaceService {
     let places = rawPlaces;
     let total = rawTotal;
     
-    if (tagFilter) {
-      const tagLower = tagFilter.toLowerCase();
+    // 标签类型对应的分类映射
+    const tagTypeCategoryMap: Record<string, string[]> = {
+      'meal': ['Restaurant', 'Cafe', 'Bakery', 'Bar', 'Food'],
+      'shop': ['Shop', 'Store', 'Boutique', 'Market'],
+    };
+    
+    const tagTypeFilter = options?.tagType;
+    
+    if (tagFilter || tagTypeFilter) {
       places = rawPlaces.filter(place => {
-        // 检查 aiTags
-        if (place.aiTags && Array.isArray(place.aiTags)) {
-          for (const tag of place.aiTags as any[]) {
-            const tagEn = typeof tag === 'object' && tag.en ? tag.en : (typeof tag === 'string' ? tag : '');
-            if (tagEn.toLowerCase().includes(tagLower)) {
-              return true;
-            }
+        // 如果有 tagType 筛选，先检查分类是否匹配
+        if (tagTypeFilter && tagTypeCategoryMap[tagTypeFilter]) {
+          const allowedCategories = tagTypeCategoryMap[tagTypeFilter];
+          const placeCategory = (place.categoryEn || place.category || '').toLowerCase();
+          const categoryMatch = allowedCategories.some(cat => 
+            placeCategory.includes(cat.toLowerCase())
+          );
+          if (!categoryMatch) {
+            return false;
           }
         }
         
-        // 检查 tags 字段（JSON 对象格式）
-        if (place.tags && typeof place.tags === 'object') {
-          const tagsObj = place.tags as any;
-          // 遍历所有键（type, style, architect, theme 等）
-          for (const key of Object.keys(tagsObj)) {
-            const value = tagsObj[key];
-            if (Array.isArray(value)) {
-              // 如果值是数组，检查每个元素
-              for (const item of value) {
-                if (typeof item === 'string' && item.toLowerCase().includes(tagLower)) {
-                  return true;
-                }
+        // 如果有 tag 筛选，检查标签
+        if (tagFilter) {
+          const tagLower = tagFilter.toLowerCase();
+          let tagMatch = false;
+          
+          // 检查 aiTags
+          if (place.aiTags && Array.isArray(place.aiTags)) {
+            for (const tag of place.aiTags as any[]) {
+              const tagEn = typeof tag === 'object' && tag.en ? tag.en : (typeof tag === 'string' ? tag : '');
+              if (tagEn.toLowerCase().includes(tagLower)) {
+                tagMatch = true;
+                break;
               }
-            } else if (typeof value === 'string' && value.toLowerCase().includes(tagLower)) {
-              // 如果值是字符串，直接检查
-              return true;
             }
+          }
+          
+          // 检查 tags 字段（JSON 对象格式）
+          if (!tagMatch && place.tags && typeof place.tags === 'object') {
+            const tagsObj = place.tags as any;
+            // 遍历所有键（type, style, architect, theme 等）
+            for (const key of Object.keys(tagsObj)) {
+              const value = tagsObj[key];
+              if (Array.isArray(value)) {
+                // 如果值是数组，检查每个元素
+                for (const item of value) {
+                  if (typeof item === 'string' && item.toLowerCase().includes(tagLower)) {
+                    tagMatch = true;
+                    break;
+                  }
+                }
+              } else if (typeof value === 'string' && value.toLowerCase().includes(tagLower)) {
+                // 如果值是字符串，直接检查
+                tagMatch = true;
+              }
+              if (tagMatch) break;
+            }
+          }
+          
+          if (!tagMatch) {
+            return false;
           }
         }
         
-        return false;
+        return true;
       });
       
       total = places.length;
@@ -719,8 +752,18 @@ class PublicPlaceService {
       updateData.customFields = updates.customFields ? (typeof updates.customFields === 'string' ? JSON.parse(updates.customFields) : updates.customFields) : null;
     }
     
-    // 如果更新了 category 或 aiTags，需要重新归一化
-    const needsNormalization = updates.category !== undefined || updates.aiTags !== undefined;
+    // 直接更新 tags 字段（结构化标签）
+    if (updates.tags !== undefined) {
+      updateData.tags = updates.tags ? (typeof updates.tags === 'string' ? JSON.parse(updates.tags) : updates.tags) : null;
+    }
+    
+    // 直接更新 aiTags 字段（AI 展示标签）
+    if (updates.aiTags !== undefined) {
+      updateData.aiTags = updates.aiTags ? (typeof updates.aiTags === 'string' ? JSON.parse(updates.aiTags) : updates.aiTags) : null;
+    }
+    
+    // 如果更新了 category，需要重新归一化分类字段
+    const needsNormalization = updates.category !== undefined;
     console.log('[updatePlace] needsNormalization:', needsNormalization);
     
     if (needsNormalization) {
@@ -741,22 +784,18 @@ class PublicPlaceService {
         description: updates.description || existingPlace?.description || existingPlace?.aiDescription || '',
         googleKeywords: updates.category ? [updates.category] : (existingPlace?.category ? [existingPlace.category] : []),
         existingCategory: updates.category || existingPlace?.category || undefined,
-        existingTags: updates.aiTags 
-          ? (typeof updates.aiTags === 'string' ? JSON.parse(updates.aiTags) : updates.aiTags) 
-          : (existingPlace?.aiTags as string[] || []),
+        existingTags: existingPlace?.aiTags as string[] || [],
       };
       
       // 执行归一化
       const normalized = await normalizationService.normalize(normInput);
       console.log('[updatePlace] normalized:', JSON.stringify(normalized, null, 2));
       
-      // 更新归一化字段
+      // 只更新分类相关字段，不覆盖手动设置的 tags 和 aiTags
       updateData.category = updates.category || existingPlace?.category || null;
       updateData.categorySlug = normalized.categorySlug;
       updateData.categoryEn = normalized.categoryEn;
       updateData.categoryZh = normalized.categoryZh;
-      updateData.tags = normalized.tags;
-      updateData.aiTags = normalized.aiTags;
       
       // 合并 customFields
       if (normalized.customFields) {

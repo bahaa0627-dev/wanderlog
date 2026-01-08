@@ -249,7 +249,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         
         try {
           final coverImg = spotData['coverImage']?.toString() ?? spotData['cover_image']?.toString() ?? '';
-          final imagesList = _parseTagsList(spotData['images'] ?? []);
+          final imagesList = _parseImagesList(spotData['images'] ?? []);
           
           final spot = map_page.Spot(
             id: spotData['id']?.toString() ?? '',
@@ -291,6 +291,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         final collection = await repo.getCollection(widget.collectionId!);
         
         print('📦 获取到合集数据: ${collection.keys}');
+        print('📦 合集数据详情: $collection');
         
         // 加载收藏状态
         final isFavorited = _extractIsFavorited(collection);
@@ -303,6 +304,9 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         
         final collectionSpots = collection['collectionSpots'] as List<dynamic>? ?? [];
         print('📍 合集中的地点数量: ${collectionSpots.length}');
+        if (collectionSpots.isNotEmpty) {
+          print('📍 第一个地点数据: ${collectionSpots.first}');
+        }
 
         final List<map_page.Spot> spots = [];
 
@@ -320,7 +324,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
             // 直接从合集返回的数据创建 Spot
             // 注意: map_page.Spot 类只有以下参数: id, name, city, category, latitude, longitude, rating, ratingCount, coverImage, images, tags, aiSummary
             final coverImg = spotData['coverImage']?.toString() ?? spotData['cover_image']?.toString() ?? '';
-            final imagesList = _parseTagsList(spotData['images'] ?? []);
+            final imagesList = _parseImagesList(spotData['images'] ?? []);
             
             final spot = map_page.Spot(
               id: spotData['id']?.toString() ?? '',
@@ -428,6 +432,32 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         final decoded = jsonDecode(value);
         if (decoded is List) {
           return _parseTagsList(decoded);
+        }
+      } catch (_) {}
+    }
+    return [];
+  }
+
+  /// 解析图片列表 - 支持字符串数组和 JSON 字符串
+  List<String> _parseImagesList(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      final List<String> result = [];
+      for (final item in value) {
+        if (item != null) {
+          final str = item.toString();
+          if (str.isNotEmpty) {
+            result.add(str);
+          }
+        }
+      }
+      return result;
+    }
+    if (value is String) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List) {
+          return _parseImagesList(decoded);
         }
       } catch (_) {}
     }

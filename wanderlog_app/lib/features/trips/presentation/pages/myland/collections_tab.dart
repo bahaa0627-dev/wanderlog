@@ -436,75 +436,77 @@ class _CollectionCardState extends State<_CollectionCard> {
                   ),
                 ),
 
-                // 内容层
+                // 顶部标签层 - 固定在顶部
                 Positioned(
                   left: 12,
                   right: 12,
                   top: 12,
-                  bottom: 12,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      // 顶部标签 - 右侧对齐
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          // 地点数量 - 64% 白色背景，黑色文字，在左侧
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.white.withOpacity(0.64),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  widget.spotsCount.toString(),
-                                  style: AppTheme.labelSmall(context).copyWith(
-                                    fontSize: 12,
-                                    color: AppTheme.black,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                const Icon(
-                                  Icons.location_on,
-                                  size: 12,
-                                  color: AppTheme.black,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // 城市名称 - 白色背景，黑色文字，在右侧
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.white,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              widget.city,
+                      // 地点数量 - 64% 白色背景，黑色文字，在左侧
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.white.withOpacity(0.64),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.spotsCount.toString(),
                               style: AppTheme.labelSmall(context).copyWith(
                                 fontSize: 12,
                                 color: AppTheme.black,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 2),
+                            const Icon(
+                              Icons.location_on,
+                              size: 12,
+                              color: AppTheme.black,
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 12),
+                      // 城市名称 - 白色背景，黑色文字，在右侧
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          widget.city,
+                          style: AppTheme.labelSmall(context).copyWith(
+                            fontSize: 12,
+                            color: AppTheme.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
-                      const Spacer(),
-
-                      // 底部标题和标签
+                // 底部标题和标签层 - 固定在底部
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Text(
                         widget.name,
                         style: AppTheme.headlineMedium(context).copyWith(
@@ -520,23 +522,25 @@ class _CollectionCardState extends State<_CollectionCard> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: widget.tags
-                            .take(2)
-                            .map(
-                              (tag) => Text(
-                                tag,
-                                style: AppTheme.labelSmall(context).copyWith(
-                                  fontSize: 12,
-                                  color: AppTheme.white.withOpacity(0.9),
+                      if (widget.tags.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: widget.tags
+                              .take(2)
+                              .map(
+                                (tag) => Text(
+                                  tag,
+                                  style: AppTheme.labelSmall(context).copyWith(
+                                    fontSize: 12,
+                                    color: AppTheme.white.withOpacity(0.9),
+                                  ),
                                 ),
-                              ),
-                            )
-                            .toList(),
-                      ),
+                              )
+                              .toList(),
+                        ),
+                      ],
                     ],
                   ),
                 ),

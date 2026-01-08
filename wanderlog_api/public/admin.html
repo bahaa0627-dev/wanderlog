@@ -987,7 +987,7 @@
                         <th>分类</th>
                         <th>描述/摘要</th>
                         <th>营业时间</th>
-                        <th>价格等级</th>
+                        <th>价格区间</th>
                         <th>联系方式</th>
                         <th>标签</th>
                         <th>来源</th>
@@ -1290,9 +1290,26 @@
                 <textarea id="placeOpeningHours" rows="4" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Monday: 9:00 AM – 5:00 PM&#10;Tuesday: 9:00 AM – 5:00 PM&#10;..." autocomplete="off"></textarea>
             </div>
             
-            <div class="form-group">
-                <label>标签（用逗号分隔，如：Culture, Shopping, Landmark）</label>
-                <input id="placeTags" type="text" placeholder="Culture, Shopping, Landmark" style="width:100%;" autocomplete="off">
+            <div class="form-card" style="margin:8px 0;">
+                <div class="section-title">标签管理</div>
+                
+                <div class="form-group">
+                    <label>结构化标签 (tags) <small style="color:#999;">按回车添加，自动归类</small></label>
+                    <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:42px;background:#fff;border:1px solid #ddd;border-radius:6px;cursor:text;" onclick="document.getElementById('tagInput').focus()">
+                        <div id="placeTagsChips" style="display:contents;"></div>
+                        <input type="text" id="tagInput" placeholder="输入标签后按回车..." style="border:none;outline:none;flex:1;min-width:120px;padding:4px;" onkeydown="handleTagInputKeydown(event)">
+                    </div>
+                    <input type="hidden" id="placeTagsJson">
+                </div>
+                
+                <div class="form-group">
+                    <label>AI 展示标签 (aiTags) <small style="color:#999;">按回车添加</small></label>
+                    <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:42px;background:#fff;border:1px solid #ddd;border-radius:6px;cursor:text;" onclick="document.getElementById('aiTagInput').focus()">
+                        <div id="placeAiTagsChips" style="display:contents;"></div>
+                        <input type="text" id="aiTagInput" placeholder="输入 AI 标签后按回车..." style="border:none;outline:none;flex:1;min-width:120px;padding:4px;" onkeydown="handleAiTagInputKeydown(event)">
+                    </div>
+                    <input type="hidden" id="placeAiTagsJson">
+                </div>
             </div>
             
             <div class="form-card" style="margin:8px 0;">
@@ -1350,6 +1367,7 @@
         const API_HOST = getApiHost();
         console.log('API_HOST:', API_HOST, 'hostname:', window.location.hostname);
         const API_BASE = `${API_HOST}/api/public-places`;
+        const API_BASE_WITH_INTERNAL_TAGS = `${API_HOST}/api/public-places?includeInternalTags=true`;
         const SPOT_API_BASE = `${API_HOST}/api/spots`;
         const COLLECTION_API_BASE = `${API_HOST}/api/collections`;
         const RECOMMENDATION_API_BASE = `${API_HOST}/api/collection-recommendations`;
@@ -1737,7 +1755,7 @@
             const tagTypeSelect = document.getElementById('tagTypeFilter');
             if (!tagTypeSelect) return;
             
-            tagTypeSelect.innerHTML = '<option value="">全部类型</option>';
+            tagTypeSelect.innerHTML = '<option value="">All Types</option>';
             
             // 如果后端返回的 tagsByType 都是 "other"，我们自己创建分组
             let tagsByType = [];
@@ -1767,7 +1785,7 @@
             tagsByType.forEach(typeInfo => {
                 const option = document.createElement('option');
                 option.value = typeInfo.type;
-                option.textContent = `${typeInfo.labelZh} (${typeInfo.count})`;
+                option.textContent = `${typeInfo.label} (${typeInfo.count})`;
                 option.selected = typeInfo.type === currentTagType;
                 tagTypeSelect.appendChild(option);
             });
@@ -1883,8 +1901,16 @@
                 return 'style';
             }
             
-            // 主题关键词
-            const themeKeywords = ['feminism', 'feminist', 'sustainability', 'ecology', 'social'];
+            // 主题关键词 - 包括墓地相关的人物类型
+            const themeKeywords = [
+                'feminism', 'feminist', 'sustainability', 'ecology', 'social',
+                'musician', 'artist', 'scientist', 'writer', 'poet', 'composer',
+                'painter', 'sculptor', 'philosopher', 'politician', 'actor', 'actress',
+                'director', 'filmmaker', 'photographer', 'journalist', 'historian',
+                'mathematician', 'physicist', 'chemist', 'biologist', 'inventor',
+                'explorer', 'military', 'general', 'admiral', 'revolutionary',
+                'religious', 'saint', 'martyr', 'nobel', 'laureate'
+            ];
             for (const keyword of themeKeywords) {
                 if (lowerTag.includes(keyword)) {
                     return 'theme';
@@ -1900,7 +1926,7 @@
             }
             
             // 领域关键词
-            const domainKeywords = ['domain:', 'science', 'wissenschaft', 'writer'];
+            const domainKeywords = ['domain:', 'science', 'wissenschaft'];
             for (const keyword of domainKeywords) {
                 if (lowerTag.includes(keyword)) {
                     return 'domain';
@@ -2210,6 +2236,7 @@
                 const params = new URLSearchParams({
                     page: currentPage,
                     limit: 20,
+                    includeInternalTags: 'true',  // 后台管理需要完整的 tags 字段
                     ...filters
                 });
 
@@ -2580,6 +2607,7 @@
             const minRating = document.getElementById('minRating').value;
             const maxRating = document.getElementById('maxRating').value;
             const tagFilter = document.getElementById('tagFilter').value.trim();
+            const tagTypeFilter = document.getElementById('tagTypeFilter').value;
             const sourceFilter = document.getElementById('sourceFilter').value;
             const hasCoverImage = document.getElementById('hasCoverImage').value;
             const sortBy = document.getElementById('sortBy').value;
@@ -2587,6 +2615,7 @@
 
             if (search) newFilters.search = search;
             if (tagFilter) newFilters.tag = tagFilter;
+            if (tagTypeFilter) newFilters.tagType = tagTypeFilter;
             if (country) newFilters.country = country;
             if (city) newFilters.city = city;
             if (category) newFilters.category = category;
@@ -3481,8 +3510,8 @@
         // 打开编辑地点弹窗
         async function openEditPlaceModal(id) {
             try {
-                // 始终从 API 获取最新数据，确保编辑时显示最新内容
-                const res = await fetch(`${API_BASE}/${id}`);
+                // 始终从 API 获取最新数据，确保编辑时显示最新内容（包含内部标签）
+                const res = await fetch(`${API_BASE}/${id}?includeInternalTags=true`);
                 const result = await res.json();
                 if (!result.success || !result.data) {
                     throw new Error('获取地点数据失败');
@@ -3516,26 +3545,36 @@
                     try {
                         const hours = typeof place.openingHours === 'string' ? JSON.parse(place.openingHours) : place.openingHours;
                         if (hours && hours.weekday_text && Array.isArray(hours.weekday_text)) {
+                            // Format: { weekday_text: ["Monday: 9:00 AM – 5:00 PM", ...] }
                             openingHoursText = hours.weekday_text.join('\n');
                         } else if (Array.isArray(hours)) {
-                            openingHoursText = hours.join('\n');
+                            // Check if it's Apify format: [{ day: "Monday", hours: "9:00 AM – 5:00 PM" }, ...]
+                            if (hours.length > 0 && typeof hours[0] === 'object' && hours[0].day && hours[0].hours) {
+                                openingHoursText = hours.map(h => `${h.day}: ${h.hours}`).join('\n');
+                            } else {
+                                // Simple array of strings: ["Monday: 9:00 AM – 5:00 PM", ...]
+                                openingHoursText = hours.join('\n');
+                            }
                         }
                     } catch {}
                 }
                 document.getElementById('placeOpeningHours').value = openingHoursText;
                 
-                // 解析标签
-                let tagsText = '';
-                const tagsData = place.aiTags || place.tags;
-                if (tagsData) {
-                    try {
-                        const tagArr = typeof tagsData === 'string' ? JSON.parse(tagsData) : tagsData;
-                        if (Array.isArray(tagArr)) {
-                            tagsText = tagArr.join(', ');
-                        }
-                    } catch {}
+                // 解析标签 - tags (结构化标签)
+                let tags = {};
+                if (place.tags && typeof place.tags === 'object' && Object.keys(place.tags).length > 0) {
+                    tags = place.tags;
                 }
-                document.getElementById('placeTags').value = tagsText;
+                document.getElementById('placeTagsJson').value = Object.keys(tags).length > 0 ? JSON.stringify(tags, null, 2) : '';
+                renderPlaceTags(tags);
+                
+                // 解析 aiTags (AI 展示标签)
+                let aiTags = [];
+                if (place.aiTags && Array.isArray(place.aiTags) && place.aiTags.length > 0) {
+                    aiTags = place.aiTags;
+                }
+                document.getElementById('placeAiTagsJson').value = aiTags.length > 0 ? JSON.stringify(aiTags, null, 2) : '';
+                renderPlaceAiTags(aiTags);
                 
                 // 解析图片列表
                 placeImages = [];
@@ -3585,6 +3624,207 @@
             placeStills = [];
         }
         
+        // 标签自动归类规则
+        const TAG_CATEGORIES = {
+            meal: ['breakfast', 'brunch', 'lunch', 'dinner', 'supper', 'tea', 'coffee', 'dessert', 'snack'],
+            style: ['cozy', 'romantic', 'trendy', 'upscale', 'casual', 'modern', 'traditional', 'elegant', 'rustic', 'minimalist', 'vintage', 'industrial', 'bohemian'],
+            theme: ['musician', 'artist', 'writer', 'poet', 'composer', 'painter', 'sculptor', 'philosopher', 'scientist', 'architect', 'filmmaker', 'photographer', 'designer', 'celebrity', 'historical', 'literary', 'musical', 'artistic'],
+            award: ['michelin', 'star', 'bib gourmand', 'award', 'prize', 'best', 'top', 'recommended'],
+            cuisine: ['italian', 'french', 'japanese', 'chinese', 'korean', 'thai', 'vietnamese', 'indian', 'mexican', 'spanish', 'greek', 'turkish', 'middle eastern', 'american', 'british', 'german', 'mediterranean', 'asian', 'european', 'fusion', 'seafood', 'vegetarian', 'vegan']
+        };
+        
+        // 自动归类标签
+        function classifyTag(value) {
+            const lowerValue = value.toLowerCase();
+            for (const [category, keywords] of Object.entries(TAG_CATEGORIES)) {
+                if (keywords.some(kw => lowerValue.includes(kw) || kw.includes(lowerValue))) {
+                    return category;
+                }
+            }
+            return 'others';
+        }
+        
+        // 处理标签输入回车
+        function handleTagInputKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const input = document.getElementById('tagInput');
+                const value = input.value.trim();
+                if (value) {
+                    const type = classifyTag(value);
+                    addTagToStore(type, value);
+                    input.value = '';
+                }
+            }
+        }
+        
+        // 处理 AI 标签输入回车
+        function handleAiTagInputKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const input = document.getElementById('aiTagInput');
+                const value = input.value.trim();
+                if (value) {
+                    addAiTagToStore(value);
+                    input.value = '';
+                }
+            }
+        }
+        
+        // 添加标签到存储
+        function addTagToStore(type, value) {
+            const hiddenInput = document.getElementById('placeTagsJson');
+            let tags = {};
+            
+            if (hiddenInput.value.trim()) {
+                try {
+                    tags = JSON.parse(hiddenInput.value);
+                } catch (e) {
+                    tags = {};
+                }
+            }
+            
+            if (!tags[type]) {
+                tags[type] = [];
+            }
+            if (!tags[type].includes(value)) {
+                tags[type].push(value);
+            }
+            
+            hiddenInput.value = JSON.stringify(tags, null, 2);
+            renderPlaceTags(tags);
+        }
+        
+        // 添加 AI 标签到存储
+        function addAiTagToStore(value) {
+            const hiddenInput = document.getElementById('placeAiTagsJson');
+            let aiTags = [];
+            
+            if (hiddenInput.value.trim()) {
+                try {
+                    aiTags = JSON.parse(hiddenInput.value);
+                } catch (e) {
+                    aiTags = [];
+                }
+            }
+            
+            if (!Array.isArray(aiTags)) {
+                aiTags = [];
+            }
+            
+            // aiTags 可能是字符串数组或对象数组，统一处理
+            const existingValues = aiTags.map(t => typeof t === 'string' ? t : (t.en || t.id || ''));
+            if (!existingValues.includes(value)) {
+                aiTags.push(value);
+            }
+            
+            hiddenInput.value = JSON.stringify(aiTags, null, 2);
+            renderPlaceAiTags(aiTags);
+        }
+        
+        // 渲染结构化标签为 chips（在输入框内）
+        function renderPlaceTags(tags) {
+            const container = document.getElementById('placeTagsChips');
+            if (!tags || typeof tags !== 'object' || Object.keys(tags).length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            const typeColors = {
+                meal: '#e3f2fd',
+                style: '#f3e5f5',
+                theme: '#e8f5e9',
+                award: '#fff3e0',
+                cuisine: '#fce4ec',
+                others: '#f5f5f5'
+            };
+            
+            const chips = [];
+            for (const [type, values] of Object.entries(tags)) {
+                if (Array.isArray(values)) {
+                    const bgColor = typeColors[type] || typeColors.others;
+                    values.forEach(value => {
+                        chips.push(`
+                            <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:${bgColor};border-radius:12px;font-size:12px;white-space:nowrap;">
+                                <span style="color:#666;font-size:10px;">${type}:</span>
+                                <span style="font-weight:500;">${value}</span>
+                                <button type="button" onclick="removeTag('${type}', '${value}')" style="border:none;background:none;cursor:pointer;color:#999;font-size:14px;line-height:1;padding:0 2px;" title="删除">×</button>
+                            </span>
+                        `);
+                    });
+                }
+            }
+            
+            container.innerHTML = chips.join('');
+        }
+        
+        // 渲染 AI 标签为 chips（在输入框内）
+        function renderPlaceAiTags(aiTags) {
+            const container = document.getElementById('placeAiTagsChips');
+            if (!aiTags || !Array.isArray(aiTags) || aiTags.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            const chips = aiTags.map((tag, idx) => {
+                // 支持字符串或对象格式
+                const displayText = typeof tag === 'string' ? tag : (tag.en || tag.id || JSON.stringify(tag));
+                return `
+                    <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#fff3cd;border-radius:12px;font-size:12px;white-space:nowrap;">
+                        <span style="font-weight:500;color:#856404;">${displayText}</span>
+                        <button type="button" onclick="removeAiTag(${idx})" style="border:none;background:none;cursor:pointer;color:#856404;font-size:14px;line-height:1;padding:0 2px;" title="删除">×</button>
+                    </span>
+                `;
+            }).join('');
+            
+            container.innerHTML = chips;
+        }
+        
+        // 删除结构化标签
+        function removeTag(type, value) {
+            const hiddenInput = document.getElementById('placeTagsJson');
+            let tags = {};
+            
+            if (hiddenInput.value.trim()) {
+                try {
+                    tags = JSON.parse(hiddenInput.value);
+                } catch (e) {
+                    return;
+                }
+            }
+            
+            if (tags[type] && Array.isArray(tags[type])) {
+                tags[type] = tags[type].filter(v => v !== value);
+                if (tags[type].length === 0) {
+                    delete tags[type];
+                }
+            }
+            
+            hiddenInput.value = Object.keys(tags).length > 0 ? JSON.stringify(tags, null, 2) : '';
+            renderPlaceTags(tags);
+        }
+        
+        // 删除 AI 标签
+        function removeAiTag(index) {
+            const hiddenInput = document.getElementById('placeAiTagsJson');
+            let aiTags = [];
+            
+            if (hiddenInput.value.trim()) {
+                try {
+                    aiTags = JSON.parse(hiddenInput.value);
+                } catch (e) {
+                    return;
+                }
+            }
+            
+            if (Array.isArray(aiTags) && index >= 0 && index < aiTags.length) {
+                aiTags.splice(index, 1);
+            }
+            
+            hiddenInput.value = aiTags.length > 0 ? JSON.stringify(aiTags, null, 2) : '';
+            renderPlaceAiTags(aiTags);
+        }
+        
         // 清空地点表单
         function clearPlaceForm() {
             document.getElementById('placeName').value = '';
@@ -3601,9 +3841,15 @@
             document.getElementById('placeWebsite').value = '';
             document.getElementById('placePhone').value = '';
             document.getElementById('placeOpeningHours').value = '';
-            document.getElementById('placeTags').value = '';
+            document.getElementById('placeTagsJson').value = '';
+            document.getElementById('placeAiTagsJson').value = '';
             document.getElementById('placeCoverImage').value = '';
             document.getElementById('placeImageUpload').value = '';
+            document.getElementById('tagInput').value = '';
+            document.getElementById('aiTagInput').value = '';
+            // 清空标签 chips
+            renderPlaceTags({});
+            renderPlaceAiTags([]);
             placeImages = [];
             renderPlaceImages();
             updateCoverImagePreview();
@@ -3720,20 +3966,83 @@
             }
         }
         
-        // 渲染剧照列表
+        // 渲染剧照列表 - 支持按电影分组显示
         function renderPlaceStills() {
             const container = document.getElementById('placeStillsList');
             if (!container) return;
             
-            container.innerHTML = placeStills.map((img, idx) => {
-                return `
-                    <div class="chip" style="padding:4px;">
-                        <img src="${img}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;" 
-                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2260%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>🎬</text></svg>'">
-                        <button onclick="removePlaceStill(${idx})" style="margin-left:4px;">×</button>
-                    </div>
-                `;
-            }).join('');
+            if (!placeStills || placeStills.length === 0) {
+                container.innerHTML = '<div style="color:#999;font-size:13px;">暂无剧照</div>';
+                return;
+            }
+            
+            // 检查是否是新格式（带电影信息的对象数组）
+            const hasMovieInfo = placeStills.some(s => typeof s === 'object' && s.movieId);
+            
+            if (hasMovieInfo) {
+                // 按电影分组
+                const movieGroups = {};
+                placeStills.forEach((still, idx) => {
+                    if (typeof still === 'object' && still.movieId) {
+                        const key = still.movieId;
+                        if (!movieGroups[key]) {
+                            movieGroups[key] = {
+                                movieNameCn: still.movieNameCn || '',
+                                movieNameEn: still.movieNameEn || '',
+                                year: still.year || '',
+                                stills: []
+                            };
+                        }
+                        movieGroups[key].stills.push({ url: still.url, idx });
+                    } else {
+                        // 兼容旧格式（纯字符串URL）
+                        const key = '_unknown_';
+                        if (!movieGroups[key]) {
+                            movieGroups[key] = { movieNameCn: '未知电影', movieNameEn: '', year: '', stills: [] };
+                        }
+                        movieGroups[key].stills.push({ url: typeof still === 'string' ? still : still.url, idx });
+                    }
+                });
+                
+                // 渲染分组
+                let html = '';
+                Object.entries(movieGroups).forEach(([movieId, group]) => {
+                    const movieTitle = group.movieNameCn 
+                        ? `🎬 ${group.movieNameCn}${group.movieNameEn ? ' / ' + group.movieNameEn : ''}${group.year ? ' (' + group.year + ')' : ''}`
+                        : (group.movieNameEn || '未知电影');
+                    
+                    html += `
+                        <div style="width:100%;margin-bottom:16px;">
+                            <div style="font-weight:600;color:#667eea;margin-bottom:8px;font-size:14px;border-bottom:1px solid #eee;padding-bottom:4px;">
+                                ${movieTitle}
+                                <span style="color:#999;font-weight:normal;font-size:12px;margin-left:8px;">${group.stills.length} 张剧照</span>
+                            </div>
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                                ${group.stills.map(s => `
+                                    <div class="chip" style="padding:4px;">
+                                        <img src="${s.url}" style="width:100px;height:75px;object-fit:cover;border-radius:4px;" 
+                                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2275%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>🎬</text></svg>'">
+                                        <button onclick="removePlaceStill(${s.idx})" style="margin-left:4px;">×</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } else {
+                // 旧格式：简单的图片URL数组
+                container.innerHTML = placeStills.map((img, idx) => {
+                    const imgUrl = typeof img === 'string' ? img : (img.url || img);
+                    return `
+                        <div class="chip" style="padding:4px;">
+                            <img src="${imgUrl}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;" 
+                                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2260%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>🎬</text></svg>'">
+                            <button onclick="removePlaceStill(${idx})" style="margin-left:4px;">×</button>
+                        </div>
+                    `;
+                }).join('');
+            }
         }
         
         // 删除剧照
@@ -3794,11 +4103,32 @@
                     }
                 }
                 
-                // 解析标签
-                const tagsText = document.getElementById('placeTags').value.trim();
+                // 解析标签 - tags (结构化标签)
+                const tagsJsonText = document.getElementById('placeTagsJson').value.trim();
                 let tags = null;
-                if (tagsText) {
-                    tags = tagsText.split(',').map(t => t.trim()).filter(t => t);
+                if (tagsJsonText) {
+                    try {
+                        tags = JSON.parse(tagsJsonText);
+                    } catch (e) {
+                        alert('结构化标签 JSON 格式错误: ' + e.message);
+                        return;
+                    }
+                }
+                
+                // 解析 aiTags (AI 展示标签)
+                const aiTagsJsonText = document.getElementById('placeAiTagsJson').value.trim();
+                let aiTags = null;
+                if (aiTagsJsonText) {
+                    try {
+                        aiTags = JSON.parse(aiTagsJsonText);
+                        if (!Array.isArray(aiTags)) {
+                            alert('AI 标签必须是数组格式');
+                            return;
+                        }
+                    } catch (e) {
+                        alert('AI 标签 JSON 格式错误: ' + e.message);
+                        return;
+                    }
                 }
                 
                 // 构建请求数据
@@ -3825,7 +4155,8 @@
                     website: website || undefined,
                     phoneNumber: document.getElementById('placePhone').value.trim() || undefined,
                     openingHours: openingHours ? JSON.stringify(openingHours) : undefined,
-                    aiTags: tags ? JSON.stringify(tags) : undefined,
+                    tags: tags ? JSON.stringify(tags) : undefined,
+                    aiTags: aiTags ? JSON.stringify(aiTags) : undefined,
                     coverImage: coverImage || undefined,
                     images: placeImages.length > 0 ? JSON.stringify(placeImages) : undefined,
                     customFields: customFields,

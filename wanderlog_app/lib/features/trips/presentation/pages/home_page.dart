@@ -736,148 +736,144 @@ class _TripCardState extends State<_TripCard> {
                   ),
                 ),
 
-                // 内容层
+                // 内容层 - 顶部标签
                 Positioned(
                   left: 12,
                   right: 12,
                   top: 12,
-                  bottom: 16, // 增加底部 padding 防止 overflow
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 顶部标签 - 右侧对齐，使用 LayoutBuilder 检测空间
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          // 计算城市名称需要的宽度
-                          final cityTextPainter = TextPainter(
-                            text: TextSpan(
-                              text: widget.city,
-                              style: AppTheme.labelSmall(context).copyWith(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // 计算城市名称需要的宽度
+                      final cityTextPainter = TextPainter(
+                        text: TextSpan(
+                          text: widget.city,
+                          style: AppTheme.labelSmall(context).copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        maxLines: 1,
+                        textDirection: TextDirection.ltr,
+                      )..layout();
+                      
+                      // 城市标签宽度 = 文字宽度 + padding (12 * 2)
+                      final cityTagWidth = cityTextPainter.width + 24;
+                      // 数量标签宽度约 42 (padding 10*2 + 数字约10 + icon 12)
+                      final countTagWidth = 42.0;
+                      final spacing = 8.0;
+                      final totalNeeded = cityTagWidth + countTagWidth + spacing;
+                      
+                      // 如果空间不够，只显示城市名
+                      final showCount = totalNeeded <= constraints.maxWidth;
+                      
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (showCount) ...[
+                            // 地点数量 - 64% 白色背景，黑色文字
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
                               ),
-                            ),
-                            maxLines: 1,
-                            textDirection: TextDirection.ltr,
-                          )..layout();
-                          
-                          // 城市标签宽度 = 文字宽度 + padding (12 * 2)
-                          final cityTagWidth = cityTextPainter.width + 24;
-                          // 数量标签宽度约 42 (padding 10*2 + 数字约10 + icon 12)
-                          final countTagWidth = 42.0;
-                          final spacing = 8.0;
-                          final totalNeeded = cityTagWidth + countTagWidth + spacing;
-                          
-                          // 如果空间不够，只显示城市名
-                          final showCount = totalNeeded <= constraints.maxWidth;
-                          
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              if (showCount) ...[
-                                // 地点数量 - 64% 白色背景，黑色文字
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.white.withOpacity(0.64),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        widget.count.toString(),
-                                        style: AppTheme.labelSmall(context).copyWith(
-                                          fontSize: 12,
-                                          color: AppTheme.black,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 2),
-                                      const Icon(
-                                        Icons.location_on,
-                                        size: 12,
-                                        color: AppTheme.black,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                              ],
-                              // 城市名称 - 白色背景，黑色文字
-                              Flexible(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    widget.city,
+                              decoration: BoxDecoration(
+                                color: AppTheme.white.withOpacity(0.64),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    widget.count.toString(),
                                     style: AppTheme.labelSmall(context).copyWith(
                                       fontSize: 12,
                                       color: AppTheme.black,
                                       fontWeight: FontWeight.bold,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-
-                      const Spacer(),
-
-                      // 底部标题和标签 - 限制高度防止 overflow
-                      Flexible(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.title,
-                              style: AppTheme.headlineMedium(context).copyWith(
-                                fontSize: 16,
-                                color: AppTheme.white,
-                                shadows: [
-                                  const Shadow(
-                                    color: Colors.black,
-                                    blurRadius: 4,
+                                  const SizedBox(width: 2),
+                                  const Icon(
+                                    Icons.location_on,
+                                    size: 12,
+                                    color: AppTheme.black,
                                   ),
                                 ],
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: widget.tags
-                                  .take(2)
-                                  .map(
-                                    (tag) => Text(
-                                      tag,
-                                      style: AppTheme.labelSmall(context).copyWith(
-                                        fontSize: 12,
-                                        color: AppTheme.white.withOpacity(0.9),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
+                            const SizedBox(width: 8),
+                          ],
+                          // 城市名称 - 白色背景，黑色文字
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.white,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                widget.city,
+                                style: AppTheme.labelSmall(context).copyWith(
+                                  fontSize: 12,
+                                  color: AppTheme.black,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+
+                // 底部标题和标签层 - 固定在底部
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 12,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: AppTheme.headlineMedium(context).copyWith(
+                          fontSize: 16,
+                          color: AppTheme.white,
+                          shadows: [
+                            const Shadow(
+                              color: Colors.black,
+                              blurRadius: 4,
                             ),
                           ],
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                      if (widget.tags.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: widget.tags
+                              .take(2)
+                              .map(
+                                (tag) => Text(
+                                  tag,
+                                  style: AppTheme.labelSmall(context).copyWith(
+                                    fontSize: 12,
+                                    color: AppTheme.white.withOpacity(0.9),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ],
                     ],
                   ),
                 ),

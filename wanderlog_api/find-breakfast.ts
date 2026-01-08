@@ -5,9 +5,9 @@ async function findBreakfast() {
   
   // 使用原始 SQL 查询
   const result: any[] = await prisma.$queryRaw`
-    SELECT id, name, "aiTags", tags 
-    FROM "Place" 
-    WHERE "aiTags"::text LIKE '%breakfast%' 
+    SELECT id, name, ai_tags, tags 
+    FROM places 
+    WHERE ai_tags::text LIKE '%breakfast%' 
        OR tags::text LIKE '%breakfast%'
     LIMIT 10
   `;

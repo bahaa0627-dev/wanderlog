@@ -215,15 +215,52 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     }
   }
 
-  List<String> get _spotImages {
+  String? get _spotCoverImage {
+    // spot_model.Spot 没有 coverImage 字段，使用 images[0] 作为封面
     if (widget.spot is Spot) {
-      return (widget.spot as Spot).images;
+      final images = (widget.spot as Spot).images;
+      return images.isNotEmpty ? images.first : null;
     }
     try {
-      return (widget.spot as dynamic).images as List<String>? ?? <String>[];
+      // map_page.Spot 有 coverImage 字段
+      final coverImage = (widget.spot as dynamic).coverImage as String?;
+      if (coverImage != null && coverImage.isNotEmpty) {
+        return coverImage;
+      }
+      // 回退到 images[0]
+      final images = (widget.spot as dynamic).images as List<String>?;
+      return images != null && images.isNotEmpty ? images.first : null;
     } catch (e) {
-      return <String>[];
+      return null;
     }
+  }
+
+  List<String> get _spotImages {
+    List<String> images;
+    if (widget.spot is Spot) {
+      images = (widget.spot as Spot).images;
+    } else {
+      try {
+        images = (widget.spot as dynamic).images as List<String>? ?? <String>[];
+      } catch (e) {
+        images = <String>[];
+      }
+    }
+    
+    // 确保封面图在第一位
+    final coverImage = _spotCoverImage;
+    if (coverImage != null && coverImage.isNotEmpty) {
+      // 如果封面图不在列表中，添加到开头
+      if (!images.contains(coverImage)) {
+        return [coverImage, ...images];
+      }
+      // 如果封面图在列表中但不是第一个，移到第一位
+      if (images.isNotEmpty && images.first != coverImage) {
+        final newImages = images.where((img) => img != coverImage).toList();
+        return [coverImage, ...newImages];
+      }
+    }
+    return images;
   }
 
   Map<String, dynamic>? get _spotOpeningHours {

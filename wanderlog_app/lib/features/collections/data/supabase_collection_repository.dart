@@ -206,6 +206,10 @@ class SupabaseCollectionRepository {
       'aiSummary': place['ai_summary'],
       'aiDescription': place['ai_description'],
       'googlePlaceId': place['google_place_id'],
+      // 详情页需要的额外字段
+      'phoneNumber': place['phone_number'],
+      'website': place['website'],
+      'openingHours': place['opening_hours'],
     };
   }
 

@@ -251,6 +251,22 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
           final coverImg = spotData['coverImage']?.toString() ?? spotData['cover_image']?.toString() ?? '';
           final imagesList = _parseImagesList(spotData['images'] ?? []);
           
+          // 解析 openingHours
+          Map<String, dynamic>? openingHours;
+          final rawOpeningHours = spotData['openingHours'] ?? spotData['opening_hours'];
+          if (rawOpeningHours is Map<String, dynamic>) {
+            openingHours = rawOpeningHours;
+          } else if (rawOpeningHours is String && rawOpeningHours.isNotEmpty) {
+            try {
+              final decoded = jsonDecode(rawOpeningHours);
+              if (decoded is Map<String, dynamic>) {
+                openingHours = decoded;
+              } else if (decoded is List) {
+                openingHours = {'weekday_text': decoded.map((e) => e.toString()).toList()};
+              }
+            } catch (_) {}
+          }
+          
           final spot = map_page.Spot(
             id: spotData['id']?.toString() ?? '',
             name: spotData['name']?.toString() ?? '',
@@ -264,6 +280,11 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
             tags: _parseTagsList(spotData['tags'] ?? spotData['aiTags'] ?? spotData['ai_tags']),
             images: imagesList.isNotEmpty ? imagesList : (coverImg.isNotEmpty ? [coverImg] : []),
             aiSummary: spotData['aiSummary']?.toString() ?? spotData['ai_summary']?.toString(),
+            // 详情页需要的额外字段
+            address: spotData['address']?.toString(),
+            phoneNumber: spotData['phoneNumber']?.toString() ?? spotData['phone_number']?.toString(),
+            website: spotData['website']?.toString(),
+            openingHours: openingHours,
           );
           spots.add(spot);
         } catch (e) {
@@ -322,9 +343,24 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
 
           try {
             // 直接从合集返回的数据创建 Spot
-            // 注意: map_page.Spot 类只有以下参数: id, name, city, category, latitude, longitude, rating, ratingCount, coverImage, images, tags, aiSummary
             final coverImg = spotData['coverImage']?.toString() ?? spotData['cover_image']?.toString() ?? '';
             final imagesList = _parseImagesList(spotData['images'] ?? []);
+            
+            // 解析 openingHours
+            Map<String, dynamic>? openingHours;
+            final rawOpeningHours = spotData['openingHours'] ?? spotData['opening_hours'];
+            if (rawOpeningHours is Map<String, dynamic>) {
+              openingHours = rawOpeningHours;
+            } else if (rawOpeningHours is String && rawOpeningHours.isNotEmpty) {
+              try {
+                final decoded = jsonDecode(rawOpeningHours);
+                if (decoded is Map<String, dynamic>) {
+                  openingHours = decoded;
+                } else if (decoded is List) {
+                  openingHours = {'weekday_text': decoded.map((e) => e.toString()).toList()};
+                }
+              } catch (_) {}
+            }
             
             final spot = map_page.Spot(
               id: spotData['id']?.toString() ?? '',
@@ -339,6 +375,11 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
               tags: _parseTagsList(spotData['tags'] ?? spotData['aiTags'] ?? spotData['ai_tags']),
               images: imagesList.isNotEmpty ? imagesList : (coverImg.isNotEmpty ? [coverImg] : []),
               aiSummary: spotData['aiSummary']?.toString() ?? spotData['ai_summary']?.toString(),
+              // 详情页需要的额外字段
+              address: spotData['address']?.toString(),
+              phoneNumber: spotData['phoneNumber']?.toString() ?? spotData['phone_number']?.toString(),
+              website: spotData['website']?.toString(),
+              openingHours: openingHours,
             );
             spots.add(spot);
             print('✅ 成功解析地点: ${spot.name}, lat: ${spot.latitude}, lng: ${spot.longitude}');

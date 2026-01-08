@@ -151,6 +151,9 @@ class SearchPlaceResult {
     this.rating,
     this.ratingCount,
     this.category,
+    this.categorySlug,
+    this.categoryEn,
+    this.categoryZh,
     this.coverImage,
     this.images = const [],
     this.tags = const [],
@@ -189,6 +192,9 @@ class SearchPlaceResult {
       rating: json['rating'] != null ? (json['rating'] as num).toDouble() : null,
       ratingCount: json['ratingCount'] as int?,
       category: json['category'] as String?,
+      categorySlug: json['category_slug'] as String? ?? json['categorySlug'] as String?,
+      categoryEn: json['category_en'] as String? ?? json['categoryEn'] as String?,
+      categoryZh: json['category_zh'] as String? ?? json['categoryZh'] as String?,
       coverImage: json['coverImage'] as String?,
       images: parseStringList(json['images']),
       tags: parseStringList(json['aiTags'] ?? json['tags']),
@@ -206,6 +212,9 @@ class SearchPlaceResult {
   final double? rating;
   final int? ratingCount;
   final String? category;
+  final String? categorySlug;
+  final String? categoryEn;
+  final String? categoryZh;
   final String? coverImage;
   final List<String> images;
   final List<String> tags;

@@ -829,6 +829,8 @@ export interface CategoryInfo {
 /**
  * Category slug to display name mapping
  * Matches the mapping in googlePlacesEnterpriseService.ts
+ * 
+ * Enhanced for data quality fixes with additional categories
  */
 const CATEGORY_NAMES: Record<string, { en: string; zh: string }> = {
   'landmark': { en: 'Landmark', zh: '地标' },
@@ -843,35 +845,106 @@ const CATEGORY_NAMES: Record<string, { en: string; zh: string }> = {
   'cemetery': { en: 'Cemetery', zh: '墓园' },
   'park': { en: 'Park', zh: '公园' },
   'zoo': { en: 'Zoo', zh: '动物园' },
+  'cafe': { en: 'Cafe', zh: '咖啡馆' },
+  'restaurant': { en: 'Restaurant', zh: '餐厅' },
+  'bar': { en: 'Bar', zh: '酒吧' },
+  'theater': { en: 'Theater', zh: '剧院' },
+  'stadium': { en: 'Stadium', zh: '体育场' },
 };
 
 /**
  * Keyword patterns for detecting building type from name
  * Order matters - more specific patterns should come first
+ * 
+ * Enhanced for data quality fixes with multi-language support:
+ * - English, French, German, Italian, Spanish, Japanese, Chinese keywords
+ * - Cafe, restaurant, bar categories added
+ * 
+ * Note: Using separate patterns for ASCII (with \b) and non-ASCII keywords
+ * because \b doesn't work with non-ASCII characters.
+ * 
+ * Requirements: 2.2-2.8 (wikidata-data-quality)
  */
 const BUILDING_TYPE_PATTERNS: Array<{ pattern: RegExp; slug: string }> = [
-  // Religious buildings
-  { pattern: /\b(cathedral|basilica|church|chapel|abbey|monastery|priory|minster)\b/i, slug: 'church' },
-  { pattern: /\b(mosque|masjid|jami)\b/i, slug: 'temple' },
-  { pattern: /\b(temple|shrine|pagoda|stupa|wat|synagogue)\b/i, slug: 'temple' },
+  // Religious buildings - Christian (ASCII)
+  { pattern: /\b(cathedral|basilica|church|chapel|abbey|monastery|priory|minster|dom|duomo|cattedrale|catedral|kirche|iglesia|chiesa)\b/i, slug: 'church' },
+  // Religious buildings - Christian (non-ASCII)
+  { pattern: /(cathédrale|église)/i, slug: 'church' },
   
-  // Castles and palaces
-  { pattern: /\b(castle|palace|château|chateau|schloss|palacio|palazzo|fort|fortress|citadel|alcázar|alcazar)\b/i, slug: 'castle' },
+  // Religious buildings - Other (ASCII)
+  { pattern: /\b(mosque|masjid|jami|moschee|mezquita|moschea)\b/i, slug: 'temple' },
+  { pattern: /\b(temple|shrine|pagoda|stupa|wat|synagogue|synagoge|sinagoga)\b/i, slug: 'temple' },
+  // Religious buildings - Other (non-ASCII: Japanese)
+  { pattern: /(神社|寺|寺院|神宮|mosquée)/i, slug: 'temple' },
   
-  // Museums and galleries
-  { pattern: /\b(museum|musée|museo|muzeum)\b/i, slug: 'museum' },
+  // Castles and palaces (ASCII)
+  { pattern: /\b(castle|palace|chateau|schloss|palacio|palazzo|palais|fort|fortress|citadel|alcazar|burg|festung)\b/i, slug: 'castle' },
+  // Castles (non-ASCII)
+  { pattern: /(château|alcázar|城|城堡)/i, slug: 'castle' },
+  
+  // Museums (ASCII)
+  { pattern: /\b(museum|museo|muzeum|museums)\b/i, slug: 'museum' },
+  // Museums (non-ASCII)
+  { pattern: /(musée|博物館|美術館)/i, slug: 'museum' },
+  
+  // Art galleries (ASCII)
   { pattern: /\b(gallery|galleria|galerie)\b/i, slug: 'art_gallery' },
+  // Art galleries (non-ASCII)
+  { pattern: /(画廊)/i, slug: 'art_gallery' },
   
-  // Educational
-  { pattern: /\b(university|college|school|academy|institute|polytechnic)\b/i, slug: 'university' },
-  { pattern: /\b(library|bibliothèque|biblioteca)\b/i, slug: 'library' },
+  // Educational - Universities (ASCII)
+  { pattern: /\b(university|universidad|universitat)\b/i, slug: 'university' },
+  // Universities (non-ASCII)
+  { pattern: /(université|università|universität|大学|大學)/i, slug: 'university' },
+  // Educational - Other (ASCII)
+  { pattern: /\b(college|school|academy|institute|polytechnic)\b/i, slug: 'university' },
+  // Educational - Other (non-ASCII)
+  { pattern: /(学院|學院|学校)/i, slug: 'university' },
   
-  // Hotels
-  { pattern: /\b(hotel|inn|resort|hostel)\b/i, slug: 'hotel' },
+  // Libraries (ASCII)
+  { pattern: /\b(library|biblioteca|bibliothek)\b/i, slug: 'library' },
+  // Libraries (non-ASCII)
+  { pattern: /(bibliothèque|図書館|圖書館)/i, slug: 'library' },
   
-  // Parks and gardens
-  { pattern: /\b(park|garden|botanical|arboretum)\b/i, slug: 'park' },
+  // Hotels and accommodation (ASCII)
+  { pattern: /\b(hotel|albergo|hostel|motel|inn|resort|ryokan)\b/i, slug: 'hotel' },
+  // Hotels (non-ASCII)
+  { pattern: /(hôtel|旅館|ホテル|酒店|飯店)/i, slug: 'hotel' },
+  
+  // Cafes and coffee shops (ASCII)
+  { pattern: /\b(cafe|coffee|coffeehouse|kaffeehaus)\b/i, slug: 'cafe' },
+  // Cafes (non-ASCII)
+  { pattern: /(café|caffè|カフェ|咖啡)/i, slug: 'cafe' },
+  
+  // Restaurants (ASCII)
+  { pattern: /\b(restaurant|ristorante|restaurante|bistro|brasserie|trattoria|osteria|taverna)\b/i, slug: 'restaurant' },
+  // Restaurants (non-ASCII)
+  { pattern: /(レストラン|餐厅|餐廳)/i, slug: 'restaurant' },
+  
+  // Bars and pubs (ASCII)
+  { pattern: /\b(bar|pub|tavern|lounge|bierhalle|izakaya)\b/i, slug: 'bar' },
+  // Bars (non-ASCII)
+  { pattern: /(居酒屋|酒吧)/i, slug: 'bar' },
+  
+  // Parks and gardens (ASCII)
+  { pattern: /\b(park|garden|botanical|arboretum|jardin|garten|giardino)\b/i, slug: 'park' },
+  // Parks (non-ASCII)
+  { pattern: /(jardín|公園|庭園)/i, slug: 'park' },
+  
+  // Zoos and aquariums (ASCII)
   { pattern: /\b(zoo|aquarium|safari)\b/i, slug: 'zoo' },
+  // Zoos (non-ASCII)
+  { pattern: /(動物園|水族館)/i, slug: 'zoo' },
+  
+  // Theaters and opera houses (ASCII)
+  { pattern: /\b(theater|theatre|opera|teatro|oper)\b/i, slug: 'theater' },
+  // Theaters (non-ASCII)
+  { pattern: /(théâtre|劇場|劇院|歌劇院)/i, slug: 'theater' },
+  
+  // Stadiums and arenas (ASCII)
+  { pattern: /\b(stadium|arena|stadion)\b/i, slug: 'stadium' },
+  // Stadiums (non-ASCII)
+  { pattern: /(スタジアム|体育場|體育場)/i, slug: 'stadium' },
 ];
 
 /**
@@ -1882,4 +1955,312 @@ export class RetryHandler {
       backoffMultiplier: 2,
     });
   }
+}
+
+
+// ============================================================================
+// Data Quality Fix Utilities
+// ============================================================================
+
+/**
+ * Check if a name is a QID (Q followed by digits only)
+ * 
+ * @param name - Place name to check
+ * @returns true if name matches QID pattern (e.g., "Q12345")
+ * 
+ * Requirements: 1.1 (wikidata-data-quality)
+ */
+export function isQIDName(name: string): boolean {
+  if (!name || typeof name !== 'string') {
+    return false;
+  }
+  
+  const trimmed = name.trim();
+  if (trimmed === '') {
+    return false;
+  }
+  
+  // Match exactly: Q followed by one or more digits, nothing else
+  return /^Q\d+$/.test(trimmed);
+}
+
+/**
+ * Check if a string contains non-ASCII characters
+ * 
+ * @param str - String to check
+ * @returns true if string contains characters outside ASCII range (0x00-0x7F)
+ * 
+ * Requirements: 3.1 (wikidata-data-quality)
+ */
+export function hasNonAsciiCharacters(str: string): boolean {
+  if (!str || typeof str !== 'string') {
+    return false;
+  }
+  
+  // Check for any character outside ASCII range
+  // eslint-disable-next-line no-control-regex
+  return /[^\x00-\x7F]/.test(str);
+}
+
+
+// ============================================================================
+// Wikidata Label Fetcher - For Data Quality Fixes
+// ============================================================================
+
+/**
+ * Labels from Wikidata in various languages
+ */
+export interface WikidataLabels {
+  en?: string;           // English label
+  [lang: string]: string | undefined;  // Other language labels
+}
+
+/**
+ * Wikidata API response for wbgetentities
+ */
+interface WikidataEntitiesResponse {
+  entities?: {
+    [qid: string]: {
+      labels?: {
+        [lang: string]: {
+          value: string;
+        };
+      };
+    };
+  };
+}
+
+/**
+ * Latin-script languages to use as fallback when English is not available
+ * Ordered by preference
+ */
+const LATIN_SCRIPT_LANGUAGES = [
+  'en',    // English (primary)
+  'de',    // German
+  'fr',    // French
+  'es',    // Spanish
+  'it',    // Italian
+  'pt',    // Portuguese
+  'nl',    // Dutch
+  'pl',    // Polish
+  'sv',    // Swedish
+  'da',    // Danish
+  'no',    // Norwegian
+  'fi',    // Finnish
+  'cs',    // Czech
+  'ro',    // Romanian
+  'hu',    // Hungarian
+  'tr',    // Turkish
+];
+
+/**
+ * WikidataLabelFetcher class for fetching entity labels from Wikidata API
+ * 
+ * Used to fix QID names and translate non-English names to English.
+ * 
+ * Requirements: 1.2, 1.3, 1.4, 3.2, 3.3, 3.6 (wikidata-data-quality)
+ */
+export class WikidataLabelFetcher {
+  private rateLimiter: RateLimiter;
+  private retryHandler: RetryHandler;
+  private readonly WIKIDATA_API_URL = 'https://www.wikidata.org/w/api.php';
+
+  constructor(maxRequestsPerSecond: number = 10) {
+    this.rateLimiter = new RateLimiter(maxRequestsPerSecond);
+    this.retryHandler = RetryHandler.forWikidataAPI();
+  }
+
+  /**
+   * Fetch labels for a Wikidata entity
+   * 
+   * @param qid - Wikidata QID (e.g., "Q12345")
+   * @returns Labels in various languages, or empty object if not found
+   * 
+   * Requirements: 1.2, 3.2
+   */
+  async fetchLabels(qid: string): Promise<WikidataLabels> {
+    if (!qid || typeof qid !== 'string') {
+      return {};
+    }
+
+    // Normalize QID
+    const normalizedQid = qid.trim().toUpperCase();
+    if (!/^Q\d+$/.test(normalizedQid)) {
+      return {};
+    }
+
+    await this.rateLimiter.acquire();
+
+    const result = await this.retryHandler.execute(async () => {
+      const params = new URLSearchParams({
+        action: 'wbgetentities',
+        ids: normalizedQid,
+        props: 'labels',
+        format: 'json',
+        origin: '*',
+      });
+
+      const response = await fetch(`${this.WIKIDATA_API_URL}?${params}`);
+      
+      if (!response.ok) {
+        throw new Error(`Wikidata API returned ${response.status}`);
+      }
+
+      const data = await response.json() as WikidataEntitiesResponse;
+      
+      if (!data.entities || !data.entities[normalizedQid]) {
+        return {};
+      }
+
+      const entity = data.entities[normalizedQid];
+      if (!entity.labels) {
+        return {};
+      }
+
+      // Convert labels to simple key-value format
+      const labels: WikidataLabels = {};
+      for (const [lang, labelObj] of Object.entries(entity.labels)) {
+        if (labelObj && labelObj.value) {
+          labels[lang] = labelObj.value;
+        }
+      }
+
+      return labels;
+    }, `fetchLabels(${normalizedQid})`);
+
+    return result.success ? (result.value || {}) : {};
+  }
+
+  /**
+   * Select the best label with English priority
+   * 
+   * Priority order:
+   * 1. English (en)
+   * 2. Other Latin-script languages (de, fr, es, it, etc.)
+   * 3. First available label
+   * 
+   * @param labels - Available labels from Wikidata
+   * @returns Best label, or null if no labels available
+   * 
+   * Requirements: 1.4, 3.6
+   */
+  selectBestLabel(labels: WikidataLabels): string | null {
+    if (!labels || Object.keys(labels).length === 0) {
+      return null;
+    }
+
+    // Try Latin-script languages in order of preference
+    for (const lang of LATIN_SCRIPT_LANGUAGES) {
+      if (labels[lang]) {
+        return labels[lang]!;
+      }
+    }
+
+    // Fall back to first available label
+    const firstKey = Object.keys(labels)[0];
+    return labels[firstKey] || null;
+  }
+
+  /**
+   * Fetch and select the best label for a QID
+   * 
+   * Convenience method that combines fetchLabels and selectBestLabel.
+   * 
+   * @param qid - Wikidata QID
+   * @returns Best available label, or null if not found
+   */
+  async fetchBestLabel(qid: string): Promise<string | null> {
+    const labels = await this.fetchLabels(qid);
+    return this.selectBestLabel(labels);
+  }
+}
+
+// Note: RateLimiter class is defined earlier in this file
+
+
+// ============================================================================
+// Original Data Preserver - For Data Quality Fixes
+// ============================================================================
+
+/**
+ * Types of fixes that can be applied to a place
+ */
+export type FixType = 'qid_name' | 'category' | 'translation';
+
+/**
+ * Place record structure for data quality fixes
+ */
+export interface PlaceRecordForFix {
+  id: string;
+  name: string;
+  categorySlug: string | null;
+  categoryEn: string | null;
+  categoryZh: string | null;
+  sourceDetail: string | null;
+  customFields: Record<string, unknown> | null;
+}
+
+/**
+ * Preserve original data before modification
+ * 
+ * Stores original values in customFields to allow auditing and rollback.
+ * Only stores values if they haven't been stored before (idempotent).
+ * 
+ * @param place - Current place record
+ * @param fixType - Type of fix being applied
+ * @param currentCustomFields - Current customFields (may be null)
+ * @returns Updated customFields with preserved data
+ * 
+ * Requirements: 6.1, 6.2, 6.3, 6.4 (wikidata-data-quality)
+ */
+export function preserveOriginalData(
+  place: PlaceRecordForFix,
+  fixType: FixType,
+  currentCustomFields?: Record<string, unknown> | null
+): Record<string, unknown> {
+  const customFields: Record<string, unknown> = { ...(currentCustomFields || {}) };
+
+  // Preserve original name if not already stored (Requirement 6.1)
+  if (fixType === 'qid_name' || fixType === 'translation') {
+    if (!customFields.originalName) {
+      customFields.originalName = place.name;
+    }
+  }
+
+  // Preserve original category if not already stored (Requirement 6.2)
+  if (fixType === 'category') {
+    if (!customFields.originalCategory) {
+      customFields.originalCategory = place.categorySlug;
+    }
+  }
+
+  // Add timestamp (Requirement 6.3)
+  customFields.lastFixedAt = new Date().toISOString();
+
+  // Add fix type to array (Requirement 6.4)
+  const existingFixTypes = (customFields.fixType as string[]) || [];
+  if (!existingFixTypes.includes(fixType)) {
+    customFields.fixType = [...existingFixTypes, fixType];
+  }
+
+  return customFields;
+}
+
+/**
+ * Check if a place has already been fixed with a specific fix type
+ * 
+ * @param customFields - Place's customFields
+ * @param fixType - Type of fix to check
+ * @returns true if the fix type has already been applied
+ */
+export function hasBeenFixed(
+  customFields: Record<string, unknown> | null,
+  fixType: FixType
+): boolean {
+  if (!customFields) {
+    return false;
+  }
+  
+  const fixTypes = customFields.fixType as string[] | undefined;
+  return fixTypes ? fixTypes.includes(fixType) : false;
 }

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Test Places</name>
+    <description>Sample places for testing KML parser</description>
+    
+    <Placemark>
+      <name>Café de Flore</name>
+      <description><![CDATA[
+        Famous Parisian café
+        https://www.google.com/maps/place/Caf%C3%A9+de+Flore/@48.8542,2.332,17z/data=!3m1!4b1!4m6!3m5!1s0x47e671a8bb938f67:0x18c71d38f0c6d8c7!8m2!3d48.8542!4d2.332!16s%2Fg%2F11bw3y8qxh
+        Place ID: ChIJZ7SPu5xv5kcRx9jG8Dh8xxg
+      ]]></description>
+      <Point>
+        <coordinates>2.332,48.8542,0</coordinates>
+      </Point>
+    </Placemark>
+    
+    <Placemark>
+      <name>Musée d'Orsay</name>
+      <description><![CDATA[
+        Art museum in Paris
+        https://www.google.com/maps/place/Mus%C3%A9e+d'Orsay/@48.86,2.3266,17z
+      ]]></description>
+      <Point>
+        <coordinates>2.3266,48.86,0</coordinates>
+      </Point>
+    </Placemark>
+    
+    <Placemark>
+      <name>Shakespeare and Company</name>
+      <description>Famous English bookstore in Paris</description>
+      <Point>
+        <coordinates>2.347,48.8526,0</coordinates>
+      </Point>
+    </Placemark>
+    
+  </Document>
+</kml>

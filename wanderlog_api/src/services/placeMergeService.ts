@@ -60,8 +60,12 @@ class PlaceMergeService {
   }
 
   /**
-   * Find existing place record by Google identifiers
-   * Priority: placeId > fid > cid
+   * Find existing place record by Google identifiers or location similarity
+   * Priority: 
+   * 1. placeId (exact match)
+   * 2. fid (exact match)
+   * 3. cid (exact match)
+   * 4. name + coordinates + country (fuzzy match for deduplication)
    * 
    * Requirement 2.1, 2.2
    */
@@ -98,6 +102,141 @@ class PlaceMergeService {
         },
       });
       if (byCid) return byCid;
+    }
+
+    // Priority 4: Search by location + name + category similarity (for enrichment scenarios)
+    // Combines coordinate proximity with name and category matching
+    // Works even without countryCode for enrichment
+    if (item.location) {
+      const COORDINATE_THRESHOLD = 0.0005; // ~55 meters
+      
+      // Build search criteria
+      const whereClause: any = {
+        latitude: {
+          gte: item.location.lat - COORDINATE_THRESHOLD,
+          lte: item.location.lat + COORDINATE_THRESHOLD,
+        },
+        longitude: {
+          gte: item.location.lng - COORDINATE_THRESHOLD,
+          lte: item.location.lng + COORDINATE_THRESHOLD,
+        },
+      };
+      
+      // Add country filter if available (helps narrow down search)
+      if (item.countryCode) {
+        whereClause.country = item.countryCode;
+      }
+      
+      // Search for places nearby
+      const nearbyPlaces = await prisma.place.findMany({
+        where: whereClause,
+        take: 20, // Increased limit when no country filter
+      });
+
+      if (nearbyPlaces.length > 0) {
+        let bestMatch: Place | null = null;
+        let bestScore = 0;
+
+        for (const place of nearbyPlaces) {
+          // Calculate distance score (0-1, closer = higher)
+          const latDiff = Math.abs(place.latitude - item.location.lat);
+          const lngDiff = Math.abs(place.longitude - item.location.lng);
+          const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+          const distanceScore = Math.max(0, 1 - (distance / COORDINATE_THRESHOLD));
+
+          // Calculate name similarity score (0-1)
+          const nameScore = this.calculateNameSimilarity(
+            place.name.toLowerCase(),
+            item.title.toLowerCase()
+          );
+
+          // Calculate category similarity score (0-1)
+          const placeAny = place as Place & { categorySlug?: string | null };
+          const categoryScore = this.calculateCategorySimilarity(
+            placeAny.categorySlug,
+            item.categories,
+            item.categoryName
+          );
+
+          // Combined score: weighted average
+          // Distance is most important (50%), then name (30%), then category (20%)
+          const combinedScore = 
+            distanceScore * 0.5 + 
+            nameScore * 0.3 + 
+            categoryScore * 0.2;
+
+          // Require minimum thresholds for each component
+          // For enrichment: be more lenient with matching
+          const meetsMinimums = 
+            distance < COORDINATE_THRESHOLD && // Must be within 55m
+            (nameScore > 0.2 || categoryScore > 0.4); // Lowered thresholds for enrichment
+
+          if (meetsMinimums && combinedScore > bestScore) {
+            bestScore = combinedScore;
+            bestMatch = place;
+          }
+        }
+
+        // Only match if combined score is reasonable (>0.4, lowered from 0.5)
+        if (bestMatch && bestScore > 0.4) {
+          console.log(`   🔗 Found matching place: "${bestMatch.name}" (score: ${bestScore.toFixed(2)})`);
+          return bestMatch;
+        }
+      }
+    }
+    
+    // Priority 5: Fallback to name + location + country (fuzzy match)
+    // This helps deduplicate places with different names
+    if (item.title && item.location && item.countryCode) {
+      const COORDINATE_THRESHOLD = 0.001; // ~111 meters
+      
+      // Search for places with similar name in the same country and nearby location
+      const similarPlaces = await prisma.place.findMany({
+        where: {
+          country: item.countryCode,
+          name: {
+            contains: item.title,
+            mode: 'insensitive',
+          },
+          latitude: {
+            gte: item.location.lat - COORDINATE_THRESHOLD,
+            lte: item.location.lat + COORDINATE_THRESHOLD,
+          },
+          longitude: {
+            gte: item.location.lng - COORDINATE_THRESHOLD,
+            lte: item.location.lng + COORDINATE_THRESHOLD,
+          },
+        },
+        take: 5,
+      });
+
+      // Find the closest match
+      if (similarPlaces.length > 0) {
+        let closestPlace: Place | null = null;
+        let minDistance = Infinity;
+
+        for (const place of similarPlaces) {
+          // Calculate distance
+          const latDiff = Math.abs(place.latitude - item.location.lat);
+          const lngDiff = Math.abs(place.longitude - item.location.lng);
+          const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+
+          // Check name similarity (simple check)
+          const nameSimilar = 
+            place.name.toLowerCase().includes(item.title.toLowerCase()) ||
+            item.title.toLowerCase().includes(place.name.toLowerCase());
+
+          if (nameSimilar && distance < minDistance && distance < COORDINATE_THRESHOLD) {
+            minDistance = distance;
+            closestPlace = place;
+          }
+        }
+
+        if (closestPlace) {
+          console.log(`   🔗 Found similar place: "${closestPlace.name}" (distance: ${(minDistance * 111).toFixed(0)}m)`);
+          return closestPlace;
+        }
+      }
     }
 
     return null;
@@ -411,6 +550,106 @@ class PlaceMergeService {
     }
     
     return merged;
+  }
+
+  /**
+   * Calculate name similarity using Levenshtein distance
+   * Returns a score between 0 (completely different) and 1 (identical)
+   */
+  private calculateNameSimilarity(name1: string, name2: string): number {
+    // Normalize strings
+    const s1 = name1.trim().toLowerCase();
+    const s2 = name2.trim().toLowerCase();
+
+    // Exact match
+    if (s1 === s2) return 1.0;
+
+    // Check if one contains the other
+    if (s1.includes(s2) || s2.includes(s1)) {
+      const longer = Math.max(s1.length, s2.length);
+      const shorter = Math.min(s1.length, s2.length);
+      return shorter / longer; // Partial match score
+    }
+
+    // Calculate Levenshtein distance
+    const distance = this.levenshteinDistance(s1, s2);
+    const maxLength = Math.max(s1.length, s2.length);
+    
+    // Convert distance to similarity score (0-1)
+    return Math.max(0, 1 - (distance / maxLength));
+  }
+
+  /**
+   * Calculate Levenshtein distance between two strings
+   */
+  private levenshteinDistance(str1: string, str2: string): number {
+    const len1 = str1.length;
+    const len2 = str2.length;
+    const matrix: number[][] = [];
+
+    // Initialize matrix
+    for (let i = 0; i <= len1; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= len2; j++) {
+      matrix[0][j] = j;
+    }
+
+    // Fill matrix
+    for (let i = 1; i <= len1; i++) {
+      for (let j = 1; j <= len2; j++) {
+        const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,      // deletion
+          matrix[i][j - 1] + 1,      // insertion
+          matrix[i - 1][j - 1] + cost // substitution
+        );
+      }
+    }
+
+    return matrix[len1][len2];
+  }
+
+  /**
+   * Calculate category similarity
+   * Returns a score between 0 (completely different) and 1 (same category)
+   */
+  private calculateCategorySimilarity(
+    existingCategorySlug: string | null | undefined,
+    incomingCategories: string[] | undefined,
+    incomingCategoryName: string | undefined
+  ): number {
+    if (!existingCategorySlug) return 0;
+
+    // Normalize incoming category using the same logic as normalization service
+    const { normalizationService } = require('./normalizationService');
+    const normalized = normalizationService.normalizeFromApify(
+      incomingCategories,
+      incomingCategoryName,
+      undefined
+    );
+
+    // Exact match
+    if (existingCategorySlug === normalized.categorySlug) {
+      return 1.0;
+    }
+
+    // Related categories (partial match)
+    const relatedCategories: Record<string, string[]> = {
+      'restaurant': ['cafe', 'bakery', 'bar'],
+      'cafe': ['restaurant', 'bakery'],
+      'museum': ['landmark', 'church', 'castle'],
+      'church': ['landmark', 'museum'],
+      'hotel': ['hostel'],
+      'shop': ['mall'],
+    };
+
+    const related = relatedCategories[existingCategorySlug] || [];
+    if (related.includes(normalized.categorySlug)) {
+      return 0.6; // Partial match for related categories
+    }
+
+    return 0; // Different categories
   }
 }
 

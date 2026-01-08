@@ -291,8 +291,65 @@ export class ApifyImportService {
       // Step 0: 预处理 - 根据经纬度补全缺失的 city/countryCode
       const preprocessedItem = apifyDataValidator.preprocessItem(item);
 
-      // Step 1: Validate required fields (Requirement 2.8)
-      const validation = apifyDataValidator.validateRequired(preprocessedItem);
+      // Step 1: Check for existing record first (before validation)
+      // This allows us to update places even if Apify didn't return city/country
+      const existing = await placeMergeService.findExisting(preprocessedItem);
+      
+      // Step 2: For enrichment scenario - if existing record found, fill missing city/country BEFORE validation
+      if (existing) {
+        if (!preprocessedItem.city && existing.city) {
+          preprocessedItem.city = existing.city;
+          console.log(`   📍 Using existing city for ${preprocessedItem.title}: ${existing.city}`);
+        }
+        if (!preprocessedItem.countryCode && existing.country) {
+          preprocessedItem.countryCode = existing.country;
+          console.log(`   🌍 Using existing country for ${preprocessedItem.title}: ${existing.country}`);
+        }
+      }
+      
+      // Step 3: Validate required fields (Requirement 2.8)
+      let validation = apifyDataValidator.validateRequired(preprocessedItem);
+      
+      // For enrichment: if we have existing record, allow update even if validation fails
+      // (as long as we have coordinates to match by)
+      if (!validation.valid && existing) {
+        const hasCoordinates = preprocessedItem.location?.lat !== undefined && 
+                              preprocessedItem.location?.lng !== undefined;
+        
+        if (hasCoordinates) {
+          console.log(`   ℹ️  Enriching existing place ${preprocessedItem.title} (bypassing validation)`);
+          validation = { valid: true, errors: [] }; // Override validation for enrichment
+        }
+      }
+      
+      // For new places without existing record: if only missing city/country but have coordinates,
+      // use reverse geocoding to fill them and allow insertion
+      if (!validation.valid && !existing) {
+        const hasCoordinates = preprocessedItem.location?.lat !== undefined && 
+                              preprocessedItem.location?.lng !== undefined;
+        const missingFields = validation.errors;
+        const onlyMissingCityCountry = missingFields.every(err => 
+          err.includes('city') || err.includes('countryCode')
+        );
+        
+        if (hasCoordinates && onlyMissingCityCountry) {
+          // Try reverse geocoding to get city/country
+          const geocoded = await apifyDataValidator.reverseGeocode(
+            preprocessedItem.location!.lat,
+            preprocessedItem.location!.lng
+          );
+          
+          if (geocoded) {
+            preprocessedItem.city = geocoded.city;
+            preprocessedItem.countryCode = geocoded.countryCode;
+            console.log(`   🌍 Reverse geocoded ${preprocessedItem.title}: ${geocoded.city}, ${geocoded.countryCode}`);
+            
+            // Re-validate after geocoding
+            validation = apifyDataValidator.validateRequired(preprocessedItem);
+          }
+        }
+      }
+      
       if (!validation.valid) {
         console.log(`   ⚠️  Skipping ${preprocessedItem.title || preprocessedItem.placeId}: ${validation.errors.join(', ')}`);
         return {
@@ -303,18 +360,17 @@ export class ApifyImportService {
         };
       }
 
-      // Step 2: Map fields
+      // Step 3: Map fields
       const mapped = apifyFieldMapper.mapToPlace(preprocessedItem);
 
-      // Step 3: Normalize category (Requirements 4.1-4.11)
+      // Step 4: Normalize category (Requirements 4.1-4.11)
       const categoryResult = normalizationService.normalizeFromApify(
         preprocessedItem.categories,
         preprocessedItem.categoryName,
         preprocessedItem.searchString
       );
 
-      // Step 4: Check for existing record and merge if needed
-      const existing = await placeMergeService.findExisting(preprocessedItem);
+      // Step 5: Merge with existing record if found (already checked in Step 1)
       
       let mergedPlace: MergedPlace;
       let isUpdate = false;
@@ -323,6 +379,14 @@ export class ApifyImportService {
         // Merge with existing record
         mergedPlace = placeMergeService.merge(existing, mapped);
         isUpdate = true;
+        
+        // For enrichment: preserve existing city/country if incoming data doesn't have them
+        if (!mapped.city && existing.city) {
+          mergedPlace.city = existing.city;
+        }
+        if (!mapped.country && existing.country) {
+          mergedPlace.country = existing.country;
+        }
       } else {
         // Create new record
         mergedPlace = {
@@ -480,12 +544,41 @@ export class ApifyImportService {
       }
 
       // Step 7: Process image if available and not skipped
-      if (!skipImages && preprocessedItem.imageUrl && !mergedPlace.coverImage) {
+      // NEW LOGIC for data enrichment:
+      // - Google image (new) → becomes coverImage
+      // - Old coverImage → moves to images array
+      // - All images are uploaded to R2
+      if (!skipImages && preprocessedItem.imageUrl) {
         const imageResult = await r2ImageService.processAndUpload(preprocessedItem.imageUrl);
+        
         if (imageResult.success && imageResult.publicUrl && imageResult.r2Key) {
+          const customFields = mergedPlace.customFields as Record<string, unknown>;
+          
+          // Initialize images array if needed
+          if (!customFields.images) {
+            customFields.images = [];
+          }
+          const imagesArray = customFields.images as Array<{ url: string; r2Key: string; addedAt: string; source?: string }>;
+          
+          // If there's an existing coverImage, move it to images array first
+          if (mergedPlace.coverImage) {
+            const oldCoverExists = imagesArray.some(img => img.url === mergedPlace.coverImage);
+            if (!oldCoverExists) {
+              imagesArray.push({
+                url: mergedPlace.coverImage,
+                r2Key: (customFields.r2Key as string) || '',
+                addedAt: (customFields.imageMigratedAt as string) || new Date().toISOString(),
+                source: 'wikidata', // Assume old images are from wikidata
+              });
+              console.log(`   🖼️  Moved old coverImage to images array: ${preprocessedItem.title}`);
+            }
+          }
+          
+          // Set Google image as new coverImage
           mergedPlace.coverImage = imageResult.publicUrl;
-          (mergedPlace.customFields as Record<string, unknown>).r2Key = imageResult.r2Key;
-          (mergedPlace.customFields as Record<string, unknown>).imageMigratedAt = new Date().toISOString();
+          customFields.r2Key = imageResult.r2Key;
+          customFields.imageMigratedAt = new Date().toISOString();
+          console.log(`   🖼️  Set Google image as coverImage: ${preprocessedItem.title}`);
         }
       }
 

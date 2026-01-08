@@ -1,0 +1,5982 @@
+[
+  {
+    "title": "Via di Porta Maggiore",
+    "price": null,
+    "address": "Rome, Metropolitan City of Rome Capital, Italy",
+    "neighborhood": null,
+    "street": null,
+    "city": null,
+    "postalCode": null,
+    "state": null,
+    "countryCode": null,
+    "claimThisBusiness": false,
+    "location": {
+      "lat": 41.8925469,
+      "lng": 12.511965
+    },
+    "permanentlyClosed": false,
+    "temporarilyClosed": false,
+    "placeId": "ChIJR1Tw15ZhLxMR2ttlfk_uhfA",
+    "categories": [],
+    "fid": "0x132f6196d7f05447:0xf085ee4f7e65dbda",
+    "cid": "17331520766195653594",
+    "reviewsCount": null,
+    "imagesCount": null,
+    "imageCategories": [],
+    "scrapedAt": "2026-01-08T09:31:44.707Z",
+    "googleFoodUrl": null,
+    "hotelAds": [],
+    "openingHours": [],
+    "peopleAlsoSearch": [],
+    "placesTags": [],
+    "reviewsTags": [],
+    "gasPrices": [],
+    "url": "https://www.google.com/maps/search/?api=1&query=Via%20di%20Porta%20Maggiore&query_place_id=ChIJR1Tw15ZhLxMR2ttlfk_uhfA",
+    "searchPageUrl": "https://www.google.com/maps/search/Via%20di%20Porta%20Maggiore/@41.8926133,12.5120034,17z?hl=en",
+    "searchString": "Via di Porta Maggiore",
+    "language": "en",
+    "rank": 1,
+    "isAdvertisement": false,
+    "kgmid": "/g/1tn_wlg0",
+    "subTitle": null,
+    "description": null,
+    "categoryName": null,
+    "website": null,
+    "phone": null,
+    "phoneUnformatted": null,
+    "locatedIn": null,
+    "plusCode": null,
+    "menu": null,
+    "totalScore": null,
+    "reviewsDistribution": null,
+    "reserveTableUrl": null,
+    "hotelStars": null,
+    "hotelDescription": null,
+    "checkInDate": null,
+    "checkOutDate": null,
+    "similarHotelsNearby": null,
+    "hotelReviewSummary": null,
+    "additionalOpeningHours": null,
+    "openingHoursBusinessConfirmationText": null,
+    "additionalInfo": null,
+    "questionsAndAnswers": [],
+    "updatesFromCustomers": null,
+    "inputPlaceId": null,
+    "imageUrl": null,
+    "userPlaceNote": null,
+    "webResults": [],
+    "tableReservationLinks": [],
+    "bookingLinks": [],
+    "orderBy": [],
+    "restaurantData": {
+      "tableReservationProvider": null
+    },
+    "ownerUpdates": [],
+    "imageUrls": [],
+    "images": null,
+    "reviews": [],
+    "leadsEnrichment": []
+  },
+  {
+    "title": "Hotel Gloria",
+    "subTitle": "Albergo Gloria",
+    "price": null,
+    "categoryName": "Hotel",
+    "address": "V. Gioberti, 30, 00185 Roma RM, Italy",
+    "neighborhood": null,
+    "street": "V. Gioberti, 30",
+    "city": "Rome",
+    "postalCode": "00185",
+    "state": "Metropolitan City of Rome Capital",
+    "countryCode": "IT",
+    "website": "https://gloria.bedsandhotels.com/",
+    "phone": "+39 06 446 6654",
+    "phoneUnformatted": "+39064466654",
+    "claimThisBusiness": true,
+    "location": {
+      "lat": 41.8989836,
+      "lng": 12.5009525
+    },
+    "locatedIn": "Hotel Scott House",
+    "plusCode": "VGX2+H9 Rome, Metropolitan City of Rome Capital, Italy",
+    "totalScore": 3.3,
+    "permanentlyClosed": false,
+    "temporarilyClosed": false,
+    "placeId": "ChIJ-QuifqRhLxMRoDUSkkCif5E",
+    "categories": [
+      "Hotel"
+    ],
+    "fid": "0x132f61a47ea20bf9:0x917fa240921235a0",
+    "cid": "10484276855754077600",
+    "reviewsCount": 149,
+    "reviewsDistribution": {
+      "oneStar": 38,
+      "twoStar": 10,
+      "threeStar": 21,
+      "fourStar": 32,
+      "fiveStar": 48
+    },
+    "imagesCount": 71,
+    "imageCategories": [
+      "All",
+      "Rooms",
+      "Exterior",
+      "Food & drink",
+      "From visitors",
+      "Street View & 360°"
+    ],
+    "scrapedAt": "2026-01-08T09:31:45.784Z",
+    "googleFoodUrl": null,
+    "hotelStars": "1-star hotel",
+    "checkInDate": "2026-01-11",
+    "checkOutDate": "2026-01-12",
+    "similarHotelsNearby": [
+      {
+        "name": "Hotel Max Rome",
+        "rating": 3.2,
+        "reviews": 320,
+        "description": "Free breakfast and Wi-Fi",
+        "price": "$74"
+      },
+      {
+        "name": "Hotel Scott House",
+        "rating": 3.8,
+        "reviews": 672,
+        "description": "Free breakfast and Wi-Fi",
+        "price": "$91"
+      },
+      {
+        "name": "Oscar Rooms",
+        "rating": 3,
+        "reviews": 145,
+        "description": "Free breakfast and Wi-Fi",
+        "price": "$52"
+      },
+      {
+        "name": "Hotel Concorde",
+        "rating": 3.1,
+        "reviews": 538,
+        "description": "Free breakfast and Wi-Fi",
+        "price": "$50"
+      },
+      {
+        "name": "Adorasuite",
+        "rating": 3.9,
+        "reviews": 107,
+        "description": "Free breakfast and Wi-Fi",
+        "price": "$59"
+      },
+      {
+        "name": "La Casa Dell'Arte",
+        "rating": 3.7,
+        "reviews": 159,
+        "description": "Free breakfast and Wi-Fi",
+        "price": "$45"
+      },
+      {
+        "name": "Hotel Orlanda",
+        "rating": 4.2,
+        "reviews": 403,
+        "description": "Free Wi-Fi",
+        "price": "$89"
+      },
+      {
+        "name": "Hotel Ferrari",
+        "rating": 3.1,
+        "reviews": 389,
+        "description": "Free breakfast and Wi-Fi",
+        "price": "$57"
+      },
+      {
+        "name": "Termini Terrace",
+        "rating": 4.6,
+        "reviews": 96,
+        "description": "Free breakfast and Wi-Fi",
+        "price": null
+      }
+    ],
+    "hotelAds": [],
+    "openingHours": [],
+    "peopleAlsoSearch": [],
+    "placesTags": [],
+    "reviewsTags": [
+      {
+        "title": "price",
+        "count": 22
+      },
+      {
+        "title": "bed bugs",
+        "count": 10
+      },
+      {
+        "title": "bedroom",
+        "count": 8
+      },
+      {
+        "title": "noisy",
+        "count": 6
+      },
+      {
+        "title": "shower",
+        "count": 6
+      },
+      {
+        "title": "insects",
+        "count": 4
+      },
+      {
+        "title": "the colosseum",
+        "count": 3
+      },
+      {
+        "title": "refund",
+        "count": 3
+      },
+      {
+        "title": "shoes",
+        "count": 3
+      },
+      {
+        "title": "doorbell",
+        "count": 2
+      }
+    ],
+    "additionalInfo": {
+      "Amenities": [
+        {
+          "Air-conditioned": true
+        },
+        {
+          "Pet-friendly": false
+        },
+        {
+          "Kid-friendly": true
+        },
+        {
+          "Airport shuttle": false
+        }
+      ]
+    },
+    "gasPrices": [],
+    "updatesFromCustomers": {
+      "text": "Il gallo Nero, rome...",
+      "language": "it",
+      "postDate": "2 years ago",
+      "postedBy": {
+        "name": "Beatrice Silia",
+        "url": "https://www.google.com/maps/contrib/101529928779042046581?hl=en-US",
+        "title": "Local Guide",
+        "totalReviews": 41
+      },
+      "media": [
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38sLZGhx6nTvlZ5_Ro2tsG4qkc9SHiqWjqbJpvy3TVG9H9P-CPouMiRQ3Qm6r6zFAVClbtBpARt7tRCkv1pUyLyb-orReVGnh2BtUieFpJuQY3iodmjcGm-Y9awFmQ9d7v4WoSg6",
+          "postDate": "2 years ago"
+        }
+      ]
+    },
+    "url": "https://www.google.com/maps/search/?api=1&query=Hotel%20Gloria&query_place_id=ChIJ-QuifqRhLxMRoDUSkkCif5E",
+    "searchPageUrl": "https://www.google.com/maps/search/Hotel%20Gloria/@41.8990262,12.5008751,17z?hl=en",
+    "searchString": "Hotel Gloria",
+    "language": "en",
+    "rank": 1,
+    "isAdvertisement": false,
+    "imageUrl": "https://dynamic-media-cdn.tripadvisor.com/media/photo-o/18/0c/12/cf/photo0jpg.jpg?w=1900&h=1400&s=1",
+    "kgmid": "/g/1tf89vf6",
+    "description": null,
+    "menu": null,
+    "reserveTableUrl": null,
+    "hotelDescription": null,
+    "hotelReviewSummary": null,
+    "additionalOpeningHours": null,
+    "openingHoursBusinessConfirmationText": null,
+    "questionsAndAnswers": [],
+    "inputPlaceId": null,
+    "userPlaceNote": null,
+    "webResults": [],
+    "tableReservationLinks": [],
+    "bookingLinks": [],
+    "orderBy": [],
+    "restaurantData": {
+      "tableReservationProvider": null
+    },
+    "ownerUpdates": [],
+    "imageUrls": [
+      "https://dynamic-media-cdn.tripadvisor.com/media/photo-o/18/0c/12/cf/photo0jpg.jpg?w=1900&h=1400&s=1"
+    ],
+    "images": null,
+    "reviews": [],
+    "leadsEnrichment": []
+  },
+  {
+    "title": "Roman Forum",
+    "subTitle": "Foro Romano",
+    "description": "Vast excavated area of Roman temples, squares & government buildings, some dating back 2,000 years.",
+    "price": null,
+    "categoryName": "Open air museum",
+    "address": "00186 Rome, Metropolitan City of Rome Capital, Italy",
+    "neighborhood": null,
+    "street": null,
+    "city": "Rome",
+    "postalCode": "00186",
+    "state": "Metropolitan City of Rome Capital",
+    "countryCode": "IT",
+    "website": "https://colosseo.it/area/foro-romano/",
+    "phone": "+39 06 2111 5843",
+    "phoneUnformatted": "+390621115843",
+    "claimThisBusiness": false,
+    "location": {
+      "lat": 41.8920906,
+      "lng": 12.4864378
+    },
+    "plusCode": "VFRP+RH Rome, Metropolitan City of Rome Capital, Italy",
+    "totalScore": 4.8,
+    "permanentlyClosed": false,
+    "temporarilyClosed": false,
+    "placeId": "ChIJ782pg7NhLxMR5n3swAdAkfo",
+    "categories": [
+      "Open air museum",
+      "Museum",
+      "Tourist attraction"
+    ],
+    "fid": "0x132f61b383a9cdef:0xfa914007c0ec7de6",
+    "cid": "18055282783150702054",
+    "reviewsCount": 140774,
+    "reviewsDistribution": {
+      "oneStar": 980,
+      "twoStar": 749,
+      "threeStar": 4273,
+      "fourStar": 20425,
+      "fiveStar": 114347
+    },
+    "imagesCount": 1381265,
+    "imageCategories": [
+      "All",
+      "Latest",
+      "Videos",
+      "Basilica Julia",
+      "Septimius Severus Arch",
+      "Forum of Augustus",
+      "Basilica Emilia",
+      "Basilica of Maxentius",
+      "Antoninus and Faustina Temple",
+      "Temple of Castor and Pollux",
+      "By owner",
+      "Street View & 360°"
+    ],
+    "scrapedAt": "2026-01-08T09:31:53.445Z",
+    "googleFoodUrl": null,
+    "hotelAds": [],
+    "popularTimesLiveText": "Less busy than usual",
+    "popularTimesLivePercent": 29,
+    "popularTimesHistogram": {
+      "Su": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 47
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 74
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 94
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 99
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 94
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 87
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 58
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Mo": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 47
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 91
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 96
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 92
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 84
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Tu": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 38
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 59
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 77
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 74
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 61
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 46
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "We": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 39
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 62
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 80
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 87
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 85
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 77
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 48
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Th": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 67
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 86
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 92
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 90
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 83
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 53
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Fr": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 44
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 89
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 96
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 91
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 83
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 55
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Sa": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 44
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 72
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 93
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 100
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 97
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 91
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 80
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 59
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ]
+    },
+    "openingHours": [
+      {
+        "day": "Monday",
+        "hours": "9 AM to 4:30 PM"
+      },
+      {
+        "day": "Tuesday",
+        "hours": "9 AM to 4:30 PM"
+      },
+      {
+        "day": "Wednesday",
+        "hours": "9 AM to 4:30 PM"
+      },
+      {
+        "day": "Thursday",
+        "hours": "9 AM to 4:30 PM"
+      },
+      {
+        "day": "Friday",
+        "hours": "9 AM to 4:30 PM"
+      },
+      {
+        "day": "Saturday",
+        "hours": "9 AM to 4:30 PM"
+      },
+      {
+        "day": "Sunday",
+        "hours": "9 AM to 4:30 PM"
+      }
+    ],
+    "peopleAlsoSearch": [
+      {
+        "category": "People also search for",
+        "title": "Colosseum",
+        "reviewsCount": 476901,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Trajan's Forum",
+        "reviewsCount": 9465,
+        "totalScore": 4.7
+      },
+      {
+        "category": "People also search for",
+        "title": "Pantheon",
+        "reviewsCount": 270587,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Monument to Victor Emmanuel II",
+        "reviewsCount": 73492,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Castel Sant'Angelo",
+        "reviewsCount": 104188,
+        "totalScore": 4.7
+      }
+    ],
+    "placesTags": [
+      {
+        "title": "Shopping",
+        "count": 1
+      },
+      {
+        "title": "Recreations",
+        "count": 1
+      },
+      {
+        "title": "Services",
+        "count": 1
+      },
+      {
+        "title": "Other",
+        "count": 28
+      }
+    ],
+    "reviewsTags": [
+      {
+        "title": "ruins",
+        "count": 2654
+      },
+      {
+        "title": "roman history",
+        "count": 622
+      },
+      {
+        "title": "julius caesar",
+        "count": 223
+      },
+      {
+        "title": "capitoline hill",
+        "count": 186
+      },
+      {
+        "title": "triumphal arch",
+        "count": 123
+      },
+      {
+        "title": "rick steves",
+        "count": 101
+      },
+      {
+        "title": "augustus",
+        "count": 78
+      },
+      {
+        "title": "curia",
+        "count": 70
+      },
+      {
+        "title": "senate",
+        "count": 45
+      }
+    ],
+    "additionalInfo": {
+      "Service options": [
+        {
+          "Onsite services": true
+        }
+      ],
+      "Accessibility": [
+        {
+          "Wheelchair accessible entrance": true
+        },
+        {
+          "Wheelchair accessible restroom": true
+        }
+      ],
+      "Amenities": [
+        {
+          "Restroom": true
+        },
+        {
+          "Restaurant": false
+        }
+      ],
+      "Crowd": [
+        {
+          "Family-friendly": true
+        },
+        {
+          "LGBTQ+ friendly": true
+        }
+      ],
+      "Planning": [
+        {
+          "Getting tickets in advance recommended": true
+        }
+      ],
+      "Children": [
+        {
+          "Good for kids": true
+        }
+      ]
+    },
+    "gasPrices": [],
+    "updatesFromCustomers": {
+      "text": "المكان شبه منهار ويقومون بتجديده لكن يحرك الخيال والمشاعر بالأعمدة الرومانية والتماثيل المنحوتة علي الأعمدة جدا مكان تاريخي شاعري",
+      "language": "ar",
+      "postDate": "a week ago",
+      "postedBy": {
+        "name": "Walaa Zawqar",
+        "url": "https://www.google.com/maps/contrib/107146540938782998566?hl=en-US",
+        "title": "Local Guide",
+        "totalReviews": 491
+      },
+      "media": [
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38uowmR2pl_iEX963HqxO7BOK7FEOYo1dgI0h5_rWe06xml5w_hLQ1w15cOOV6B6uKR9X6aBz8jWyWY1xQXV2m3JrZpiOLsovljQrnDKxAezT06mJozCb7NBBukUR3Mz6R8rNpKZOhS1sIA",
+          "postDate": "a week ago"
+        }
+      ]
+    },
+    "url": "https://www.google.com/maps/search/?api=1&query=Roman%20Forum&query_place_id=ChIJ782pg7NhLxMR5n3swAdAkfo",
+    "searchPageUrl": "https://www.google.com/maps/search/%E5%8F%A4%E7%BD%97%E9%A9%AC%E5%B9%BF%E5%9C%BA/@41.892541,12.4853844,17z?hl=en",
+    "searchString": "古罗马广场",
+    "language": "en",
+    "rank": 1,
+    "isAdvertisement": false,
+    "imageUrl": "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSwADbC_VBGNORamrl3g-GO-46b8hsNn_Bj5ZjizgoWPh8Chl4k7v88Z_iiPicQ2B8-we2TmIhfxzNWVfFn-iJb7Kdx9Sk2vZAkn9QdTFpowubCQtp-AwrrzzMuuaP8Zr6nZKJl7=w408-h306-k-no",
+    "kgmid": "/m/0n16t",
+    "locatedIn": null,
+    "menu": null,
+    "reserveTableUrl": null,
+    "hotelStars": null,
+    "hotelDescription": null,
+    "checkInDate": null,
+    "checkOutDate": null,
+    "similarHotelsNearby": null,
+    "hotelReviewSummary": null,
+    "additionalOpeningHours": null,
+    "openingHoursBusinessConfirmationText": null,
+    "questionsAndAnswers": [],
+    "inputPlaceId": null,
+    "userPlaceNote": null,
+    "webResults": [],
+    "tableReservationLinks": [],
+    "bookingLinks": [],
+    "orderBy": [],
+    "restaurantData": {
+      "tableReservationProvider": null
+    },
+    "ownerUpdates": [],
+    "imageUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSwADbC_VBGNORamrl3g-GO-46b8hsNn_Bj5ZjizgoWPh8Chl4k7v88Z_iiPicQ2B8-we2TmIhfxzNWVfFn-iJb7Kdx9Sk2vZAkn9QdTFpowubCQtp-AwrrzzMuuaP8Zr6nZKJl7=w1920-h1080-k-no"
+    ],
+    "images": null,
+    "reviews": [],
+    "leadsEnrichment": []
+  },
+  {
+    "title": "Piazza di Monte Savello",
+    "price": null,
+    "categoryName": "Town square",
+    "address": "00186 Rome, Metropolitan City of Rome Capital, Italy",
+    "neighborhood": null,
+    "street": null,
+    "city": null,
+    "postalCode": null,
+    "state": null,
+    "countryCode": null,
+    "claimThisBusiness": false,
+    "location": {
+      "lat": 41.890862,
+      "lng": 12.4797549
+    },
+    "permanentlyClosed": false,
+    "temporarilyClosed": false,
+    "placeId": "ChIJgajpS0pgLxMRO8IB1tbPytE",
+    "categories": [
+      "Town square"
+    ],
+    "fid": "0x132f604a4be9a881:0xd1cacfd6d601c23b",
+    "cid": "15117123620842881595",
+    "reviewsCount": null,
+    "imagesCount": null,
+    "imageCategories": [],
+    "scrapedAt": "2026-01-08T09:31:53.749Z",
+    "googleFoodUrl": null,
+    "hotelAds": [],
+    "openingHours": [],
+    "peopleAlsoSearch": [],
+    "placesTags": [],
+    "reviewsTags": [],
+    "gasPrices": [],
+    "url": "https://www.google.com/maps/search/?api=1&query=Piazza%20di%20Monte%20Savello&query_place_id=ChIJgajpS0pgLxMRO8IB1tbPytE",
+    "searchPageUrl": "https://www.google.com/maps/search/Piazza%20di%20Monte%20Savello/@41.8910476,12.4796416,17z?hl=en",
+    "searchString": "Piazza di Monte Savello",
+    "language": "en",
+    "rank": 1,
+    "isAdvertisement": false,
+    "kgmid": "/g/11b8zg5mnl",
+    "subTitle": null,
+    "description": null,
+    "website": null,
+    "phone": null,
+    "phoneUnformatted": null,
+    "locatedIn": null,
+    "plusCode": null,
+    "menu": null,
+    "totalScore": null,
+    "reviewsDistribution": null,
+    "reserveTableUrl": null,
+    "hotelStars": null,
+    "hotelDescription": null,
+    "checkInDate": null,
+    "checkOutDate": null,
+    "similarHotelsNearby": null,
+    "hotelReviewSummary": null,
+    "additionalOpeningHours": null,
+    "openingHoursBusinessConfirmationText": null,
+    "additionalInfo": null,
+    "questionsAndAnswers": [],
+    "updatesFromCustomers": null,
+    "inputPlaceId": null,
+    "imageUrl": null,
+    "userPlaceNote": null,
+    "webResults": [],
+    "tableReservationLinks": [],
+    "bookingLinks": [],
+    "orderBy": [],
+    "restaurantData": {
+      "tableReservationProvider": null
+    },
+    "ownerUpdates": [],
+    "imageUrls": [],
+    "images": null,
+    "reviews": [],
+    "leadsEnrichment": []
+  },
+  {
+    "title": "Colosseum",
+    "subTitle": "Colosseo",
+    "description": "Monumental 3-tiered Roman amphitheater once used for gladiatorial games, with guided tour option.",
+    "price": null,
+    "categoryName": "Historical landmark",
+    "address": "Piazza del Colosseo, 1, 00184 Roma RM, Italy",
+    "neighborhood": null,
+    "street": "Piazza del Colosseo, 1",
+    "city": "Rome",
+    "postalCode": "00184",
+    "state": "Metropolitan City of Rome Capital",
+    "countryCode": "IT",
+    "website": "https://colosseo.it/",
+    "phone": "+39 06 2111 5843",
+    "phoneUnformatted": "+390621115843",
+    "claimThisBusiness": false,
+    "location": {
+      "lat": 41.8902102,
+      "lng": 12.4922309
+    },
+    "plusCode": "VFRR+3V Rome, Metropolitan City of Rome Capital, Italy",
+    "totalScore": 4.8,
+    "permanentlyClosed": false,
+    "temporarilyClosed": false,
+    "placeId": "ChIJrRMgU7ZhLxMRxAOFkC7I8Sg",
+    "categories": [
+      "Historical landmark",
+      "Tourist attraction"
+    ],
+    "fid": "0x132f61b6532013ad:0x28f1c82e908503c4",
+    "cid": "2950359333223072708",
+    "reviewsCount": 477036,
+    "reviewsDistribution": {
+      "oneStar": 4840,
+      "twoStar": 3260,
+      "threeStar": 14842,
+      "fourStar": 59151,
+      "fiveStar": 394943
+    },
+    "imagesCount": 2812952,
+    "imageCategories": [
+      "All",
+      "Latest",
+      "Street View & 360°"
+    ],
+    "scrapedAt": "2026-01-08T09:31:56.925Z",
+    "googleFoodUrl": null,
+    "hotelAds": [],
+    "popularTimesLiveText": "Less busy than usual",
+    "popularTimesLivePercent": 43,
+    "popularTimesHistogram": {
+      "Su": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 32
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 58
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 82
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 95
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 95
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 92
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 88
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 85
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 77
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Mo": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 31
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 84
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 87
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 85
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 81
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 64
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Tu": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 27
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 60
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 70
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 67
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 57
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "We": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 28
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 48
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 65
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 75
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 78
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 77
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 74
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 61
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Th": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 31
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 53
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 85
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 88
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 87
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 84
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 78
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Fr": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 29
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 50
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 68
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 80
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 84
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 84
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 82
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 67
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Sa": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 35
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 60
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 83
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 96
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 100
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 98
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 97
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 97
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 92
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ]
+    },
+    "openingHours": [
+      {
+        "day": "Monday",
+        "hours": "8:30 AM to 4:30 PM"
+      },
+      {
+        "day": "Tuesday",
+        "hours": "8:30 AM to 4:30 PM"
+      },
+      {
+        "day": "Wednesday",
+        "hours": "8:30 AM to 4:30 PM"
+      },
+      {
+        "day": "Thursday",
+        "hours": "8:30 AM to 4:30 PM"
+      },
+      {
+        "day": "Friday",
+        "hours": "8:30 AM to 4:30 PM"
+      },
+      {
+        "day": "Saturday",
+        "hours": "8:30 AM to 4:30 PM"
+      },
+      {
+        "day": "Sunday",
+        "hours": "8:30 AM to 4:30 PM"
+      }
+    ],
+    "openingHoursBusinessConfirmationText": "Updated by this business 9 weeks ago",
+    "peopleAlsoSearch": [
+      {
+        "category": "People also search for",
+        "title": "Parco archeologico del Colosseo",
+        "reviewsCount": 3910,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Roman Forum",
+        "reviewsCount": 140742,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Pantheon",
+        "reviewsCount": 270587,
+        "totalScore": 4.8
+      }
+    ],
+    "placesTags": [
+      {
+        "title": "Other",
+        "count": 1
+      }
+    ],
+    "reviewsTags": [
+      {
+        "title": "gladiators",
+        "count": 3444
+      },
+      {
+        "title": "queue",
+        "count": 2942
+      },
+      {
+        "title": "audio guide",
+        "count": 2766
+      },
+      {
+        "title": "forum",
+        "count": 1142
+      },
+      {
+        "title": "7 wonders of the world",
+        "count": 1004
+      },
+      {
+        "title": "arena",
+        "count": 911
+      },
+      {
+        "title": "roman history",
+        "count": 814
+      },
+      {
+        "title": "titus",
+        "count": 249
+      },
+      {
+        "title": "colossus",
+        "count": 233
+      },
+      {
+        "title": "bread and circuses",
+        "count": 86
+      }
+    ],
+    "additionalInfo": {
+      "Service options": [
+        {
+          "Onsite services": true
+        }
+      ],
+      "Accessibility": [
+        {
+          "Wheelchair accessible entrance": true
+        },
+        {
+          "Wheelchair accessible restroom": true
+        },
+        {
+          "Wheelchair accessible seating": false
+        }
+      ],
+      "Planning": [
+        {
+          "Getting tickets in advance recommended": true
+        }
+      ],
+      "Children": [
+        {
+          "Good for kids": true
+        }
+      ]
+    },
+    "gasPrices": [],
+    "updatesFromCustomers": {
+      "text": "Colosseo Romano",
+      "language": "it",
+      "postDate": "Edited 3 days ago",
+      "postedBy": {
+        "name": "nery arimuya",
+        "url": "https://www.google.com/maps/contrib/115519573317832334177?hl=en-US",
+        "title": "Local Guide",
+        "totalReviews": 9
+      },
+      "media": [
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38svODQgcP-TVzmgE4rmbmV9OroQ2NFqJpMBe7TzWoTdPKH6Oy1QBJZ_oQ8E7-7rDH4DCS5wsnq1_2LqV9LzrZT_2Kd5bRhSqjiGWWg8HgaLZa8FaDs9Dy_rzSyy6dCu4FAaOEVS",
+          "postDate": "11 months ago"
+        },
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38sV4fXN1h83ZJdMrudwZqsMj2gYZLfyWROJ_TZ3Zt1WYXuiPeozoI981Dm79m3RAuKt272tb7XKjZEO9Ulz4LY-gKBmz3t2Q9mtGXj0G8NDzJ2lhmnyXe1Xrm_uWsaApQuZ0Qm1fw",
+          "postDate": "11 months ago"
+        },
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38vuju7U4DSf-RlmMufq1REoeE9FNZ4iTJYsXhOau0JCQnpjXn4bzwPekQG_l0XiCDdzdkLt-i6ghmliEe3IN9mOMNeORJZ3tS6G6pArvJhACYICI-VCBVct2lifzENntdmStfXv5w",
+          "postDate": "11 months ago"
+        }
+      ]
+    },
+    "url": "https://www.google.com/maps/search/?api=1&query=Colosseum&query_place_id=ChIJrRMgU7ZhLxMRxAOFkC7I8Sg",
+    "searchPageUrl": "https://www.google.com/maps/search/%E7%BD%97%E9%A9%AC%E6%96%97%E5%85%BD%E5%9C%BA/@41.8898363,12.4919942,17z?hl=en",
+    "searchString": "罗马斗兽场",
+    "language": "en",
+    "rank": 1,
+    "isAdvertisement": false,
+    "imageUrl": "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSwNecgADgyn4VNlu3kFyd82-IFfaZRJpVdDHvAoc5QQK4ekPXAE2ffinnAgEHyRGglm6LwVFVmVOOfvy8BUOXI1UMIn769-2erVeQrTaXgrXp33QOU0iKpvteyY_mj-PuydVtnu=w408-h306-k-no",
+    "kgmid": "/m/0d5qx",
+    "locatedIn": null,
+    "menu": null,
+    "reserveTableUrl": null,
+    "hotelStars": null,
+    "hotelDescription": null,
+    "checkInDate": null,
+    "checkOutDate": null,
+    "similarHotelsNearby": null,
+    "hotelReviewSummary": null,
+    "additionalOpeningHours": null,
+    "questionsAndAnswers": [],
+    "inputPlaceId": null,
+    "userPlaceNote": null,
+    "webResults": [],
+    "tableReservationLinks": [],
+    "bookingLinks": [],
+    "orderBy": [],
+    "restaurantData": {
+      "tableReservationProvider": null
+    },
+    "ownerUpdates": [],
+    "imageUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSwNecgADgyn4VNlu3kFyd82-IFfaZRJpVdDHvAoc5QQK4ekPXAE2ffinnAgEHyRGglm6LwVFVmVOOfvy8BUOXI1UMIn769-2erVeQrTaXgrXp33QOU0iKpvteyY_mj-PuydVtnu=w1920-h1080-k-no"
+    ],
+    "images": null,
+    "reviews": [],
+    "leadsEnrichment": []
+  },
+  {
+    "title": "Ponte Vittorio Emanuele II",
+    "description": "Triple-arched Roman bridge named after Victor Emmanuel II & featuring large winged sculptures.",
+    "price": null,
+    "categoryName": "Bridge",
+    "address": "Lungotevere dei Fiorentini, 00186 Roma RM, Italy",
+    "neighborhood": null,
+    "street": "Lungotevere dei Fiorentini",
+    "city": "Rome",
+    "postalCode": "00186",
+    "state": "Metropolitan City of Rome Capital",
+    "countryCode": "IT",
+    "website": "https://www.turismoroma.it/it/luoghi/ponte-vittorio-emanuele-ii",
+    "phone": "+39 06 0608",
+    "phoneUnformatted": "+39060608",
+    "claimThisBusiness": true,
+    "location": {
+      "lat": 41.9011499,
+      "lng": 12.4643336
+    },
+    "plusCode": "WF27+FP Rome, Metropolitan City of Rome Capital, Italy",
+    "totalScore": 4.7,
+    "permanentlyClosed": false,
+    "temporarilyClosed": false,
+    "placeId": "ChIJbcKVdkVgLxMRs6zkiUTdePk",
+    "categories": [
+      "Bridge",
+      "Historical landmark",
+      "Tourist attraction"
+    ],
+    "fid": "0x132f60457695c26d:0xf978dd4489e4acb3",
+    "cid": "17976361199090314419",
+    "reviewsCount": 2723,
+    "reviewsDistribution": {
+      "oneStar": 12,
+      "twoStar": 16,
+      "threeStar": 116,
+      "fourStar": 534,
+      "fiveStar": 2045
+    },
+    "imagesCount": 38742,
+    "imageCategories": [
+      "All",
+      "Latest",
+      "Videos",
+      "River",
+      "Bridge",
+      "Street View & 360°"
+    ],
+    "scrapedAt": "2026-01-08T09:32:03.464Z",
+    "googleFoodUrl": null,
+    "hotelAds": [],
+    "popularTimesLiveText": "A little busy",
+    "popularTimesLivePercent": 73,
+    "popularTimesHistogram": {
+      "Su": [
+        {
+          "hour": 4,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 16
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 26
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 23
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 26
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 61
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 88
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 90
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 100
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 90
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 64
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 61
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 50
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 35
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 14
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 19
+        }
+      ],
+      "Mo": [
+        {
+          "hour": 4,
+          "occupancyPercent": 7
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 9
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 14
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 28
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 33
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 38
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 57
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 47
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 47
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 59
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 28
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 26
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 26
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 28
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 23
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 14
+        }
+      ],
+      "Tu": [
+        {
+          "hour": 4,
+          "occupancyPercent": 23
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 26
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 30
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 23
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 26
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 38
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 35
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 33
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 35
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 28
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 16
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 14
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 14
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 19
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 23
+        }
+      ],
+      "We": [
+        {
+          "hour": 4,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 28
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 30
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 23
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 33
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 57
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 61
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 61
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 61
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 50
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 47
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 35
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 26
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 26
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 19
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 14
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 21
+        }
+      ],
+      "Th": [
+        {
+          "hour": 4,
+          "occupancyPercent": 14
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 7
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 16
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 26
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 57
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 23
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 23
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 33
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 14
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 14
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 19
+        }
+      ],
+      "Fr": [
+        {
+          "hour": 4,
+          "occupancyPercent": 16
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 23
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 28
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 38
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 50
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 57
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 57
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 61
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 59
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 33
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 30
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 35
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 19
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 7
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 11
+        }
+      ],
+      "Sa": [
+        {
+          "hour": 4,
+          "occupancyPercent": 26
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 23
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 23
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 33
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 35
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 35
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 33
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 38
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 59
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 50
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 47
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 38
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 50
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 33
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 28
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 28
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 28
+        }
+      ]
+    },
+    "openingHours": [
+      {
+        "day": "Monday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Tuesday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Wednesday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Thursday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Friday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Saturday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Sunday",
+        "hours": "Open 24 hours"
+      }
+    ],
+    "peopleAlsoSearch": [
+      {
+        "category": "People also search for",
+        "title": "St. Angelo Bridge",
+        "reviewsCount": 24404,
+        "totalScore": 4.7
+      },
+      {
+        "category": "People also search for",
+        "title": "Ponte Milvio",
+        "reviewsCount": 16844,
+        "totalScore": 4.5
+      },
+      {
+        "category": "People also search for",
+        "title": "Equestrian statue of Vittorio Emanuele II",
+        "reviewsCount": 581,
+        "totalScore": 4.7
+      },
+      {
+        "category": "People also search for",
+        "title": "Monument to Victor Emmanuel II",
+        "reviewsCount": 73492,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Pons Aemilius",
+        "reviewsCount": 569,
+        "totalScore": 4.6
+      }
+    ],
+    "placesTags": [],
+    "reviewsTags": [
+      {
+        "title": "statues",
+        "count": 48
+      },
+      {
+        "title": "st. peter's basilica",
+        "count": 29
+      },
+      {
+        "title": "1911",
+        "count": 22
+      },
+      {
+        "title": "bronze",
+        "count": 19
+      },
+      {
+        "title": "1886",
+        "count": 11
+      },
+      {
+        "title": "travertine",
+        "count": 10
+      },
+      {
+        "title": "Handsome",
+        "count": 10
+      },
+      {
+        "title": "unification of italy",
+        "count": 9
+      },
+      {
+        "title": "virtue",
+        "count": 6
+      },
+      {
+        "title": "allegory",
+        "count": 5
+      }
+    ],
+    "additionalInfo": {
+      "Accessibility": [
+        {
+          "Wheelchair accessible entrance": true
+        }
+      ],
+      "Amenities": [
+        {
+          "Restroom": false
+        }
+      ]
+    },
+    "gasPrices": [],
+    "updatesFromCustomers": {
+      "text": "El caudaloso Tíber bajo el puente.",
+      "language": "es",
+      "postDate": "a month ago",
+      "postedBy": {
+        "name": "Tito Rubio",
+        "url": "https://www.google.com/maps/contrib/112437661188128457578?hl=en-US",
+        "title": "Local Guide",
+        "totalReviews": 364
+      },
+      "media": [
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38vL0-QQisSQqOugmj2BDMUpgoK4RwJ7YaeTm7wyhb8TpsiSKRWEiSheijETROTUGCFJIheWqw1TNU3lGiChsDvA_-cwD-KSB6ng9SVxbyScgwI-fS7ABe7RYfCvY7TZSsGeH7SH7zP3Hy_5",
+          "postDate": "a month ago"
+        }
+      ]
+    },
+    "url": "https://www.google.com/maps/search/?api=1&query=Ponte%20Vittorio%20Emanuele%20II&query_place_id=ChIJbcKVdkVgLxMRs6zkiUTdePk",
+    "searchPageUrl": "https://www.google.com/maps/search/%E7%BB%B4%E6%89%98%E9%87%8C%E5%A5%A5%C2%B7%E5%9F%83%E9%A9%AC%E5%8A%AA%E5%9F%83%E8%8E%B1%E4%BA%8C%E4%B8%96%E6%A1%A5/@41.9010864,12.4658121,17z?hl=en",
+    "searchString": "维托里奥·埃马努埃莱二世桥",
+    "language": "en",
+    "rank": 1,
+    "isAdvertisement": false,
+    "imageUrl": "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSwf49SYAM5G_ZCLB-9SS8tfIS73z-_5yRV0p5oWzMbL9NqyeLbhT4guyE9qxVdsE3dQQFWHSmUI6Ibn1w6ALK7wIDBmPydATRcD2CE-gbxJOmHR5Xp_OdE7JrXQAszI3l8fh-eIgg=w408-h306-k-no",
+    "kgmid": "/m/080p19w",
+    "subTitle": null,
+    "locatedIn": null,
+    "menu": null,
+    "reserveTableUrl": null,
+    "hotelStars": null,
+    "hotelDescription": null,
+    "checkInDate": null,
+    "checkOutDate": null,
+    "similarHotelsNearby": null,
+    "hotelReviewSummary": null,
+    "additionalOpeningHours": null,
+    "openingHoursBusinessConfirmationText": null,
+    "questionsAndAnswers": [],
+    "inputPlaceId": null,
+    "userPlaceNote": null,
+    "webResults": [],
+    "tableReservationLinks": [],
+    "bookingLinks": [],
+    "orderBy": [],
+    "restaurantData": {
+      "tableReservationProvider": null
+    },
+    "ownerUpdates": [],
+    "imageUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSwf49SYAM5G_ZCLB-9SS8tfIS73z-_5yRV0p5oWzMbL9NqyeLbhT4guyE9qxVdsE3dQQFWHSmUI6Ibn1w6ALK7wIDBmPydATRcD2CE-gbxJOmHR5Xp_OdE7JrXQAszI3l8fh-eIgg=w1920-h1080-k-no"
+    ],
+    "images": null,
+    "reviews": [],
+    "leadsEnrichment": []
+  },
+  {
+    "title": "Pantheon",
+    "description": "Iconic temple built circa 118 to 125 A.D. with a dome & Renaissance tombs, including Raphael's.",
+    "price": null,
+    "categoryName": "Historical landmark",
+    "address": "Piazza della Rotonda, 00186 Roma RM, Italy",
+    "neighborhood": null,
+    "street": "Piazza della Rotonda",
+    "city": "Rome",
+    "postalCode": "00186",
+    "state": "Metropolitan City of Rome Capital",
+    "countryCode": "IT",
+    "website": "https://direzionemuseiroma.cultura.gov.it/pantheon/",
+    "phone": "+39 06 6830 0230",
+    "phoneUnformatted": "+390668300230",
+    "claimThisBusiness": false,
+    "location": {
+      "lat": 41.8986108,
+      "lng": 12.4768729
+    },
+    "plusCode": "VFXG+CP Rome, Metropolitan City of Rome Capital, Italy",
+    "totalScore": 4.8,
+    "permanentlyClosed": false,
+    "temporarilyClosed": false,
+    "placeId": "ChIJqUCGZ09gLxMRLM42IPpl0co",
+    "categories": [
+      "Historical landmark",
+      "Memorial",
+      "Monument",
+      "Tourist attraction"
+    ],
+    "fid": "0x132f604f678640a9:0xcad165fa2036ce2c",
+    "cid": "14614574390750662188",
+    "reviewsCount": 270655,
+    "reviewsDistribution": {
+      "oneStar": 1627,
+      "twoStar": 1414,
+      "threeStar": 8377,
+      "fourStar": 37400,
+      "fiveStar": 221837
+    },
+    "imagesCount": 792171,
+    "imageCategories": [
+      "All",
+      "Latest",
+      "Videos",
+      "Basilica of Neptune",
+      "Street View & 360°"
+    ],
+    "scrapedAt": "2026-01-08T09:32:05.195Z",
+    "googleFoodUrl": null,
+    "hotelAds": [],
+    "popularTimesLiveText": "Not too busy",
+    "popularTimesLivePercent": 28,
+    "popularTimesHistogram": {
+      "Su": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 30
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 43
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 58
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 87
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 97
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 100
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 96
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 84
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 67
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Mo": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 34
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 51
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 64
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 78
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 82
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 83
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 81
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 58
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Tu": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 31
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 46
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 59
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 75
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 78
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 78
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 74
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 65
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "We": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 31
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 46
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 59
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 80
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 80
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 67
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 53
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Th": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 31
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 48
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 74
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 82
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 86
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 86
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 82
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 72
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 58
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Fr": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 31
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 48
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 62
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 72
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 78
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 81
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 82
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 79
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 70
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 58
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ],
+      "Sa": [
+        {
+          "hour": 6,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 36
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 56
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 74
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 86
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 92
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 94
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 90
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 81
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 61
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 0
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 0
+        }
+      ]
+    },
+    "openingHours": [
+      {
+        "day": "Monday",
+        "hours": "9 AM to 7 PM"
+      },
+      {
+        "day": "Tuesday",
+        "hours": "9 AM to 7 PM"
+      },
+      {
+        "day": "Wednesday",
+        "hours": "9 AM to 7 PM"
+      },
+      {
+        "day": "Thursday",
+        "hours": "9 AM to 7 PM"
+      },
+      {
+        "day": "Friday",
+        "hours": "9 AM to 7 PM"
+      },
+      {
+        "day": "Saturday",
+        "hours": "9 AM to 7 PM"
+      },
+      {
+        "day": "Sunday",
+        "hours": "9 AM to 7 PM"
+      }
+    ],
+    "peopleAlsoSearch": [
+      {
+        "category": "People also search for",
+        "title": "Fontana del Pantheon",
+        "reviewsCount": 2123,
+        "totalScore": 4.7
+      },
+      {
+        "category": "People also search for",
+        "title": "Colosseum",
+        "reviewsCount": 476901,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Monument to Victor Emmanuel II",
+        "reviewsCount": 73492,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Castel Sant'Angelo",
+        "reviewsCount": 104188,
+        "totalScore": 4.7
+      }
+    ],
+    "placesTags": [
+      {
+        "title": "Shopping",
+        "count": 1
+      },
+      {
+        "title": "Other",
+        "count": 5
+      }
+    ],
+    "reviewsTags": [
+      {
+        "title": "dome",
+        "count": 4605
+      },
+      {
+        "title": "audio guide",
+        "count": 1181
+      },
+      {
+        "title": "queue",
+        "count": 1169
+      },
+      {
+        "title": "raphael",
+        "count": 967
+      },
+      {
+        "title": "oculus",
+        "count": 633
+      },
+      {
+        "title": "king of italy",
+        "count": 411
+      },
+      {
+        "title": "marcus agrippa",
+        "count": 403
+      },
+      {
+        "title": "emperor hadrian",
+        "count": 383
+      },
+      {
+        "title": "victor emmanuel ii",
+        "count": 366
+      },
+      {
+        "title": "umberto i",
+        "count": 209
+      }
+    ],
+    "additionalInfo": {
+      "Service options": [
+        {
+          "Onsite services": true
+        }
+      ],
+      "Accessibility": [
+        {
+          "Wheelchair accessible entrance": true
+        }
+      ],
+      "Planning": [
+        {
+          "Getting tickets in advance recommended": true
+        }
+      ],
+      "Children": [
+        {
+          "Good for kids": true
+        }
+      ]
+    },
+    "gasPrices": [],
+    "updatesFromCustomers": {
+      "text": "Pantheon",
+      "language": "en",
+      "postDate": "18 hours ago",
+      "postedBy": {
+        "name": "Diario Italico",
+        "url": "https://www.google.com/maps/contrib/117703376183429109890?hl=en-US",
+        "title": "Local Guide",
+        "totalReviews": 188
+      },
+      "media": [
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38vETqozOCLukqO74AxGOxuwzNgR9sn5J97cpbCupJmhRq-9XB1qqiqnyJ9GNrZxZn3XQN-X7YRPgnuaKBhBGZt7Hgb3yuvDCBY_SneQKLj-e2_PwdHuhH3f8VmwJvpdMsoMqppM6wHKu6cx",
+          "postDate": "18 hours ago"
+        },
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38vPYLPLlHBHQuZPTwuAB4oOTSKtbKPv_L0iUxMi2ReDAeYJOA9UJ0lJKHTLyr4_c_8NA_fjVy_1_nRsPkPZMONnaqIy6FerJq14VbyxmXiweFmig6vAwRNwpi-n7RU9bNJ95C_muUTKaFJG",
+          "postDate": "18 hours ago"
+        }
+      ]
+    },
+    "url": "https://www.google.com/maps/search/?api=1&query=Pantheon&query_place_id=ChIJqUCGZ09gLxMRLM42IPpl0co",
+    "searchPageUrl": "https://www.google.com/maps/search/%E4%B8%87%E7%A5%9E%E5%BA%99/@41.8986088,12.4764883,17z?hl=en",
+    "searchString": "万神庙",
+    "language": "en",
+    "rank": 1,
+    "isAdvertisement": false,
+    "imageUrl": "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzGiF9vNbY6Q7ItJpJ2DjgIgTyjqDemjaRWf-ISifByS55O78bBT4qR6H1G8ccxTNUit7euLM9q1B_onWxZ5oX8bVqstixuIbuf_4qA_wV-VE13Hf-Aug0L11MZ2oHURwZfiwMuDw=w408-h408-k-no",
+    "kgmid": "/m/01xzdz",
+    "subTitle": null,
+    "locatedIn": null,
+    "menu": null,
+    "reserveTableUrl": null,
+    "hotelStars": null,
+    "hotelDescription": null,
+    "checkInDate": null,
+    "checkOutDate": null,
+    "similarHotelsNearby": null,
+    "hotelReviewSummary": null,
+    "additionalOpeningHours": null,
+    "openingHoursBusinessConfirmationText": null,
+    "questionsAndAnswers": [],
+    "inputPlaceId": null,
+    "userPlaceNote": null,
+    "webResults": [],
+    "tableReservationLinks": [],
+    "bookingLinks": [],
+    "orderBy": [],
+    "restaurantData": {
+      "tableReservationProvider": null
+    },
+    "ownerUpdates": [],
+    "imageUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzGiF9vNbY6Q7ItJpJ2DjgIgTyjqDemjaRWf-ISifByS55O78bBT4qR6H1G8ccxTNUit7euLM9q1B_onWxZ5oX8bVqstixuIbuf_4qA_wV-VE13Hf-Aug0L11MZ2oHURwZfiwMuDw=w1920-h1080-k-no"
+    ],
+    "images": null,
+    "reviews": [],
+    "leadsEnrichment": []
+  },
+  {
+    "title": "Trevi Fountain",
+    "subTitle": "Fontana di Trevi",
+    "description": "Aqueduct-fed rococo fountain, designed by Nicola Salvi & completed in 1762, with sculpted figures.",
+    "price": null,
+    "categoryName": "Fountain",
+    "address": "Piazza di Trevi, 00187 Roma RM, Italy",
+    "neighborhood": null,
+    "street": "Piazza di Trevi",
+    "city": "Rome",
+    "postalCode": "00187",
+    "state": "Metropolitan City of Rome Capital",
+    "countryCode": "IT",
+    "website": "https://www.turismoroma.it/it/luoghi/fontana-di-trevi",
+    "phone": "+39 06 0608",
+    "phoneUnformatted": "+39060608",
+    "claimThisBusiness": false,
+    "location": {
+      "lat": 41.9009325,
+      "lng": 12.483313
+    },
+    "plusCode": "WF2M+98 Rome, Metropolitan City of Rome Capital, Italy",
+    "totalScore": 4.7,
+    "permanentlyClosed": false,
+    "temporarilyClosed": false,
+    "placeId": "ChIJ1UCDJ1NgLxMRtrsCzOHxdvY",
+    "categories": [
+      "Fountain",
+      "Historical landmark",
+      "Tourist attraction"
+    ],
+    "fid": "0x132f6053278340d5:0xf676f1e1cc02bbb6",
+    "cid": "17759648132674796470",
+    "reviewsCount": 492309,
+    "reviewsDistribution": {
+      "oneStar": 3773,
+      "twoStar": 3834,
+      "threeStar": 17855,
+      "fourStar": 64679,
+      "fiveStar": 402168
+    },
+    "imagesCount": 1076733,
+    "imageCategories": [
+      "All",
+      "Latest",
+      "Videos",
+      "Street View & 360°"
+    ],
+    "scrapedAt": "2026-01-08T09:32:06.718Z",
+    "googleFoodUrl": null,
+    "hotelAds": [],
+    "popularTimesLiveText": "Not too busy",
+    "popularTimesLivePercent": 42,
+    "popularTimesHistogram": {
+      "Su": [
+        {
+          "hour": 4,
+          "occupancyPercent": 3
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 8
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 14
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 32
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 46
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 60
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 70
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 78
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 86
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 93
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 96
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 97
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 93
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 86
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 75
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 48
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 32
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 16
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 7
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 3
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 2
+        }
+      ],
+      "Mo": [
+        {
+          "hour": 4,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 8
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 13
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 20
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 30
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 53
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 62
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 74
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 77
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 77
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 74
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 58
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 29
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 14
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 6
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 2
+        }
+      ],
+      "Tu": [
+        {
+          "hour": 4,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 5
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 8
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 13
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 30
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 53
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 74
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 75
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 72
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 55
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 43
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 29
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 14
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 6
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 2
+        }
+      ],
+      "We": [
+        {
+          "hour": 4,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 8
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 13
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 20
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 29
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 53
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 75
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 78
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 78
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 72
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 57
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 44
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 31
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 16
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 7
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 3
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 2
+        }
+      ],
+      "Th": [
+        {
+          "hour": 4,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 8
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 13
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 32
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 46
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 61
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 74
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 81
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 84
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 84
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 83
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 82
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 80
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 60
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 47
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 31
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 15
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 6
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 2
+        }
+      ],
+      "Fr": [
+        {
+          "hour": 4,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 7
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 12
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 19
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 29
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 62
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 75
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 79
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 81
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 81
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 81
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 80
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 77
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 58
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 41
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 10
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 2
+        }
+      ],
+      "Sa": [
+        {
+          "hour": 4,
+          "occupancyPercent": 3
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 8
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 13
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 34
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 49
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 65
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 85
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 91
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 96
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 100
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 99
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 95
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 89
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 84
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 44
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 23
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 10
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 3
+        }
+      ]
+    },
+    "openingHours": [
+      {
+        "day": "Monday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Tuesday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Wednesday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Thursday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Friday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Saturday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Sunday",
+        "hours": "Open 24 hours"
+      }
+    ],
+    "peopleAlsoSearch": [
+      {
+        "category": "People also search for",
+        "title": "Fontana del Tritone",
+        "reviewsCount": 5246,
+        "totalScore": 4.6
+      },
+      {
+        "category": "People also search for",
+        "title": "Fontana dei Quattro Fiumi",
+        "reviewsCount": 13497,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Fountain of the Tyrrhenian",
+        "reviewsCount": 117,
+        "totalScore": 4.7
+      },
+      {
+        "category": "People also search for",
+        "title": "Pantheon",
+        "reviewsCount": 270587,
+        "totalScore": 4.8
+      }
+    ],
+    "placesTags": [
+      {
+        "title": "Food & Drink",
+        "count": 2
+      },
+      {
+        "title": "Shopping",
+        "count": 3
+      }
+    ],
+    "reviewsTags": [
+      {
+        "title": "coin",
+        "count": 7061
+      },
+      {
+        "title": "crowds",
+        "count": 4578
+      },
+      {
+        "title": "shoulder",
+        "count": 1489
+      },
+      {
+        "title": "pickpockets",
+        "count": 1484
+      },
+      {
+        "title": "gelato",
+        "count": 1123
+      },
+      {
+        "title": "baroque",
+        "count": 876
+      },
+      {
+        "title": "desire",
+        "count": 492
+      },
+      {
+        "title": "wonder",
+        "count": 442
+      },
+      {
+        "title": "midnight",
+        "count": 260
+      },
+      {
+        "title": "the pantheon",
+        "count": 202
+      }
+    ],
+    "additionalInfo": {
+      "Service options": [
+        {
+          "Onsite services": true
+        }
+      ],
+      "Accessibility": [
+        {
+          "Wheelchair accessible parking lot": false
+        }
+      ],
+      "Payments": [
+        {
+          "Debit cards": true
+        },
+        {
+          "NFC mobile payments": true
+        },
+        {
+          "Credit cards": true
+        }
+      ],
+      "Children": [
+        {
+          "Good for kids": true
+        }
+      ],
+      "Pets": [
+        {
+          "Dogs allowed": true
+        }
+      ]
+    },
+    "gasPrices": [],
+    "updatesFromCustomers": {
+      "text": "Per scaramanzia o per amore dell'arte?",
+      "language": "it",
+      "postDate": "a day ago",
+      "postedBy": {
+        "name": "Franco Gilli",
+        "url": "https://www.google.com/maps/contrib/102134144016160944939?hl=en-US",
+        "title": "Local Guide",
+        "totalReviews": 9
+      },
+      "media": [
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38sgvEgBa3b9N8uVQMi7yGAoDBnsGZe3an5cMrcRd2AXwYkmcHW5j_W7DCMji969xBj_o5ZE3rZ9QkuokpotuvFiTVfPpb-ewRLMAKypwzuioMByKKgBJ1qTCrTvDbXibBN3xTNsd5kpzEI",
+          "postDate": "a day ago"
+        }
+      ]
+    },
+    "url": "https://www.google.com/maps/search/?api=1&query=Trevi%20Fountain&query_place_id=ChIJ1UCDJ1NgLxMRtrsCzOHxdvY",
+    "searchPageUrl": "https://www.google.com/maps/search/%E7%89%B9%E9%9B%B7%E7%BB%B4%E5%96%B7%E6%B3%89/@41.9007639,12.4833357,17z?hl=en",
+    "searchString": "特雷维喷泉",
+    "language": "en",
+    "rank": 1,
+    "isAdvertisement": false,
+    "imageUrl": "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSyMIquDSPkuK507WNJeTgojl66w-vwVLuOBmxfDvDGLkCYLQy-50SM8uLWDNGjy9lzgDmqb_9KImQVhYvFb-9VuN99-5YmdSABg53vNEOR1WvplTdiZJ5Jd4-h_0CShxqiWkdoiSeO8mJo=w408-h306-k-no",
+    "kgmid": "/m/01xgt5",
+    "locatedIn": null,
+    "menu": null,
+    "reserveTableUrl": null,
+    "hotelStars": null,
+    "hotelDescription": null,
+    "checkInDate": null,
+    "checkOutDate": null,
+    "similarHotelsNearby": null,
+    "hotelReviewSummary": null,
+    "additionalOpeningHours": null,
+    "openingHoursBusinessConfirmationText": null,
+    "questionsAndAnswers": [],
+    "inputPlaceId": null,
+    "userPlaceNote": null,
+    "webResults": [],
+    "tableReservationLinks": [],
+    "bookingLinks": [],
+    "orderBy": [],
+    "restaurantData": {
+      "tableReservationProvider": null
+    },
+    "ownerUpdates": [],
+    "imageUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSyMIquDSPkuK507WNJeTgojl66w-vwVLuOBmxfDvDGLkCYLQy-50SM8uLWDNGjy9lzgDmqb_9KImQVhYvFb-9VuN99-5YmdSABg53vNEOR1WvplTdiZJ5Jd4-h_0CShxqiWkdoiSeO8mJo=w1920-h1080-k-no"
+    ],
+    "images": null,
+    "reviews": [],
+    "leadsEnrichment": []
+  },
+  {
+    "title": "Spanish Steps",
+    "subTitle": "Scalinata di Trinità dei Monti",
+    "description": "Steps with irregular butterfly-shaped design, built in 18th century at French diplomat's bequest.",
+    "price": null,
+    "categoryName": "Monument",
+    "address": "Piazza di Spagna, 00187 Roma RM, Italy",
+    "neighborhood": null,
+    "street": "Piazza di Spagna",
+    "city": "Rome",
+    "postalCode": "00187",
+    "state": "Metropolitan City of Rome Capital",
+    "countryCode": "IT",
+    "website": "https://www.turismoroma.it/it/luoghi/scalinata-di-trinit%C3%A0-dei-monti",
+    "claimThisBusiness": false,
+    "location": {
+      "lat": 41.90599,
+      "lng": 12.482775
+    },
+    "plusCode": "WF4M+94 Rome, Metropolitan City of Rome Capital, Italy",
+    "totalScore": 4.6,
+    "permanentlyClosed": false,
+    "temporarilyClosed": false,
+    "placeId": "ChIJda54FlRgLxMRD2muipfUwH8",
+    "categories": [
+      "Monument",
+      "Tourist attraction"
+    ],
+    "fid": "0x132f60541678ae75:0x7fc0d4978aae690f",
+    "cid": "9205591385677129999",
+    "reviewsCount": 101511,
+    "reviewsDistribution": {
+      "oneStar": 911,
+      "twoStar": 1511,
+      "threeStar": 7815,
+      "fourStar": 20454,
+      "fiveStar": 70820
+    },
+    "imagesCount": 228211,
+    "imageCategories": [
+      "All",
+      "Latest",
+      "Videos",
+      "Monument",
+      "Street View & 360°"
+    ],
+    "scrapedAt": "2026-01-08T09:32:10.679Z",
+    "googleFoodUrl": null,
+    "hotelAds": [],
+    "openingHours": [],
+    "peopleAlsoSearch": [
+      {
+        "category": "People also search for",
+        "title": "Piazza di Spagna",
+        "reviewsCount": 147944,
+        "totalScore": 4.7
+      },
+      {
+        "category": "People also search for",
+        "title": "Colosseum",
+        "reviewsCount": 476901,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Scalinata dell'Ara Coeli",
+        "reviewsCount": 369,
+        "totalScore": 4.7
+      },
+      {
+        "category": "People also search for",
+        "title": "Scalinata dei Borgia o Vicus scelleratus",
+        "reviewsCount": 332,
+        "totalScore": 4.3
+      }
+    ],
+    "placesTags": [
+      {
+        "title": "Other",
+        "count": 1
+      }
+    ],
+    "reviewsTags": [
+      {
+        "title": "church",
+        "count": 561
+      },
+      {
+        "title": "crowds",
+        "count": 387
+      },
+      {
+        "title": "gelato",
+        "count": 200
+      },
+      {
+        "title": "romantic",
+        "count": 133
+      },
+      {
+        "title": "pickpockets",
+        "count": 108
+      },
+      {
+        "title": "fines",
+        "count": 104
+      },
+      {
+        "title": "embassy",
+        "count": 82
+      },
+      {
+        "title": "wonder",
+        "count": 51
+      },
+      {
+        "title": "flowering plant",
+        "count": 42
+      },
+      {
+        "title": "christmas tree",
+        "count": 41
+      }
+    ],
+    "additionalInfo": {
+      "Service options": [
+        {
+          "Onsite services": true
+        }
+      ],
+      "Accessibility": [
+        {
+          "Wheelchair accessible entrance": false
+        },
+        {
+          "Wheelchair accessible parking lot": false
+        }
+      ],
+      "Children": [
+        {
+          "Good for kids": true
+        }
+      ]
+    },
+    "gasPrices": [],
+    "updatesFromCustomers": {
+      "text": "....the famous Spanish steps",
+      "language": "en",
+      "postDate": "a month ago",
+      "postedBy": {
+        "name": "Sean Kumar",
+        "url": "https://www.google.com/maps/contrib/115233215409586024748?hl=en-US",
+        "title": "Local Guide",
+        "totalReviews": 7
+      },
+      "media": [
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38vKTrt2EgJBHwC8KIbWNZVaESfTqDYyIW0GkYgqk7FnJDg2zShnvGBLiTQrt1tLhtvmNViSvALWt1HOOWzdx6EtatEf2yBJOkz2CoAHsCbpbEfZmC7y8nX94Mz0VXNYn5xQWMdl0n8w6LQ",
+          "postDate": "a month ago"
+        }
+      ]
+    },
+    "url": "https://www.google.com/maps/search/?api=1&query=Spanish%20Steps&query_place_id=ChIJda54FlRgLxMRD2muipfUwH8",
+    "searchPageUrl": "https://www.google.com/maps/search/%E8%A5%BF%E7%8F%AD%E7%89%99%E9%98%B6%E6%A2%AF/@41.9059913,12.4827478,17z?hl=en",
+    "searchString": "西班牙阶梯",
+    "language": "en",
+    "rank": 1,
+    "isAdvertisement": false,
+    "imageUrl": "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSx3ifZWf7tl9khiGN0dNgMVO0hCqrRuoefRSaP8xIU2P88ipmmAh6RKyzaenSW8FE7D3Za5fe9BptoP4jMAKrTofLS-cIcYDZ-vz_1D7BpbWLbwEl9zu64YX-iMPgz4GARwnA94Cg=w408-h396-k-no",
+    "kgmid": "/m/01_jls",
+    "phone": null,
+    "phoneUnformatted": null,
+    "locatedIn": null,
+    "menu": null,
+    "reserveTableUrl": null,
+    "hotelStars": null,
+    "hotelDescription": null,
+    "checkInDate": null,
+    "checkOutDate": null,
+    "similarHotelsNearby": null,
+    "hotelReviewSummary": null,
+    "additionalOpeningHours": null,
+    "openingHoursBusinessConfirmationText": null,
+    "questionsAndAnswers": [],
+    "inputPlaceId": null,
+    "userPlaceNote": null,
+    "webResults": [],
+    "tableReservationLinks": [],
+    "bookingLinks": [],
+    "orderBy": [],
+    "restaurantData": {
+      "tableReservationProvider": null
+    },
+    "ownerUpdates": [],
+    "imageUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSx3ifZWf7tl9khiGN0dNgMVO0hCqrRuoefRSaP8xIU2P88ipmmAh6RKyzaenSW8FE7D3Za5fe9BptoP4jMAKrTofLS-cIcYDZ-vz_1D7BpbWLbwEl9zu64YX-iMPgz4GARwnA94Cg=w1920-h1080-k-no"
+    ],
+    "images": null,
+    "reviews": [],
+    "leadsEnrichment": []
+  },
+  {
+    "title": "Piazza Navona",
+    "description": "Elegant square dating from the 1st century A.D., with a baroque fountain, street artists & bars.",
+    "price": null,
+    "categoryName": "Plaza",
+    "address": "Piazza Navona, 00186 Roma RM, Italy",
+    "neighborhood": null,
+    "street": "Piazza Navona",
+    "city": "Rome",
+    "postalCode": "00186",
+    "state": "Metropolitan City of Rome Capital",
+    "countryCode": "IT",
+    "website": "https://www.turismoroma.it/it/node/1516",
+    "claimThisBusiness": false,
+    "location": {
+      "lat": 41.8991633,
+      "lng": 12.4730742
+    },
+    "plusCode": "VFXF+M6 Rome, Metropolitan City of Rome Capital, Italy",
+    "totalScore": 4.7,
+    "permanentlyClosed": false,
+    "temporarilyClosed": false,
+    "placeId": "ChIJPRydwYNgLxMRSjOCLlYkV6M",
+    "categories": [
+      "Plaza",
+      "Historical landmark",
+      "Tourist attraction"
+    ],
+    "fid": "0x132f6083c19d1c3d:0xa35724562e82334a",
+    "cid": "11769916103722152778",
+    "reviewsCount": 209448,
+    "reviewsDistribution": {
+      "oneStar": 1176,
+      "twoStar": 1118,
+      "threeStar": 6763,
+      "fourStar": 34908,
+      "fiveStar": 165483
+    },
+    "imagesCount": 653186,
+    "imageCategories": [
+      "All",
+      "Latest",
+      "Videos",
+      "Property Maps",
+      "Neptune Fountain",
+      "Palazzo Pamphili",
+      "Chiesa di Sant'Agnese in Agone",
+      "Street View & 360°"
+    ],
+    "scrapedAt": "2026-01-08T09:32:26.203Z",
+    "googleFoodUrl": null,
+    "hotelAds": [],
+    "popularTimesLiveText": "Not too busy",
+    "popularTimesLivePercent": 23,
+    "popularTimesHistogram": {
+      "Su": [
+        {
+          "hour": 4,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 9
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 20
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 36
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 83
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 91
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 96
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 98
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 95
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 91
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 81
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 50
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 34
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 21
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 10
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 2
+        }
+      ],
+      "Mo": [
+        {
+          "hour": 4,
+          "occupancyPercent": 1
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 3
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 6
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 19
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 32
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 56
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 64
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 68
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 70
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 68
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 54
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 30
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 18
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 8
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 1
+        }
+      ],
+      "Tu": [
+        {
+          "hour": 4,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 3
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 6
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 18
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 29
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 41
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 60
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 62
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 58
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 50
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 28
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 17
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 8
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 2
+        }
+      ],
+      "We": [
+        {
+          "hour": 4,
+          "occupancyPercent": 1
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 3
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 6
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 18
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 30
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 55
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 63
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 67
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 67
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 67
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 67
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 61
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 52
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 40
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 29
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 18
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 9
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 1
+        }
+      ],
+      "Th": [
+        {
+          "hour": 4,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 6
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 20
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 32
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 45
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 58
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 67
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 74
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 72
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 58
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 46
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 34
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 22
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 5
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 2
+        }
+      ],
+      "Fr": [
+        {
+          "hour": 4,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 6
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 18
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 29
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 53
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 60
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 70
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 75
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 76
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 73
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 66
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 55
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 42
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 29
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 15
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 7
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 3
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 2
+        }
+      ],
+      "Sa": [
+        {
+          "hour": 4,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 5,
+          "occupancyPercent": 2
+        },
+        {
+          "hour": 6,
+          "occupancyPercent": 3
+        },
+        {
+          "hour": 7,
+          "occupancyPercent": 5
+        },
+        {
+          "hour": 8,
+          "occupancyPercent": 11
+        },
+        {
+          "hour": 9,
+          "occupancyPercent": 22
+        },
+        {
+          "hour": 10,
+          "occupancyPercent": 37
+        },
+        {
+          "hour": 11,
+          "occupancyPercent": 55
+        },
+        {
+          "hour": 12,
+          "occupancyPercent": 69
+        },
+        {
+          "hour": 13,
+          "occupancyPercent": 79
+        },
+        {
+          "hour": 14,
+          "occupancyPercent": 87
+        },
+        {
+          "hour": 15,
+          "occupancyPercent": 93
+        },
+        {
+          "hour": 16,
+          "occupancyPercent": 98
+        },
+        {
+          "hour": 17,
+          "occupancyPercent": 100
+        },
+        {
+          "hour": 18,
+          "occupancyPercent": 98
+        },
+        {
+          "hour": 19,
+          "occupancyPercent": 92
+        },
+        {
+          "hour": 20,
+          "occupancyPercent": 82
+        },
+        {
+          "hour": 21,
+          "occupancyPercent": 71
+        },
+        {
+          "hour": 22,
+          "occupancyPercent": 57
+        },
+        {
+          "hour": 23,
+          "occupancyPercent": 41
+        },
+        {
+          "hour": 0,
+          "occupancyPercent": 22
+        },
+        {
+          "hour": 1,
+          "occupancyPercent": 10
+        },
+        {
+          "hour": 2,
+          "occupancyPercent": 4
+        },
+        {
+          "hour": 3,
+          "occupancyPercent": 2
+        }
+      ]
+    },
+    "openingHours": [
+      {
+        "day": "Monday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Tuesday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Wednesday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Thursday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Friday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Saturday",
+        "hours": "Open 24 hours"
+      },
+      {
+        "day": "Sunday",
+        "hours": "Open 24 hours"
+      }
+    ],
+    "peopleAlsoSearch": [
+      {
+        "category": "People also search for",
+        "title": "Piazza di Spagna",
+        "reviewsCount": 147944,
+        "totalScore": 4.7
+      },
+      {
+        "category": "People also search for",
+        "title": "Pantheon",
+        "reviewsCount": 270587,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Colosseum",
+        "reviewsCount": 476901,
+        "totalScore": 4.8
+      },
+      {
+        "category": "People also search for",
+        "title": "Piazza Colonna",
+        "reviewsCount": 755,
+        "totalScore": 4.6
+      }
+    ],
+    "placesTags": [
+      {
+        "title": "Food & Drink",
+        "count": 1
+      },
+      {
+        "title": "Recreations",
+        "count": 3
+      },
+      {
+        "title": "Services",
+        "count": 1
+      },
+      {
+        "title": "Lodging",
+        "count": 5
+      },
+      {
+        "title": "Other",
+        "count": 6
+      }
+    ],
+    "reviewsTags": [
+      {
+        "title": "bernini",
+        "count": 1551
+      },
+      {
+        "title": "baroque",
+        "count": 569
+      },
+      {
+        "title": "stadium",
+        "count": 527
+      },
+      {
+        "title": "street artists",
+        "count": 520
+      },
+      {
+        "title": "obelisk",
+        "count": 504
+      },
+      {
+        "title": "christmas market",
+        "count": 416
+      },
+      {
+        "title": "the pantheon",
+        "count": 307
+      },
+      {
+        "title": "trevi fountain",
+        "count": 306
+      },
+      {
+        "title": "carousel",
+        "count": 178
+      },
+      {
+        "title": "oval",
+        "count": 91
+      }
+    ],
+    "additionalInfo": {
+      "Service options": [
+        {
+          "Onsite services": true
+        }
+      ],
+      "Accessibility": [
+        {
+          "Wheelchair accessible entrance": false
+        }
+      ]
+    },
+    "gasPrices": [],
+    "updatesFromCustomers": {
+      "text": "Cool weather to walk around the square, with Xmas booths.",
+      "language": "en",
+      "postDate": "3 weeks ago",
+      "postedBy": {
+        "name": "Winston Ho",
+        "url": "https://www.google.com/maps/contrib/109087882208981210478?hl=en-US",
+        "title": "Local Guide",
+        "totalReviews": 248
+      },
+      "media": [
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38unh9EauIZhbES9xIxTkhK5SFaYE6lt07-X9ci_a_bItibL6SNQjIKZTqRG4HcAOC7xfrDTQ4OVjIK5rKSUkcTugSuhCC8caKEXmpNmOwDPP0_EPdzgvSfHwedOl6Eoa4sKhjPTFpVSAUq_",
+          "postDate": "3 weeks ago"
+        },
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38u21hlcMgFjuQt-f0DHRVE6QjThTP6tfI03sj6791y_9hC2vN-gq08e6qMx46ln9GV8Ez7SuAoBRTGXrJRDBZW9PLFean7-IVHgMdYIIjwTKwEUjV2vvxzlFJmX98xIz4KF55C8BYy7Edaw",
+          "postDate": "3 weeks ago"
+        }
+      ]
+    },
+    "url": "https://www.google.com/maps/search/?api=1&query=Piazza%20Navona&query_place_id=ChIJPRydwYNgLxMRSjOCLlYkV6M",
+    "searchPageUrl": "https://www.google.com/maps/search/%E7%BA%B3%E6%B2%83%E7%BA%B3%E5%B9%BF%E5%9C%BA/@41.8991611,12.4730743,17z?hl=en",
+    "searchString": "纳沃纳广场",
+    "language": "en",
+    "rank": 1,
+    "isAdvertisement": false,
+    "imageUrl": "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzi_S8f1QOIRQCg0gh0A3vqIR_iqJVuP1Ip3Wy20oxODjOo9DuALd3mECTJyDWdzXeP2IRRQXsda_OwwM7d--9umtbycZxXzCDDAfcYu3nI8GMQ5oF6HEeZEEKHIiquKqFYgnY=w408-h306-k-no",
+    "kgmid": "/m/02z0_2",
+    "subTitle": null,
+    "phone": null,
+    "phoneUnformatted": null,
+    "locatedIn": null,
+    "menu": null,
+    "reserveTableUrl": null,
+    "hotelStars": null,
+    "hotelDescription": null,
+    "checkInDate": null,
+    "checkOutDate": null,
+    "similarHotelsNearby": null,
+    "hotelReviewSummary": null,
+    "additionalOpeningHours": null,
+    "openingHoursBusinessConfirmationText": null,
+    "questionsAndAnswers": [],
+    "inputPlaceId": null,
+    "userPlaceNote": null,
+    "webResults": [],
+    "tableReservationLinks": [],
+    "bookingLinks": [],
+    "orderBy": [],
+    "restaurantData": {
+      "tableReservationProvider": null
+    },
+    "ownerUpdates": [],
+    "imageUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzi_S8f1QOIRQCg0gh0A3vqIR_iqJVuP1Ip3Wy20oxODjOo9DuALd3mECTJyDWdzXeP2IRRQXsda_OwwM7d--9umtbycZxXzCDDAfcYu3nI8GMQ5oF6HEeZEEKHIiquKqFYgnY=w1920-h1080-k-no"
+    ],
+    "images": null,
+    "reviews": [],
+    "leadsEnrichment": []
+  },
+  {
+    "title": "Forno Conti & Co.",
+    "price": "€1–10",
+    "categoryName": "Bakery",
+    "address": "Via Giusti, 18, 00185 Roma RM, Italy",
+    "neighborhood": null,
+    "street": "Via Giusti, 18",
+    "city": "Rome",
+    "postalCode": "00185",
+    "state": "Metropolitan City of Rome Capital",
+    "countryCode": "IT",
+    "website": "https://fornoconti.co/",
+    "phone": "+39 06 275 7595",
+    "phoneUnformatted": "+39062757595",
+    "claimThisBusiness": false,
+    "location": {
+      "lat": 41.8923598,
+      "lng": 12.5031327
+    },
+    "plusCode": "VGR3+W7 Rome, Metropolitan City of Rome Capital, Italy",
+    "totalScore": 4.4,
+    "permanentlyClosed": false,
+    "temporarilyClosed": false,
+    "placeId": "ChIJ7dC9uG5hLxMR4MlSMc7YiuY",
+    "categories": [
+      "Bakery"
+    ],
+    "fid": "0x132f616eb8bdd0ed:0xe68ad8ce3152c9e0",
+    "cid": "16612328555611867616",
+    "reviewsCount": 954,
+    "reviewsDistribution": {
+      "oneStar": 55,
+      "twoStar": 52,
+      "threeStar": 58,
+      "fourStar": 113,
+      "fiveStar": 676
+    },
+    "imagesCount": 1464,
+    "imageCategories": [
+      "All",
+      "Latest",
+      "Videos",
+      "Menu",
+      "Food & drink",
+      "Vibe",
+      "Brioche",
+      "Cappuccino",
+      "Pancake",
+      "Avocado toast",
+      "Cheesecake",
+      "Croissant",
+      "Cake",
+      "Street View & 360°"
+    ],
+    "scrapedAt": "2026-01-08T09:32:26.682Z",
+    "googleFoodUrl": null,
+    "hotelAds": [],
+    "openingHours": [
+      {
+        "day": "Monday",
+        "hours": "8:30 AM to 7 PM"
+      },
+      {
+        "day": "Tuesday",
+        "hours": "8:30 AM to 7 PM"
+      },
+      {
+        "day": "Wednesday",
+        "hours": "8:30 AM to 7 PM"
+      },
+      {
+        "day": "Thursday",
+        "hours": "8:30 AM to 7 PM"
+      },
+      {
+        "day": "Friday",
+        "hours": "8:30 AM to 7 PM"
+      },
+      {
+        "day": "Saturday",
+        "hours": "9 AM to 3:30 PM"
+      },
+      {
+        "day": "Sunday",
+        "hours": "Closed"
+      }
+    ],
+    "peopleAlsoSearch": [
+      {
+        "category": "People also search for",
+        "title": "L' Antico Forno Di Fontana Di Trevi",
+        "reviewsCount": 2993,
+        "totalScore": 4.1
+      },
+      {
+        "category": "People also search for",
+        "title": "Bakery Roscioli Pietro",
+        "reviewsCount": 2280,
+        "totalScore": 4.5
+      },
+      {
+        "category": "People also search for",
+        "title": "Forno Campo de' Fiori",
+        "reviewsCount": 1734,
+        "totalScore": 4.5
+      },
+      {
+        "category": "People also search for",
+        "title": "Panificio Biscotteria Roscioni",
+        "reviewsCount": 493,
+        "totalScore": 4.3
+      },
+      {
+        "category": "People also search for",
+        "title": "Contini Gianfranco",
+        "reviewsCount": 10,
+        "totalScore": 4.4
+      }
+    ],
+    "placesTags": [],
+    "reviewsTags": [
+      {
+        "title": "cappuccino",
+        "count": 50
+      },
+      {
+        "title": "brunch",
+        "count": 39
+      },
+      {
+        "title": "cornetto",
+        "count": 28
+      },
+      {
+        "title": "focaccia",
+        "count": 27
+      },
+      {
+        "title": "minimalistic",
+        "count": 15
+      },
+      {
+        "title": "pancakes",
+        "count": 14
+      },
+      {
+        "title": "avocado toast",
+        "count": 12
+      },
+      {
+        "title": "specialty coffee",
+        "count": 11
+      },
+      {
+        "title": "granola",
+        "count": 8
+      },
+      {
+        "title": "cortado",
+        "count": 5
+      }
+    ],
+    "additionalInfo": {
+      "Service options": [
+        {
+          "Takeout": true
+        },
+        {
+          "Dine-in": true
+        }
+      ],
+      "Accessibility": [
+        {
+          "Wheelchair accessible restroom": true
+        },
+        {
+          "Wheelchair accessible parking lot": false
+        }
+      ],
+      "Offerings": [
+        {
+          "Coffee": true
+        }
+      ],
+      "Dining options": [
+        {
+          "Breakfast": true
+        }
+      ],
+      "Amenities": [
+        {
+          "Restroom": true
+        }
+      ],
+      "Planning": [
+        {
+          "Quick visit": true
+        }
+      ],
+      "Payments": [
+        {
+          "Credit cards": true
+        },
+        {
+          "Debit cards": true
+        },
+        {
+          "NFC mobile payments": true
+        }
+      ],
+      "Parking": [
+        {
+          "Free street parking": true
+        },
+        {
+          "Paid parking lot": true
+        },
+        {
+          "Paid street parking": true
+        }
+      ]
+    },
+    "gasPrices": [],
+    "updatesFromCustomers": {
+      "text": "Posto davvero fantastico con personale davvero gentile e cordiale",
+      "language": "it",
+      "postDate": "a year ago",
+      "postedBy": {
+        "name": "Paolaelisabetta Salvatori",
+        "url": "https://www.google.com/maps/contrib/101502845846356878590?hl=en-US",
+        "title": "Local Guide",
+        "totalReviews": 41
+      },
+      "media": [
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38uFAmCfdN6J8WoptDLdqQPort3GWFqaGKn3lt4cXyqretLJ2-3hPW1_wupejb_jUODOF2OCXNPq_Wvih-KRYQqk3-Dp39cn7GNi5ubwEEtO8TEfXgaDQ8FpTErNRRO5-7u12N2z",
+          "postDate": "a year ago"
+        },
+        {
+          "link": "https://lh3.googleusercontent.com/geougc-cs/AMBA38sG2ZiUbixwXqCbQo35_KONfLraMMVM185SX1MdTOkhanbSHId1tp6G-9pdHQUv6o4bmywEqVuZI-tRCxB0x5OVRotjm7tcIJQ34TmQaPMD44viBHMNkgf3TjoTSHgWrKziESvk",
+          "postDate": "a year ago"
+        }
+      ]
+    },
+    "url": "https://www.google.com/maps/search/?api=1&query=Forno%20Conti%20%26%20Co.&query_place_id=ChIJ7dC9uG5hLxMR4MlSMc7YiuY",
+    "searchPageUrl": "https://www.google.com/maps/search/Forno%20Conti%20%26%20Co./@41.8923538,12.5031137,17z?hl=en",
+    "searchString": "Forno Conti & Co.",
+    "language": "en",
+    "rank": 1,
+    "isAdvertisement": false,
+    "imageUrl": "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSxq7w0oazrQNw1b6V8JJzH_SRjKzHoBDuzT_0ZNpbj6Jjrpu9GPusoOTD9GEn3xwniFsDtiTzP8SdlMO3Xtwjzwee27yVSW5IzVk1LFVdJMGKMGSwJbvCIHpG8zV4d4soGlHIY=w408-h571-k-no",
+    "kgmid": "/g/11rdbyr50b",
+    "subTitle": null,
+    "description": null,
+    "locatedIn": null,
+    "menu": null,
+    "reserveTableUrl": null,
+    "hotelStars": null,
+    "hotelDescription": null,
+    "checkInDate": null,
+    "checkOutDate": null,
+    "similarHotelsNearby": null,
+    "hotelReviewSummary": null,
+    "additionalOpeningHours": null,
+    "openingHoursBusinessConfirmationText": null,
+    "questionsAndAnswers": [],
+    "inputPlaceId": null,
+    "userPlaceNote": null,
+    "webResults": [],
+    "tableReservationLinks": [],
+    "bookingLinks": [],
+    "orderBy": [],
+    "restaurantData": {
+      "tableReservationProvider": null
+    },
+    "ownerUpdates": [],
+    "imageUrls": [
+      "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSxq7w0oazrQNw1b6V8JJzH_SRjKzHoBDuzT_0ZNpbj6Jjrpu9GPusoOTD9GEn3xwniFsDtiTzP8SdlMO3Xtwjzwee27yVSW5IzVk1LFVdJMGKMGSwJbvCIHpG8zV4d4soGlHIY=w1920-h1080-k-no"
+    ],
+    "images": null,
+    "reviews": [],
+    "leadsEnrichment": []
+  }
+]

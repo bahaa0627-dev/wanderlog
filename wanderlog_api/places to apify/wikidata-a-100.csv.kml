@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>wikidata-a-100.csv</name>
+    <NetworkLink>
+      <name>Wikidata A-100 Test</name>
+      <Link>
+        <href><![CDATA[https://www.google.com/maps/d/kml?forcekml=1&mid=13JVvC8j_r03rMNH95lzM5qe5L0LW1vg&lid=t6TIo1RD_l0]]></href>
+      </Link>
+    </NetworkLink>
+  </Document>
+</kml>

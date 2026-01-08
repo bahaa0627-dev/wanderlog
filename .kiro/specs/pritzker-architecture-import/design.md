@@ -1,65 +1,88 @@
-# Design Document: Pritzker Architecture Import
+# Design Document: Pritzker Architecture Import Fix
 
 ## Overview
 
-本设计文档描述普利兹克奖建筑作品导入系统的技术实现方案。系统将解析 Wikidata 抓取的 JSON 数据，进行去重、字段映射、分类识别、标签生成，最终导入到 Place 数据库。
+This design addresses the critical data import issue where only 5 out of 794 unique Pritzker Prize architect works have been successfully persisted to the database, despite import reports showing 794 records were created. The root cause is that the 794 imported records were either rolled back, deleted, or not properly committed to the database.
+
+The solution involves:
+1. Re-running the Pritzker import script to import all 794 unique buildings
+2. Ensuring proper database transaction handling to prevent data loss
+3. Verifying the import was successful by checking database counts
+4. Ensuring all imported places have proper Pritzker award tags for filtering
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    A[Architecture list.json] --> B[JSON Parser]
-    B --> C[Deduplication Engine]
-    C --> D[Field Mapper]
-    D --> E[Category Classifier]
-    E --> F[Tag Generator]
-    F --> G[AI Tag Generator]
-    G --> H[Image Processor]
-    H --> I[Database Upsert]
-    I --> J[Report Generator]
-    
-    K[Architect Style Map] --> F
-    L[Architect Chinese Name Map] --> G
-    M[Style Chinese Name Map] --> G
-    N[Category Keywords Map] --> E
+### Data Flow
+
 ```
+Wikidata JSON File (4,506 entries)
+    ↓
+Validation & Deduplication (794 unique buildings)
+    ↓
+Tag Generation (add Pritzker award tag)
+    ↓
+Database Upsert (create or update records)
+    ↓
+Verification (confirm 794 records in database)
+```
+
+### Components
+
+1. **Import Script** (`scripts/import-pritzker-architecture.ts`)
+   - CLI tool for importing Pritzker Prize architect works
+   - Handles file reading, validation, deduplication, and database operations
+   - Generates detailed import reports
+
+2. **Parser Service** (`src/services/pritzkerParserService.ts`)
+   - Core parsing and transformation logic
+   - Validates entries, deduplicates by Wikidata QID
+   - Generates structured tags with Pritzker award
+   - Maps data to database format
+
+3. **Database Layer** (Prisma ORM)
+   - Handles upsert operations (create or update)
+   - Ensures data integrity through transactions
+   - Prevents duplicate records
+
+4. **Verification Script** (new)
+   - Counts imported Pritzker buildings
+   - Verifies tag structure
+   - Confirms filter functionality
 
 ## Components and Interfaces
 
-### 1. WikidataArchitectureEntry (输入数据类型)
+### Import Script Interface
 
 ```typescript
+// CLI Options
+interface CLIOptions {
+  file: string;           // Path to JSON file
+  dryRun: boolean;        // Validate without writing
+  enrich: boolean;        // Enable AI enrichment
+  enrichLimit?: number;   // Limit enrichment count
+  help: boolean;          // Show help message
+}
+
+// Usage
+npx tsx scripts/import-pritzker-architecture.ts --file "Architecture list.json"
+```
+
+### Parser Service Interface
+
+```typescript
+// Input: Wikidata JSON entry
 interface WikidataArchitectureEntry {
-  architect: string;      // Wikidata URL, e.g., "http://www.wikidata.org/entity/Q134165"
-  architectLabel: string; // 建筑师名称, e.g., "Oscar Niemeyer"
-  work: string;           // Wikidata URL, e.g., "http://www.wikidata.org/entity/Q281521"
-  workLabel: string;      // 作品名称, e.g., "Sambadrome Marquês de Sapucaí"
-  image?: string;         // Wikimedia Commons URL
-  coord?: string;         // "Point(lng lat)" 格式
-  cityLabel?: string;     // 城市名
-  countryLabel?: string;  // 国家名
+  architect: string;        // Wikidata URL
+  architectLabel: string;   // Architect name
+  work: string;            // Building Wikidata URL
+  workLabel: string;       // Building name
+  image?: string;          // Image URL
+  coord?: string;          // "Point(lng lat)"
+  cityLabel?: string;      // City name
+  countryLabel?: string;   // Country name
 }
-```
 
-### 2. DeduplicatedBuilding (去重后的中间数据)
-
-```typescript
-interface DeduplicatedBuilding {
-  wikidataQID: string;           // e.g., "Q281521"
-  architectQID: string;          // e.g., "Q134165"
-  architectLabel: string;
-  workLabel: string;
-  latitude: number;
-  longitude: number;
-  cities: string[];              // 所有关联的城市名
-  country: string;
-  images: string[];              // 所有收集的图片 URL
-}
-```
-
-### 3. PlaceImportData (导入到数据库的数据)
-
-```typescript
+// Output: Database-ready place data
 interface PlaceImportData {
   name: string;
   city: string;
@@ -68,21 +91,20 @@ interface PlaceImportData {
   longitude: number;
   coverImage: string | null;
   images: string[];
-  source: "wikidata";
-  sourceDetail: string;          // Wikidata QID
+  source: 'wikidata';
+  sourceDetail: string;     // Wikidata QID
   isVerified: boolean;
   category: string;
   categorySlug: string;
   categoryEn: string;
   categoryZh: string;
   tags: {
-    award: string[];
-    style: string[];
-    architect: string[];
+    award: string[];        // ['Pritzker']
+    style: string[];        // ['Architecture']
+    architect: string[];    // ['OscarNiemeyer']
   };
   aiTags: Array<{
     en: string;
-    zh: string;
     priority: number;
   }>;
   customFields: {
@@ -93,460 +115,254 @@ interface PlaceImportData {
 }
 ```
 
-### 4. ImportReport (导入报告)
+### Database Upsert Interface
 
 ```typescript
-interface ImportReport {
-  timestamp: string;
-  totalEntriesInJson: number;
-  uniqueBuildingsAfterDedup: number;
-  newRecordsCreated: number;
-  existingRecordsUpdated: number;
-  recordsSkipped: Array<{
-    wikidataQID: string;
-    reason: string;
-  }>;
-  recordsNeedingReview: Array<{
-    wikidataQID: string;
-    issue: string;
-  }>;
+// Upsert result
+interface UpsertResult {
+  action: 'created' | 'updated' | 'error';
+  id?: string;
+  error?: string;
 }
+
+// Upsert function
+async function upsertPlace(data: PlaceImportData): Promise<UpsertResult>
 ```
 
 ## Data Models
 
-### Building Style Detection (基于作品名称)
+### Place Model (Prisma Schema)
 
-建筑风格应该跟着作品本身走，而不是建筑师。通过分析作品名称和 Wikidata 信息来推断风格：
-
-```typescript
-// 基于作品名称关键词推断风格
-const WORK_STYLE_KEYWORDS: Record<string, string[]> = {
-  'Brutalist': ['Brutalism'],
-  'Modernist': ['Modernism'],
-  'Gothic': ['Gothic'],
-  'Art Deco': ['ArtDeco'],
-  'Pavilion': ['Pavilion'],
-  'Tensile': ['Tensile'],
-  'Organic': ['Organic'],
-};
-
-// 默认风格：如果无法从作品名称推断，则不添加具体风格标签
-// 只保留通用的 "Architecture" 标签
-```
-
-### AI 增强数据获取
-
-导入后可通过 AI 服务增强数据，获取更多字段信息：
-
-```typescript
-interface AIEnrichmentRequest {
-  name: string;           // 建筑作品名称
-  architect: string;      // 建筑师名称
-  city: string;
-  country: string;
-  latitude: number;
-  longitude: number;
-}
-
-interface AIEnrichmentResponse {
-  description?: string;      // AI 生成的建筑描述
-  address?: string;          // 详细地址
-  website?: string;          // 官方网站
-  openingHours?: string;     // 营业时间
-  architecturalStyle?: string[]; // 建筑风格（基于作品本身）
-  yearBuilt?: number;        // 建造年份
-  significance?: string;     // 建筑意义/特色
+```prisma
+model Place {
+  id            String   @id @default(uuid())
+  name          String
+  city          String?
+  country       String?
+  latitude      Float
+  longitude     Float
+  coverImage    String?
+  images        Json?    // string[]
+  source        String   // 'wikidata'
+  sourceDetail  String?  // Wikidata QID
+  isVerified    Boolean  @default(false)
+  category      String?
+  categorySlug  String?
+  categoryEn    String?
+  categoryZh    String?
+  tags          Json?    // { award: string[], style: string[], architect: string[] }
+  aiTags        Json?    // Array<{ en: string, priority: number }>
+  customFields  Json?    // { architect: string, architectQID: string, wikidataWorkURL: string }
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 ```
 
-### 多语言支持策略
+### Tag Structure
 
-不在导入时硬编码中文翻译，而是：
-1. 导入时只存储英文原始数据
-2. 使用 i18n 字段存储多语言内容
-3. 后续通过翻译服务或 AI 批量生成多语言版本
-
-```typescript
-interface I18nContent {
-  en: {
-    name: string;
-    description?: string;
-    tags?: string[];
-  };
-  zh?: {
-    name: string;
-    description?: string;
-    tags?: string[];
-  };
-  // 其他语言...
-}
-```
-
-### Category Classification Rules
-
-```typescript
-const CATEGORY_RULES: Array<{
-  keywords: string[];
-  category: string;
-  categorySlug: string;
-  categoryEn: string;
-  categoryZh: string;
-}> = [
-  { keywords: ['Museum', 'Gallery', 'Art'], category: 'museum', categorySlug: 'museum', categoryEn: 'Museum', categoryZh: '博物馆' },
-  { keywords: ['Church', 'Cathedral', 'Chapel', 'Basilica'], category: 'church', categorySlug: 'church', categoryEn: 'Church', categoryZh: '教堂' },
-  { keywords: ['University', 'School', 'College', 'Campus', 'Institute'], category: 'university', categorySlug: 'university', categoryEn: 'University', categoryZh: '大学' },
-  { keywords: ['Library'], category: 'library', categorySlug: 'library', categoryEn: 'Library', categoryZh: '图书馆' },
-  { keywords: ['Stadium', 'Arena', 'Gymnasium', 'Sports'], category: 'stadium', categorySlug: 'stadium', categoryEn: 'Stadium', categoryZh: '体育场' },
-  { keywords: ['Theater', 'Theatre', 'Opera', 'Concert'], category: 'theater', categorySlug: 'theater', categoryEn: 'Theater', categoryZh: '剧院' },
-  { keywords: ['Hospital', 'Medical', 'Clinic'], category: 'hospital', categorySlug: 'hospital', categoryEn: 'Hospital', categoryZh: '医院' },
-  { keywords: ['Station', 'Terminal', 'Airport'], category: 'station', categorySlug: 'station', categoryEn: 'Station', categoryZh: '车站' },
-  { keywords: ['Pavilion'], category: 'pavilion', categorySlug: 'pavilion', categoryEn: 'Pavilion', categoryZh: '展亭' },
-  { keywords: ['Tower', 'Building', 'Center', 'Centre', 'Headquarters'], category: 'building', categorySlug: 'building', categoryEn: 'Building', categoryZh: '建筑' },
-];
-
-const DEFAULT_CATEGORY = {
-  category: 'architecture',
-  categorySlug: 'architecture',
-  categoryEn: 'Architecture',
-  categoryZh: '建筑',
-};
-```
-
-## Core Functions
-
-### 1. parseCoordinates
-
-```typescript
-function parseCoordinates(coord: string): { latitude: number; longitude: number } | null {
-  // Input: "Point(-43.196851 -22.911384)"
-  // Output: { latitude: -22.911384, longitude: -43.196851 }
-  const match = coord.match(/Point\(([-\d.]+)\s+([-\d.]+)\)/);
-  if (!match) return null;
-  return {
-    longitude: parseFloat(match[1]),
-    latitude: parseFloat(match[2]),
-  };
-}
-```
-
-### 2. extractWikidataQID
-
-```typescript
-function extractWikidataQID(url: string): string | null {
-  // Input: "http://www.wikidata.org/entity/Q281521"
-  // Output: "Q281521"
-  const match = url.match(/Q\d+$/);
-  return match ? match[0] : null;
-}
-```
-
-### 3. formatArchitectTag
-
-```typescript
-function formatArchitectTag(architectLabel: string): string {
-  // Input: "Oscar Niemeyer" → Output: "OscarNiemeyer"
-  // Input: "I. M. Pei" → Output: "IMPei"
-  // Input: "Kenzō Tange" → Output: "KenzoTange"
-  return architectLabel
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // 移除变音符号
-    .replace(/[^a-zA-Z]/g, '');       // 只保留字母
-}
-```
-
-### 4. selectBestCity
-
-```typescript
-function selectBestCity(cities: string[]): string {
-  // 优先选择不包含 "arrondissement", "District", "Subdistrict" 的城市名
-  // 如果都包含，选择最短的
-  const filtered = cities.filter(c => 
-    !c.includes('arrondissement') && 
-    !c.includes('District') && 
-    !c.includes('Subdistrict')
-  );
-  if (filtered.length > 0) {
-    return filtered.sort((a, b) => a.length - b.length)[0];
+```json
+{
+  "tags": {
+    "award": ["Pritzker"],
+    "style": ["Architecture"],
+    "architect": ["OscarNiemeyer"]
+  },
+  "aiTags": [
+    { "en": "Pritzker", "priority": 100 },
+    { "en": "OscarNiemeyer", "priority": 90 },
+    { "en": "Architecture", "priority": 50 }
+  ],
+  "customFields": {
+    "architect": "Oscar Niemeyer",
+    "architectQID": "Q134165",
+    "wikidataWorkURL": "http://www.wikidata.org/entity/Q281521"
   }
-  return cities.sort((a, b) => a.length - b.length)[0];
 }
 ```
-
-### 5. convertWikimediaUrl
-
-```typescript
-function convertWikimediaUrl(url: string): string {
-  // Input: "http://commons.wikimedia.org/wiki/Special:FilePath/Image%20Name.jpg"
-  // Output: "https://commons.wikimedia.org/wiki/Special:FilePath/Image%20Name.jpg"
-  return url.replace('http://', 'https://');
-}
-```
-
-### 6. enrichBuildingWithAI (AI 增强)
-
-```typescript
-async function enrichBuildingWithAI(building: DeduplicatedBuilding): Promise<AIEnrichmentResponse> {
-  // 使用 OpenAI 联网搜索获取更多信息
-  const prompt = `
-    请搜索以下建筑作品的详细信息：
-    - 作品名称: ${building.workLabel}
-    - 建筑师: ${building.architectLabel}
-    - 城市: ${building.cities[0]}
-    - 国家: ${building.country}
-    
-    请提供以下信息（如果能找到）：
-    1. 建筑描述（100-200字，介绍建筑特色和意义）
-    2. 详细地址
-    3. 官方网站
-    4. 开放时间（如果是公共建筑）
-    5. 建筑风格（基于这个具体作品，不是建筑师的一般风格）
-    6. 建造年份
-    
-    以 JSON 格式返回。
-  `;
-  
-  // 调用 OpenAI API with web search
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [{ role: 'user', content: prompt }],
-    // 启用联网搜索（如果可用）
-  });
-  
-  return parseAIResponse(response);
-}
-```
-
-### 7. fetchWikidataDetails (Wikidata API 增强)
-
-```typescript
-async function fetchWikidataDetails(qid: string): Promise<WikidataDetails | null> {
-  // 从 Wikidata API 获取更多属性
-  const url = `https://www.wikidata.org/wiki/Special:EntityData/${qid}.json`;
-  const response = await fetch(url);
-  const data = await response.json();
-  
-  const entity = data.entities[qid];
-  if (!entity) return null;
-  
-  return {
-    // P571 - 成立或创建时间
-    yearBuilt: extractYear(entity.claims?.P571),
-    // P149 - 建筑风格
-    architecturalStyle: extractStyles(entity.claims?.P149),
-    // P856 - 官方网站
-    website: extractUrl(entity.claims?.P856),
-    // P6375 - 街道地址
-    address: extractAddress(entity.claims?.P6375),
-    // P373 - Commons 分类
-    commonsCategory: extractString(entity.claims?.P373),
-  };
-}
-```
-
-
 
 ## Correctness Properties
 
 *A property is a characteristic or behavior that should hold true across all valid executions of a system—essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
 
-### Property 1: Coordinate Parsing Round Trip
+### Property 1: Complete Import
 
-*For any* valid coordinate string in "Point(lng lat)" format, parsing it should produce a latitude and longitude pair where the values match the original input numbers.
+*For any* import run of the Wikidata source file containing 4,506 entries, after deduplication the system should import exactly 794 unique buildings into the database.
 
-**Validates: Requirements 1.2**
+**Validates: Requirements 1.1, 1.4**
 
-### Property 2: Wikidata QID Extraction
+### Property 2: Pritzker Award Tagging
 
-*For any* valid Wikidata URL containing a QID (e.g., "http://www.wikidata.org/entity/Q123456"), extracting the QID should return the exact Q-number from the URL.
-
-**Validates: Requirements 1.3**
-
-### Property 3: Deduplication by QID
-
-*For any* set of JSON entries where multiple entries share the same Wikidata QID, the deduplication process should produce exactly one building record per unique QID.
+*For any* place imported from a Pritzker laureate's work, the tags.award array should contain 'Pritzker'.
 
 **Validates: Requirements 2.1, 2.2**
 
-### Property 4: City Selection Preference
+### Property 3: Architect Attribution
 
-*For any* set of city names associated with a building, the selected city should not contain "arrondissement", "District", or "Subdistrict" if a cleaner alternative exists.
+*For any* imported place, if the source is 'wikidata' and customFields.wikidataWorkURL exists, then customFields.architect and customFields.architectQID should also exist and be non-empty.
 
-**Validates: Requirements 2.2**
+**Validates: Requirements 4.1, 4.2, 4.3**
 
-### Property 5: Architect Tag Formatting
+### Property 4: Deduplication Consistency
 
-*For any* architect name string, the formatted tag should contain only ASCII letters (no spaces, dots, accents, or special characters).
+*For any* two places with the same sourceDetail (Wikidata QID), the database should contain only one record with that QID.
 
-**Validates: Requirements 5.2**
+**Validates: Requirements 3.2**
 
-### Property 6: Tag Structure Completeness
+### Property 5: Filter Count Accuracy
 
-*For any* imported building, the tags object should contain exactly three keys: "award", "style", and "architect", where "award" always contains "Pritzker" and "style" always contains "Architecture".
+*For any* query filtering by award='Pritzker', the count of returned results should equal the total number of places with 'Pritzker' in tags.award.
 
-**Validates: Requirements 5.1, 5.4**
+**Validates: Requirements 2.3, 2.4**
 
-### Property 7: AI Tags Priority Ordering
+### Property 6: Data Integrity After Import
 
-*For any* imported building, the aiTags array should be sorted by priority in descending order, with award tags (priority 100) first, architect tags (priority 90) second, specific style tags (priority 80) third, and generic tags (priority 50) last.
+*For any* place imported with required fields (name, coordinates, architect), all these fields should be present and valid in the database after import.
 
-**Validates: Requirements 6.1, 6.2**
-
-### Property 8: Image URL HTTPS Conversion
-
-*For any* Wikimedia Commons URL starting with "http://", the converted URL should start with "https://" while preserving the rest of the path.
-
-**Validates: Requirements 7.1**
-
-### Property 9: Image Collection Uniqueness
-
-*For any* set of duplicate entries for the same building, the merged images array should contain only unique URLs with no duplicates.
-
-**Validates: Requirements 7.3**
-
-### Property 10: Category Classification Consistency
-
-*For any* work label containing a category keyword (e.g., "Museum", "Church"), the assigned category should match the expected category for that keyword.
-
-**Validates: Requirements 4.1**
-
-### Property 11: Report Counts Accuracy
-
-*For any* import operation, the sum of (new records created + existing records updated + records skipped) should equal the number of unique buildings after deduplication.
-
-**Validates: Requirements 2.4, 8.1**
+**Validates: Requirements 3.1, 3.3**
 
 ## Error Handling
 
-### Invalid JSON Entry Handling
+### Import Errors
 
-```typescript
-interface ValidationResult {
-  isValid: boolean;
-  errors: string[];
-}
+1. **File Not Found**
+   - Error: Source JSON file doesn't exist
+   - Handling: Display clear error message with file path, exit with code 1
 
-function validateEntry(entry: WikidataArchitectureEntry): ValidationResult {
-  const errors: string[] = [];
-  
-  if (!entry.work) errors.push('Missing work URL');
-  if (!entry.workLabel) errors.push('Missing work label');
-  if (!entry.architectLabel) errors.push('Missing architect label');
-  if (entry.coord && !parseCoordinates(entry.coord)) {
-    errors.push('Invalid coordinate format');
-  }
-  
-  return {
-    isValid: errors.length === 0,
-    errors,
-  };
-}
-```
+2. **Invalid JSON**
+   - Error: JSON file is malformed or not parseable
+   - Handling: Display parse error, exit with code 1
 
-### Missing Coordinate Handling
+3. **Invalid Entry**
+   - Error: Entry missing required fields or has invalid data
+   - Handling: Log error, skip entry, continue with remaining entries
 
-- 如果 coord 字段缺失或无法解析，记录将被标记为需要手动审核
-- 不会阻止导入，但会在报告中列出
+4. **Database Connection Error**
+   - Error: Cannot connect to database
+   - Handling: Display connection error, exit with code 1
 
-### Q-Number Work Label Handling
+5. **Database Write Error**
+   - Error: Failed to create or update record
+   - Handling: Log error with entry details, continue with remaining entries
 
-- 如果 workLabel 是 Q 开头的数字（如 Q118424126），表示 Wikidata 没有该实体的标签
-- 这些记录将被标记为需要手动审核，需要人工补充名称
+### Validation Errors
 
-### Database Upsert Error Handling
+1. **Missing Required Fields**
+   - Fields: work, workLabel, architectLabel
+   - Handling: Record in skipped list with reason
 
-```typescript
-async function upsertPlace(data: PlaceImportData): Promise<UpsertResult> {
-  try {
-    const existing = await prisma.place.findFirst({
-      where: {
-        OR: [
-          { sourceDetail: data.sourceDetail },
-          { googlePlaceId: data.sourceDetail }, // 兼容旧数据
-        ],
-      },
-    });
-    
-    if (existing) {
-      await prisma.place.update({
-        where: { id: existing.id },
-        data: { ...data, updatedAt: new Date() },
-      });
-      return { action: 'updated', id: existing.id };
-    } else {
-      const created = await prisma.place.create({ data });
-      return { action: 'created', id: created.id };
-    }
-  } catch (error) {
-    return { action: 'error', error: error.message };
-  }
-}
-```
+2. **Invalid Coordinates**
+   - Error: Coordinate string not in "Point(lng lat)" format
+   - Handling: Skip entry, record in skipped list
+
+3. **Invalid Wikidata QID**
+   - Error: Cannot extract QID from Wikidata URL
+   - Handling: Skip entry, record in skipped list
+
+### Recovery Strategies
+
+1. **Partial Import Failure**
+   - If some records fail, continue importing remaining records
+   - Generate report showing success/failure counts
+   - Allow re-running import to retry failed records
+
+2. **Duplicate Detection**
+   - Check for existing records by sourceDetail
+   - Update existing records instead of creating duplicates
+   - Log update actions in import report
 
 ## Testing Strategy
 
 ### Unit Tests
 
-单元测试用于验证各个独立函数的正确性：
+Unit tests verify specific examples and edge cases:
 
-1. **parseCoordinates** - 测试各种坐标格式的解析
-2. **extractWikidataQID** - 测试 QID 提取
-3. **formatArchitectTag** - 测试建筑师标签格式化
-4. **selectBestCity** - 测试城市选择逻辑
-5. **convertWikimediaUrl** - 测试 URL 转换
-6. **classifyCategory** - 测试分类识别
+1. **Coordinate Parsing**
+   - Test valid "Point(lng lat)" format
+   - Test invalid formats (missing Point, wrong order, etc.)
+   - Test boundary values (±180 longitude, ±90 latitude)
+
+2. **QID Extraction**
+   - Test valid Wikidata URLs
+   - Test invalid URLs (missing QID, wrong format)
+
+3. **Architect Tag Formatting**
+   - Test name with spaces ("Oscar Niemeyer" → "OscarNiemeyer")
+   - Test name with dots ("I. M. Pei" → "IMPei")
+   - Test name with accents ("Kenzō Tange" → "KenzoTange")
+
+4. **City Selection**
+   - Test filtering administrative subdivisions
+   - Test selecting shortest city name
+
+5. **Tag Generation**
+   - Test Pritzker award tag is always included
+   - Test architect tag is properly formatted
 
 ### Property-Based Tests
 
-使用 fast-check 库进行属性测试，每个测试运行至少 100 次迭代：
+Property-based tests verify universal properties across all inputs:
 
-```typescript
-import * as fc from 'fast-check';
+1. **Property 1: Complete Import**
+   - Generate random subsets of the source file
+   - Verify deduplication produces correct unique count
+   - Verify all unique buildings are imported
 
-// Property 1: Coordinate Parsing
-// Feature: pritzker-architecture-import, Property 1: Coordinate Parsing Round Trip
-fc.assert(
-  fc.property(
-    fc.float({ min: -180, max: 180 }),
-    fc.float({ min: -90, max: 90 }),
-    (lng, lat) => {
-      const coordStr = `Point(${lng} ${lat})`;
-      const result = parseCoordinates(coordStr);
-      return result !== null && 
-             Math.abs(result.longitude - lng) < 0.0001 &&
-             Math.abs(result.latitude - lat) < 0.0001;
-    }
-  ),
-  { numRuns: 100 }
-);
+2. **Property 2: Pritzker Award Tagging**
+   - Generate random Pritzker architect entries
+   - Verify all have 'Pritzker' in tags.award
 
-// Property 5: Architect Tag Formatting
-// Feature: pritzker-architecture-import, Property 5: Architect Tag Formatting
-fc.assert(
-  fc.property(
-    fc.string(),
-    (name) => {
-      const tag = formatArchitectTag(name);
-      return /^[a-zA-Z]*$/.test(tag);
-    }
-  ),
-  { numRuns: 100 }
-);
-```
+3. **Property 3: Architect Attribution**
+   - Generate random entries with architect data
+   - Verify customFields contains architect info
+
+4. **Property 4: Deduplication Consistency**
+   - Generate entries with duplicate Wikidata QIDs
+   - Verify only one record per QID in database
+
+5. **Property 5: Filter Count Accuracy**
+   - Import random set of buildings
+   - Query by Pritzker filter
+   - Verify count matches expected
+
+6. **Property 6: Data Integrity**
+   - Generate random valid entries
+   - Import and retrieve from database
+   - Verify all required fields are preserved
 
 ### Integration Tests
 
-集成测试验证完整的导入流程：
+1. **End-to-End Import**
+   - Run import script with test data file
+   - Verify database contains expected records
+   - Verify tags are correct
+   - Verify filters work
 
-1. **End-to-end import** - 使用测试 JSON 文件进行完整导入
-2. **Deduplication verification** - 验证重复条目被正确合并
-3. **Database state verification** - 验证数据库中的记录符合预期
+2. **Dry Run Mode**
+   - Run import with --dry-run flag
+   - Verify no database changes
+   - Verify validation works
 
-### Test Data
+3. **Update Existing Records**
+   - Import same data twice
+   - Verify records are updated, not duplicated
+   - Verify updatedAt timestamp changes
 
-创建测试用的 JSON 文件，包含：
-- 正常条目
-- 重复条目（相同 QID，不同城市）
-- 缺失字段的条目
-- Q-number 作为名称的条目
-- 各种分类关键词的条目
+### Manual Testing
+
+1. **Filter UI Testing**
+   - Open filter UI
+   - Select "Pritzker" award filter
+   - Verify count shows 794 (or expected number)
+   - Verify results show Pritzker buildings
+
+2. **Architect Filter Testing**
+   - Filter by specific architect (e.g., "Oscar Niemeyer")
+   - Verify results show only that architect's works
+   - Verify count is accurate
+
+### Test Configuration
+
+- Property tests: Minimum 100 iterations per test
+- Test framework: Jest with ts-jest
+- Property testing library: fast-check
+- Each property test tagged with: **Feature: pritzker-architecture-import, Property {number}: {property_text}**

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>标签分类测试</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .result { margin: 5px 0; padding: 5px; }
+        .architect { background: #e3f2fd; }
+        .style { background: #f3e5f5; }
+        .award { background: #fff3e0; }
+        .other { background: #f5f5f5; }
+    </style>
+</head>
+<body>
+    <h1>标签分类测试</h1>
+    <div id="results"></div>
+    
+    <script>
+        // 从 admin.html 复制的分类函数
+        function guessTagType(tag) {
+            const lowerTag = tag.toLowerCase();
+            
+            if (lowerTag.startsWith('architect:')) return 'architect';
+            if (lowerTag.startsWith('style:')) return 'style';
+            if (lowerTag.startsWith('theme:')) return 'theme';
+            if (lowerTag.startsWith('domain:')) return 'domain';
+            if (lowerTag.startsWith('meal:')) return 'meal';
+            if (lowerTag.startsWith('shop:')) return 'shop';
+            if (lowerTag.startsWith('type:')) return 'type';
+            
+            if (lowerTag === 'pritzker' || lowerTag.startsWith('pritzker_year:') || lowerTag.startsWith('pritzker ')) {
+                return 'award';
+            }
+            
+            const styleKeywords = [
+                'architectural style', 'architectural', 
+                'brutalism', 'brutalist', 'modernism', 'modernist', 'postmodernism', 'postmodernist',
+                'minimalism', 'minimalist', 'baroque', 'gothic', 'renaissance', 'romanesque',
+                'art nouveau', 'art deco', 'expressionism', 'expressionist', 'futurism', 'futurist',
+                'constructivism', 'constructivist', 'deconstructivism', 'deconstructivist',
+                'neoclassicism', 'neoclassical', 'classical', 'contemporary',
+                'industrial', 'organic', 'parametric', 'high-tech', 'metabolism', 'metabolist',
+                'international style', 'bauhaus', 'prairie school', 'arts and crafts',
+                'victorian', 'edwardian', 'georgian', 'colonial', 'federal',
+                'beaux-arts', 'chicago school', 'streamline moderne', 'googie',
+                'academic art', 'abstract', 'cubism', 'surrealism', 'impressionism',
+                'revival', 'neo-', 'neo ', '-ism', 'esque', 'traditional'
+            ];
+            
+            for (const keyword of styleKeywords) {
+                if (lowerTag.includes(keyword)) {
+                    return 'style';
+                }
+            }
+            
+            if (lowerTag.includes('architecture') && !tag.includes('Architecture')) {
+                return 'style';
+            }
+            
+            const themeKeywords = ['feminism', 'feminist', 'sustainability', 'ecology', 'social'];
+            for (const keyword of themeKeywords) {
+                if (lowerTag.includes(keyword)) {
+                    return 'theme';
+                }
+            }
+            
+            const mealKeywords = ['brunch', 'breakfast', 'lunch', 'dinner', 'cafe', 'coffee', 'restaurant'];
+            for (const keyword of mealKeywords) {
+                if (lowerTag.includes(keyword)) {
+                    return 'meal';
+                }
+            }
+            
+            const domainKeywords = ['domain:', 'science', 'wissenschaft', 'writer'];
+            for (const keyword of domainKeywords) {
+                if (lowerTag.includes(keyword)) {
+                    return 'domain';
+                }
+            }
+            
+            const shopKeywords = ['secondhand', 'thrift', 'boutique'];
+            for (const keyword of shopKeywords) {
+                if (lowerTag.includes(keyword)) {
+                    return 'shop';
+                }
+            }
+            
+            if (lowerTag === 'vintage') {
+                return 'shop';
+            }
+            
+            const nonNameWords = ['architecture', 'architects', 'studio', 'associates', 'partners', 
+                                 'group', 'design', 'office', 'workshop', 'collective', 'company',
+                                 'administration', 'progress', 'works'];
+            
+            const hasNonNameWord = nonNameWords.some(word => lowerTag.includes(word));
+            
+            if (!hasNonNameWord) {
+                if (/[A-Z]/.test(tag) && (/\s/.test(tag) || /\./.test(tag)) && tag.length >= 3 && tag.length <= 50) {
+                    const words = tag.split(/[\s.]+/).filter(w => w.length > 0);
+                    if (words.length >= 2) {
+                        const capitalizedWords = words.filter(w => /^[A-Z]/.test(w));
+                        if (capitalizedWords.length >= words.length * 0.5) {
+                            return 'architect';
+                        }
+                    }
+                }
+            }
+            
+            return 'other';
+        }
+        
+        // 从 API 获取真实标签并测试
+        fetch('http://localhost:3000/api/public-places/filter-options')
+            .then(r => r.json())
+            .then(data => {
+                const tags = data.data.tags.slice(0, 100); // 前100个标签
+                const results = document.getElementById('results');
+                
+                const stats = {};
+                
+                tags.forEach(tagObj => {
+                    const tag = tagObj.name;
+                    const type = guessTagType(tag);
+                    
+                    stats[type] = (stats[type] || 0) + 1;
+                    
+                    const div = document.createElement('div');
+                    div.className = `result ${type}`;
+                    div.textContent = `${tag} → ${type}`;
+                    results.appendChild(div);
+                });
+                
+                const statsDiv = document.createElement('div');
+                statsDiv.innerHTML = '<h2>统计（前100个标签）:</h2>' + 
+                    Object.entries(stats).map(([type, count]) => 
+                        `<div>${type}: ${count}</div>`
+                    ).join('');
+                results.insertBefore(statsDiv, results.firstChild);
+            });
+    </script>
+</body>
+</html>

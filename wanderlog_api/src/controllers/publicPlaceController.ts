@@ -594,6 +594,30 @@ class PublicPlaceController {
   }
 
   /**
+   * 获取标签类型列表（按类型分组的标签）
+   * GET /api/public-places/tag-types
+   */
+  async getTagTypes(req: Request, res: Response): Promise<void> {
+    try {
+      const { country, category } = req.query;
+      const data = await publicPlaceService.getTagTypes({
+        country: country as string | undefined,
+        category: category as string | undefined,
+      });
+
+      res.json({
+        success: true,
+        data,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
    * 按城市和标签筛选地点
    * GET /api/public-places/search-by-filters
    */

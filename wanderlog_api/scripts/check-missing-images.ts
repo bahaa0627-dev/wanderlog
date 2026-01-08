@@ -1,62 +1,66 @@
 /**
- * 检查最近半小时内有 photoReference 但没有 coverImage 的地点
+ * Check for places that lost their original images during enrichment
+ * 
+ * This script checks if any Wikidata places that were enriched with Google data
+ * lost their original coverImage without it being moved to the images array.
  */
 
 import prisma from '../src/config/database';
-import 'dotenv/config';
 
 async function main() {
-  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-  
-  console.log(`🔍 查找 ${thirtyMinutesAgo.toISOString()} 之后创建的地点...`);
-  
-  // 查找最近半小时内有 photoReference 但没有 coverImage 的地点
-  const places = await prisma.place.findMany({
+  console.log('🔍 Checking for missing original images...\n');
+
+  // Find all Wikidata places that have been enriched (have googlePlaceId)
+  const enrichedPlaces = await prisma.place.findMany({
     where: {
-      createdAt: { gte: thirtyMinutesAgo },
-      photoReference: { not: null },
-      OR: [
-        { coverImage: null },
-        { coverImage: '' },
-      ],
+      source: 'wikidata',
+      googlePlaceId: {
+        not: null,
+      },
     },
     select: {
       id: true,
       name: true,
-      city: true,
-      source: true,
-      photoReference: true,
       coverImage: true,
-      createdAt: true,
+      customFields: true,
+      googlePlaceId: true,
     },
-    orderBy: { createdAt: 'desc' },
   });
-  
-  console.log(`\n📊 结果: 找到 ${places.length} 个有 photoReference 但没有 coverImage 的地点\n`);
-  
-  if (places.length > 0) {
-    console.log('地点列表:');
-    places.forEach((p, i) => {
-      console.log(`${i + 1}. ${p.name} (${p.city}) - source: ${p.source}`);
-      console.log(`   photoRef: ${p.photoReference?.substring(0, 50)}...`);
-      console.log(`   created: ${p.createdAt}`);
-    });
-    
-    console.log(`\n💰 如果用 Google Photo API 补下载: $${(places.length * 0.007).toFixed(3)}`);
+
+  console.log(`Found ${enrichedPlaces.length} enriched Wikidata places\n`);
+
+  let withImages = 0;
+  let withoutImages = 0;
+  let withImagesArray = 0;
+
+  for (const place of enrichedPlaces) {
+    const customFields = place.customFields as Record<string, unknown>;
+    const images = customFields.images as Array<{ url: string; source?: string }> | undefined;
+
+    const hasCoverImage = !!place.coverImage;
+    const hasImagesArray = images && images.length > 0;
+
+    if (hasCoverImage) withImages++;
+    else withoutImages++;
+
+    if (hasImagesArray) withImagesArray++;
+
+    // Log places that might have lost images
+    if (!hasImagesArray && hasCoverImage) {
+      console.log(`⚠️  ${place.name}`);
+      console.log(`   - Has coverImage: ${hasCoverImage}`);
+      console.log(`   - Has images array: ${hasImagesArray}`);
+      console.log(`   - Images count: ${images?.length || 0}`);
+      console.log('');
+    }
   }
-  
-  // 也查一下总共有多少
-  const totalMissing = await prisma.place.count({
-    where: {
-      photoReference: { not: null },
-      OR: [
-        { coverImage: null },
-        { coverImage: '' },
-      ],
-    },
-  });
-  
-  console.log(`\n📈 数据库总共有 ${totalMissing} 个有 photoReference 但没有 coverImage 的地点`);
+
+  console.log('\n📊 Summary:');
+  console.log(`   Total enriched: ${enrichedPlaces.length}`);
+  console.log(`   With coverImage: ${withImages}`);
+  console.log(`   Without coverImage: ${withoutImages}`);
+  console.log(`   With images array: ${withImagesArray}`);
+  console.log(`   Without images array: ${enrichedPlaces.length - withImagesArray}`);
 }
 
 main()

@@ -11,6 +11,7 @@ import {
   ApifyPlaceItem,
   ValidationResult,
 } from '../types/apify';
+import axios from 'axios';
 
 // ============================================
 // Constants
@@ -134,6 +135,40 @@ class ApifyDataValidator {
       }
     }
     return null;
+  }
+
+  /**
+   * 使用反向地理编码 API 根据经纬度获取城市和国家
+   * 使用 BigDataCloud 的免费 API（无需 API key）
+   */
+  async reverseGeocode(lat: number, lng: number): Promise<{ city: string; country: string; countryCode: string } | null> {
+    try {
+      // 使用 BigDataCloud 免费反向地理编码 API
+      const response = await axios.get('https://api.bigdatacloud.net/data/reverse-geocode-client', {
+        params: {
+          latitude: lat,
+          longitude: lng,
+          localityLanguage: 'en'
+        },
+        timeout: 5000 // 5 秒超时
+      });
+
+      const data = response.data;
+      
+      // 提取城市信息（优先级：city > locality > principalSubdivision）
+      const city = data.city || data.locality || data.principalSubdivision || null;
+      const country = data.countryName || null;
+      const countryCode = data.countryCode || null;
+
+      if (city && country && countryCode) {
+        return { city, country, countryCode };
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`   ⚠️  Reverse geocoding failed for (${lat}, ${lng}):`, (error as Error).message);
+      return null;
+    }
   }
 
   /**

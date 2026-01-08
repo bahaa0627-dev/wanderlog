@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logger } from '../utils/logger';
 import googleMapsService from '../services/googleMapsService';
+import { formatTagsForDisplay } from '../utils/tagExtractor';
 
 /**
  * 批量导入 Google Maps 地点
@@ -103,12 +104,14 @@ export const getPlaces = async (req: Request, res: Response) => {
     const {
       city,
       category,
+      categorySlug,
       tags,
       search,
       lat,
       lng,
       radius = '5000',
       limit = '30',
+      source,
     } = req.query;
 
     const where: any = {};
@@ -117,8 +120,19 @@ export const getPlaces = async (req: Request, res: Response) => {
       where.city = String(city);
     }
 
-    if (category) {
-      where.category = String(category);
+    // Support both old 'category' and new 'categorySlug' query params
+    if (categorySlug) {
+      where.categorySlug = String(categorySlug);
+    } else if (category) {
+      // Fallback to old category field for backward compatibility
+      where.OR = [
+        { categorySlug: String(category) },
+        { category: String(category) },
+      ];
+    }
+
+    if (source) {
+      where.source = String(source);
     }
 
     if (search) {
@@ -146,9 +160,51 @@ export const getPlaces = async (req: Request, res: Response) => {
       where,
       take: parseInt(String(limit)),
       orderBy: { rating: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        country: true,
+        latitude: true,
+        longitude: true,
+        address: true,
+        description: true,
+        rating: true,
+        ratingCount: true,
+        // Return new category fields
+        categorySlug: true,
+        categoryEn: true,
+        categoryZh: true,
+        // Also return old category for backward compatibility
+        category: true,
+        tags: true,
+        aiTags: true,
+        coverImage: true,
+        images: true,
+        source: true,
+        sourceDetail: true,
+        isVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
-    return res.json({ count: places.length, places });
+    // Format response with extracted tags
+    const formattedPlaces = places.map(place => {
+      const tagInfo = formatTagsForDisplay(place.tags, place.aiTags, 'en');
+      
+      return {
+        ...place,
+        // Add formatted tag fields for easy display
+        displayTags: tagInfo.allTags,
+        displayTagsString: tagInfo.displayString,
+        // Ensure category fields are present
+        categorySlug: place.categorySlug || place.category,
+        categoryEn: place.categoryEn || place.category,
+      };
+    });
+
+    return res.json({ count: formattedPlaces.length, places: formattedPlaces });
   } catch (error) {
     logger.error('Get Places error:', error);
     return res.status(500).json({ message: 'Server error' });

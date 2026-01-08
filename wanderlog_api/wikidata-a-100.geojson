@@ -1,0 +1,2005 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.504,
+          46.6022
+        ]
+      },
+      "properties": {
+        "name": "A. E. Larson Building",
+        "description": "🏷️ landmark",
+        "city": "Yakima",
+        "country": "United States",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.8795,
+          52.362944444
+        ]
+      },
+      "properties": {
+        "name": "A.M.V.J. building",
+        "description": "🏷️ landmark",
+        "city": "Amsterdam",
+        "country": "Netherlands",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.083922222,
+          50.77475
+        ]
+      },
+      "properties": {
+        "name": "Aachen Cathedral",
+        "description": "🏷️ church",
+        "city": "Aachen-Mitte",
+        "country": "Germany",
+        "category": "church",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.10717,
+          50.7763
+        ]
+      },
+      "properties": {
+        "name": "Aachen East Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Aachen",
+        "country": "Germany",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.585904653,
+          48.140221586
+        ]
+      },
+      "properties": {
+        "name": "Abbey Church of St. Anna",
+        "description": "🏷️ church",
+        "city": "Schwabing-Freimann",
+        "country": "Germany",
+        "category": "church",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.686880555,
+          40.432241666
+        ]
+      },
+      "properties": {
+        "name": "ABC Serrano",
+        "description": "🏷️ landmark",
+        "city": "Salamanca",
+        "country": "Spain",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.9215,
+          53.33121
+        ]
+      },
+      "properties": {
+        "name": "Abel Tasmanschool",
+        "description": "🏷️ landmark",
+        "city": "Eemsdelta",
+        "country": "Netherlands",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          135.514266666,
+          34.645947222
+        ]
+      },
+      "properties": {
+        "name": "Abeno Harukas",
+        "description": "🏷️ landmark",
+        "city": null,
+        "country": null,
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.0781,
+          51.5649
+        ]
+      },
+      "properties": {
+        "name": "Abney Park Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "London Borough of Hackney",
+        "country": "United Kingdom",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          39.826388888,
+          21.418888888
+        ]
+      },
+      "properties": {
+        "name": "Abraj Al Bait",
+        "description": "🏷️ landmark",
+        "city": "Mecca",
+        "country": "Saudi Arabia",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.433056,
+          51.192778
+        ]
+      },
+      "properties": {
+        "name": "Abteiberg Museum",
+        "description": "🏷️ museum",
+        "city": "Mönchengladbach",
+        "country": "Germany",
+        "category": "museum",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.074722222,
+          30.032222222
+        ]
+      },
+      "properties": {
+        "name": "Abu Rawash",
+        "description": "🏷️ cemetery",
+        "city": "Kerdasa",
+        "country": "Egypt",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          47.738793829,
+          40.651973335
+        ]
+      },
+      "properties": {
+        "name": "Abulfazlil Abbas Mosque",
+        "description": "🏷️ temple",
+        "city": "Goychay",
+        "country": "Azerbaijan",
+        "category": "temple",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.203611111,
+          29.896111111
+        ]
+      },
+      "properties": {
+        "name": "Abusir",
+        "description": "🏷️ cemetery",
+        "city": "Markaz al Badrashayn",
+        "country": "Egypt",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.918889,
+          26.185167
+        ]
+      },
+      "properties": {
+        "name": "Abydos",
+        "description": "🏷️ cemetery",
+        "city": "Sohag Governorate",
+        "country": "Egypt",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.038056,
+          42.079444
+        ]
+      },
+      "properties": {
+        "name": "Academie Brochu",
+        "description": "🏷️ landmark",
+        "city": "Southbridge",
+        "country": "United States",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.778166666,
+          51.593138888
+        ]
+      },
+      "properties": {
+        "name": "Academiesingel lighthouse",
+        "description": "🏷️ landmark",
+        "city": "Breda",
+        "country": "Netherlands",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          16.365103,
+          48.201253
+        ]
+      },
+      "properties": {
+        "name": "Academy of Fine Arts Vienna",
+        "description": "🏷️ university",
+        "city": null,
+        "country": null,
+        "category": "university",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.7756,
+          50.1365
+        ]
+      },
+      "properties": {
+        "name": "Achiet-le-Grand Communal Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Achiet-le-Grand",
+        "country": "France",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.756849,
+          50.122252
+        ]
+      },
+      "properties": {
+        "name": "Achiet-le-Petit Communal Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Achiet-le-Petit",
+        "country": "France",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          23.728472,
+          37.968417
+        ]
+      },
+      "properties": {
+        "name": "Acropolis Museum",
+        "description": "🏷️ museum",
+        "city": "Athens Municipality",
+        "country": "Greece",
+        "category": "museum",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -96.676472,
+          34.771053
+        ]
+      },
+      "properties": {
+        "name": "Ada Arts and Heritage Center",
+        "description": "🏷️ landmark",
+        "city": "Ada",
+        "country": "United States",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.276111,
+          43.651111
+        ]
+      },
+      "properties": {
+        "name": "Adam P. Leighton House",
+        "description": "🏷️ landmark",
+        "city": "Portland",
+        "country": "United States",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -118.678333,
+          34.034444
+        ]
+      },
+      "properties": {
+        "name": "Adamson House",
+        "description": "🏷️ landmark",
+        "city": "Malibu",
+        "country": "United States",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          88.16423798,
+          25.15255737
+        ]
+      },
+      "properties": {
+        "name": "Adina Mosque",
+        "description": "🏷️ temple",
+        "city": "West Bengal",
+        "country": "India",
+        "category": "temple",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.370278,
+          37.816944
+        ]
+      },
+      "properties": {
+        "name": "Administration Building, Treasure Island",
+        "description": "🏷️ landmark",
+        "city": "San Francisco",
+        "country": "United States",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.859027777,
+          52.374138888
+        ]
+      },
+      "properties": {
+        "name": "Admiraal de Ruijterweg 148-152, Amsterdam",
+        "description": "🏷️ landmark",
+        "city": "Amsterdam",
+        "country": "Netherlands",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          30.30855,
+          59.937458333
+        ]
+      },
+      "properties": {
+        "name": "Admiralty building in Saint Petersburg",
+        "description": "🏷️ landmark",
+        "city": "Second Admiral Island",
+        "country": "Russia",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -62.761194,
+          -37.180333
+        ]
+      },
+      "properties": {
+        "name": "Adolfo Alsina town hall",
+        "description": "🏷️ landmark",
+        "city": "Adolfo Alsina Partido",
+        "country": "Argentina",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -60.098417,
+          -38.03375
+        ]
+      },
+      "properties": {
+        "name": "Adolfo Gonzales Chaves municipal market",
+        "description": "🏷️ landmark",
+        "city": "Adolfo Gonzales Chaves Partido",
+        "country": "Argentina",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -60.098528,
+          -38.032833
+        ]
+      },
+      "properties": {
+        "name": "Adolfo Gonzales Chaves town hall",
+        "description": "🏷️ landmark",
+        "city": "Adolfo Gonzales Chaves Partido",
+        "country": "Argentina",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.004467,
+          40.714597
+        ]
+      },
+      "properties": {
+        "name": "African Burial Ground National Monument",
+        "description": "🏷️ cemetery",
+        "city": "New York",
+        "country": "United States",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.478056,
+          38.050139
+        ]
+      },
+      "properties": {
+        "name": "African Cemetery No. 2",
+        "description": "🏷️ cemetery",
+        "city": "Lexington",
+        "country": "United States",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.897762,
+          52.352889
+        ]
+      },
+      "properties": {
+        "name": "Afrikahuis, Amsterdam",
+        "description": "🏷️ landmark",
+        "city": "Amsterdam",
+        "country": "Netherlands",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -79.332222222,
+          43.725277777
+        ]
+      },
+      "properties": {
+        "name": "Aga Khan Museum",
+        "description": "🏷️ museum",
+        "city": "Toronto",
+        "country": "Canada",
+        "category": "museum",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.054158,
+          44.892507
+        ]
+      },
+      "properties": {
+        "name": "Agape Centro Ecumenico",
+        "description": "🏷️ landmark",
+        "city": "Prali",
+        "country": "Italy",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.29431,
+          53.5098
+        ]
+      },
+      "properties": {
+        "name": "Agecroft Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Pendlebury",
+        "country": "United Kingdom",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.61916667,
+          44.20666667
+        ]
+      },
+      "properties": {
+        "name": "Agen Cathedral",
+        "description": "🏷️ church",
+        "city": "Agen",
+        "country": "France",
+        "category": "church",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.099312,
+          50.164908
+        ]
+      },
+      "properties": {
+        "name": "Agenville Churchyard",
+        "description": "🏷️ cemetery",
+        "city": "Agenville",
+        "country": "France",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          46.931666666,
+          39.993333333
+        ]
+      },
+      "properties": {
+        "name": "Aghdam Mosque",
+        "description": "🏷️ temple",
+        "city": "Aghdam District",
+        "country": "Azerbaijan",
+        "category": "temple",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.660086,
+          50.30444
+        ]
+      },
+      "properties": {
+        "name": "Agnez-les-Duisans Communal Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Agnez-lès-Duisans",
+        "country": "France",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -89.410606,
+          43.074803
+        ]
+      },
+      "properties": {
+        "name": "Agricultural Engineering Building",
+        "description": "🏷️ landmark",
+        "city": "Madison",
+        "country": "United States",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -88.0622,
+          30.6708
+        ]
+      },
+      "properties": {
+        "name": "Ahavas Chesed Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Alabama",
+        "country": "United States",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.5731,
+          52.585
+        ]
+      },
+      "properties": {
+        "name": "Ahrensfelde East Churchyard",
+        "description": "🏷️ cemetery",
+        "city": "Ahrensfelde",
+        "country": "Germany",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.574186,
+          37.745744
+        ]
+      },
+      "properties": {
+        "name": "Ahwahnee Hotel",
+        "description": "🏷️ hotel",
+        "city": "Yosemite Village",
+        "country": "United States",
+        "category": "hotel",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.002778,
+          43.343889
+        ]
+      },
+      "properties": {
+        "name": "Aiboa",
+        "description": "🏷️ landmark",
+        "city": "Getxo",
+        "country": "Spain",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.7242,
+          33.5704
+        ]
+      },
+      "properties": {
+        "name": "Aiken Colored Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Aiken",
+        "country": "United States",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          25.08639,
+          60.454514
+        ]
+      },
+      "properties": {
+        "name": "Ainola",
+        "description": "🏷️ landmark",
+        "city": "Järvenpää",
+        "country": "Finland",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          49.161,
+          55.821
+        ]
+      },
+      "properties": {
+        "name": "Ak Bars Arena",
+        "description": "🏷️ stadium",
+        "city": null,
+        "country": null,
+        "category": "stadium",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          27.8118,
+          38.9209
+        ]
+      },
+      "properties": {
+        "name": "Akhisar Stadium",
+        "description": "🏷️ stadium",
+        "city": "Akhisar",
+        "country": "Turkey",
+        "category": "stadium",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.1215,
+          39.71742778
+        ]
+      },
+      "properties": {
+        "name": "Akita Museum of Art",
+        "description": "🏷️ museum",
+        "city": "Akita",
+        "country": "Japan",
+        "category": "museum",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -18.09097,
+          65.67984
+        ]
+      },
+      "properties": {
+        "name": "Akureyrarkirkja",
+        "description": "🏷️ landmark",
+        "city": "Akureyri",
+        "country": "Iceland",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          54.400861111,
+          24.456611111
+        ]
+      },
+      "properties": {
+        "name": "Al Bahr Towers",
+        "description": "🏷️ landmark",
+        "city": "Abu Dhabi",
+        "country": "United Arab Emirates",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          46.685277777,
+          24.690277777
+        ]
+      },
+      "properties": {
+        "name": "Al Faisaliah Centre",
+        "description": "🏷️ landmark",
+        "city": "Riyadh",
+        "country": "Saudi Arabia",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          47.992777777,
+          29.378611111
+        ]
+      },
+      "properties": {
+        "name": "Al Hamra Tower",
+        "description": "🏷️ landmark",
+        "city": null,
+        "country": null,
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          51.574083333,
+          25.159777777
+        ]
+      },
+      "properties": {
+        "name": "Al Janoub Stadium",
+        "description": "🏷️ stadium",
+        "city": "Al Wakrah",
+        "country": "Qatar",
+        "category": "stadium",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.715243,
+          -7.336543
+        ]
+      },
+      "properties": {
+        "name": "Al-Akbar Mosque",
+        "description": "🏷️ temple",
+        "city": "Surabaya",
+        "country": "Indonesia",
+        "category": "temple",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          39.616388888,
+          24.466944444
+        ]
+      },
+      "properties": {
+        "name": "Al-Baqi'",
+        "description": "🏷️ cemetery",
+        "city": "Medina",
+        "country": "Saudi Arabia",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.300941666,
+          32.377447222
+        ]
+      },
+      "properties": {
+        "name": "Alabama State Capitol",
+        "description": "🏷️ landmark",
+        "city": "Alabama",
+        "country": "United States",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.94195,
+          51.531938888
+        ]
+      },
+      "properties": {
+        "name": "Albanifriedhof",
+        "description": "🏷️ cemetery",
+        "city": "Göttingen",
+        "country": "Germany",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.735556,
+          42.706667
+        ]
+      },
+      "properties": {
+        "name": "Albany Rural Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Menands",
+        "country": "United States",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          16.368319444,
+          48.204561111
+        ]
+      },
+      "properties": {
+        "name": "Albertina",
+        "description": "🏷️ landmark",
+        "city": null,
+        "country": null,
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.1325,
+          40.9525
+        ]
+      },
+      "properties": {
+        "name": "Alcázar of Segovia",
+        "description": "🏷️ castle",
+        "city": "Segovia",
+        "country": "Spain",
+        "category": "castle",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.746944,
+          51.2553
+        ]
+      },
+      "properties": {
+        "name": "Aldershot Military Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Rushmoor",
+        "country": "United Kingdom",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.0544,
+          55.3827
+        ]
+      },
+      "properties": {
+        "name": "Ale's Stones",
+        "description": "🏷️ cemetery",
+        "city": "Ystad Municipality",
+        "country": "Sweden",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.4156,
+          52.5192
+        ]
+      },
+      "properties": {
+        "name": "Alexa",
+        "description": "🏷️ landmark",
+        "city": "Bezirk Mitte",
+        "country": "Germany",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.1381,
+          40.015
+        ]
+      },
+      "properties": {
+        "name": "Alexander K. McClure School",
+        "description": "🏷️ university",
+        "city": "Philadelphia",
+        "country": "United States",
+        "category": "university",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          23.332969444,
+          42.695838888
+        ]
+      },
+      "properties": {
+        "name": "Alexander Nevsky Cathedral",
+        "description": "🏷️ church",
+        "city": null,
+        "country": null,
+        "category": "church",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          24.739444444,
+          59.435833333
+        ]
+      },
+      "properties": {
+        "name": "Alexander Nevsky Cathedral",
+        "description": "🏷️ church",
+        "city": null,
+        "country": null,
+        "category": "church",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.301991666,
+          48.877558333
+        ]
+      },
+      "properties": {
+        "name": "Alexander Nevsky Cathedral, Paris",
+        "description": "🏷️ church",
+        "city": "Paris",
+        "country": "France",
+        "category": "church",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          30.392777777,
+          59.721111111
+        ]
+      },
+      "properties": {
+        "name": "Alexander Palace",
+        "description": "🏷️ castle",
+        "city": "Pushkin",
+        "country": "Russia",
+        "category": "castle",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.643733333,
+          55.818380555
+        ]
+      },
+      "properties": {
+        "name": "Alexeevskoe Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Moscow",
+        "country": "Russia",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          30.283416666,
+          59.928055555
+        ]
+      },
+      "properties": {
+        "name": "Alexis Palace",
+        "description": "🏷️ castle",
+        "city": "Saint Petersburg",
+        "country": "Russia",
+        "category": "castle",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.1906,
+          40.7596
+        ]
+      },
+      "properties": {
+        "name": "Alfonse M. D'Amato United States Courthouse",
+        "description": "🏷️ landmark",
+        "city": "Central Islip",
+        "country": "United States",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.98135,
+          39.73433
+        ]
+      },
+      "properties": {
+        "name": "Alfred Butters House",
+        "description": "🏷️ landmark",
+        "city": "Denver",
+        "country": "United States",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -96.02803,
+          41.45398
+        ]
+      },
+      "properties": {
+        "name": "Alfred H. and Sarah Frahm House",
+        "description": "🏷️ landmark",
+        "city": "Fort Calhoun",
+        "country": "United States",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.48927,
+          51.93833
+        ]
+      },
+      "properties": {
+        "name": "Algemene Begraafplaats Crooswijk: grafheuvel met kwadrant en rotonde",
+        "description": "🏷️ cemetery",
+        "city": "Rotterdam",
+        "country": "Netherlands",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.4,
+          51.95778
+        ]
+      },
+      "properties": {
+        "name": "Algemene Begraafplaats Hofwijk",
+        "description": "🏷️ cemetery",
+        "city": "Rotterdam",
+        "country": "Netherlands",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.95215,
+          52.09277
+        ]
+      },
+      "properties": {
+        "name": "Algemene Begraafplaats Leidsestraatweg",
+        "description": "🏷️ cemetery",
+        "city": "Woerden",
+        "country": "Netherlands",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.1075,
+          52.518333
+        ]
+      },
+      "properties": {
+        "name": "Algemene Begraafplaats Meppelerstraatweg",
+        "description": "🏷️ cemetery",
+        "city": "Zwolle",
+        "country": "Netherlands",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.944911,
+          52.043167
+        ]
+      },
+      "properties": {
+        "name": "Algemene Begraafplaats Montfoort",
+        "description": "🏷️ cemetery",
+        "city": "Montfoort",
+        "country": "Netherlands",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.882569,
+          52.660297
+        ]
+      },
+      "properties": {
+        "name": "Algemene Begraafplaats Schoonebeek",
+        "description": "🏷️ cemetery",
+        "city": "Emmen",
+        "country": "Netherlands",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.059444,
+          36.773056
+        ]
+      },
+      "properties": {
+        "name": "Algiers Central Post Office",
+        "description": "🏷️ landmark",
+        "city": "Alger Centre",
+        "country": "Algeria",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.009513888,
+          43.350847222
+        ]
+      },
+      "properties": {
+        "name": "Algorta",
+        "description": "🏷️ landmark",
+        "city": "Getxo",
+        "country": "Spain",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          24.5394,
+          50.2794
+        ]
+      },
+      "properties": {
+        "name": "All Saints Church in Hodovytsia",
+        "description": "🏷️ church",
+        "city": "Hodovytsia",
+        "country": "Ukraine",
+        "category": "church",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -79.95,
+          40.4725
+        ]
+      },
+      "properties": {
+        "name": "Allegheny Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Pittsburgh",
+        "country": "United States",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -82.2168,
+          41.2937
+        ]
+      },
+      "properties": {
+        "name": "Allen Memorial Art Museum",
+        "description": "🏷️ museum",
+        "city": "Ohio",
+        "country": "United States",
+        "category": "museum",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.385,
+          47.0658
+        ]
+      },
+      "properties": {
+        "name": "Allerheiligenkirche, Graz",
+        "description": "🏷️ cemetery",
+        "city": "Graz",
+        "country": "Austria",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.87597,
+          53.35981
+        ]
+      },
+      "properties": {
+        "name": "Allerton Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Liverpool",
+        "country": "United Kingdom",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.898982,
+          49.958459
+        ]
+      },
+      "properties": {
+        "name": "Allery Communal Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Allery",
+        "country": "France",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          49.820833333,
+          40.361944444
+        ]
+      },
+      "properties": {
+        "name": "Alley of Honor",
+        "description": "🏷️ cemetery",
+        "city": "Baku",
+        "country": "Azerbaijan",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.624752777,
+          48.218775
+        ]
+      },
+      "properties": {
+        "name": "Allianz Arena",
+        "description": "🏷️ stadium",
+        "city": "Schwabing-Freimann",
+        "country": "Germany",
+        "category": "stadium",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.19262,
+          43.70513
+        ]
+      },
+      "properties": {
+        "name": "Allianz Riviera",
+        "description": "🏷️ landmark",
+        "city": null,
+        "country": null,
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.157288888,
+          45.477608333
+        ]
+      },
+      "properties": {
+        "name": "Allianz Tower",
+        "description": "🏷️ landmark",
+        "city": "Milan",
+        "country": "Italy",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.369244,
+          49.94118
+        ]
+      },
+      "properties": {
+        "name": "Allonville Communal Cemetery",
+        "description": "🏷️ cemetery",
+        "city": "Allonville",
+        "country": "France",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55.14113,
+          25.06883
+        ]
+      },
+      "properties": {
+        "name": "Almas Tower",
+        "description": "🏷️ landmark",
+        "city": "Dubai",
+        "country": "United Arab Emirates",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.040555555,
+          43.351944444
+        ]
+      },
+      "properties": {
+        "name": "Almaty International Airport",
+        "description": "🏷️ landmark",
+        "city": null,
+        "country": null,
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.714444,
+          40.415556
+        ]
+      },
+      "properties": {
+        "name": "Almudena Cathedral",
+        "description": "🏷️ church",
+        "city": null,
+        "country": null,
+        "category": "church",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.40061,
+          47.2823
+        ]
+      },
+      "properties": {
+        "name": "Alpenzoo",
+        "description": "🏷️ landmark",
+        "city": "Innsbruck",
+        "country": "Austria",
+        "category": "landmark",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.129,
+          37.3983
+        ]
+      },
+      "properties": {
+        "name": "Alta Mesa Memorial Park",
+        "description": "🏷️ cemetery",
+        "city": "Palo Alto",
+        "country": "United States",
+        "category": "cemetery",
+        "verified": true,
+        "rating": null,
+        "place_id": null
+      }
+    }
+  ]
+}

@@ -18,6 +18,7 @@ import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 import 'package:wanderlog/features/search/presentation/widgets/search_menu_sheet.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/features/map/presentation/widgets/tag_type_filter_bar.dart';
 
 /// 搜索结果地图页面
 class SearchResultsMapPage extends ConsumerStatefulWidget {
@@ -60,6 +61,9 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   // 所有地点的标签统计
   Map<String, int> _allTagsCounts = {};
   Set<String> _activeFilterTags = {};
+  
+  // 标签类型筛选
+  String? _selectedTagType;
 
   @override
   void initState() {
@@ -202,21 +206,22 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
 
   Spot _convertToSpot(SearchPlaceResult place) {
     // 合并 category 和 aiTags 作为 tags
+    final displayCategory = place.categoryEn ?? place.category;
     final allTags = <String>{
-      if (place.category != null && place.category!.isNotEmpty) place.category!,
+      if (displayCategory != null && displayCategory.isNotEmpty) displayCategory,
       ...place.tags,
     }.toList();
     
     // 调试日志
     if (place.name.contains('Yoyogi') || place.name.contains('Ebisu')) {
-      print('🏷️ Converting ${place.name}: category=${place.category}, tags=${place.tags}, allTags=$allTags');
+      print('🏷️ Converting ${place.name}: category=${displayCategory}, tags=${place.tags}, allTags=$allTags');
     }
     
     return Spot(
       id: place.id,
       name: place.name,
       city: place.city ?? _currentCity,
-      category: place.category ?? 'Place',
+      category: displayCategory ?? 'Place',
       latitude: place.latitude,
       longitude: place.longitude,
       rating: place.rating ?? 0.0,
@@ -493,6 +498,16 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                   ],
                 ),
                 const SizedBox(height: 12),
+                // Tag type filter bar
+                TagTypeFilterBar(
+                  selectedType: _selectedTagType,
+                  onTypeChanged: (type) {
+                    setState(() {
+                      _selectedTagType = type;
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
                 // Tag bar - 与首页 map 样式一致
                 _buildTagBar(),
               ],
@@ -632,8 +647,11 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     // 合并用户选择的标签和搜索结果的标签
     final allTags = <String>{..._userSelectedTags, ..._allTagsCounts.keys};
     
+    // 根据选中的标签类型筛选标签
+    final filteredByType = TagTypeFilterBar.filterTagsByType(allTags.toList(), _selectedTagType);
+    
     // 按数量排序，用户选择的标签优先
-    final sortedTags = allTags.toList()..sort((a, b) {
+    final sortedTags = filteredByType..sort((a, b) {
       final aSelected = _userSelectedTags.contains(a);
       final bSelected = _userSelectedTags.contains(b);
       if (aSelected && !bSelected) return -1;
@@ -645,6 +663,10 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     
     // 最多展示 8 个标签
     final displayTags = sortedTags.take(8).toList();
+
+    if (displayTags.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return SizedBox(
       height: 42,
@@ -658,6 +680,9 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
           final isSelected = _activeFilterTags.contains(tag);
           final emoji = _tagEmoji(tag);
           final count = _allTagsCounts[tag];
+          
+          // 获取显示名称（去掉前缀）
+          final displayName = TagTypeFilterBar.getTagDisplayName(tag);
           
           return GestureDetector(
             onTap: () => _toggleFilterTag(tag),
@@ -676,7 +701,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                 children: [
                   Text(emoji, style: const TextStyle(fontSize: 16)),
                   const SizedBox(width: 6),
-                  Text(tag, style: AppTheme.labelMedium(context)),
+                  Text(displayName, style: AppTheme.labelMedium(context)),
                 ],
               ),
             ),

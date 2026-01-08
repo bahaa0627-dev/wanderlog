@@ -22,7 +22,8 @@ class PlaceRepository {
       query = query.eq('city', city);
     }
     if (category != null && category.isNotEmpty) {
-      query = query.eq('category', category);
+      // Support both new category_slug and old category fields
+      query = query.or('category_slug.eq.$category,category.eq.$category');
     }
 
     final start = (page - 1) * pageSize;
@@ -94,7 +95,8 @@ class PlaceRepository {
     var query = _client
         .from('places')
         .select()
-        .eq('category', category);
+        // Support both new category_slug and old category fields
+        .or('category_slug.eq.$category,category.eq.$category');
 
     if (city != null) {
       query = query.eq('city', city);
@@ -140,19 +142,29 @@ class PlaceRepository {
 
   /// 获取所有分类列表
   Future<List<String>> getCategories() async {
+    // Get categories from both new and old fields
     final response = await _client
         .from('places')
-        .select('category')
-        .not('category', 'is', null);
+        .select('category_slug, category_en, category')
+        .not('category_slug', 'is', null)
+        .or('category_en.not.is.null,category.not.is.null');
 
-    final categories = (response as List)
-        .map((e) => e['category'] as String?)
-        .where((c) => c != null && c.isNotEmpty)
-        .cast<String>()
-        .toSet()
-        .toList();
+    final categories = <String>{};
+    
+    for (final item in response as List) {
+      // Prefer category_en (display name), fallback to category_slug or old category
+      final categoryEn = item['category_en'] as String?;
+      final categorySlug = item['category_slug'] as String?;
+      final oldCategory = item['category'] as String?;
+      
+      final category = categoryEn ?? categorySlug ?? oldCategory;
+      if (category != null && category.isNotEmpty) {
+        categories.add(category);
+      }
+    }
 
-    categories.sort();
-    return categories;
+    final categoriesList = categories.toList();
+    categoriesList.sort();
+    return categoriesList;
   }
 }

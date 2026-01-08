@@ -15,6 +15,9 @@ router.get('/countries-cities', publicPlaceController.getCountriesAndCities.bind
 // 获取筛选选项（国家、城市、分类及其数量）
 router.get('/filter-options', publicPlaceController.getFilterOptions.bind(publicPlaceController));
 
+// 获取标签类型列表（按类型分组的标签）
+router.get('/tag-types', publicPlaceController.getTagTypes.bind(publicPlaceController));
+
 // 获取城市列表（用于添加 trip）
 router.get('/cities', publicPlaceController.getCities.bind(publicPlaceController));
 

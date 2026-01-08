@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import googleMapsService from './googleMapsService';
 import { normalizationService, NormalizationInput, StructuredTags } from './normalizationService';
 import { mergePolicyService, SourceData } from './mergePolicyService';
+import { getTagTypeStats } from '../utils/tagTypeClassifier';
 
 // 国家名称映射：将外文名称转换为英文
 const COUNTRY_NAME_MAP: Record<string, string> = {
@@ -533,7 +534,7 @@ class PublicPlaceService {
     
     if (tagFilter) {
       // 获取所有数据以便过滤
-      queryLimit = 2000; // 获取足够多的数据
+      queryLimit = 15000; // 获取足够多的数据
       querySkip = 0;
     }
 
@@ -608,6 +609,27 @@ class PublicPlaceService {
             }
           }
         }
+        
+        // 检查 tags 字段（JSON 对象格式）
+        if (place.tags && typeof place.tags === 'object') {
+          const tagsObj = place.tags as any;
+          // 遍历所有键（type, style, architect, theme 等）
+          for (const key of Object.keys(tagsObj)) {
+            const value = tagsObj[key];
+            if (Array.isArray(value)) {
+              // 如果值是数组，检查每个元素
+              for (const item of value) {
+                if (typeof item === 'string' && item.toLowerCase().includes(tagLower)) {
+                  return true;
+                }
+              }
+            } else if (typeof value === 'string' && value.toLowerCase().includes(tagLower)) {
+              // 如果值是字符串，直接检查
+              return true;
+            }
+          }
+        }
+        
         return false;
       });
       
@@ -975,12 +997,13 @@ class PublicPlaceService {
    * 用于后台管理的筛选器
    */
   async getFilterOptions() {
-    // 获取所有地点的 aiTags 和 source
+    // 获取所有地点的 tags, aiTags 和 source
     const placesWithTags = await prisma.place.findMany({
       select: {
         country: true,
         city: true,
         categoryEn: true,
+        tags: true,
         aiTags: true,
         source: true,
       },
@@ -999,8 +1022,12 @@ class PublicPlaceService {
     const citiesByCountry: Record<string, Record<string, number>> = {};
     // 统计分类
     const categoryMap: Record<string, number> = {};
+    // 统计分类（按国家分组）
+    const categoriesByCountry: Record<string, Record<string, number>> = {};
     // 统计标签（按国家分组）
     const tagsByCountry: Record<string, Record<string, number>> = {};
+    // 统计标签（按分类分组）
+    const tagsByCategory: Record<string, Record<string, number>> = {};
     // 全局标签统计
     const globalTagMap: Record<string, number> = {};
     // 统计来源
@@ -1029,6 +1056,14 @@ class PublicPlaceService {
       // 统计分类
       if (categoryEn) {
         categoryMap[categoryEn] = (categoryMap[categoryEn] || 0) + 1;
+        
+        // 按国家分组的分类
+        if (country) {
+          if (!categoriesByCountry[country]) {
+            categoriesByCountry[country] = {};
+          }
+          categoriesByCountry[country][categoryEn] = (categoriesByCountry[country][categoryEn] || 0) + 1;
+        }
       }
       
       // 统计来源
@@ -1037,6 +1072,7 @@ class PublicPlaceService {
       }
       
       // 统计标签
+      // 检查 aiTags
       if (place.aiTags && Array.isArray(place.aiTags)) {
         for (const tag of place.aiTags as any[]) {
           const tagEn = typeof tag === 'object' && tag.en ? tag.en : (typeof tag === 'string' ? tag : null);
@@ -1050,6 +1086,67 @@ class PublicPlaceService {
                 tagsByCountry[country] = {};
               }
               tagsByCountry[country][tagEn] = (tagsByCountry[country][tagEn] || 0) + 1;
+            }
+            
+            // 按分类分组的标签
+            if (categoryEn) {
+              if (!tagsByCategory[categoryEn]) {
+                tagsByCategory[categoryEn] = {};
+              }
+              tagsByCategory[categoryEn][tagEn] = (tagsByCategory[categoryEn][tagEn] || 0) + 1;
+            }
+          }
+        }
+      }
+      
+      // 检查 tags 字段（JSON 对象格式）
+      if (place.tags && typeof place.tags === 'object') {
+        const tagsObj = place.tags as any;
+        // 遍历所有键（type, style, architect, theme 等）
+        for (const key of Object.keys(tagsObj)) {
+          const value = tagsObj[key];
+          if (Array.isArray(value)) {
+            // 如果值是数组，统计每个元素
+            for (const item of value) {
+              if (typeof item === 'string') {
+                // 全局标签
+                globalTagMap[item] = (globalTagMap[item] || 0) + 1;
+                
+                // 按国家分组的标签
+                if (country) {
+                  if (!tagsByCountry[country]) {
+                    tagsByCountry[country] = {};
+                  }
+                  tagsByCountry[country][item] = (tagsByCountry[country][item] || 0) + 1;
+                }
+                
+                // 按分类分组的标签
+                if (categoryEn) {
+                  if (!tagsByCategory[categoryEn]) {
+                    tagsByCategory[categoryEn] = {};
+                  }
+                  tagsByCategory[categoryEn][item] = (tagsByCategory[categoryEn][item] || 0) + 1;
+                }
+              }
+            }
+          } else if (typeof value === 'string') {
+            // 如果值是字符串，直接统计
+            globalTagMap[value] = (globalTagMap[value] || 0) + 1;
+            
+            // 按国家分组的标签
+            if (country) {
+              if (!tagsByCountry[country]) {
+                tagsByCountry[country] = {};
+              }
+              tagsByCountry[country][value] = (tagsByCountry[country][value] || 0) + 1;
+            }
+            
+            // 按分类分组的标签
+            if (categoryEn) {
+              if (!tagsByCategory[categoryEn]) {
+                tagsByCategory[categoryEn] = {};
+              }
+              tagsByCategory[categoryEn][value] = (tagsByCategory[categoryEn][value] || 0) + 1;
             }
           }
         }
@@ -1082,23 +1179,45 @@ class PublicPlaceService {
     // 格式化标签数据（全局）
     const tags = Object.entries(globalTagMap)
       .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count); // 按数量降序
+      .sort((a, b) => a.name.localeCompare(b.name)); // 按字母排序
+
+    // 按类型分组标签
+    const tagsByType = getTagTypeStats(tags);
 
     // 格式化标签数据（按国家分组）
     const formattedTagsByCountry: Record<string, { name: string; count: number }[]> = {};
     for (const [country, tagMap] of Object.entries(tagsByCountry)) {
       formattedTagsByCountry[country] = Object.entries(tagMap)
         .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count);
+        .sort((a, b) => a.name.localeCompare(b.name)); // 按字母排序
+    }
+
+    // 格式化分类数据（按国家分组）
+    const formattedCategoriesByCountry: Record<string, { name: string; count: number }[]> = {};
+    for (const [country, catMap] of Object.entries(categoriesByCountry)) {
+      formattedCategoriesByCountry[country] = Object.entries(catMap)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    // 格式化标签数据（按分类分组）
+    const formattedTagsByCategory: Record<string, { name: string; count: number }[]> = {};
+    for (const [category, tagMap] of Object.entries(tagsByCategory)) {
+      formattedTagsByCategory[category] = Object.entries(tagMap)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name)); // 按字母排序
     }
 
     return {
       countries,
       citiesByCountry: formattedCitiesByCountry,
       categories,
+      categoriesByCountry: formattedCategoriesByCountry,
       sources,
       tags,
-      tagsByCountry: formattedTagsByCountry
+      tagsByType, // 新增：按类型分组的标签
+      tagsByCountry: formattedTagsByCountry,
+      tagsByCategory: formattedTagsByCategory
     };
   }
 
@@ -1290,6 +1409,79 @@ class PublicPlaceService {
     }
     
     return result;
+  }
+
+  /**
+   * 获取标签类型列表（按类型分组的标签）
+   * 支持按国家和分类筛选
+   */
+  async getTagTypes(options?: {
+    country?: string;
+    category?: string;
+  }) {
+    // 构建查询条件
+    const where: any = {};
+    if (options?.country) {
+      where.country = normalizeCountryName(options.country);
+    }
+    if (options?.category) {
+      where.categoryEn = options.category;
+    }
+
+    // 获取所有地点的标签
+    const placesWithTags = await prisma.place.findMany({
+      select: {
+        tags: true,
+        aiTags: true,
+      },
+      where: Object.keys(where).length > 0 ? where : undefined,
+    });
+
+    // 统计标签
+    const globalTagMap: Record<string, number> = {};
+
+    for (const place of placesWithTags) {
+      // 检查 aiTags
+      if (place.aiTags && Array.isArray(place.aiTags)) {
+        for (const tag of place.aiTags as any[]) {
+          const tagEn = typeof tag === 'object' && tag.en ? tag.en : (typeof tag === 'string' ? tag : null);
+          if (tagEn) {
+            globalTagMap[tagEn] = (globalTagMap[tagEn] || 0) + 1;
+          }
+        }
+      }
+
+      // 检查 tags 字段（JSON 对象格式）
+      if (place.tags && typeof place.tags === 'object') {
+        const tagsObj = place.tags as any;
+        for (const key of Object.keys(tagsObj)) {
+          const value = tagsObj[key];
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              if (typeof item === 'string') {
+                globalTagMap[item] = (globalTagMap[item] || 0) + 1;
+              }
+            }
+          } else if (typeof value === 'string') {
+            globalTagMap[value] = (globalTagMap[value] || 0) + 1;
+          }
+        }
+      }
+    }
+
+    // 格式化标签数据
+    const tags = Object.entries(globalTagMap)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    // 按类型分组标签
+    const tagsByType = getTagTypeStats(tags);
+
+    return {
+      tagsByType,
+      totalTags: tags.length,
+      totalCount: tags.reduce((sum, tag) => sum + tag.count, 0),
+    };
   }
 }
 

@@ -1489,14 +1489,14 @@ class _MapPageState extends ConsumerState<MapPage> {
         ? place.displayTagsEn
         : (place.aiTags.isNotEmpty
             ? place.aiTags
-            : <String>[place.category ?? 'Hidden Gem']);
+            : <String>[place.categoryEn ?? place.category ?? 'Hidden Gem']);
 
     return Spot(
       id: place.placeId,
       name: place.name,
       city: (place.city ?? '').isNotEmpty ? place.city! : fallbackCity,
-      category: (place.category ?? '').isNotEmpty
-          ? place.category!
+      category: (place.categoryEn ?? place.category ?? '').isNotEmpty
+          ? (place.categoryEn ?? place.category!)
           : 'Point of Interest',
       latitude: place.latitude,
       longitude: place.longitude,

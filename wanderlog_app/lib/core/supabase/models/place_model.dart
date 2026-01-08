@@ -12,6 +12,7 @@ class PlaceModel {
   final double? rating;
   final int? ratingCount;
   final String? category;
+  final String? categorySlug;
   final String? categoryEn;
   final String? categoryZh;
   final String? aiSummary;
@@ -44,6 +45,7 @@ class PlaceModel {
     this.rating,
     this.ratingCount,
     this.category,
+    this.categorySlug,
     this.categoryEn,
     this.categoryZh,
     this.aiSummary,
@@ -78,6 +80,7 @@ class PlaceModel {
       rating: json['rating'] != null ? (json['rating'] as num).toDouble() : null,
       ratingCount: json['rating_count'] as int?,
       category: json['category'] as String?,
+      categorySlug: json['category_slug'] as String? ?? json['categorySlug'] as String?,
       categoryEn: json['category_en'] as String? ?? json['categoryEn'] as String?,
       categoryZh: json['category_zh'] as String? ?? json['categoryZh'] as String?,
       aiSummary: json['ai_summary'] as String?,
@@ -113,6 +116,7 @@ class PlaceModel {
       'rating': rating,
       'rating_count': ratingCount,
       'category': category,
+      'category_slug': categorySlug,
       'category_en': categoryEn,
       'category_zh': categoryZh,
       'ai_summary': aiSummary,

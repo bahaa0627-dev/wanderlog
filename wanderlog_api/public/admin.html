@@ -36,6 +36,12 @@
             font-size: 28px;
             margin-bottom: 10px;
         }
+        
+        .header .version {
+            font-size: 11px;
+            opacity: 0.7;
+            font-family: monospace;
+        }
 
         .header p {
             opacity: 0.9;
@@ -860,7 +866,7 @@
             <div class="top-actions">
                 <button id="loginButton" class="btn btn-secondary">管理员登录</button>
             </div>
-            <h1>🗺️ 公共地点管理后台</h1>
+            <h1>🗺️ 公共地点管理后台 <span class="version">v2.3.0</span></h1>
             <p>筛选、搜索和浏览数据库中的所有地点</p>
         </div>
 
@@ -891,7 +897,7 @@
                 </div>
                 <div class="filter-group">
                     <label for="category">🏷️ 分类 <small style="color: #999;">(联动)</small></label>
-                    <select id="category">
+                    <select id="category" onchange="updateFilterOptions()">
                         <option value="">全部</option>
                     </select>
                 </div>
@@ -923,6 +929,12 @@
                 </div>
             </div>
             <div class="filter-row">
+                <div class="filter-group">
+                    <label for="tagTypeFilter">🏷️ 标签类型</label>
+                    <select id="tagTypeFilter" onchange="updateTagsByType()">
+                        <option value="">全部类型</option>
+                    </select>
+                </div>
                 <div class="filter-group">
                     <label for="tagFilter">🏷️ 标签 <small style="color: #999;">(联动)</small></label>
                     <select id="tagFilter">
@@ -1584,9 +1596,10 @@
 
         // 加载所有地点数据（用于筛选器联动）
         // 改用 filter-options API，只获取筛选选项而不是所有数据
-        let filterOptions = { countries: [], citiesByCountry: {}, categories: [], tags: [], tagsByCountry: {} };
+        let filterOptions = { countries: [], citiesByCountry: {}, categories: [], tags: [], tagsByType: [], tagsByCountry: {} };
         
         async function loadFilterOptions() {
+            console.log('🚀 管理后台版本: v2.3.0 - 修复标签类型检测逻辑');
             try {
                 const response = await fetchWithTimeout(`${API_BASE}/filter-options`, {}, 30000);
                 const result = await response.json();
@@ -1604,6 +1617,7 @@
             const countrySelect = document.getElementById('country');
             const citySelect = document.getElementById('city');
             const categorySelect = document.getElementById('category');
+            const tagTypeSelect = document.getElementById('tagTypeFilter');
             const tagSelect = document.getElementById('tagFilter');
             const sourceSelect = document.getElementById('sourceFilter');
             
@@ -1611,6 +1625,7 @@
             const currentCountry = countrySelect.value;
             const currentCity = citySelect.value;
             const currentCategory = categorySelect.value;
+            const currentTagType = tagTypeSelect ? tagTypeSelect.value : '';
             const currentTag = tagSelect.value;
             const currentSource = sourceSelect ? sourceSelect.value : '';
             
@@ -1627,15 +1642,14 @@
             // 更新城市选项（根据选中的国家）
             updateCityOptions(currentCountry, currentCity);
             
-            // 更新分类选项
-            categorySelect.innerHTML = '<option value="">全部</option>';
-            filterOptions.categories.forEach(c => {
-                const option = document.createElement('option');
-                option.value = c.name;
-                option.textContent = `${c.name} (${c.count})`;
-                option.selected = c.name === currentCategory;
-                categorySelect.appendChild(option);
-            });
+            // 更新分类选项（根据选中的国家）
+            updateCategoryOptions(currentCountry, currentCategory);
+            
+            // 更新标签类型选项
+            updateTagTypeOptions(currentTagType);
+            
+            // 更新标签选项（根据选中的国家、分类和标签类型）
+            updateTagOptions(currentCountry, currentCategory, currentTagType, currentTag);
             
             // 更新来源选项
             if (sourceSelect && filterOptions.sources) {
@@ -1648,9 +1662,6 @@
                     sourceSelect.appendChild(option);
                 });
             }
-            
-            // 更新标签选项（根据选中的国家）
-            updateTagOptions(currentCountry, currentTag);
             
             // 更新编辑表单的城市/国家下拉选项
             updatePlaceFormOptions();
@@ -1697,14 +1708,326 @@
             }
         }
         
-        // 更新标签选项（根据选中的国家）
-        function updateTagOptions(selectedCountry, currentTag) {
+        // 更新分类选项（根据选中的国家）
+        function updateCategoryOptions(selectedCountry, currentCategory) {
+            const categorySelect = document.getElementById('category');
+            categorySelect.innerHTML = '<option value="">全部</option>';
+            
+            let categoriesToShow = [];
+            
+            if (selectedCountry && filterOptions.categoriesByCountry && filterOptions.categoriesByCountry[selectedCountry]) {
+                // 只显示选中国家的分类
+                categoriesToShow = filterOptions.categoriesByCountry[selectedCountry];
+            } else if (filterOptions.categories) {
+                // 显示所有分类
+                categoriesToShow = filterOptions.categories;
+            }
+            
+            categoriesToShow.forEach(c => {
+                const option = document.createElement('option');
+                option.value = c.name;
+                option.textContent = `${c.name} (${c.count})`;
+                option.selected = c.name === currentCategory;
+                categorySelect.appendChild(option);
+            });
+        }
+        
+        // 更新标签类型选项
+        function updateTagTypeOptions(currentTagType) {
+            const tagTypeSelect = document.getElementById('tagTypeFilter');
+            if (!tagTypeSelect) return;
+            
+            tagTypeSelect.innerHTML = '<option value="">全部类型</option>';
+            
+            // 如果后端返回的 tagsByType 都是 "other"，我们自己创建分组
+            let tagsByType = [];
+            if (filterOptions.tagsByType && filterOptions.tagsByType.length > 0) {
+                // 检查是否大部分标签都被分类为 "other"（超过90%）
+                const otherGroup = filterOptions.tagsByType.find(g => g.type === 'other');
+                const totalTags = filterOptions.tags ? filterOptions.tags.length : 0;
+                const otherTagsCount = otherGroup && otherGroup.tags ? otherGroup.tags.length : 0;
+                
+                // 如果超过90%的标签都是 "other"，说明后端分类不准确，使用前端分类
+                const needsFrontendClassification = totalTags > 0 && (otherTagsCount / totalTags) > 0.9;
+                
+                if (needsFrontendClassification && filterOptions.tags) {
+                    console.log('⚠️ 后端分类不准确，使用前端分类逻辑');
+                    tagsByType = createTagTypeGroups(filterOptions.tags);
+                } else {
+                    tagsByType = filterOptions.tagsByType;
+                }
+            } else if (filterOptions.tags) {
+                // 如果后端没有返回 tagsByType，使用我们自己的分类逻辑
+                tagsByType = createTagTypeGroups(filterOptions.tags);
+            }
+            
+            // 保存到 filterOptions 以供其他函数使用
+            filterOptions.tagsByType = tagsByType;
+            
+            tagsByType.forEach(typeInfo => {
+                const option = document.createElement('option');
+                option.value = typeInfo.type;
+                option.textContent = `${typeInfo.labelZh} (${typeInfo.count})`;
+                option.selected = typeInfo.type === currentTagType;
+                tagTypeSelect.appendChild(option);
+            });
+        }
+        
+        // 更新标签选项（根据选中的国家、分类和标签类型）
+        function updateTagOptions(selectedCountry, selectedCategory, selectedTagType, currentTag) {
             const tagSelect = document.getElementById('tagFilter');
             tagSelect.innerHTML = '<option value="">全部</option>';
             
             let tagsToShow = [];
             
-            if (selectedCountry && filterOptions.tagsByCountry && filterOptions.tagsByCountry[selectedCountry]) {
+            // 优先级：分类 > 国家 > 全局
+            if (selectedCategory && filterOptions.tagsByCategory && filterOptions.tagsByCategory[selectedCategory]) {
+                // 只显示选中分类的标签
+                tagsToShow = filterOptions.tagsByCategory[selectedCategory];
+            } else if (selectedCountry && filterOptions.tagsByCountry && filterOptions.tagsByCountry[selectedCountry]) {
+                // 只显示选中国家的标签
+                tagsToShow = filterOptions.tagsByCountry[selectedCountry];
+            } else if (filterOptions.tags) {
+                // 显示所有标签
+                tagsToShow = filterOptions.tags;
+            }
+            
+            // 如果选择了标签类型，进一步筛选
+            if (selectedTagType && filterOptions.tagsByType) {
+                const typeInfo = filterOptions.tagsByType.find(t => t.type === selectedTagType);
+                if (typeInfo && typeInfo.tags) {
+                    // 获取该类型下的所有标签名称
+                    const typeTagNames = new Set(typeInfo.tags.map(t => t.name));
+                    // 只保留属于该类型的标签
+                    tagsToShow = tagsToShow.filter(t => typeTagNames.has(t.name));
+                }
+            }
+            
+            tagsToShow.forEach(t => {
+                const option = document.createElement('option');
+                option.value = t.name;
+                // 尝试去掉前缀显示
+                const displayName = getTagDisplayName(t.name);
+                option.textContent = `${displayName} (${t.count})`;
+                option.selected = t.name === currentTag;
+                tagSelect.appendChild(option);
+            });
+        }
+        
+        // 从标签中提取显示名称（去掉前缀）
+        function getTagDisplayName(tag) {
+            const prefixes = [
+                'architect:', 'style:', 'theme:', 'pritzker_year:', 
+                'domain:', 'meal:', 'shop:', 'type:'
+            ];
+            
+            for (const prefix of prefixes) {
+                if (tag.toLowerCase().startsWith(prefix.toLowerCase())) {
+                    return tag.substring(prefix.length);
+                }
+            }
+            
+            // 特殊处理 pritzker（没有冒号）
+            if (tag.toLowerCase() === 'pritzker') {
+                return tag;
+            }
+            
+            return tag;
+        }
+        
+        // 简单的标签类型识别（基于内容特征，因为数据库中的标签没有前缀）
+        function guessTagType(tag) {
+            const lowerTag = tag.toLowerCase();
+            
+            // 检查是否有前缀（最高优先级）
+            if (lowerTag.startsWith('architect:')) return 'architect';
+            if (lowerTag.startsWith('style:')) return 'style';
+            if (lowerTag.startsWith('theme:')) return 'theme';
+            if (lowerTag.startsWith('domain:')) return 'domain';
+            if (lowerTag.startsWith('meal:')) return 'meal';
+            if (lowerTag.startsWith('shop:')) return 'shop';
+            if (lowerTag.startsWith('type:')) return 'type';
+            
+            // 奖项检测（第二优先级）
+            if (lowerTag === 'pritzker' || lowerTag.startsWith('pritzker_year:') || lowerTag.startsWith('pritzker ')) {
+                return 'award';
+            }
+            
+            // 风格关键词（第三优先级）- 按优先级排序，更具体的在前面
+            const styleKeywords = [
+                'architectural style', 'architectural', 
+                'brutalism', 'brutalist', 'modernism', 'modernist', 'postmodernism', 'postmodernist',
+                'minimalism', 'minimalist', 'baroque', 'gothic', 'renaissance', 'romanesque',
+                'art nouveau', 'art deco', 'expressionism', 'expressionist', 'futurism', 'futurist',
+                'constructivism', 'constructivist', 'deconstructivism', 'deconstructivist',
+                'neoclassicism', 'neoclassical', 'classical', 'contemporary',
+                'industrial', 'organic', 'parametric', 'high-tech', 'metabolism', 'metabolist',
+                'international style', 'bauhaus', 'prairie school', 'arts and crafts',
+                'victorian', 'edwardian', 'georgian', 'colonial', 'federal',
+                'beaux-arts', 'chicago school', 'streamline moderne', 'googie',
+                'academic art', 'abstract', 'cubism', 'surrealism', 'impressionism',
+                'revival', 'neo-', 'neo ', '-ism', 'esque', 'traditional'
+            ];
+            
+            // 检查是否包含风格关键词
+            for (const keyword of styleKeywords) {
+                if (lowerTag.includes(keyword)) {
+                    return 'style';
+                }
+            }
+            
+            // 特殊处理：单独的 "architecture" 或包含 "architecture" 但不是公司名
+            // 如果标签包含 "Architecture"（大写A），很可能是公司名，跳过风格检测
+            if (lowerTag.includes('architecture') && !tag.includes('Architecture')) {
+                // 小写的 architecture，可能是风格描述
+                return 'style';
+            }
+            
+            // 主题关键词
+            const themeKeywords = ['feminism', 'feminist', 'sustainability', 'ecology', 'social'];
+            for (const keyword of themeKeywords) {
+                if (lowerTag.includes(keyword)) {
+                    return 'theme';
+                }
+            }
+            
+            // 餐饮关键词
+            const mealKeywords = ['brunch', 'breakfast', 'lunch', 'dinner', 'cafe', 'coffee', 'restaurant'];
+            for (const keyword of mealKeywords) {
+                if (lowerTag.includes(keyword)) {
+                    return 'meal';
+                }
+            }
+            
+            // 领域关键词
+            const domainKeywords = ['domain:', 'science', 'wissenschaft', 'writer'];
+            for (const keyword of domainKeywords) {
+                if (lowerTag.includes(keyword)) {
+                    return 'domain';
+                }
+            }
+            
+            // 商店关键词（注意：vintage 可能是风格也可能是商店类型，这里放在后面）
+            const shopKeywords = ['secondhand', 'thrift', 'boutique'];
+            for (const keyword of shopKeywords) {
+                if (lowerTag.includes(keyword)) {
+                    return 'shop';
+                }
+            }
+            
+            // 特殊处理：单独的 "vintage" 或 "Vintage" 作为商店类型
+            if (lowerTag === 'vintage') {
+                return 'shop';
+            }
+            
+            // 建筑师名字识别（最后检测，因为最不确定）
+            // 1. 包含大写字母和空格或点号
+            // 2. 不包含常见的非人名词汇
+            const nonNameWords = ['architecture', 'architects', 'studio', 'associates', 'partners', 
+                                 'group', 'design', 'office', 'workshop', 'collective', 'company',
+                                 'administration', 'progress', 'works'];
+            
+            // 检查是否包含非人名词汇
+            const hasNonNameWord = nonNameWords.some(word => lowerTag.includes(word));
+            
+            if (!hasNonNameWord) {
+                // 检查是否符合人名格式
+                // 1. 包含至少一个大写字母
+                // 2. 包含空格或点号
+                // 3. 长度在 3-50 之间
+                if (/[A-Z]/.test(tag) && (/\s/.test(tag) || /\./.test(tag)) && tag.length >= 3 && tag.length <= 50) {
+                    // 进一步检查：至少有两个单词，且每个单词首字母大写
+                    const words = tag.split(/[\s.]+/).filter(w => w.length > 0);
+                    if (words.length >= 2) {
+                        // 检查是否大部分单词首字母大写
+                        const capitalizedWords = words.filter(w => /^[A-Z]/.test(w));
+                        if (capitalizedWords.length >= words.length * 0.5) {
+                            return 'architect';
+                        }
+                    }
+                }
+            }
+            
+            // 其他
+            return 'other';
+        }
+        
+        // 手动创建标签类型分组（因为后端返回的都是 "other"）
+        function createTagTypeGroups(tags) {
+            console.log('🔍 开始分类标签，总数:', tags.length);
+            
+            const groups = {
+                architect: { type: 'architect', label: 'Architect', labelZh: '建筑师', count: 0, tags: [] },
+                style: { type: 'style', label: 'Style', labelZh: '风格', count: 0, tags: [] },
+                theme: { type: 'theme', label: 'Theme', labelZh: '主题', count: 0, tags: [] },
+                award: { type: 'award', label: 'Award', labelZh: '奖项', count: 0, tags: [] },
+                domain: { type: 'domain', label: 'Domain', labelZh: '领域', count: 0, tags: [] },
+                meal: { type: 'meal', label: 'Meal', labelZh: '餐饮', count: 0, tags: [] },
+                shop: { type: 'shop', label: 'Shop', labelZh: '商店', count: 0, tags: [] },
+                type: { type: 'type', label: 'Type', labelZh: '类型', count: 0, tags: [] },
+                other: { type: 'other', label: 'Other', labelZh: '其他', count: 0, tags: [] }
+            };
+            
+            // 用于调试的样本计数
+            const samples = { architect: [], style: [], other: [] };
+            
+            tags.forEach(tag => {
+                const tagType = guessTagType(tag.name);
+                const displayName = getTagDisplayName(tag.name);
+                
+                // 收集样本用于调试
+                if (samples[tagType] && samples[tagType].length < 5) {
+                    samples[tagType].push(tag.name);
+                }
+                
+                groups[tagType].tags.push({
+                    name: tag.name,
+                    displayName: displayName,
+                    type: tagType,
+                    count: tag.count
+                });
+                groups[tagType].count += tag.count;
+            });
+            
+            // 打印调试信息
+            console.log('📊 分类结果统计:');
+            Object.values(groups).forEach(g => {
+                if (g.count > 0) {
+                    console.log(`  ${g.labelZh} (${g.type}): ${g.tags.length} 个标签, ${g.count} 次使用`);
+                }
+            });
+            console.log('📝 样本:');
+            console.log('  建筑师样本:', samples.architect);
+            console.log('  风格样本:', samples.style);
+            console.log('  其他样本:', samples.other.slice(0, 10));
+            
+            // 只返回有标签的类型
+            const result = Object.values(groups).filter(g => g.count > 0);
+            console.log('✅ 返回', result.length, '个类型');
+            return result;
+        }
+        
+        // 当标签类型改变时更新标签列表
+        function updateTagsByType() {
+            const selectedCountry = document.getElementById('country').value;
+            const selectedCategory = document.getElementById('category').value;
+            const selectedTagType = document.getElementById('tagTypeFilter').value;
+            const currentTag = document.getElementById('tagFilter').value;
+            updateTagOptions(selectedCountry, selectedCategory, selectedTagType, currentTag);
+        }
+        
+        // 更新标签选项（根据选中的国家和分类）
+        function updateTagOptions_old(selectedCountry, selectedCategory, currentTag) {
+            const tagSelect = document.getElementById('tagFilter');
+            tagSelect.innerHTML = '<option value="">全部</option>';
+            
+            let tagsToShow = [];
+            
+            // 优先级：分类 > 国家 > 全局
+            if (selectedCategory && filterOptions.tagsByCategory && filterOptions.tagsByCategory[selectedCategory]) {
+                // 只显示选中分类的标签
+                tagsToShow = filterOptions.tagsByCategory[selectedCategory];
+            } else if (selectedCountry && filterOptions.tagsByCountry && filterOptions.tagsByCountry[selectedCountry]) {
                 // 只显示选中国家的标签
                 tagsToShow = filterOptions.tagsByCountry[selectedCountry];
             } else if (filterOptions.tags) {
@@ -1724,10 +2047,13 @@
         // 更新筛选选项（根据当前筛选条件）- 简化版
         function updateFilterOptions() {
             const selectedCountry = document.getElementById('country').value;
+            const selectedCategory = document.getElementById('category').value;
+            const selectedTagType = document.getElementById('tagTypeFilter').value;
             const currentCity = document.getElementById('city').value;
             const currentTag = document.getElementById('tagFilter').value;
             updateCityOptions(selectedCountry, currentCity);
-            updateTagOptions(selectedCountry, currentTag);
+            updateCategoryOptions(selectedCountry, selectedCategory);
+            updateTagOptions(selectedCountry, selectedCategory, selectedTagType, currentTag);
         }
 
         // 更新编辑表单的城市/国家下拉选项
@@ -1979,28 +2305,37 @@
                     } catch { openingHoursHtml = '-'; }
                 }
                 
-                // 解析标签 - aiTags 现在是 {en, zh} 对象数组
+                // 解析标签 - 优先使用后端计算好的 display_tags_en
                 let tagsHtml = '-';
-                const tagsData = place.aiTags;
-                if (tagsData) {
-                    try {
-                        const tagArr = typeof tagsData === 'string' ? JSON.parse(tagsData) : tagsData;
-                        if (Array.isArray(tagArr) && tagArr.length > 0) {
-                            // 提取 en 字段，如果是对象的话
-                            const tagStrings = tagArr.map(t => {
-                                if (typeof t === 'object' && t !== null && t.en) {
-                                    return t.en;
+                
+                // 优先使用 display_tags_en（后端已经合并了 tags + aiTags）
+                if (place.display_tags_en && Array.isArray(place.display_tags_en) && place.display_tags_en.length > 0) {
+                    tagsHtml = '<div class="tag-container">' + 
+                        place.display_tags_en.map(t => `<span class="tag tag-info">${t}</span>`).join('') + 
+                        '</div>';
+                } else {
+                    // 回退：尝试解析 aiTags
+                    const tagsData = place.aiTags;
+                    if (tagsData) {
+                        try {
+                            const tagArr = typeof tagsData === 'string' ? JSON.parse(tagsData) : tagsData;
+                            if (Array.isArray(tagArr) && tagArr.length > 0) {
+                                // 提取 en 字段，如果是对象的话
+                                const tagStrings = tagArr.map(t => {
+                                    if (typeof t === 'object' && t !== null && t.en) {
+                                        return t.en;
+                                    }
+                                    return typeof t === 'string' ? t : '';
+                                }).filter(Boolean);
+                                
+                                if (tagStrings.length > 0) {
+                                    tagsHtml = '<div class="tag-container">' + 
+                                        tagStrings.map(t => `<span class="tag tag-info">${t}</span>`).join('') + 
+                                        '</div>';
                                 }
-                                return typeof t === 'string' ? t : '';
-                            }).filter(Boolean);
-                            
-                            if (tagStrings.length > 0) {
-                                tagsHtml = '<div class="tag-container">' + 
-                                    tagStrings.map(t => `<span class="tag tag-info">${t}</span>`).join('') + 
-                                    '</div>';
                             }
-                        }
-                    } catch { tagsHtml = '-'; }
+                        } catch { tagsHtml = '-'; }
+                    }
                 }
                 
                 // 价格等级

@@ -1,0 +1,3942 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>wikidata-a-100.csv</name>
+    <Style id="icon-1899-0288D1-normal">
+      <IconStyle>
+        <color>ffd18802</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+        <hotSpot x="32" xunits="pixels" y="64" yunits="insetPixels"/>
+      </IconStyle>
+      <LabelStyle>
+        <scale>0</scale>
+      </LabelStyle>
+    </Style>
+    <Style id="icon-1899-0288D1-highlight">
+      <IconStyle>
+        <color>ffd18802</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+        <hotSpot x="32" xunits="pixels" y="64" yunits="insetPixels"/>
+      </IconStyle>
+      <LabelStyle>
+        <scale>1</scale>
+      </LabelStyle>
+    </Style>
+    <StyleMap id="icon-1899-0288D1">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#icon-1899-0288D1-normal</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#icon-1899-0288D1-highlight</styleUrl>
+      </Pair>
+    </StyleMap>
+    <Placemark>
+      <name>A. E. Larson Building</name>
+      <description><![CDATA[latitude: 46.6022<br>longitude: -120.504<br>description: <br>city: Yakima<br>country: United States<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>46.6022</value>
+        </Data>
+        <Data name="longitude">
+          <value>-120.504</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Yakima</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -120.504,46.6022,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>A.M.V.J. building</name>
+      <description><![CDATA[latitude: 52.362944444<br>longitude: 4.8795<br>description: <br>city: Amsterdam<br>country: Netherlands<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>52.362944444</value>
+        </Data>
+        <Data name="longitude">
+          <value>4.8795</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Amsterdam</value>
+        </Data>
+        <Data name="country">
+          <value>Netherlands</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          4.8795,52.362944444,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Aachen Cathedral</name>
+      <description><![CDATA[latitude: 50.77475<br>longitude: 6.083922222<br>description: <br>city: Aachen-Mitte<br>country: Germany<br>category: church<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>50.77475</value>
+        </Data>
+        <Data name="longitude">
+          <value>6.083922222</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Aachen-Mitte</value>
+        </Data>
+        <Data name="country">
+          <value>Germany</value>
+        </Data>
+        <Data name="category">
+          <value>church</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          6.083922222,50.77475,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Aachen East Cemetery</name>
+      <description><![CDATA[latitude: 50.7763<br>longitude: 6.10717<br>description: <br>city: Aachen<br>country: Germany<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>50.7763</value>
+        </Data>
+        <Data name="longitude">
+          <value>6.10717</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Aachen</value>
+        </Data>
+        <Data name="country">
+          <value>Germany</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          6.10717,50.7763,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Abbey Church of St. Anna</name>
+      <description><![CDATA[latitude: 48.140221586<br>longitude: 11.585904653<br>description: <br>city: Schwabing-Freimann<br>country: Germany<br>category: church<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>48.140221586</value>
+        </Data>
+        <Data name="longitude">
+          <value>11.585904653</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Schwabing-Freimann</value>
+        </Data>
+        <Data name="country">
+          <value>Germany</value>
+        </Data>
+        <Data name="category">
+          <value>church</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          11.585904653,48.140221586,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>ABC Serrano</name>
+      <description><![CDATA[latitude: 40.432241666<br>longitude: -3.686880555<br>description: <br>city: Salamanca<br>country: Spain<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>40.432241666</value>
+        </Data>
+        <Data name="longitude">
+          <value>-3.686880555</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Salamanca</value>
+        </Data>
+        <Data name="country">
+          <value>Spain</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -3.686880555,40.432241666,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Abel Tasmanschool</name>
+      <description><![CDATA[latitude: 53.33121<br>longitude: 6.9215<br>description: <br>city: Eemsdelta<br>country: Netherlands<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>53.33121</value>
+        </Data>
+        <Data name="longitude">
+          <value>6.9215</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Eemsdelta</value>
+        </Data>
+        <Data name="country">
+          <value>Netherlands</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          6.9215,53.33121,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Abeno Harukas</name>
+      <description><![CDATA[latitude: 34.645947222<br>longitude: 135.514266666<br>description: <br>city: <br>country: <br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>34.645947222</value>
+        </Data>
+        <Data name="longitude">
+          <value>135.514266666</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value/>
+        </Data>
+        <Data name="country">
+          <value/>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          135.514266666,34.645947222,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Abney Park Cemetery</name>
+      <description><![CDATA[latitude: 51.5649<br>longitude: -0.0781<br>description: <br>city: London Borough of Hackney<br>country: United Kingdom<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>51.5649</value>
+        </Data>
+        <Data name="longitude">
+          <value>-0.0781</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>London Borough of Hackney</value>
+        </Data>
+        <Data name="country">
+          <value>United Kingdom</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -0.0781,51.5649,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Abraj Al Bait</name>
+      <description><![CDATA[latitude: 21.418888888<br>longitude: 39.826388888<br>description: <br>city: Mecca<br>country: Saudi Arabia<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>21.418888888</value>
+        </Data>
+        <Data name="longitude">
+          <value>39.826388888</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Mecca</value>
+        </Data>
+        <Data name="country">
+          <value>Saudi Arabia</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          39.826388888,21.418888888,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Abteiberg Museum</name>
+      <description><![CDATA[latitude: 51.192778<br>longitude: 6.433056<br>description: <br>city: Mönchengladbach<br>country: Germany<br>category: museum<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>51.192778</value>
+        </Data>
+        <Data name="longitude">
+          <value>6.433056</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Mönchengladbach</value>
+        </Data>
+        <Data name="country">
+          <value>Germany</value>
+        </Data>
+        <Data name="category">
+          <value>museum</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          6.433056,51.192778,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Abu Rawash</name>
+      <description><![CDATA[latitude: 30.032222222<br>longitude: 31.074722222<br>description: <br>city: Kerdasa<br>country: Egypt<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>30.032222222</value>
+        </Data>
+        <Data name="longitude">
+          <value>31.074722222</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Kerdasa</value>
+        </Data>
+        <Data name="country">
+          <value>Egypt</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          31.074722222,30.032222222,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Abulfazlil Abbas Mosque</name>
+      <description><![CDATA[latitude: 40.651973335<br>longitude: 47.738793829<br>description: <br>city: Goychay<br>country: Azerbaijan<br>category: temple<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>40.651973335</value>
+        </Data>
+        <Data name="longitude">
+          <value>47.738793829</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Goychay</value>
+        </Data>
+        <Data name="country">
+          <value>Azerbaijan</value>
+        </Data>
+        <Data name="category">
+          <value>temple</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          47.738793829,40.651973335,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Abusir</name>
+      <description><![CDATA[latitude: 29.896111111<br>longitude: 31.203611111<br>description: <br>city: Markaz al Badrashayn<br>country: Egypt<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>29.896111111</value>
+        </Data>
+        <Data name="longitude">
+          <value>31.203611111</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Markaz al Badrashayn</value>
+        </Data>
+        <Data name="country">
+          <value>Egypt</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          31.203611111,29.896111111,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Abydos</name>
+      <description><![CDATA[latitude: 26.185167<br>longitude: 31.918889<br>description: <br>city: Sohag Governorate<br>country: Egypt<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>26.185167</value>
+        </Data>
+        <Data name="longitude">
+          <value>31.918889</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Sohag Governorate</value>
+        </Data>
+        <Data name="country">
+          <value>Egypt</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          31.918889,26.185167,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Academie Brochu</name>
+      <description><![CDATA[latitude: 42.079444<br>longitude: -72.038056<br>description: <br>city: Southbridge<br>country: United States<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>42.079444</value>
+        </Data>
+        <Data name="longitude">
+          <value>-72.038056</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Southbridge</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -72.038056,42.079444,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Academiesingel lighthouse</name>
+      <description><![CDATA[latitude: 51.593138888<br>longitude: 4.778166666<br>description: <br>city: Breda<br>country: Netherlands<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>51.593138888</value>
+        </Data>
+        <Data name="longitude">
+          <value>4.778166666</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Breda</value>
+        </Data>
+        <Data name="country">
+          <value>Netherlands</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          4.778166666,51.593138888,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Academy of Fine Arts Vienna</name>
+      <description><![CDATA[latitude: 48.201253<br>longitude: 16.365103<br>description: <br>city: <br>country: <br>category: university<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>48.201253</value>
+        </Data>
+        <Data name="longitude">
+          <value>16.365103</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value/>
+        </Data>
+        <Data name="country">
+          <value/>
+        </Data>
+        <Data name="category">
+          <value>university</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          16.365103,48.201253,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Achiet-le-Grand Communal Cemetery</name>
+      <description><![CDATA[latitude: 50.1365<br>longitude: 2.7756<br>description: <br>city: Achiet-le-Grand<br>country: France<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>50.1365</value>
+        </Data>
+        <Data name="longitude">
+          <value>2.7756</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Achiet-le-Grand</value>
+        </Data>
+        <Data name="country">
+          <value>France</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          2.7756,50.1365,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Achiet-le-Petit Communal Cemetery</name>
+      <description><![CDATA[latitude: 50.122252<br>longitude: 2.756849<br>description: <br>city: Achiet-le-Petit<br>country: France<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>50.122252</value>
+        </Data>
+        <Data name="longitude">
+          <value>2.756849</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Achiet-le-Petit</value>
+        </Data>
+        <Data name="country">
+          <value>France</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          2.756849,50.122252,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Acropolis Museum</name>
+      <description><![CDATA[latitude: 37.968417<br>longitude: 23.728472<br>description: <br>city: Athens Municipality<br>country: Greece<br>category: museum<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>37.968417</value>
+        </Data>
+        <Data name="longitude">
+          <value>23.728472</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Athens Municipality</value>
+        </Data>
+        <Data name="country">
+          <value>Greece</value>
+        </Data>
+        <Data name="category">
+          <value>museum</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          23.728472,37.968417,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Ada Arts and Heritage Center</name>
+      <description><![CDATA[latitude: 34.771053<br>longitude: -96.676472<br>description: <br>city: Ada<br>country: United States<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>34.771053</value>
+        </Data>
+        <Data name="longitude">
+          <value>-96.676472</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Ada</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -96.676472,34.771053,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Adam P. Leighton House</name>
+      <description><![CDATA[latitude: 43.651111<br>longitude: -70.276111<br>description: <br>city: Portland<br>country: United States<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>43.651111</value>
+        </Data>
+        <Data name="longitude">
+          <value>-70.276111</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Portland</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -70.276111,43.651111,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Adamson House</name>
+      <description><![CDATA[latitude: 34.034444<br>longitude: -118.678333<br>description: <br>city: Malibu<br>country: United States<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>34.034444</value>
+        </Data>
+        <Data name="longitude">
+          <value>-118.678333</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Malibu</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -118.678333,34.034444,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Adina Mosque</name>
+      <description><![CDATA[latitude: 25.15255737<br>longitude: 88.16423798<br>description: <br>city: West Bengal<br>country: India<br>category: temple<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>25.15255737</value>
+        </Data>
+        <Data name="longitude">
+          <value>88.16423798</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>West Bengal</value>
+        </Data>
+        <Data name="country">
+          <value>India</value>
+        </Data>
+        <Data name="category">
+          <value>temple</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          88.16423798,25.15255737,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Administration Building, Treasure Island</name>
+      <description><![CDATA[latitude: 37.816944<br>longitude: -122.370278<br>description: <br>city: San Francisco<br>country: United States<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>37.816944</value>
+        </Data>
+        <Data name="longitude">
+          <value>-122.370278</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>San Francisco</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -122.370278,37.816944,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Admiraal de Ruijterweg 148-152, Amsterdam</name>
+      <description><![CDATA[latitude: 52.374138888<br>longitude: 4.859027777<br>description: <br>city: Amsterdam<br>country: Netherlands<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>52.374138888</value>
+        </Data>
+        <Data name="longitude">
+          <value>4.859027777</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Amsterdam</value>
+        </Data>
+        <Data name="country">
+          <value>Netherlands</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          4.859027777,52.374138888,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Admiralty building in Saint Petersburg</name>
+      <description><![CDATA[latitude: 59.937458333<br>longitude: 30.30855<br>description: <br>city: Second Admiral Island<br>country: Russia<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>59.937458333</value>
+        </Data>
+        <Data name="longitude">
+          <value>30.30855</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Second Admiral Island</value>
+        </Data>
+        <Data name="country">
+          <value>Russia</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          30.30855,59.937458333,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Adolfo Alsina town hall</name>
+      <description><![CDATA[latitude: -37.180333<br>longitude: -62.761194<br>description: <br>city: Adolfo Alsina Partido<br>country: Argentina<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>-37.180333</value>
+        </Data>
+        <Data name="longitude">
+          <value>-62.761194</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Adolfo Alsina Partido</value>
+        </Data>
+        <Data name="country">
+          <value>Argentina</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -62.761194,-37.180333,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Adolfo Gonzales Chaves municipal market</name>
+      <description><![CDATA[latitude: -38.03375<br>longitude: -60.098417<br>description: <br>city: Adolfo Gonzales Chaves Partido<br>country: Argentina<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>-38.03375</value>
+        </Data>
+        <Data name="longitude">
+          <value>-60.098417</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Adolfo Gonzales Chaves Partido</value>
+        </Data>
+        <Data name="country">
+          <value>Argentina</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -60.098417,-38.03375,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Adolfo Gonzales Chaves town hall</name>
+      <description><![CDATA[latitude: -38.032833<br>longitude: -60.098528<br>description: <br>city: Adolfo Gonzales Chaves Partido<br>country: Argentina<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>-38.032833</value>
+        </Data>
+        <Data name="longitude">
+          <value>-60.098528</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Adolfo Gonzales Chaves Partido</value>
+        </Data>
+        <Data name="country">
+          <value>Argentina</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -60.098528,-38.032833,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>African Burial Ground National Monument</name>
+      <description><![CDATA[latitude: 40.714597<br>longitude: -74.004467<br>description: <br>city: New York<br>country: United States<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>40.714597</value>
+        </Data>
+        <Data name="longitude">
+          <value>-74.004467</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>New York</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -74.004467,40.714597,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>African Cemetery No. 2</name>
+      <description><![CDATA[latitude: 38.050139<br>longitude: -84.478056<br>description: <br>city: Lexington<br>country: United States<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>38.050139</value>
+        </Data>
+        <Data name="longitude">
+          <value>-84.478056</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Lexington</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -84.478056,38.050139,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Afrikahuis, Amsterdam</name>
+      <description><![CDATA[latitude: 52.352889<br>longitude: 4.897762<br>description: <br>city: Amsterdam<br>country: Netherlands<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>52.352889</value>
+        </Data>
+        <Data name="longitude">
+          <value>4.897762</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Amsterdam</value>
+        </Data>
+        <Data name="country">
+          <value>Netherlands</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          4.897762,52.352889,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Aga Khan Museum</name>
+      <description><![CDATA[latitude: 43.725277777<br>longitude: -79.332222222<br>description: <br>city: Toronto<br>country: Canada<br>category: museum<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>43.725277777</value>
+        </Data>
+        <Data name="longitude">
+          <value>-79.332222222</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Toronto</value>
+        </Data>
+        <Data name="country">
+          <value>Canada</value>
+        </Data>
+        <Data name="category">
+          <value>museum</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -79.332222222,43.725277777,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Agape Centro Ecumenico</name>
+      <description><![CDATA[latitude: 44.892507<br>longitude: 7.054158<br>description: <br>city: Prali<br>country: Italy<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>44.892507</value>
+        </Data>
+        <Data name="longitude">
+          <value>7.054158</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Prali</value>
+        </Data>
+        <Data name="country">
+          <value>Italy</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          7.054158,44.892507,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Agecroft Cemetery</name>
+      <description><![CDATA[latitude: 53.5098<br>longitude: -2.29431<br>description: <br>city: Pendlebury<br>country: United Kingdom<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>53.5098</value>
+        </Data>
+        <Data name="longitude">
+          <value>-2.29431</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Pendlebury</value>
+        </Data>
+        <Data name="country">
+          <value>United Kingdom</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -2.29431,53.5098,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Agen Cathedral</name>
+      <description><![CDATA[latitude: 44.20666667<br>longitude: 0.61916667<br>description: <br>city: Agen<br>country: France<br>category: church<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>44.20666667</value>
+        </Data>
+        <Data name="longitude">
+          <value>0.61916667</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Agen</value>
+        </Data>
+        <Data name="country">
+          <value>France</value>
+        </Data>
+        <Data name="category">
+          <value>church</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          0.61916667,44.20666667,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Agenville Churchyard</name>
+      <description><![CDATA[latitude: 50.164908<br>longitude: 2.099312<br>description: <br>city: Agenville<br>country: France<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>50.164908</value>
+        </Data>
+        <Data name="longitude">
+          <value>2.099312</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Agenville</value>
+        </Data>
+        <Data name="country">
+          <value>France</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          2.099312,50.164908,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Aghdam Mosque</name>
+      <description><![CDATA[latitude: 39.993333333<br>longitude: 46.931666666<br>description: <br>city: Aghdam District<br>country: Azerbaijan<br>category: temple<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>39.993333333</value>
+        </Data>
+        <Data name="longitude">
+          <value>46.931666666</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Aghdam District</value>
+        </Data>
+        <Data name="country">
+          <value>Azerbaijan</value>
+        </Data>
+        <Data name="category">
+          <value>temple</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          46.931666666,39.993333333,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Agnez-les-Duisans Communal Cemetery</name>
+      <description><![CDATA[latitude: 50.30444<br>longitude: 2.660086<br>description: <br>city: Agnez-lès-Duisans<br>country: France<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>50.30444</value>
+        </Data>
+        <Data name="longitude">
+          <value>2.660086</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Agnez-lès-Duisans</value>
+        </Data>
+        <Data name="country">
+          <value>France</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          2.660086,50.30444,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Agricultural Engineering Building</name>
+      <description><![CDATA[latitude: 43.074803<br>longitude: -89.410606<br>description: <br>city: Madison<br>country: United States<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>43.074803</value>
+        </Data>
+        <Data name="longitude">
+          <value>-89.410606</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Madison</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -89.410606,43.074803,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Ahavas Chesed Cemetery</name>
+      <description><![CDATA[latitude: 30.6708<br>longitude: -88.0622<br>description: <br>city: Alabama<br>country: United States<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>30.6708</value>
+        </Data>
+        <Data name="longitude">
+          <value>-88.0622</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Alabama</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -88.0622,30.6708,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Ahrensfelde East Churchyard</name>
+      <description><![CDATA[latitude: 52.585<br>longitude: 13.5731<br>description: <br>city: Ahrensfelde<br>country: Germany<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>52.585</value>
+        </Data>
+        <Data name="longitude">
+          <value>13.5731</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Ahrensfelde</value>
+        </Data>
+        <Data name="country">
+          <value>Germany</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          13.5731,52.585,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Ahwahnee Hotel</name>
+      <description><![CDATA[latitude: 37.745744<br>longitude: -119.574186<br>description: <br>city: Yosemite Village<br>country: United States<br>category: hotel<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>37.745744</value>
+        </Data>
+        <Data name="longitude">
+          <value>-119.574186</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Yosemite Village</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>hotel</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -119.574186,37.745744,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Aiboa</name>
+      <description><![CDATA[latitude: 43.343889<br>longitude: -3.002778<br>description: <br>city: Getxo<br>country: Spain<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>43.343889</value>
+        </Data>
+        <Data name="longitude">
+          <value>-3.002778</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Getxo</value>
+        </Data>
+        <Data name="country">
+          <value>Spain</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -3.002778,43.343889,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Aiken Colored Cemetery</name>
+      <description><![CDATA[latitude: 33.5704<br>longitude: -81.7242<br>description: <br>city: Aiken<br>country: United States<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>33.5704</value>
+        </Data>
+        <Data name="longitude">
+          <value>-81.7242</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Aiken</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -81.7242,33.5704,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Ainola</name>
+      <description><![CDATA[latitude: 60.454514<br>longitude: 25.08639<br>description: <br>city: Järvenpää<br>country: Finland<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>60.454514</value>
+        </Data>
+        <Data name="longitude">
+          <value>25.08639</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Järvenpää</value>
+        </Data>
+        <Data name="country">
+          <value>Finland</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          25.08639,60.454514,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Ak Bars Arena</name>
+      <description><![CDATA[latitude: 55.821<br>longitude: 49.161<br>description: <br>city: <br>country: <br>category: stadium<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>55.821</value>
+        </Data>
+        <Data name="longitude">
+          <value>49.161</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value/>
+        </Data>
+        <Data name="country">
+          <value/>
+        </Data>
+        <Data name="category">
+          <value>stadium</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          49.161,55.821,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Akhisar Stadium</name>
+      <description><![CDATA[latitude: 38.9209<br>longitude: 27.8118<br>description: <br>city: Akhisar<br>country: Turkey<br>category: stadium<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>38.9209</value>
+        </Data>
+        <Data name="longitude">
+          <value>27.8118</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Akhisar</value>
+        </Data>
+        <Data name="country">
+          <value>Turkey</value>
+        </Data>
+        <Data name="category">
+          <value>stadium</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          27.8118,38.9209,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Akita Museum of Art</name>
+      <description><![CDATA[latitude: 39.71742778<br>longitude: 140.1215<br>description: <br>city: Akita<br>country: Japan<br>category: museum<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>39.71742778</value>
+        </Data>
+        <Data name="longitude">
+          <value>140.1215</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Akita</value>
+        </Data>
+        <Data name="country">
+          <value>Japan</value>
+        </Data>
+        <Data name="category">
+          <value>museum</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          140.1215,39.71742778,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Akureyrarkirkja</name>
+      <description><![CDATA[latitude: 65.67984<br>longitude: -18.09097<br>description: <br>city: Akureyri<br>country: Iceland<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>65.67984</value>
+        </Data>
+        <Data name="longitude">
+          <value>-18.09097</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Akureyri</value>
+        </Data>
+        <Data name="country">
+          <value>Iceland</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -18.09097,65.67984,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Al Bahr Towers</name>
+      <description><![CDATA[latitude: 24.456611111<br>longitude: 54.400861111<br>description: <br>city: Abu Dhabi<br>country: United Arab Emirates<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>24.456611111</value>
+        </Data>
+        <Data name="longitude">
+          <value>54.400861111</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Abu Dhabi</value>
+        </Data>
+        <Data name="country">
+          <value>United Arab Emirates</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          54.400861111,24.456611111,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Al Faisaliah Centre</name>
+      <description><![CDATA[latitude: 24.690277777<br>longitude: 46.685277777<br>description: <br>city: Riyadh<br>country: Saudi Arabia<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>24.690277777</value>
+        </Data>
+        <Data name="longitude">
+          <value>46.685277777</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Riyadh</value>
+        </Data>
+        <Data name="country">
+          <value>Saudi Arabia</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          46.685277777,24.690277777,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Al Hamra Tower</name>
+      <description><![CDATA[latitude: 29.378611111<br>longitude: 47.992777777<br>description: <br>city: <br>country: <br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>29.378611111</value>
+        </Data>
+        <Data name="longitude">
+          <value>47.992777777</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value/>
+        </Data>
+        <Data name="country">
+          <value/>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          47.992777777,29.378611111,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Al Janoub Stadium</name>
+      <description><![CDATA[latitude: 25.159777777<br>longitude: 51.574083333<br>description: <br>city: Al Wakrah<br>country: Qatar<br>category: stadium<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>25.159777777</value>
+        </Data>
+        <Data name="longitude">
+          <value>51.574083333</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Al Wakrah</value>
+        </Data>
+        <Data name="country">
+          <value>Qatar</value>
+        </Data>
+        <Data name="category">
+          <value>stadium</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          51.574083333,25.159777777,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Al-Akbar Mosque</name>
+      <description><![CDATA[latitude: -7.336543<br>longitude: 112.715243<br>description: <br>city: Surabaya<br>country: Indonesia<br>category: temple<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>-7.336543</value>
+        </Data>
+        <Data name="longitude">
+          <value>112.715243</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Surabaya</value>
+        </Data>
+        <Data name="country">
+          <value>Indonesia</value>
+        </Data>
+        <Data name="category">
+          <value>temple</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          112.715243,-7.336543,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name><![CDATA[Al-Baqi']]></name>
+      <description><![CDATA[latitude: 24.466944444<br>longitude: 39.616388888<br>description: <br>city: Medina<br>country: Saudi Arabia<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>24.466944444</value>
+        </Data>
+        <Data name="longitude">
+          <value>39.616388888</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Medina</value>
+        </Data>
+        <Data name="country">
+          <value>Saudi Arabia</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          39.616388888,24.466944444,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alabama State Capitol</name>
+      <description><![CDATA[latitude: 32.377447222<br>longitude: -86.300941666<br>description: <br>city: Alabama<br>country: United States<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>32.377447222</value>
+        </Data>
+        <Data name="longitude">
+          <value>-86.300941666</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Alabama</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -86.300941666,32.377447222,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Albanifriedhof</name>
+      <description><![CDATA[latitude: 51.531938888<br>longitude: 9.94195<br>description: <br>city: Göttingen<br>country: Germany<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>51.531938888</value>
+        </Data>
+        <Data name="longitude">
+          <value>9.94195</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Göttingen</value>
+        </Data>
+        <Data name="country">
+          <value>Germany</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          9.94195,51.531938888,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Albany Rural Cemetery</name>
+      <description><![CDATA[latitude: 42.706667<br>longitude: -73.735556<br>description: <br>city: Menands<br>country: United States<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>42.706667</value>
+        </Data>
+        <Data name="longitude">
+          <value>-73.735556</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Menands</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -73.735556,42.706667,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Albertina</name>
+      <description><![CDATA[latitude: 48.204561111<br>longitude: 16.368319444<br>description: <br>city: <br>country: <br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>48.204561111</value>
+        </Data>
+        <Data name="longitude">
+          <value>16.368319444</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value/>
+        </Data>
+        <Data name="country">
+          <value/>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          16.368319444,48.204561111,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alcázar of Segovia</name>
+      <description><![CDATA[latitude: 40.9525<br>longitude: -4.1325<br>description: <br>city: Segovia<br>country: Spain<br>category: castle<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>40.9525</value>
+        </Data>
+        <Data name="longitude">
+          <value>-4.1325</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Segovia</value>
+        </Data>
+        <Data name="country">
+          <value>Spain</value>
+        </Data>
+        <Data name="category">
+          <value>castle</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -4.1325,40.9525,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Aldershot Military Cemetery</name>
+      <description><![CDATA[latitude: 51.2553<br>longitude: -0.746944<br>description: <br>city: Rushmoor<br>country: United Kingdom<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>51.2553</value>
+        </Data>
+        <Data name="longitude">
+          <value>-0.746944</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Rushmoor</value>
+        </Data>
+        <Data name="country">
+          <value>United Kingdom</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -0.746944,51.2553,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name><![CDATA[Ale's Stones]]></name>
+      <description><![CDATA[latitude: 55.3827<br>longitude: 14.0544<br>description: <br>city: Ystad Municipality<br>country: Sweden<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>55.3827</value>
+        </Data>
+        <Data name="longitude">
+          <value>14.0544</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Ystad Municipality</value>
+        </Data>
+        <Data name="country">
+          <value>Sweden</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          14.0544,55.3827,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alexa</name>
+      <description><![CDATA[latitude: 52.5192<br>longitude: 13.4156<br>description: <br>city: Bezirk Mitte<br>country: Germany<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>52.5192</value>
+        </Data>
+        <Data name="longitude">
+          <value>13.4156</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Bezirk Mitte</value>
+        </Data>
+        <Data name="country">
+          <value>Germany</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          13.4156,52.5192,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alexander K. McClure School</name>
+      <description><![CDATA[latitude: 40.015<br>longitude: -75.1381<br>description: <br>city: Philadelphia<br>country: United States<br>category: university<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>40.015</value>
+        </Data>
+        <Data name="longitude">
+          <value>-75.1381</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Philadelphia</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>university</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -75.1381,40.015,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alexander Nevsky Cathedral</name>
+      <description><![CDATA[latitude: 42.695838888<br>longitude: 23.332969444<br>description: <br>city: <br>country: <br>category: church<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>42.695838888</value>
+        </Data>
+        <Data name="longitude">
+          <value>23.332969444</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value/>
+        </Data>
+        <Data name="country">
+          <value/>
+        </Data>
+        <Data name="category">
+          <value>church</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          23.332969444,42.695838888,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alexander Nevsky Cathedral</name>
+      <description><![CDATA[latitude: 59.435833333<br>longitude: 24.739444444<br>description: <br>city: <br>country: <br>category: church<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>59.435833333</value>
+        </Data>
+        <Data name="longitude">
+          <value>24.739444444</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value/>
+        </Data>
+        <Data name="country">
+          <value/>
+        </Data>
+        <Data name="category">
+          <value>church</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          24.739444444,59.435833333,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alexander Nevsky Cathedral, Paris</name>
+      <description><![CDATA[latitude: 48.877558333<br>longitude: 2.301991666<br>description: <br>city: Paris<br>country: France<br>category: church<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>48.877558333</value>
+        </Data>
+        <Data name="longitude">
+          <value>2.301991666</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Paris</value>
+        </Data>
+        <Data name="country">
+          <value>France</value>
+        </Data>
+        <Data name="category">
+          <value>church</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          2.301991666,48.877558333,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alexander Palace</name>
+      <description><![CDATA[latitude: 59.721111111<br>longitude: 30.392777777<br>description: <br>city: Pushkin<br>country: Russia<br>category: castle<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>59.721111111</value>
+        </Data>
+        <Data name="longitude">
+          <value>30.392777777</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Pushkin</value>
+        </Data>
+        <Data name="country">
+          <value>Russia</value>
+        </Data>
+        <Data name="category">
+          <value>castle</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          30.392777777,59.721111111,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alexeevskoe Cemetery</name>
+      <description><![CDATA[latitude: 55.818380555<br>longitude: 37.643733333<br>description: <br>city: Moscow<br>country: Russia<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>55.818380555</value>
+        </Data>
+        <Data name="longitude">
+          <value>37.643733333</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Moscow</value>
+        </Data>
+        <Data name="country">
+          <value>Russia</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          37.643733333,55.818380555,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alexis Palace</name>
+      <description><![CDATA[latitude: 59.928055555<br>longitude: 30.283416666<br>description: <br>city: Saint Petersburg<br>country: Russia<br>category: castle<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>59.928055555</value>
+        </Data>
+        <Data name="longitude">
+          <value>30.283416666</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Saint Petersburg</value>
+        </Data>
+        <Data name="country">
+          <value>Russia</value>
+        </Data>
+        <Data name="category">
+          <value>castle</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          30.283416666,59.928055555,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name><![CDATA[Alfonse M. D'Amato United States Courthouse]]></name>
+      <description><![CDATA[latitude: 40.7596<br>longitude: -73.1906<br>description: <br>city: Central Islip<br>country: United States<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>40.7596</value>
+        </Data>
+        <Data name="longitude">
+          <value>-73.1906</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Central Islip</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -73.1906,40.7596,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alfred Butters House</name>
+      <description><![CDATA[latitude: 39.73433<br>longitude: -104.98135<br>description: <br>city: Denver<br>country: United States<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>39.73433</value>
+        </Data>
+        <Data name="longitude">
+          <value>-104.98135</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Denver</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -104.98135,39.73433,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alfred H. and Sarah Frahm House</name>
+      <description><![CDATA[latitude: 41.45398<br>longitude: -96.02803<br>description: <br>city: Fort Calhoun<br>country: United States<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>41.45398</value>
+        </Data>
+        <Data name="longitude">
+          <value>-96.02803</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Fort Calhoun</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -96.02803,41.45398,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Algemene Begraafplaats Crooswijk: grafheuvel met kwadrant en rotonde</name>
+      <description><![CDATA[latitude: 51.93833<br>longitude: 4.48927<br>description: <br>city: Rotterdam<br>country: Netherlands<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>51.93833</value>
+        </Data>
+        <Data name="longitude">
+          <value>4.48927</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Rotterdam</value>
+        </Data>
+        <Data name="country">
+          <value>Netherlands</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          4.48927,51.93833,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Algemene Begraafplaats Hofwijk</name>
+      <description><![CDATA[latitude: 51.95778<br>longitude: 4.4<br>description: <br>city: Rotterdam<br>country: Netherlands<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>51.95778</value>
+        </Data>
+        <Data name="longitude">
+          <value>4.4</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Rotterdam</value>
+        </Data>
+        <Data name="country">
+          <value>Netherlands</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          4.4,51.95778,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Algemene Begraafplaats Leidsestraatweg</name>
+      <description><![CDATA[latitude: 52.09277<br>longitude: 4.95215<br>description: <br>city: Woerden<br>country: Netherlands<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>52.09277</value>
+        </Data>
+        <Data name="longitude">
+          <value>4.95215</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Woerden</value>
+        </Data>
+        <Data name="country">
+          <value>Netherlands</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          4.95215,52.09277,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Algemene Begraafplaats Meppelerstraatweg</name>
+      <description><![CDATA[latitude: 52.518333<br>longitude: 6.1075<br>description: <br>city: Zwolle<br>country: Netherlands<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>52.518333</value>
+        </Data>
+        <Data name="longitude">
+          <value>6.1075</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Zwolle</value>
+        </Data>
+        <Data name="country">
+          <value>Netherlands</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          6.1075,52.518333,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Algemene Begraafplaats Montfoort</name>
+      <description><![CDATA[latitude: 52.043167<br>longitude: 4.944911<br>description: <br>city: Montfoort<br>country: Netherlands<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>52.043167</value>
+        </Data>
+        <Data name="longitude">
+          <value>4.944911</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Montfoort</value>
+        </Data>
+        <Data name="country">
+          <value>Netherlands</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          4.944911,52.043167,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Algemene Begraafplaats Schoonebeek</name>
+      <description><![CDATA[latitude: 52.660297<br>longitude: 6.882569<br>description: <br>city: Emmen<br>country: Netherlands<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>52.660297</value>
+        </Data>
+        <Data name="longitude">
+          <value>6.882569</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Emmen</value>
+        </Data>
+        <Data name="country">
+          <value>Netherlands</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          6.882569,52.660297,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Algiers Central Post Office</name>
+      <description><![CDATA[latitude: 36.773056<br>longitude: 3.059444<br>description: <br>city: Alger Centre<br>country: Algeria<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>36.773056</value>
+        </Data>
+        <Data name="longitude">
+          <value>3.059444</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Alger Centre</value>
+        </Data>
+        <Data name="country">
+          <value>Algeria</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          3.059444,36.773056,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Algorta</name>
+      <description><![CDATA[latitude: 43.350847222<br>longitude: -3.009513888<br>description: <br>city: Getxo<br>country: Spain<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>43.350847222</value>
+        </Data>
+        <Data name="longitude">
+          <value>-3.009513888</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Getxo</value>
+        </Data>
+        <Data name="country">
+          <value>Spain</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -3.009513888,43.350847222,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>All Saints Church in Hodovytsia</name>
+      <description><![CDATA[latitude: 50.2794<br>longitude: 24.5394<br>description: <br>city: Hodovytsia<br>country: Ukraine<br>category: church<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>50.2794</value>
+        </Data>
+        <Data name="longitude">
+          <value>24.5394</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Hodovytsia</value>
+        </Data>
+        <Data name="country">
+          <value>Ukraine</value>
+        </Data>
+        <Data name="category">
+          <value>church</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          24.5394,50.2794,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Allegheny Cemetery</name>
+      <description><![CDATA[latitude: 40.4725<br>longitude: -79.95<br>description: <br>city: Pittsburgh<br>country: United States<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>40.4725</value>
+        </Data>
+        <Data name="longitude">
+          <value>-79.95</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Pittsburgh</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -79.95,40.4725,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Allen Memorial Art Museum</name>
+      <description><![CDATA[latitude: 41.2937<br>longitude: -82.2168<br>description: <br>city: Ohio<br>country: United States<br>category: museum<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>41.2937</value>
+        </Data>
+        <Data name="longitude">
+          <value>-82.2168</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Ohio</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>museum</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -82.2168,41.2937,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Allerheiligenkirche, Graz</name>
+      <description><![CDATA[latitude: 47.0658<br>longitude: 15.385<br>description: <br>city: Graz<br>country: Austria<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>47.0658</value>
+        </Data>
+        <Data name="longitude">
+          <value>15.385</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Graz</value>
+        </Data>
+        <Data name="country">
+          <value>Austria</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          15.385,47.0658,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Allerton Cemetery</name>
+      <description><![CDATA[latitude: 53.35981<br>longitude: -2.87597<br>description: <br>city: Liverpool<br>country: United Kingdom<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>53.35981</value>
+        </Data>
+        <Data name="longitude">
+          <value>-2.87597</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Liverpool</value>
+        </Data>
+        <Data name="country">
+          <value>United Kingdom</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -2.87597,53.35981,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Allery Communal Cemetery</name>
+      <description><![CDATA[latitude: 49.958459<br>longitude: 1.898982<br>description: <br>city: Allery<br>country: France<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>49.958459</value>
+        </Data>
+        <Data name="longitude">
+          <value>1.898982</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Allery</value>
+        </Data>
+        <Data name="country">
+          <value>France</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          1.898982,49.958459,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alley of Honor</name>
+      <description><![CDATA[latitude: 40.361944444<br>longitude: 49.820833333<br>description: <br>city: Baku<br>country: Azerbaijan<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>40.361944444</value>
+        </Data>
+        <Data name="longitude">
+          <value>49.820833333</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Baku</value>
+        </Data>
+        <Data name="country">
+          <value>Azerbaijan</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          49.820833333,40.361944444,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Allianz Arena</name>
+      <description><![CDATA[latitude: 48.218775<br>longitude: 11.624752777<br>description: <br>city: Schwabing-Freimann<br>country: Germany<br>category: stadium<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>48.218775</value>
+        </Data>
+        <Data name="longitude">
+          <value>11.624752777</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Schwabing-Freimann</value>
+        </Data>
+        <Data name="country">
+          <value>Germany</value>
+        </Data>
+        <Data name="category">
+          <value>stadium</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          11.624752777,48.218775,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Allianz Riviera</name>
+      <description><![CDATA[latitude: 43.70513<br>longitude: 7.19262<br>description: <br>city: <br>country: <br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>43.70513</value>
+        </Data>
+        <Data name="longitude">
+          <value>7.19262</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value/>
+        </Data>
+        <Data name="country">
+          <value/>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          7.19262,43.70513,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Allianz Tower</name>
+      <description><![CDATA[latitude: 45.477608333<br>longitude: 9.157288888<br>description: <br>city: Milan<br>country: Italy<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>45.477608333</value>
+        </Data>
+        <Data name="longitude">
+          <value>9.157288888</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Milan</value>
+        </Data>
+        <Data name="country">
+          <value>Italy</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          9.157288888,45.477608333,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Allonville Communal Cemetery</name>
+      <description><![CDATA[latitude: 49.94118<br>longitude: 2.369244<br>description: <br>city: Allonville<br>country: France<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>49.94118</value>
+        </Data>
+        <Data name="longitude">
+          <value>2.369244</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Allonville</value>
+        </Data>
+        <Data name="country">
+          <value>France</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          2.369244,49.94118,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Almas Tower</name>
+      <description><![CDATA[latitude: 25.06883<br>longitude: 55.14113<br>description: <br>city: Dubai<br>country: United Arab Emirates<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>25.06883</value>
+        </Data>
+        <Data name="longitude">
+          <value>55.14113</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Dubai</value>
+        </Data>
+        <Data name="country">
+          <value>United Arab Emirates</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          55.14113,25.06883,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Almaty International Airport</name>
+      <description><![CDATA[latitude: 43.351944444<br>longitude: 77.040555555<br>description: <br>city: <br>country: <br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>43.351944444</value>
+        </Data>
+        <Data name="longitude">
+          <value>77.040555555</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value/>
+        </Data>
+        <Data name="country">
+          <value/>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          77.040555555,43.351944444,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Almudena Cathedral</name>
+      <description><![CDATA[latitude: 40.415556<br>longitude: -3.714444<br>description: <br>city: <br>country: <br>category: church<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>40.415556</value>
+        </Data>
+        <Data name="longitude">
+          <value>-3.714444</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value/>
+        </Data>
+        <Data name="country">
+          <value/>
+        </Data>
+        <Data name="category">
+          <value>church</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -3.714444,40.415556,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alpenzoo</name>
+      <description><![CDATA[latitude: 47.2823<br>longitude: 11.40061<br>description: <br>city: Innsbruck<br>country: Austria<br>category: landmark<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>47.2823</value>
+        </Data>
+        <Data name="longitude">
+          <value>11.40061</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Innsbruck</value>
+        </Data>
+        <Data name="country">
+          <value>Austria</value>
+        </Data>
+        <Data name="category">
+          <value>landmark</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          11.40061,47.2823,0
+        </coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Alta Mesa Memorial Park</name>
+      <description><![CDATA[latitude: 37.3983<br>longitude: -122.129<br>description: <br>city: Palo Alto<br>country: United States<br>category: cemetery<br>address: <br>phone: <br>website: ]]></description>
+      <styleUrl>#icon-1899-0288D1</styleUrl>
+      <ExtendedData>
+        <Data name="latitude">
+          <value>37.3983</value>
+        </Data>
+        <Data name="longitude">
+          <value>-122.129</value>
+        </Data>
+        <Data name="description">
+          <value/>
+        </Data>
+        <Data name="city">
+          <value>Palo Alto</value>
+        </Data>
+        <Data name="country">
+          <value>United States</value>
+        </Data>
+        <Data name="category">
+          <value>cemetery</value>
+        </Data>
+        <Data name="address">
+          <value/>
+        </Data>
+        <Data name="phone">
+          <value/>
+        </Data>
+        <Data name="website">
+          <value/>
+        </Data>
+      </ExtendedData>
+      <Point>
+        <coordinates>
+          -122.129,37.3983,0
+        </coordinates>
+      </Point>
+    </Placemark>
+  </Document>
+</kml>

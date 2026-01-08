@@ -14,6 +14,7 @@ import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/features/map/presentation/widgets/tag_type_filter_bar.dart';
 
 /// MyLand 地点地图页面 - 展示 MustGo 或 Today's Plan 中的地点
 class MyLandSpotsMapPage extends ConsumerStatefulWidget {
@@ -52,6 +53,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
   map_page.Spot? _selectedSpot;
   bool _skipNextRecenter = false;
   final Set<String> _selectedTags = {};
+  String? _selectedTagType; // 标签类型筛选
   late String _currentCity;
   late List<Spot> _currentSpots;
 
@@ -490,7 +492,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
             ),
           ),
 
-          // 顶部导航栏 + 标签
+          // 顶部导航栏 + 标签类型筛选 + 标签
           Positioned(
             top: 0,
             left: 0,
@@ -499,7 +501,18 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildAppBar(context),
-                if (allTags.isNotEmpty) _buildTagBar(allTags),
+                if (allTags.isNotEmpty) ...[
+                  TagTypeFilterBar(
+                    selectedType: _selectedTagType,
+                    onTypeChanged: (type) {
+                      setState(() {
+                        _selectedTagType = type;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  _buildTagBar(allTags),
+                ],
               ],
             ),
           ),
@@ -698,19 +711,31 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     );
   }
 
-  Widget _buildTagBar(List<String> tags) => Container(
+  Widget _buildTagBar(List<String> tags) {
+    // 根据选中的标签类型筛选标签
+    final filteredTags = TagTypeFilterBar.filterTagsByType(tags, _selectedTagType);
+    
+    if (filteredTags.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
       padding: const EdgeInsets.only(bottom: 12),
       child: SizedBox(
         height: 42,
         child: ListView.separated(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
-          itemCount: tags.length,
+          itemCount: filteredTags.length,
           separatorBuilder: (_, __) => const SizedBox(width: 10),
           itemBuilder: (context, index) {
-            final tag = tags[index];
+            final tag = filteredTags[index];
             final isSelected = _selectedTags.contains(tag);
             final emoji = _tagEmoji(tag);
+            
+            // 获取显示名称（去掉前缀）
+            final displayName = TagTypeFilterBar.getTagDisplayName(tag);
+            
             return GestureDetector(
               onTap: () => _toggleTag(tag),
               child: Container(
@@ -732,7 +757,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
                     Text(emoji, style: const TextStyle(fontSize: 16)),
                     const SizedBox(width: 6),
                     Text(
-                      tag,
+                      displayName,
                       style: AppTheme.labelMedium(context).copyWith(
                         color: AppTheme.black,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -746,6 +771,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         ),
       ),
     );
+  }
 
   Widget _buildBottomCards(List<map_page.Spot> spots, {double extraHeight = 0}) {
     const double cardWidth = 210;

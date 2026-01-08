@@ -118,7 +118,7 @@ npx tsx scripts/import-apify-places.ts --file ../my-favorite-places-apify.json
 
 1. **Apify API Token** - 已配置在 `.env`
    ```env
-   APIFY_API_TOKEN=apify_api_7arUhHpRivu0WPqU09hPmUROOXN1Bw1seT28
+   APIFY_API_TOKEN=your_apify_api_token_here
    ```
 
 2. **Apify 账号** - 需要有足够的 credits

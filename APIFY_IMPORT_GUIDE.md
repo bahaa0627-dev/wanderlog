@@ -11,9 +11,9 @@
 `.env` 文件中已配置两个 token：
 
 ```env
-APIFY_API_TOKEN=apify_api_7arUhHpRivu0WPqU09hPmUROOXN1Bw1seT28  # 新账号（当前使用）
-APIFY_API_TOKEN_OLD=apify_api_gBQqN3ENAwEfGPKTEEVKWYbo2xeX5o4rbjey  # 旧账号（备用）
-APIFY_ACTOR_ID=nwua9Gu5YrADL7ZDj
+APIFY_API_TOKEN=your_apify_api_token_here  # 新账号（当前使用）
+APIFY_API_TOKEN_OLD=your_backup_token_here  # 旧账号（备用）
+APIFY_ACTOR_ID=your_actor_id_here
 ```
 
 ### 2. Apify Actor 配置

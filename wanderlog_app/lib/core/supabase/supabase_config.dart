@@ -8,12 +8,17 @@ class SupabaseConfig {
   static String get imagesBaseUrl =>
       dotenv.env['IMAGES_BASE_URL'] ?? 'https://images.wanderlog.app';
 
+  /// 深度链接 scheme
+  static const String deepLinkScheme = 'io.supabase.wanderlog';
+  static const String deepLinkHost = 'login-callback';
+  static String get redirectUrl => '$deepLinkScheme://$deepLinkHost';
+
   /// 初始化 Supabase
   static Future<void> initialize() async {
     await Supabase.initialize(
       url: url,
       anonKey: anonKey,
-      authOptions: const FlutterAuthClientOptions(
+      authOptions: FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
       ),
       realtimeClientOptions: const RealtimeClientOptions(

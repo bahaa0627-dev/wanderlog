@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
+import 'package:wanderlog/core/l10n/app_localizations.dart';
+import 'package:wanderlog/core/providers/locale_provider.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/spot_card.dart';
@@ -277,7 +279,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         spot: spot,
         onCheckIn: (visitDate, rating, notes) async {
           setState(() => _selectedSubTab = 3);
-          DialogUtils.showSuccessSnackBar(context, '已打卡 ${spot.name}');
+          final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
+          DialogUtils.showSuccessSnackBar(context, l10n.checkedIn(spot.name));
         },
       ),
     );

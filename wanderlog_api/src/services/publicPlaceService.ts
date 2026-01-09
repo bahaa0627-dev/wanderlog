@@ -529,11 +529,13 @@ class PublicPlaceService {
     }
 
     // 并行执行查询和计数，只选择必要字段提高性能
-    // 如果有标签筛选，需要获取所有数据然后在内存中过滤
+    // 如果有标签筛选或标签类型筛选，需要获取所有数据然后在内存中过滤
     let queryLimit = limit;
     let querySkip = skip;
     
-    if (tagFilter) {
+    const tagTypeFilter = options?.tagType;
+    
+    if (tagFilter || tagTypeFilter) {
       // 获取所有数据以便过滤
       queryLimit = 15000; // 获取足够多的数据
       querySkip = 0;
@@ -598,25 +600,63 @@ class PublicPlaceService {
     let places = rawPlaces;
     let total = rawTotal;
     
-    // 标签类型对应的分类映射
+    // 标签类型对应的分类映射（用于 meal 和 shop 类型的分类筛选）
     const tagTypeCategoryMap: Record<string, string[]> = {
       'meal': ['Restaurant', 'Cafe', 'Bakery', 'Bar', 'Food'],
       'shop': ['Shop', 'Store', 'Boutique', 'Market'],
     };
     
-    const tagTypeFilter = options?.tagType;
+    // 标签类型对应的 tags 对象键名映射
+    const tagTypeKeyMap: Record<string, string[]> = {
+      'type': ['type'],
+      'style': ['style'],
+      'architect': ['architect'],
+      'award': ['award'],
+      'theme': ['theme'],
+      'meal': ['meal', 'cuisine'],
+      'cuisine': ['cuisine'],
+      'shop': ['shop'],
+      'other': ['other'],
+    };
     
     if (tagFilter || tagTypeFilter) {
       places = rawPlaces.filter(place => {
-        // 如果有 tagType 筛选，先检查分类是否匹配
-        if (tagTypeFilter && tagTypeCategoryMap[tagTypeFilter]) {
-          const allowedCategories = tagTypeCategoryMap[tagTypeFilter];
-          const placeCategory = (place.categoryEn || place.category || '').toLowerCase();
-          const categoryMatch = allowedCategories.some(cat => 
-            placeCategory.includes(cat.toLowerCase())
-          );
-          if (!categoryMatch) {
-            return false;
+        // 如果有 tagType 筛选
+        if (tagTypeFilter) {
+          // 对于 meal 和 shop 类型，检查分类是否匹配
+          if (tagTypeCategoryMap[tagTypeFilter]) {
+            const allowedCategories = tagTypeCategoryMap[tagTypeFilter];
+            const placeCategory = (place.categoryEn || place.category || '').toLowerCase();
+            const categoryMatch = allowedCategories.some(cat => 
+              placeCategory.includes(cat.toLowerCase())
+            );
+            if (!categoryMatch) {
+              return false;
+            }
+          } else {
+            // 对于其他类型，检查 tags 对象中对应键是否有值
+            let hasTagOfType = false;
+            const tagKeys = tagTypeKeyMap[tagTypeFilter] || [tagTypeFilter];
+            
+            if (place.tags && typeof place.tags === 'object') {
+              const tagsObj = place.tags as any;
+              for (const key of tagKeys) {
+                const value = tagsObj[key];
+                if (value) {
+                  if (Array.isArray(value) && value.length > 0) {
+                    hasTagOfType = true;
+                    break;
+                  } else if (typeof value === 'string' && value.trim() !== '') {
+                    hasTagOfType = true;
+                    break;
+                  }
+                }
+              }
+            }
+            
+            if (!hasTagOfType) {
+              return false;
+            }
           }
         }
         
@@ -1071,13 +1111,30 @@ class PublicPlaceService {
     const globalTagMap: Record<string, number> = {};
     // 统计来源
     const sourceMap: Record<string, number> = {};
+    // 按标签类型统计地点数量（每个地点只计一次）
+    const tagTypePlaceCount: Record<string, Set<number>> = {
+      type: new Set(),
+      style: new Set(),
+      architect: new Set(),
+      award: new Set(),
+      theme: new Set(),
+      meal: new Set(),
+      cuisine: new Set(),
+      shop: new Set(),
+      domain: new Set(),
+      other: new Set(),
+    };
 
+    let placeIndex = 0;
     for (const place of placesWithTags) {
       // 将国家名称转换为英文
       const country = normalizeCountryName(place.country);
       const city = place.city;
       const categoryEn = place.categoryEn;
       const source = place.source;
+      
+      // 用于标记该地点有哪些标签类型
+      const placeTagTypes = new Set<string>();
       
       // 统计国家
       if (country) {
@@ -1138,12 +1195,19 @@ class PublicPlaceService {
         }
       }
       
-      // 检查 tags 字段（JSON 对象格式）
+      // 检查 tags 字段（JSON 对象格式）- 同时统计标签类型的地点数量
       if (place.tags && typeof place.tags === 'object') {
         const tagsObj = place.tags as any;
         // 遍历所有键（type, style, architect, theme 等）
         for (const key of Object.keys(tagsObj)) {
           const value = tagsObj[key];
+          const hasValue = Array.isArray(value) ? value.length > 0 : (typeof value === 'string' && value.trim() !== '');
+          
+          // 记录该地点有这个标签类型
+          if (hasValue) {
+            placeTagTypes.add(key);
+          }
+          
           if (Array.isArray(value)) {
             // 如果值是数组，统计每个元素
             for (const item of value) {
@@ -1190,6 +1254,14 @@ class PublicPlaceService {
           }
         }
       }
+      
+      // 记录每个标签类型有多少个地点
+      for (const tagType of placeTagTypes) {
+        if (tagTypePlaceCount[tagType]) {
+          tagTypePlaceCount[tagType].add(placeIndex);
+        }
+      }
+      placeIndex++;
     }
 
     // 格式化国家数据
@@ -1246,6 +1318,12 @@ class PublicPlaceService {
         .map(([name, count]) => ({ name, count }))
         .sort((a, b) => a.name.localeCompare(b.name)); // 按字母排序
     }
+    
+    // 格式化标签类型地点数量
+    const tagTypePlaceCounts: Record<string, number> = {};
+    for (const [tagType, placeSet] of Object.entries(tagTypePlaceCount)) {
+      tagTypePlaceCounts[tagType] = placeSet.size;
+    }
 
     return {
       countries,
@@ -1254,7 +1332,8 @@ class PublicPlaceService {
       categoriesByCountry: formattedCategoriesByCountry,
       sources,
       tags,
-      tagsByType, // 新增：按类型分组的标签
+      tagsByType, // 按类型分组的标签（标签使用次数）
+      tagTypePlaceCounts, // 新增：按标签类型统计的地点数量
       tagsByCountry: formattedTagsByCountry,
       tagsByCategory: formattedTagsByCategory
     };

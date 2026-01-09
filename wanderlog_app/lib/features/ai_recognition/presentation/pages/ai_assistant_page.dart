@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/l10n/app_localizations.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_result.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
@@ -219,7 +220,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
   Future<void> _handleAddMore() async {
     if (_selectedImages.length >= 5) {
-      DialogUtils.showInfoSnackBar(context, '最多只能选择5张图片');
+      final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
+      DialogUtils.showInfoSnackBar(context, l10n.maxImagesReached);
       return;
     }
 

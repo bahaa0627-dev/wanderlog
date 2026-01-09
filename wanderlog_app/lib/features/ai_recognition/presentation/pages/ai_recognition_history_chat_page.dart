@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
+import 'package:wanderlog/core/l10n/app_localizations.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_history_service.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
@@ -159,7 +160,9 @@ class _AIRecognitionHistoryChatPageState
   Future<void> _handleAddMore() async {
     // 检查是否已达上限
     if (_selectedImages.length >= 5) {
-      DialogUtils.showInfoSnackBar(context, '最多只能选择5张图片');
+      final languageCode = Localizations.localeOf(context).languageCode;
+      final l10n = AppLocalizations(languageCode);
+      DialogUtils.showInfoSnackBar(context, l10n.maxImagesReached);
       return;
     }
 

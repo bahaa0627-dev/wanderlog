@@ -54,6 +54,11 @@ console.log(`📁 Static files path: ${publicPath}`);
 app.use('/admin', express.static(publicPath));
 app.use(express.static(publicPath)); // 也允许根路径访问静态文件
 
+// Auth callback 页面 - 用于邮箱验证后的跳转
+app.get('/auth/callback', (_req, res) => {
+  res.sendFile(path.join(publicPath, 'auth-callback.html'));
+});
+
 // Health check - 放在最前面
 app.get('/health', (_req, res) => {
   console.log('🏥 Health check requested');

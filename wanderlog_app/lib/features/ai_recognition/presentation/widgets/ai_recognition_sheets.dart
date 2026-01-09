@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
+import 'package:wanderlog/core/l10n/app_localizations.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_result.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
@@ -158,7 +159,9 @@ class AIRecognitionIntroSheet extends StatelessWidget {
       if (images.isEmpty) {
         print('未选择图片');
         Navigator.of(context).pop();
-        DialogUtils.showInfoSnackBar(context, '未选择图片');
+        final languageCode = Localizations.localeOf(context).languageCode;
+        final l10n = AppLocalizations(languageCode);
+        DialogUtils.showInfoSnackBar(context, l10n.noImageSelected);
         return;
       }
 
@@ -181,7 +184,9 @@ class AIRecognitionIntroSheet extends StatelessWidget {
       print('选择图片错误: $e');
       if (context.mounted) {
         Navigator.of(context).pop();
-        DialogUtils.showErrorSnackBar(context, '选择图片失败: $e');
+        final languageCode = Localizations.localeOf(context).languageCode;
+        final l10n = AppLocalizations(languageCode);
+        DialogUtils.showErrorSnackBar(context, l10n.selectImageFailed(e.toString()));
       }
     }
   }

@@ -41,8 +41,10 @@ class AppRouter {
           GoRoute(
             path: '/verify-email',
             name: 'verify-email',
-            pageBuilder: (context, state) =>
-                _slideFromRight(const VerifyEmailPage()),
+            pageBuilder: (context, state) {
+              final email = state.extra as String?;
+              return _slideFromRight(VerifyEmailPage(email: email));
+            },
           ),
           GoRoute(
             path: '/forgot-password',

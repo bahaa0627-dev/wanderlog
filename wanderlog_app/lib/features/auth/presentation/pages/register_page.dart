@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:wanderlog/core/supabase/supabase_config.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 
@@ -18,6 +20,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -28,21 +31,69 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     super.dispose();
   }
 
+  void _showUserExistsDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Account Exists'),
+        content: const Text('This email is already registered. Would you like to login instead?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.go('/login');
+            },
+            child: const Text('Go to Login'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _onRegister() async {
     if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _isLoading = true);
       try {
-        await ref.read(authProvider.notifier).register(
-              _emailController.text,
-              _passwordController.text,
-              _nameController.text.isEmpty ? null : _nameController.text,
-            );
+        // 直接使用 Supabase Auth 注册
+        final response = await SupabaseConfig.auth.signUp(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          data: {
+            'name': _nameController.text.isEmpty ? null : _nameController.text,
+          },
+        );
+        
+        if (response.user != null) {
+          if (mounted) {
+            // 注册成功后跳转到验证邮箱页面，传递 email
+            context.go('/verify-email', extra: _emailController.text.trim());
+          }
+        }
+      } on AuthException catch (e) {
         if (mounted) {
-          // 注册成功后跳转到邮箱验证页面
-          context.go('/verify-email');
+          // 检查是否是用户已存在的错误
+          if (e.message.contains('already registered') || 
+              e.message.contains('User already registered') ||
+              e.message.contains('already been registered')) {
+            _showUserExistsDialog();
+          } else if (e.message.contains('weak password') || 
+                     e.message.contains('Password should be')) {
+            CustomToast.showError(context, 'Password is too weak. Please use at least 6 characters.');
+          } else {
+            CustomToast.showError(context, e.message);
+          }
         }
       } catch (e) {
         if (mounted) {
           CustomToast.showError(context, e.toString());
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
         }
       }
     }
@@ -50,9 +101,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-    final isLoading = authState.isLoading;
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -160,8 +208,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
-                              onPressed: isLoading ? null : _onRegister,
-                              child: isLoading
+                              onPressed: _isLoading ? null : _onRegister,
+                              child: _isLoading
                                   ? const SizedBox(
                                       height: 20,
                                       width: 20,

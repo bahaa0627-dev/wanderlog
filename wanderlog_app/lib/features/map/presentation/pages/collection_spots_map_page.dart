@@ -10,6 +10,8 @@ import 'package:palette_generator/palette_generator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
+import 'package:wanderlog/core/l10n/app_localizations.dart';
+import 'package:wanderlog/core/providers/locale_provider.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' hide Spot;
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
@@ -695,7 +697,8 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
           IconButtonCustom(
             icon: Icons.share,
             onPressed: () {
-              DialogUtils.showInfoSnackBar(context, '分享功能即将上线');
+              final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
+              DialogUtils.showInfoSnackBar(context, l10n.shareComingSoon);
             },
             backgroundColor: Colors.white,
           ),
@@ -773,6 +776,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
       return;
     }
 
+    final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
     setState(() => _isFavLoading = true);
     final repo = ref.read(collectionRepositoryProvider);
     try {
@@ -781,19 +785,19 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         if (mounted) {
           _shouldRefreshCollections = true;
           setState(() => _isFavorite = false);
-          CustomToast.showInfo(context, '取消收藏');
+          CustomToast.showInfo(context, l10n.collectionRemoved);
         }
       } else {
         await repo.favoriteCollection(collectionId);
         if (mounted) {
           _shouldRefreshCollections = true;
           setState(() => _isFavorite = true);
-          CustomToast.showSuccess(context, '收藏成功');
+          CustomToast.showSuccess(context, l10n.collectionSaved);
         }
       }
     } catch (e) {
       if (mounted) {
-        CustomToast.showError(context, '操作失败，请重试');
+        CustomToast.showError(context, l10n.operationFailed);
       }
     } finally {
       if (mounted) {
@@ -1155,11 +1159,15 @@ class _LinkChip extends StatelessWidget {
   final Widget? leading;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final l10n = AppLocalizations(languageCode);
+    
+    return GestureDetector(
       onTap: url == null
           ? null
           : () async {
-              DialogUtils.showInfoSnackBar(context, '打开: $url');
+              DialogUtils.showInfoSnackBar(context, l10n.opening(url!));
             },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1186,6 +1194,7 @@ class _LinkChip extends StatelessWidget {
         ),
       ),
     );
+  }
 }
 
 /// 合集元信息卡片 - 独立组件，状态变化不影响父组件
@@ -1457,18 +1466,21 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
   }
 
   Future<void> _openLink(String url) async {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final l10n = AppLocalizations(languageCode);
+    
     try {
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
-          CustomToast.showError(context, '无法打开链接');
+          CustomToast.showError(context, l10n.cannotOpenLink);
         }
       }
     } catch (e) {
       if (mounted) {
-        CustomToast.showError(context, '链接格式错误');
+        CustomToast.showError(context, l10n.invalidLinkFormat);
       }
     }
   }

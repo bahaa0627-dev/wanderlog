@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
+import 'package:wanderlog/core/l10n/app_localizations.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/features/trips/data/trip_repository.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
@@ -278,11 +279,15 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        DialogUtils.showSuccessSnackBar(context, '状态已更新');
+        final languageCode = Localizations.localeOf(context).languageCode;
+        final l10n = AppLocalizations(languageCode);
+        DialogUtils.showSuccessSnackBar(context, l10n.statusUpdated);
       }
     } catch (e) {
       if (mounted) {
-        DialogUtils.showErrorSnackBar(context, '操作失败: $e');
+        final languageCode = Localizations.localeOf(context).languageCode;
+        final l10n = AppLocalizations(languageCode);
+        DialogUtils.showErrorSnackBar(context, l10n.operationFailedWith(e.toString()));
       }
     } finally {
       if (mounted) {
@@ -316,7 +321,9 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
       }
     } catch (e) {
       if (mounted) {
-        DialogUtils.showErrorSnackBar(context, '操作失败: $e');
+        final languageCode = Localizations.localeOf(context).languageCode;
+        final l10n = AppLocalizations(languageCode);
+        DialogUtils.showErrorSnackBar(context, l10n.operationFailedWith(e.toString()));
       }
     } finally {
       if (mounted) {
@@ -448,11 +455,15 @@ class _CheckInDialogState extends State<_CheckInDialog> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        DialogUtils.showSuccessSnackBar(context, '打卡成功！');
+        final languageCode = Localizations.localeOf(context).languageCode;
+        final l10n = AppLocalizations(languageCode);
+        DialogUtils.showSuccessSnackBar(context, l10n.checkInSuccess);
       }
     } catch (e) {
       if (mounted) {
-        DialogUtils.showErrorSnackBar(context, '操作失败: $e');
+        final languageCode = Localizations.localeOf(context).languageCode;
+        final l10n = AppLocalizations(languageCode);
+        DialogUtils.showErrorSnackBar(context, l10n.operationFailedWith(e.toString()));
       }
     } finally {
       if (mounted) {

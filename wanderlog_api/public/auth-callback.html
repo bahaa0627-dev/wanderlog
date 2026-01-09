@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Verified - VAGO</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #FFF8E1 0%, #FFFDE7 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 24px;
+      padding: 48px 40px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    }
+    
+    .icon {
+      width: 80px;
+      height: 80px;
+      background: #4CAF50;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+    }
+    
+    .icon svg {
+      width: 40px;
+      height: 40px;
+      fill: white;
+    }
+    
+    .loading-icon {
+      background: #FFC107;
+    }
+    
+    .loading-icon svg {
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 12px;
+    }
+    
+    p {
+      font-size: 16px;
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+    
+    .btn {
+      display: inline-block;
+      background: #FFC107;
+      color: #000;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 14px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    
+    .btn:hover {
+      background: #FFB300;
+      transform: translateY(-2px);
+    }
+    
+    .btn-secondary {
+      background: transparent;
+      color: #666;
+      border: 1px solid #ddd;
+      margin-top: 12px;
+    }
+    
+    .btn-secondary:hover {
+      background: #f5f5f5;
+      transform: none;
+    }
+    
+    .logo {
+      font-size: 32px;
+      font-weight: 800;
+      color: #1a1a1a;
+      margin-bottom: 32px;
+    }
+    
+    .error {
+      background: #FFEBEE;
+      color: #C62828;
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+    }
+    
+    #loading-state, #success-state, #error-state {
+      display: none;
+    }
+    
+    #loading-state.active, #success-state.active, #error-state.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">VAGO</div>
+    
+    <!-- Loading State -->
+    <div id="loading-state" class="active">
+      <div class="icon loading-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/></svg>
+      </div>
+      <h1>Verifying...</h1>
+      <p>Please wait while we verify your email.</p>
+    </div>
+    
+    <!-- Success State -->
+    <div id="success-state">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+      </div>
+      <h1>Email Verified!</h1>
+      <p>Your email has been successfully verified. You can now use all features of VAGO.</p>
+      <a href="#" id="open-app-btn" class="btn">Open VAGO App</a>
+      <br>
+      <a href="/" class="btn btn-secondary">Go to Website</a>
+    </div>
+    
+    <!-- Error State -->
+    <div id="error-state">
+      <div class="icon" style="background: #F44336;">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </div>
+      <h1>Verification Failed</h1>
+      <p id="error-message">The verification link may have expired or is invalid. Please try again.</p>
+      <a href="/" class="btn">Go to Website</a>
+    </div>
+  </div>
+
+  <script>
+    const APP_SCHEME = 'io.supabase.wanderlog';
+    
+    // 检测是否是移动设备
+    function isMobile() {
+      return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    }
+    
+    // 尝试打开 App
+    function tryOpenApp() {
+      const currentUrl = window.location.href;
+      // 将 https URL 转换为 app scheme
+      const appUrl = currentUrl.replace(/^https?:\/\/[^\/]+\/auth\/callback/, APP_SCHEME + '://login-callback');
+      
+      if (isMobile()) {
+        // 移动设备：尝试打开 App
+        window.location.href = appUrl;
+        
+        // 如果 3 秒后还在这个页面，说明 App 没有安装或没有打开
+        setTimeout(() => {
+          showSuccess();
+        }, 3000);
+      } else {
+        // 桌面设备：直接显示成功页面
+        showSuccess();
+      }
+    }
+    
+    function showLoading() {
+      document.getElementById('loading-state').classList.add('active');
+      document.getElementById('success-state').classList.remove('active');
+      document.getElementById('error-state').classList.remove('active');
+    }
+    
+    function showSuccess() {
+      document.getElementById('loading-state').classList.remove('active');
+      document.getElementById('success-state').classList.add('active');
+      document.getElementById('error-state').classList.remove('active');
+      
+      // 设置打开 App 按钮
+      const openAppBtn = document.getElementById('open-app-btn');
+      const currentUrl = window.location.href;
+      const appUrl = currentUrl.replace(/^https?:\/\/[^\/]+\/auth\/callback/, APP_SCHEME + '://login-callback');
+      openAppBtn.href = appUrl;
+    }
+    
+    function showError(message) {
+      document.getElementById('loading-state').classList.remove('active');
+      document.getElementById('success-state').classList.remove('active');
+      document.getElementById('error-state').classList.add('active');
+      if (message) {
+        document.getElementById('error-message').textContent = message;
+      }
+    }
+    
+    // 页面加载时执行
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hash = window.location.hash;
+      
+      // Supabase 验证成功后会在 URL 中包含 access_token 或 type=signup
+      // 检查是否有错误
+      const error = urlParams.get('error');
+      const errorDescription = urlParams.get('error_description');
+      
+      if (error) {
+        showError(errorDescription || error);
+        return;
+      }
+      
+      // 检查 hash 中是否有 access_token（Supabase 验证成功的标志）
+      if (hash && (hash.includes('access_token') || hash.includes('type=signup') || hash.includes('type=recovery'))) {
+        // 验证成功
+        tryOpenApp();
+      } else if (urlParams.get('type') === 'signup' || urlParams.get('type') === 'recovery') {
+        // 验证成功（某些情况下参数在 query string 中）
+        tryOpenApp();
+      } else {
+        // 没有验证信息，可能是直接访问
+        showSuccess();
+      }
+    });
+  </script>
+</body>
+</html>

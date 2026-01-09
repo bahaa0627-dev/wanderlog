@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/l10n/app_localizations.dart';
+import 'package:wanderlog/core/providers/locale_provider.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/widgets/save_spot_button.dart';
@@ -479,7 +481,8 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
 
   void _copyToClipboard(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
-    CustomToast.showSuccess(context, '复制成功');
+    final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
+    CustomToast.showSuccess(context, l10n.copySuccess);
   }
 
   Widget _buildCheckInButton() => GestureDetector(

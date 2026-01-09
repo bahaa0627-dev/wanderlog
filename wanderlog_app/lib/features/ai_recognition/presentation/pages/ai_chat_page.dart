@@ -10,6 +10,7 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/supabase/supabase_config.dart';
 import 'package:wanderlog/core/supabase/services/quota_service.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
+import 'package:wanderlog/core/l10n/app_localizations.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_history_service.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
@@ -143,7 +144,9 @@ class _AIChatPageState extends State<AIChatPage> {
       if (!serviceEnabled) {
         // 定位服务未开启，提示用户
         if (mounted) {
-          DialogUtils.showInfoSnackBar(context, '请在设备设置中开启定位服务');
+          final languageCode = Localizations.localeOf(context).languageCode;
+          final l10n = AppLocalizations(languageCode);
+          DialogUtils.showInfoSnackBar(context, l10n.enableLocationService);
         }
         return false;
       }
@@ -159,7 +162,9 @@ class _AIChatPageState extends State<AIChatPage> {
       if (permission == LocationPermission.deniedForever) {
         // 权限被永久拒绝，引导用户去设置
         if (mounted) {
-          DialogUtils.showInfoSnackBar(context, '需要定位权限，请在设置中开启');
+          final languageCode = Localizations.localeOf(context).languageCode;
+          final l10n = AppLocalizations(languageCode);
+          DialogUtils.showInfoSnackBar(context, l10n.locationPermissionRequired);
           Geolocator.openAppSettings();
         }
         return false;
@@ -266,7 +271,9 @@ class _AIChatPageState extends State<AIChatPage> {
 
   Future<void> _handleAddMore() async {
     if (_selectedImages.length >= 5) {
-      DialogUtils.showInfoSnackBar(context, '最多只能选择5张图片');
+      final languageCode = Localizations.localeOf(context).languageCode;
+      final l10n = AppLocalizations(languageCode);
+      DialogUtils.showInfoSnackBar(context, l10n.maxImagesReached);
       return;
     }
 

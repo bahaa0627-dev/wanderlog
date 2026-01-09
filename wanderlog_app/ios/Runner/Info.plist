@@ -68,7 +68,7 @@
 	<!-- Google Sign-In 配置 -->
 	<key>GIDClientID</key>
 	<string>791447495976-rd5pp61vq7t61hp8sn2i3421kq7b18qi.apps.googleusercontent.com</string>
-	<!-- URL Schemes 用于 Google 登录回调 -->
+	<!-- URL Schemes 用于 Google 登录回调和 Supabase 深度链接 -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -78,6 +78,8 @@
 			<array>
 				<!-- 反转的 Client ID 格式：com.googleusercontent.apps.[client-id] -->
 				<string>com.googleusercontent.apps.791447495976-rd5pp61vq7t61hp8sn2i3421kq7b18qi</string>
+				<!-- Supabase 深度链接 -->
+				<string>io.supabase.wanderlog</string>
 			</array>
 		</dict>
 	</array>

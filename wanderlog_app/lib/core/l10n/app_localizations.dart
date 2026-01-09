@@ -49,4 +49,42 @@ class AppLocalizations {
   String get permissionDenied => isEnglish 
       ? 'Please allow photo access in settings' 
       : '请在设置中允许访问相册';
+
+  // Toast messages - Collection
+  String get collectionSaved => isEnglish ? 'Saved to collection' : '收藏成功';
+  String get collectionRemoved => isEnglish ? 'Removed from collection' : '取消收藏';
+  String get operationFailed => isEnglish ? 'Operation failed, please try again' : '操作失败，请重试';
+  
+  // Toast messages - General
+  String get copySuccess => isEnglish ? 'Copied' : '复制成功';
+  String get cannotOpenLink => isEnglish ? 'Cannot open link' : '无法打开链接';
+  String get invalidLinkFormat => isEnglish ? 'Invalid link format' : '链接格式错误';
+  String get shareComingSoon => isEnglish ? 'Share feature coming soon' : '分享功能即将上线';
+  String get photoUploadComingSoon => isEnglish ? 'Photo upload coming soon' : '照片上传功能即将上线';
+  
+  // Toast messages - Wishlist & Check-in
+  String get addedToWishlist => isEnglish ? 'Added to wishlist' : '已添加到心愿单';
+  String get statusUpdated => isEnglish ? 'Status updated' : '状态已更新';
+  String get checkInSuccess => isEnglish ? 'Check-in successful!' : '打卡成功！';
+  String checkedIn(String name) => isEnglish ? 'Checked in to $name' : '已打卡 $name';
+  String operationFailedWith(String error) => isEnglish ? 'Operation failed: $error' : '操作失败: $error';
+  
+  // Toast messages - Trip
+  String get tripCreated => isEnglish ? 'Trip created!' : '行程创建成功！';
+  String createFailed(String error) => isEnglish ? 'Create failed: $error' : '创建失败: $error';
+  
+  // Toast messages - Image selection
+  String get maxImagesReached => isEnglish ? 'Maximum 5 images allowed' : '最多只能选择5张图片';
+  String get noImageSelected => isEnglish ? 'No image selected' : '未选择图片';
+  String selectImageFailed(String error) => isEnglish ? 'Failed to select image: $error' : '选择图片失败: $error';
+  
+  // Toast messages - Location
+  String get enableLocationService => isEnglish ? 'Please enable location service in device settings' : '请在设备设置中开启定位服务';
+  String get locationPermissionRequired => isEnglish ? 'Location permission required, please enable in settings' : '需要定位权限，请在设置中开启';
+  
+  // Toast messages - Reset password
+  String retryAfterSeconds(int seconds) => isEnglish ? 'Try again in $seconds seconds' : '$seconds 秒后再试';
+  
+  // Toast messages - Opening link
+  String opening(String url) => isEnglish ? 'Opening: $url' : '打开: $url';
 }

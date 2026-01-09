@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:wanderlog/core/utils/dialog_utils.dart';
+import 'package:wanderlog/core/l10n/app_localizations.dart';
+import 'package:wanderlog/core/providers/locale_provider.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 
@@ -175,11 +177,13 @@ class TripListPage extends ConsumerWidget {
                       );
                   if (context.mounted) {
                     Navigator.of(context).pop();
-                    DialogUtils.showSuccessSnackBar(context, '行程创建成功！');
+                    final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
+                    DialogUtils.showSuccessSnackBar(context, l10n.tripCreated);
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    DialogUtils.showErrorSnackBar(context, '创建失败: $e');
+                    final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
+                    DialogUtils.showErrorSnackBar(context, l10n.createFailed(e.toString()));
                   }
                 }
               }

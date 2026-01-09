@@ -328,6 +328,13 @@
             max-width: 150px;
         }
         
+        .tags-by-type {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            max-width: 200px;
+        }
+        
         .action-btns {
             display: flex;
             gap: 6px;
@@ -1309,20 +1316,85 @@
             <div class="form-card" style="margin:8px 0;">
                 <div class="section-title">标签管理</div>
                 
-                <div class="form-group">
-                    <label>结构化标签 (tags) <small style="color:#999;">按回车添加，自动归类</small></label>
-                    <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:42px;background:#fff;border:1px solid #ddd;border-radius:6px;cursor:text;" onclick="document.getElementById('tagInput').focus()">
-                        <div id="placeTagsChips" style="display:contents;"></div>
-                        <input type="text" id="tagInput" placeholder="输入标签后按回车..." style="border:none;outline:none;flex:1;min-width:120px;padding:4px;" onkeydown="handleTagInputKeydown(event)">
+                <!-- 第一行：type + style -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;">
+                    <div class="form-group" style="margin:0;">
+                        <label style="color:#0c5460;">type <small style="color:#999;">类型标签</small></label>
+                        <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #d1ecf1;border-radius:6px;cursor:text;" onclick="document.getElementById('typeTagInput').focus()">
+                            <div id="typeTagsChips" style="display:contents;"></div>
+                            <input type="text" id="typeTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'type')">
+                        </div>
                     </div>
-                    <input type="hidden" id="placeTagsJson">
+                    <div class="form-group" style="margin:0;">
+                        <label style="color:#856404;">style <small style="color:#999;">风格标签</small></label>
+                        <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #fff3cd;border-radius:6px;cursor:text;" onclick="document.getElementById('styleTagInput').focus()">
+                            <div id="styleTagsChips" style="display:contents;"></div>
+                            <input type="text" id="styleTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'style')">
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label>AI 展示标签 (aiTags) <small style="color:#999;">按回车添加</small></label>
-                    <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:42px;background:#fff;border:1px solid #ddd;border-radius:6px;cursor:text;" onclick="document.getElementById('aiTagInput').focus()">
+                <!-- 第二行：architect + award -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;">
+                    <div class="form-group" style="margin:0;">
+                        <label style="color:#155724;">architect <small style="color:#999;">建筑师</small></label>
+                        <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #d4edda;border-radius:6px;cursor:text;" onclick="document.getElementById('architectTagInput').focus()">
+                            <div id="architectTagsChips" style="display:contents;"></div>
+                            <input type="text" id="architectTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'architect')">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label style="color:#e65100;">award <small style="color:#999;">奖项</small></label>
+                        <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #fff3e0;border-radius:6px;cursor:text;" onclick="document.getElementById('awardTagInput').focus()">
+                            <div id="awardTagsChips" style="display:contents;"></div>
+                            <input type="text" id="awardTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'award')">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 第三行：theme + meal -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;">
+                    <div class="form-group" style="margin:0;">
+                        <label style="color:#2e7d32;">theme <small style="color:#999;">主题</small></label>
+                        <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #e8f5e9;border-radius:6px;cursor:text;" onclick="document.getElementById('themeTagInput').focus()">
+                            <div id="themeTagsChips" style="display:contents;"></div>
+                            <input type="text" id="themeTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'theme')">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label style="color:#1565c0;">meal <small style="color:#999;">餐饮</small></label>
+                        <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #e3f2fd;border-radius:6px;cursor:text;" onclick="document.getElementById('mealTagInput').focus()">
+                            <div id="mealTagsChips" style="display:contents;"></div>
+                            <input type="text" id="mealTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'meal')">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 第四行：cuisine + others -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;">
+                    <div class="form-group" style="margin:0;">
+                        <label style="color:#c2185b;">cuisine <small style="color:#999;">菜系</small></label>
+                        <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #fce4ec;border-radius:6px;cursor:text;" onclick="document.getElementById('cuisineTagInput').focus()">
+                            <div id="cuisineTagsChips" style="display:contents;"></div>
+                            <input type="text" id="cuisineTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'cuisine')">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label style="color:#666;">others <small style="color:#999;">其他</small></label>
+                        <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #ddd;border-radius:6px;cursor:text;" onclick="document.getElementById('tagInput').focus()">
+                            <div id="placeTagsChips" style="display:contents;"></div>
+                            <input type="text" id="tagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'others')">
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="placeTagsJson">
+                
+                <!-- AI 展示标签 -->
+                <div class="form-group" style="margin-top:12px;">
+                    <label>AI 展示标签 (aiTags)</label>
+                    <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #ddd;border-radius:6px;cursor:text;" onclick="document.getElementById('aiTagInput').focus()">
                         <div id="placeAiTagsChips" style="display:contents;"></div>
-                        <input type="text" id="aiTagInput" placeholder="输入 AI 标签后按回车..." style="border:none;outline:none;flex:1;min-width:120px;padding:4px;" onkeydown="handleAiTagInputKeydown(event)">
+                        <input type="text" id="aiTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleAiTagInputKeydown(event)">
                     </div>
                     <input type="hidden" id="placeAiTagsJson">
                 </div>
@@ -1798,10 +1870,15 @@
             // 保存到 filterOptions 以供其他函数使用
             filterOptions.tagsByType = tagsByType;
             
+            // 使用后端返回的地点数量（如果有的话）
+            const placeCounts = filterOptions.tagTypePlaceCounts || {};
+            
             tagsByType.forEach(typeInfo => {
                 const option = document.createElement('option');
                 option.value = typeInfo.type;
-                option.textContent = `${typeInfo.label} (${typeInfo.count})`;
+                // 优先使用后端返回的地点数量，否则使用标签使用次数
+                const displayCount = placeCounts[typeInfo.type] !== undefined ? placeCounts[typeInfo.type] : typeInfo.count;
+                option.textContent = `${typeInfo.label} (${displayCount})`;
                 option.selected = typeInfo.type === currentTagType;
                 tagTypeSelect.appendChild(option);
             });
@@ -1869,6 +1946,76 @@
             return tag;
         }
         
+        // 按类型分组渲染标签（type、style、architect 分行显示）
+        function renderTagsByType(tags) {
+            if (!tags || !Array.isArray(tags) || tags.length === 0) {
+                return '-';
+            }
+            
+            // 定义类型的显示顺序和标签
+            const typeConfig = {
+                type: { label: 'type', color: '#d1ecf1', textColor: '#0c5460' },
+                style: { label: 'style', color: '#fff3cd', textColor: '#856404' },
+                architect: { label: 'architect', color: '#d4edda', textColor: '#155724' },
+                award: { label: 'award', color: '#f8d7da', textColor: '#721c24' },
+                theme: { label: 'theme', color: '#e2e3e5', textColor: '#383d41' },
+                other: { label: '', color: '#d1ecf1', textColor: '#0c5460' }
+            };
+            
+            // 按类型分组
+            const grouped = {
+                type: [],
+                style: [],
+                architect: [],
+                award: [],
+                theme: [],
+                other: []
+            };
+            
+            tags.forEach(tag => {
+                // 支持字符串或对象格式
+                let tagText = '';
+                let tagKind = 'other';
+                
+                if (typeof tag === 'object' && tag !== null) {
+                    tagText = tag.en || tag.name || tag.id || '';
+                    tagKind = tag.kind || tag.type || 'other';
+                } else if (typeof tag === 'string') {
+                    tagText = tag;
+                    // 从字符串推断类型
+                    tagKind = guessTagType(tag);
+                }
+                
+                if (tagText && grouped[tagKind]) {
+                    grouped[tagKind].push(tagText);
+                } else if (tagText) {
+                    grouped.other.push(tagText);
+                }
+            });
+            
+            // 生成 HTML
+            let html = '<div class="tags-by-type">';
+            
+            // 按顺序渲染每个类型
+            ['type', 'style', 'architect', 'award', 'theme', 'other'].forEach(typeKey => {
+                const items = grouped[typeKey];
+                if (items.length > 0) {
+                    const config = typeConfig[typeKey];
+                    const labelPrefix = config.label ? `<span style="font-size:10px;color:#999;margin-right:4px;">${config.label}:</span>` : '';
+                    
+                    html += `<div style="margin-bottom:4px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;">`;
+                    html += labelPrefix;
+                    items.forEach(item => {
+                        html += `<span class="tag" style="background:${config.color};color:${config.textColor};font-size:11px;padding:2px 6px;">${item}</span>`;
+                    });
+                    html += `</div>`;
+                }
+            });
+            
+            html += '</div>';
+            return html;
+        }
+        
         // 简单的标签类型识别（基于内容特征，因为数据库中的标签没有前缀）
         function guessTagType(tag) {
             const lowerTag = tag.toLowerCase();
@@ -1882,7 +2029,25 @@
             if (lowerTag.startsWith('shop:')) return 'shop';
             if (lowerTag.startsWith('type:')) return 'type';
             
-            // 奖项检测（第二优先级）
+            // 类型关键词（建筑类型等）- 第二优先级
+            const typeKeywords = [
+                'architecture', 'museum', 'gallery', 'church', 'temple', 'palace', 'castle', 
+                'tower', 'bridge', 'park', 'garden', 'cemetery', 'memorial', 'monument', 
+                'library', 'theater', 'theatre', 'stadium', 'station', 'airport', 'hotel', 
+                'restaurant', 'cafe', 'bar', 'shop', 'market', 'school', 'university', 
+                'hospital', 'office', 'residential', 'apartment', 'house', 'villa', 
+                'pavilion', 'chapel', 'cathedral', 'mosque', 'synagogue', 'shrine',
+                'skyscraper', 'building', 'complex', 'center', 'centre', 'hall', 'arena'
+            ];
+            
+            // 精确匹配类型关键词（单独的词）
+            for (const keyword of typeKeywords) {
+                if (lowerTag === keyword) {
+                    return 'type';
+                }
+            }
+            
+            // 奖项检测（第三优先级）
             if (lowerTag === 'pritzker' || lowerTag.startsWith('pritzker_year:') || lowerTag.startsWith('pritzker ')) {
                 return 'award';
             }
@@ -2353,9 +2518,8 @@
                 
                 // 优先使用 display_tags_en（后端已经合并了 tags + aiTags）
                 if (place.display_tags_en && Array.isArray(place.display_tags_en) && place.display_tags_en.length > 0) {
-                    tagsHtml = '<div class="tag-container">' + 
-                        place.display_tags_en.map(t => `<span class="tag tag-info">${t}</span>`).join('') + 
-                        '</div>';
+                    // 按类型分组显示标签
+                    tagsHtml = renderTagsByType(place.display_tags_en);
                 } else {
                     // 回退：尝试解析 aiTags
                     const tagsData = place.aiTags;
@@ -2363,19 +2527,8 @@
                         try {
                             const tagArr = typeof tagsData === 'string' ? JSON.parse(tagsData) : tagsData;
                             if (Array.isArray(tagArr) && tagArr.length > 0) {
-                                // 提取 en 字段，如果是对象的话
-                                const tagStrings = tagArr.map(t => {
-                                    if (typeof t === 'object' && t !== null && t.en) {
-                                        return t.en;
-                                    }
-                                    return typeof t === 'string' ? t : '';
-                                }).filter(Boolean);
-                                
-                                if (tagStrings.length > 0) {
-                                    tagsHtml = '<div class="tag-container">' + 
-                                        tagStrings.map(t => `<span class="tag tag-info">${t}</span>`).join('') + 
-                                        '</div>';
-                                }
+                                // 按类型分组显示标签
+                                tagsHtml = renderTagsByType(tagArr);
                             }
                         } catch { tagsHtml = '-'; }
                     }
@@ -2659,6 +2812,7 @@
             document.getElementById('minRating').value = '';
             document.getElementById('maxRating').value = '';
             document.getElementById('tagFilter').value = '';
+            document.getElementById('tagTypeFilter').value = '';
             document.getElementById('sourceFilter').value = '';
             document.getElementById('hasCoverImage').value = '';
             document.getElementById('sortBy').value = '';
@@ -2672,7 +2826,10 @@
         function removeFilter(key) {
             delete filters[key];
             // 处理不同的元素 ID
-            const elementId = key === 'source' ? 'sourceFilter' : key;
+            let elementId = key;
+            if (key === 'source') elementId = 'sourceFilter';
+            if (key === 'tagType') elementId = 'tagTypeFilter';
+            if (key === 'tag') elementId = 'tagFilter';
             const element = document.getElementById(elementId);
             if (element) element.value = '';
             currentPage = 1;
@@ -3602,8 +3759,10 @@
                         const imgs = typeof place.images === 'string' ? JSON.parse(place.images) : place.images;
                         if (Array.isArray(imgs)) {
                             imgs.forEach(img => {
-                                if (!placeImages.includes(img)) {
-                                    placeImages.push(img);
+                                // 支持两种格式：字符串URL 或 {url: "...", source: "..."} 对象
+                                const imgUrl = typeof img === 'string' ? img : (img?.url || img);
+                                if (imgUrl && !placeImages.includes(imgUrl)) {
+                                    placeImages.push(imgUrl);
                                 }
                             });
                         }
@@ -3642,21 +3801,48 @@
         
         // 标签自动归类规则
         const TAG_CATEGORIES = {
+            type: ['architecture', 'museum', 'gallery', 'church', 'temple', 'palace', 'castle', 'tower', 'bridge', 'park', 'garden', 'cemetery', 'memorial', 'monument', 'library', 'theater', 'stadium', 'station', 'airport', 'hotel', 'restaurant', 'cafe', 'bar', 'shop', 'market', 'school', 'university', 'hospital', 'office', 'residential', 'apartment', 'house', 'villa', 'pavilion', 'chapel', 'cathedral', 'mosque', 'synagogue', 'shrine'],
+            style: ['brutalism', 'brutalist', 'modernism', 'modernist', 'postmodernism', 'postmodernist', 'minimalism', 'minimalist', 'baroque', 'gothic', 'renaissance', 'romanesque', 'art nouveau', 'art deco', 'expressionism', 'expressionist', 'futurism', 'futurist', 'constructivism', 'constructivist', 'deconstructivism', 'deconstructivist', 'neoclassicism', 'neoclassical', 'classical', 'contemporary', 'industrial', 'organic', 'parametric', 'high-tech', 'metabolism', 'metabolist', 'international style', 'bauhaus', 'prairie school', 'arts and crafts', 'victorian', 'edwardian', 'georgian', 'colonial', 'federal', 'beaux-arts', 'chicago school', 'streamline moderne', 'cozy', 'romantic', 'trendy', 'upscale', 'casual', 'modern', 'traditional', 'elegant', 'rustic', 'vintage', 'bohemian', 'islamic', 'byzantine', 'ottoman', 'mughal', 'persian'],
+            architect: [], // 建筑师名字通过人名检测
             meal: ['breakfast', 'brunch', 'lunch', 'dinner', 'supper', 'tea', 'coffee', 'dessert', 'snack'],
-            style: ['cozy', 'romantic', 'trendy', 'upscale', 'casual', 'modern', 'traditional', 'elegant', 'rustic', 'minimalist', 'vintage', 'industrial', 'bohemian'],
-            theme: ['musician', 'artist', 'writer', 'poet', 'composer', 'painter', 'sculptor', 'philosopher', 'scientist', 'architect', 'filmmaker', 'photographer', 'designer', 'celebrity', 'historical', 'literary', 'musical', 'artistic'],
-            award: ['michelin', 'star', 'bib gourmand', 'award', 'prize', 'best', 'top', 'recommended'],
+            theme: ['musician', 'artist', 'writer', 'poet', 'composer', 'painter', 'sculptor', 'philosopher', 'scientist', 'filmmaker', 'photographer', 'designer', 'celebrity', 'historical', 'literary', 'musical', 'artistic'],
+            award: ['michelin', 'star', 'bib gourmand', 'award', 'prize', 'best', 'top', 'recommended', 'pritzker'],
             cuisine: ['italian', 'french', 'japanese', 'chinese', 'korean', 'thai', 'vietnamese', 'indian', 'mexican', 'spanish', 'greek', 'turkish', 'middle eastern', 'american', 'british', 'german', 'mediterranean', 'asian', 'european', 'fusion', 'seafood', 'vegetarian', 'vegan']
         };
         
         // 自动归类标签
         function classifyTag(value) {
             const lowerValue = value.toLowerCase();
+            
+            // 检查是否有前缀（如 type:, style:, architect:）
+            if (value.includes(':')) {
+                const prefix = value.split(':')[0].toLowerCase();
+                if (['type', 'style', 'architect', 'meal', 'theme', 'award', 'cuisine'].includes(prefix)) {
+                    return prefix;
+                }
+            }
+            
+            // 按关键词匹配
             for (const [category, keywords] of Object.entries(TAG_CATEGORIES)) {
-                if (keywords.some(kw => lowerValue.includes(kw) || kw.includes(lowerValue))) {
+                if (keywords.length > 0 && keywords.some(kw => lowerValue.includes(kw) || kw.includes(lowerValue))) {
                     return category;
                 }
             }
+            
+            // 检测是否是人名（建筑师）
+            // 1. 包含至少一个大写字母
+            // 2. 包含空格
+            // 3. 长度在 3-50 之间
+            if (/[A-Z]/.test(value) && /\s/.test(value) && value.length >= 3 && value.length <= 50) {
+                const words = value.split(/\s+/).filter(w => w.length > 0);
+                if (words.length >= 2) {
+                    const capitalizedWords = words.filter(w => /^[A-Z]/.test(w));
+                    if (capitalizedWords.length >= words.length * 0.5) {
+                        return 'architect';
+                    }
+                }
+            }
+            
             return 'others';
         }
         
@@ -3738,40 +3924,71 @@
             renderPlaceAiTags(aiTags);
         }
         
-        // 渲染结构化标签为 chips（在输入框内）
+        // 渲染结构化标签为 chips（按类型分别渲染到不同容器）
         function renderPlaceTags(tags) {
-            const container = document.getElementById('placeTagsChips');
+            // 所有标签类型及其容器映射
+            const typeContainers = {
+                type: document.getElementById('typeTagsChips'),
+                style: document.getElementById('styleTagsChips'),
+                architect: document.getElementById('architectTagsChips'),
+                award: document.getElementById('awardTagsChips'),
+                theme: document.getElementById('themeTagsChips'),
+                meal: document.getElementById('mealTagsChips'),
+                cuisine: document.getElementById('cuisineTagsChips'),
+                others: document.getElementById('placeTagsChips')
+            };
+            
+            // 清空所有容器
+            Object.values(typeContainers).forEach(container => {
+                if (container) container.innerHTML = '';
+            });
+            
             if (!tags || typeof tags !== 'object' || Object.keys(tags).length === 0) {
-                container.innerHTML = '';
                 return;
             }
             
             const typeColors = {
-                meal: '#e3f2fd',
-                style: '#f3e5f5',
-                theme: '#e8f5e9',
-                award: '#fff3e0',
-                cuisine: '#fce4ec',
-                others: '#f5f5f5'
+                type: { bg: '#d1ecf1', text: '#0c5460' },
+                style: { bg: '#fff3cd', text: '#856404' },
+                architect: { bg: '#d4edda', text: '#155724' },
+                award: { bg: '#fff3e0', text: '#e65100' },
+                theme: { bg: '#e8f5e9', text: '#2e7d32' },
+                meal: { bg: '#e3f2fd', text: '#1565c0' },
+                cuisine: { bg: '#fce4ec', text: '#c2185b' },
+                others: { bg: '#f5f5f5', text: '#666' }
             };
             
-            const chips = [];
             for (const [type, values] of Object.entries(tags)) {
-                if (Array.isArray(values)) {
-                    const bgColor = typeColors[type] || typeColors.others;
-                    values.forEach(value => {
-                        chips.push(`
-                            <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:${bgColor};border-radius:12px;font-size:12px;white-space:nowrap;">
-                                <span style="color:#666;font-size:10px;">${type}:</span>
-                                <span style="font-weight:500;">${value}</span>
-                                <button type="button" onclick="removeTag('${type}', '${value}')" style="border:none;background:none;cursor:pointer;color:#999;font-size:14px;line-height:1;padding:0 2px;" title="删除">×</button>
-                            </span>
-                        `);
-                    });
+                if (!Array.isArray(values)) continue;
+                
+                const colors = typeColors[type] || typeColors.others;
+                const targetContainer = typeContainers[type] || typeContainers.others;
+                
+                if (!targetContainer) continue;
+                
+                values.forEach(value => {
+                    const chip = document.createElement('span');
+                    chip.style.cssText = `display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:${colors.bg};border-radius:12px;font-size:12px;white-space:nowrap;`;
+                    chip.innerHTML = `
+                        <span style="font-weight:500;color:${colors.text};">${value}</span>
+                        <button type="button" onclick="removeTag('${type}', '${value}')" style="border:none;background:none;cursor:pointer;color:${colors.text};font-size:14px;line-height:1;padding:0 2px;" title="删除">×</button>
+                    `;
+                    targetContainer.appendChild(chip);
+                });
+            }
+        }
+        
+        // 处理分类标签输入（所有类型）
+        function handleTypedTagInputKeydown(event, tagType) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const input = event.target;
+                const value = input.value.trim();
+                if (value) {
+                    addTagToStore(tagType, value);
+                    input.value = '';
                 }
             }
-            
-            container.innerHTML = chips.join('');
         }
         
         // 渲染 AI 标签为 chips（在输入框内）

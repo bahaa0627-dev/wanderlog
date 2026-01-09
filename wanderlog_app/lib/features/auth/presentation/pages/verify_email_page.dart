@@ -2,70 +2,82 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:wanderlog/core/supabase/supabase_config.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 
 class VerifyEmailPage extends ConsumerStatefulWidget {
-  const VerifyEmailPage({super.key});
+  const VerifyEmailPage({super.key, this.email});
+  
+  final String? email;
 
   @override
   ConsumerState<VerifyEmailPage> createState() => _VerifyEmailPageState();
 }
 
 class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
-  final _codeControllers = List.generate(6, (_) => TextEditingController());
-  final _focusNodes = List.generate(6, (_) => FocusNode());
-  bool _isLoading = false;
   bool _canResend = true;
   int _resendCountdown = 0;
   Timer? _timer;
+  Timer? _checkTimer;
+
+  String get _email => widget.email ?? SupabaseConfig.currentUser?.email ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _startCheckingVerification();
+  }
 
   @override
   void dispose() {
-    for (final controller in _codeControllers) {
-      controller.dispose();
-    }
-    for (final node in _focusNodes) {
-      node.dispose();
-    }
     _timer?.cancel();
+    _checkTimer?.cancel();
     super.dispose();
   }
 
-  String get _code => _codeControllers.map((c) => c.text).join();
+  void _startCheckingVerification() {
+    _checkTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      await _checkEmailVerified();
+    });
+  }
 
-  Future<void> _onVerify() async {
-    if (_code.length != 6) {
-      _showError('Please enter all 6 digits');
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
+  Future<void> _checkEmailVerified() async {
     try {
-      await ref.read(authProvider.notifier).verifyEmail(_code);
-      if (mounted) {
-        context.go('/home');
+      await SupabaseConfig.auth.refreshSession();
+      final user = SupabaseConfig.currentUser;
+      
+      if (user != null && user.emailConfirmedAt != null) {
+        _checkTimer?.cancel();
+        await ref.read(authProvider.notifier).refreshAuthState();
+        if (mounted) {
+          CustomToast.showSuccess(context, 'Email verified!');
+          context.go('/home');
+        }
       }
     } catch (e) {
-      if (mounted) {
-        _showError(e.toString());
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      // 忽略错误，继续检查
     }
   }
 
   Future<void> _onResend() async {
     if (!_canResend) return;
 
+    if (_email.isEmpty) {
+      _showError('Email not found');
+      return;
+    }
+
     try {
-      await ref.read(authProvider.notifier).resendVerification();
+      await SupabaseConfig.auth.resend(
+        type: OtpType.signup,
+        email: _email,
+      );
 
       if (mounted) {
-        _showSuccess('Verification code sent to your email');
+        _showSuccess('Verification email sent');
         _startResendCountdown();
       }
     } catch (e) {
@@ -92,6 +104,42 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
     });
   }
 
+  Future<void> _openEmailInBrowser() async {
+    String mailUrl;
+
+    // 根据邮箱域名打开对应的网页版邮箱
+    if (_email.contains('@gmail.com')) {
+      mailUrl = 'https://mail.google.com';
+    } else if (_email.contains('@outlook.com') || 
+               _email.contains('@hotmail.com') || 
+               _email.contains('@live.com')) {
+      mailUrl = 'https://outlook.live.com';
+    } else if (_email.contains('@yahoo.com')) {
+      mailUrl = 'https://mail.yahoo.com';
+    } else if (_email.contains('@icloud.com') || _email.contains('@me.com')) {
+      mailUrl = 'https://www.icloud.com/mail';
+    } else if (_email.contains('@qq.com')) {
+      mailUrl = 'https://mail.qq.com';
+    } else if (_email.contains('@163.com')) {
+      mailUrl = 'https://mail.163.com';
+    } else if (_email.contains('@sina.com')) {
+      mailUrl = 'https://mail.sina.com.cn';
+    } else if (_email.contains('@126.com')) {
+      mailUrl = 'https://mail.126.com';
+    } else {
+      mailUrl = 'https://mail.google.com';
+    }
+
+    final uri = Uri.parse(mailUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        _showError('Could not open browser');
+      }
+    }
+  }
+
   void _showError(String message) {
     CustomToast.showError(context, message);
   }
@@ -102,8 +150,6 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authProvider).user;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Verify Email'),
@@ -121,9 +167,9 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(
-                  Icons.email_outlined,
+                  Icons.mark_email_unread_outlined,
                   size: 80,
-                  color: Colors.blue,
+                  color: Colors.amber,
                 ),
                 const SizedBox(height: 32),
                 const Text(
@@ -133,82 +179,37 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'We sent a verification code to',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
-                ),
                 const SizedBox(height: 8),
                 Text(
-                  user?.email ?? '',
+                  _email,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 48),
-
-                // 6位验证码输入框
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: List.generate(
-                      6,
-                      (index) => SizedBox(
-                            width: 50,
-                            child: TextField(
-                              controller: _codeControllers[index],
-                              focusNode: _focusNodes[index],
-                              textAlign: TextAlign.center,
-                              keyboardType: TextInputType.number,
-                              maxLength: 1,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              decoration: InputDecoration(
-                                counterText: '',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[100],
-                              ),
-                              onChanged: (value) {
-                                if (value.isNotEmpty && index < 5) {
-                                  _focusNodes[index + 1].requestFocus();
-                                } else if (value.isEmpty && index > 0) {
-                                  _focusNodes[index - 1].requestFocus();
-                                }
-
-                                // 自动验证
-                                if (index == 5 && value.isNotEmpty) {
-                                  _onVerify();
-                                }
-                              },
-                            ),
-                          ),),
+                const SizedBox(height: 16),
+                Text(
+                  'Click the link in the email to verify your account.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
                 ),
-
                 const SizedBox(height: 32),
 
+                // 打开邮箱按钮
                 SizedBox(
                   width: double.infinity,
                   height: 48,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _onVerify,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Verify Email'),
+                  child: FilledButton.icon(
+                    onPressed: _openEmailInBrowser,
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('Open Email'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      foregroundColor: Colors.black,
+                    ),
                   ),
                 ),
 
@@ -218,7 +219,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Didn't receive the code? ",
+                      "Didn't receive the email? ",
                       style: TextStyle(color: Colors.grey[600]),
                     ),
                     TextButton(
@@ -228,7 +229,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                             ? 'Resend'
                             : 'Resend in ${_resendCountdown}s',
                         style: TextStyle(
-                          color: _canResend ? Colors.blue : Colors.grey,
+                          color: _canResend ? Colors.amber[700] : Colors.grey,
                         ),
                       ),
                     ),

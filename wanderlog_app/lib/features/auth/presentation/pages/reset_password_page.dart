@@ -5,6 +5,8 @@ import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/shared/widgets/code_input_widget.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/l10n/app_localizations.dart';
+import 'package:wanderlog/core/providers/locale_provider.dart';
 
 class ResetPasswordPage extends ConsumerStatefulWidget {
   const ResetPasswordPage({super.key, this.email});
@@ -102,7 +104,8 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
       final difference = DateTime.now().difference(_lastResendTime!);
       if (difference.inSeconds < 60) {
         final remaining = 60 - difference.inSeconds;
-        CustomToast.showError(context, '$remaining 秒后再试');
+        final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
+        CustomToast.showError(context, l10n.retryAfterSeconds(remaining));
         return;
       }
     }

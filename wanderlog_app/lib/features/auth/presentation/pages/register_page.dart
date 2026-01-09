@@ -59,13 +59,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       setState(() => _isLoading = true);
       try {
         // 直接使用 Supabase Auth 注册
+        debugPrint('Registering with emailRedirectTo: https://vago.to/authentication');
         final response = await SupabaseConfig.auth.signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text,
+          emailRedirectTo: 'https://vago.to/authentication',
           data: {
             'name': _nameController.text.isEmpty ? null : _nameController.text,
           },
         );
+        debugPrint('SignUp response: ${response.user?.email}');
         
         if (response.user != null) {
           if (mounted) {

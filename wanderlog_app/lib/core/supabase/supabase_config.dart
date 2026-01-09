@@ -19,7 +19,7 @@ class SupabaseConfig {
       url: url,
       anonKey: anonKey,
       authOptions: FlutterAuthClientOptions(
-        authFlowType: AuthFlowType.pkce,
+        authFlowType: AuthFlowType.implicit,
       ),
       realtimeClientOptions: const RealtimeClientOptions(
         logLevel: RealtimeLogLevel.info,

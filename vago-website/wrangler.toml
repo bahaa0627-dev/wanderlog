@@ -1,0 +1,9 @@
+# VAGO Website - Cloudflare Worker
+name = "vago-website"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# 路由配置 - 部署后需要在 Cloudflare Dashboard 添加
+# routes = [
+#   { pattern = "vago.to/*", zone_name = "vago.to" }
+# ]

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/validators.dart';
+import 'package:wanderlog/core/utils/auth_error_messages.dart';
 
 class ResetPasswordPage extends ConsumerStatefulWidget {
   const ResetPasswordPage({super.key, this.email});
@@ -20,14 +22,36 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  
+  // Real-time password validation state (Requirements 3.1, 3.2, 3.3)
+  bool _hasMinLength = false;
+  bool _passwordsMatch = false;
 
   @override
   void initState() {
     super.initState();
+    // Add listeners for real-time validation
+    _passwordController.addListener(_validatePassword);
+    _confirmPasswordController.addListener(_validatePassword);
+  }
+  
+  /// Validates password in real-time and updates state
+  /// Requirements: 3.1, 3.2, 3.3
+  void _validatePassword() {
+    final password = _passwordController.text;
+    final confirmation = _confirmPasswordController.text;
+    
+    setState(() {
+      _hasMinLength = Validators.hasMinLength(password);
+      _passwordsMatch = confirmation.isNotEmpty && 
+          Validators.passwordsMatch(password, confirmation);
+    });
   }
 
   @override
   void dispose() {
+    _passwordController.removeListener(_validatePassword);
+    _confirmPasswordController.removeListener(_validatePassword);
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -53,7 +77,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
       }
     } catch (e) {
       if (mounted) {
-        final errorMessage = e.toString();
+        final errorMessage = AuthErrorMessages.fromSupabaseError(e);
         CustomToast.showError(context, errorMessage);
       }
     } finally {
@@ -61,6 +85,63 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// Builds the password strength indicator widget
+  /// Shows whether password meets requirements and if passwords match
+  /// Requirement: 4.4
+  Widget _buildPasswordStrengthIndicator() {
+    final hasPassword = _passwordController.text.isNotEmpty;
+    final hasConfirmation = _confirmPasswordController.text.isNotEmpty;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Password length requirement
+        _buildRequirementRow(
+          icon: _hasMinLength ? Icons.check_circle : Icons.circle_outlined,
+          color: _hasMinLength ? Colors.green : Colors.grey,
+          text: 'At least 6 characters',
+          isActive: hasPassword,
+        ),
+        const SizedBox(height: 8),
+        // Passwords match requirement
+        _buildRequirementRow(
+          icon: _passwordsMatch ? Icons.check_circle : Icons.circle_outlined,
+          color: _passwordsMatch ? Colors.green : 
+              (hasConfirmation && !_passwordsMatch ? Colors.red : Colors.grey),
+          text: _passwordsMatch ? 'Passwords match' : 
+              (hasConfirmation && !_passwordsMatch ? 'Passwords do not match' : 'Passwords match'),
+          isActive: hasConfirmation,
+        ),
+      ],
+    );
+  }
+
+  /// Builds a single requirement row for the password strength indicator
+  Widget _buildRequirementRow({
+    required IconData icon,
+    required Color color,
+    required String text,
+    required bool isActive,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: color,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            color: isActive ? color : Colors.grey,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -140,15 +221,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                           },
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a password';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
+                      validator: Validators.validatePassword,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -184,16 +257,15 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                           },
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please confirm your password';
-                        }
-                        if (value != _passwordController.text) {
-                          return 'Passwords do not match';
-                        }
-                        return null;
-                      },
+                      validator: (value) =>
+                          Validators.validatePasswordConfirmation(
+                            _passwordController.text,
+                            value,
+                          ),
                     ),
+                    const SizedBox(height: 16),
+                    // Password strength indicator (Requirement 4.4)
+                    _buildPasswordStrengthIndicator(),
                     const SizedBox(height: 32),
                     SizedBox(
                       height: 48,

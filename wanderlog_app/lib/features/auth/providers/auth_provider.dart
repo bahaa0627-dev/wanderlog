@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/providers/dio_provider.dart';
 import 'package:wanderlog/core/storage/storage_service.dart';
 import 'package:wanderlog/core/supabase/supabase_config.dart';
+import 'package:wanderlog/core/utils/auth_error_messages.dart';
 import 'package:wanderlog/shared/models/user_model.dart';
 import 'package:wanderlog/features/auth/data/auth_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
@@ -166,14 +167,34 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> forgotPassword(String email) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      // Use Supabase password recovery (email link), not backend codes.
+      // Supabase resetPasswordForEmail 默认不会告诉你邮箱是否存在（安全考虑）
+      // 我们直接发送重置邮件，如果邮箱不存在，用户不会收到邮件
+      // 但为了更好的用户体验，我们可以先尝试通过后端检查
+      
+      // 尝试调用后端 API 检查邮箱是否存在
+      try {
+        await _repository.forgotPassword(email);
+      } catch (e) {
+        // 如果后端返回邮箱不存在的错误，直接抛出
+        final errorStr = e.toString().toLowerCase();
+        if (errorStr.contains('not found') || 
+            errorStr.contains("didn't sign up") ||
+            errorStr.contains('not registered')) {
+          rethrow;
+        }
+        // 其他错误（如网络错误），忽略后端检查，继续使用 Supabase
+      }
+      
+      // 使用 Supabase 发送重置邮件
       await SupabaseConfig.auth.resetPasswordForEmail(
         email,
         redirectTo: SupabaseConfig.redirectUrl,
       );
       state = state.copyWith(isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      // Use AuthErrorMessages to convert Supabase error to user-friendly message
+      final errorMessage = AuthErrorMessages.fromSupabaseError(e);
+      state = state.copyWith(isLoading: false, error: errorMessage);
       rethrow;
     }
   }
@@ -187,7 +208,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = state.copyWith(isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      // Use AuthErrorMessages to convert Supabase error to user-friendly message
+      final errorMessage = AuthErrorMessages.fromSupabaseError(e);
+      state = state.copyWith(isLoading: false, error: errorMessage);
       rethrow;
     }
   }
@@ -200,7 +223,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await updatePassword(newPassword);
       state = state.copyWith(isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      // Use AuthErrorMessages to convert Supabase error to user-friendly message
+      final errorMessage = AuthErrorMessages.fromSupabaseError(e);
+      state = state.copyWith(isLoading: false, error: errorMessage);
       rethrow;
     }
   }

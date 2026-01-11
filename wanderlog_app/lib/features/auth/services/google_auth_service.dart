@@ -37,29 +37,27 @@ class GoogleAuthService {
 
     try {
       await _ensureInitialized(clientId: kIsWeb ? clientId : null);
+      debugPrint('Google Sign-In: initialized');
 
-      // 先尝试静默登录（如果用户之前登录过）
-      GoogleSignInAccount? account;
-      final Future<GoogleSignInAccount?>? lightweightAuth =
-          GoogleSignIn.instance.attemptLightweightAuthentication();
-      if (lightweightAuth != null) {
-        account = await lightweightAuth.timeout(
-          const Duration(seconds: 5),
-          onTimeout: () => null,
-        );
-      }
+      // 先登出之前的账号，确保每次都显示账号选择界面
+      await GoogleSignIn.instance.signOut();
+      debugPrint('Google Sign-In: signed out previous account');
 
-      // 如果静默登录失败，则显示登录界面
-      account ??= await GoogleSignIn.instance.authenticate(
+      // 直接显示登录界面，让用户选择账号
+      debugPrint('Google Sign-In: starting authenticate...');
+      final account = await GoogleSignIn.instance.authenticate(
           scopeHint: const ['email', 'profile'],
         ).timeout(
           const Duration(seconds: 30),
         );
+      debugPrint('Google Sign-In: authenticate completed, account: ${account.email}');
 
       // 确保有账户后才请求授权范围
+      debugPrint('Google Sign-In: requesting scopes...');
       await account.authorizationClient.authorizationForScopes(
         const ['email', 'profile'],
       );
+      debugPrint('Google Sign-In: scopes granted');
       return account;
     } on TimeoutException catch (e) {
       debugPrint('Google Sign-In Timeout: $e');

@@ -119,6 +119,24 @@ class AuthRepository {
     }
   }
 
+  /// 检查邮箱是否已注册
+  Future<bool> checkEmailExists(String email) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/auth/check-email',
+        data: {'email': email},
+      );
+      return response.data?['exists'] == true;
+    } on DioException catch (e) {
+      // 如果接口不存在，尝试通过 forgot-password 接口检查
+      if (e.response?.statusCode == 404) {
+        // 接口不存在，返回 true 让流程继续
+        return true;
+      }
+      throw _handleError(e);
+    }
+  }
+
   /// 重置密码
   Future<void> resetPassword({
     required String email,

@@ -15,6 +15,8 @@ class StorageService {
 
   // Secure Storage (for sensitive data like tokens)
   Future<void> setSecure(String key, String value) async {
+    // 先删除旧值，避免 keychain 冲突
+    await _secureStorage.delete(key: key);
     await _secureStorage.write(key: key, value: value);
   }
 

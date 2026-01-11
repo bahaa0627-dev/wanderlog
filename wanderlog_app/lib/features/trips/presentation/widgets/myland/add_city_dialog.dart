@@ -291,8 +291,7 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _matchingCities.map((city) {
-                  return GestureDetector(
+                children: _matchingCities.map((city) => GestureDetector(
                     onTap: () {
                       _cityController.text = city;
                       _onCityInputChanged(city);
@@ -315,8 +314,7 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
                         style: AppTheme.labelSmall(context),
                       ),
                     ),
-                  );
-                }).toList(),
+                  )).toList(),
               ),
             ],
 

@@ -3,10 +3,6 @@ import 'package:wanderlog/features/collections/providers/collection_providers.da
 
 /// 合集数据缓存状态
 class CollectionsCacheState {
-  final Map<String, Map<String, dynamic>> collectionsById;
-  final bool isLoading;
-  final String? error;
-  final DateTime? lastLoadedAt;
 
   const CollectionsCacheState({
     this.collectionsById = const {},
@@ -14,20 +10,22 @@ class CollectionsCacheState {
     this.error,
     this.lastLoadedAt,
   });
+  final Map<String, Map<String, dynamic>> collectionsById;
+  final bool isLoading;
+  final String? error;
+  final DateTime? lastLoadedAt;
 
   CollectionsCacheState copyWith({
     Map<String, Map<String, dynamic>>? collectionsById,
     bool? isLoading,
     String? error,
     DateTime? lastLoadedAt,
-  }) {
-    return CollectionsCacheState(
+  }) => CollectionsCacheState(
       collectionsById: collectionsById ?? this.collectionsById,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       lastLoadedAt: lastLoadedAt ?? this.lastLoadedAt,
     );
-  }
 
   bool get hasData => collectionsById.isNotEmpty;
   
@@ -40,9 +38,9 @@ class CollectionsCacheState {
 
 /// 合集数据缓存 Notifier
 class CollectionsCacheNotifier extends StateNotifier<CollectionsCacheState> {
-  final Ref _ref;
 
   CollectionsCacheNotifier(this._ref) : super(const CollectionsCacheState());
+  final Ref _ref;
 
   /// 预加载所有合集数据（含地点）
   Future<void> preloadCollections({bool force = false}) async {
@@ -91,15 +89,11 @@ class CollectionsCacheNotifier extends StateNotifier<CollectionsCacheState> {
   }
 
   /// 获取缓存的合集详情
-  Map<String, dynamic>? getCollection(String id) {
-    return state.collectionsById[id];
-  }
+  Map<String, dynamic>? getCollection(String id) => state.collectionsById[id];
 
   /// 刷新数据
   Future<void> refresh() => preloadCollections(force: true);
 }
 
 /// 全局合集缓存 Provider
-final collectionsCacheProvider = StateNotifierProvider<CollectionsCacheNotifier, CollectionsCacheState>((ref) {
-  return CollectionsCacheNotifier(ref);
-});
+final collectionsCacheProvider = StateNotifierProvider<CollectionsCacheNotifier, CollectionsCacheState>((ref) => CollectionsCacheNotifier(ref));

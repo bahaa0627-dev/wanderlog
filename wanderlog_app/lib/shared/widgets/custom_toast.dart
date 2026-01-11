@@ -104,9 +104,7 @@ class _ToastWidgetState extends State<_ToastWidget>
     super.dispose();
   }
 
-  Color get _backgroundColor {
-    return Colors.white;
-  }
+  Color get _backgroundColor => Colors.white;
 
   Color get _iconColor {
     switch (widget.type) {

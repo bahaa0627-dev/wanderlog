@@ -3,10 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
-import 'package:wanderlog/shared/widgets/code_input_widget.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
-import 'package:wanderlog/core/l10n/app_localizations.dart';
-import 'package:wanderlog/core/providers/locale_provider.dart';
 
 class ResetPasswordPage extends ConsumerStatefulWidget {
   const ResetPasswordPage({super.key, this.email});
@@ -18,50 +15,33 @@ class ResetPasswordPage extends ConsumerStatefulWidget {
 
 class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  String _verificationCode = '';
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _hasCodeError = false;
-  bool _isResending = false;
-  DateTime? _lastResendTime;
 
   @override
   void initState() {
     super.initState();
-    if (widget.email != null) {
-      _emailController.text = widget.email!;
-    }
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _onSubmit() async {
-    if (_verificationCode.length != 6) {
-      setState(() => _hasCodeError = true);
-      CustomToast.showError(context, 'Please enter 6-digit verification code');
-      return;
-    }
-
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      await ref.read(authProvider.notifier).resetPassword(
-            _emailController.text,
-            _verificationCode,
-            _passwordController.text,
-          );
+      await ref
+          .read(authProvider.notifier)
+          .updatePassword(_passwordController.text);
 
       if (mounted) {
         CustomToast.showSuccess(context, 'Password reset successfully!');
@@ -74,61 +54,11 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
     } catch (e) {
       if (mounted) {
         final errorMessage = e.toString();
-
-        // Check for specific error types
-        if (errorMessage.contains('Invalid') ||
-            errorMessage.contains('expired')) {
-          setState(() => _hasCodeError = true);
-          CustomToast.showError(
-              context, 'Invalid or expired verification code',);
-        } else if (errorMessage.contains('Same password') ||
-            errorMessage.contains('different from your current password')) {
-          // Password is same as old password
-          CustomToast.showError(context,
-              'New password must be different from your current password',);
-        } else {
-          setState(() => _hasCodeError = true);
-          CustomToast.showError(context, errorMessage);
-        }
+        CustomToast.showError(context, errorMessage);
       }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _onResendCode() async {
-    // Check cooldown (60 seconds)
-    if (_lastResendTime != null) {
-      final difference = DateTime.now().difference(_lastResendTime!);
-      if (difference.inSeconds < 60) {
-        final remaining = 60 - difference.inSeconds;
-        final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
-        CustomToast.showError(context, l10n.retryAfterSeconds(remaining));
-        return;
-      }
-    }
-
-    setState(() => _isResending = true);
-
-    try {
-      await ref
-          .read(authProvider.notifier)
-          .forgotPassword(_emailController.text);
-
-      if (mounted) {
-        setState(() => _lastResendTime = DateTime.now());
-        CustomToast.showSuccess(
-            context, 'Verification code resent successfully',);
-      }
-    } catch (e) {
-      if (mounted) {
-        CustomToast.showError(context, e.toString());
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isResending = false);
       }
     }
   }
@@ -138,7 +68,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.go('/forgot-password'),
+            onPressed: () => context.go('/login'),
           ),
           title: const Text('Create New Password'),
         ),
@@ -169,7 +99,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Enter the code from your email and create a new password.',
+                      'Create a new password for your account.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 16,
@@ -177,58 +107,6 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                       ),
                     ),
                     const SizedBox(height: 48),
-                    if (widget.email == null)
-                      Column(
-                        children: [
-                          TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                              hintText: 'your@email.com',
-                              prefixIcon: Icon(Icons.email_outlined),
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your email';
-                              }
-                              final emailRegex =
-                                  RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                              if (!emailRegex.hasMatch(value)) {
-                                return 'Please enter a valid email';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                      ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Verification Code',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[700],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        CodeInputWidget(
-                          length: 6,
-                          hasError: _hasCodeError,
-                          onCompleted: (code) {
-                            setState(() {
-                              _verificationCode = code;
-                              _hasCodeError = false;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -332,17 +210,6 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                               )
                             : const Text('Reset Password'),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    TextButton(
-                      onPressed: _isResending ? null : _onResendCode,
-                      child: _isResending
-                          ? const SizedBox(
-                              height: 16,
-                              width: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Resend Code'),
                     ),
                   ],
                 ),

@@ -55,7 +55,7 @@ class SearchV2Service {
       onStageChange?.call(const SearchLoadingState.searching());
 
       debugPrint(
-          '🔍 SearchV2: Calling API with query: $query, language: $language');
+          '🔍 SearchV2: Calling API with query: $query, language: $language',);
 
       final previousConnectTimeout = _dio.options.connectTimeout;
       _dio.options.connectTimeout = const Duration(seconds: 120);

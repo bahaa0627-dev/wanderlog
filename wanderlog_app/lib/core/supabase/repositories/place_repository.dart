@@ -1,13 +1,13 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/place_model.dart';
-import '../supabase_config.dart';
+import 'package:wanderlog/core/supabase/models/place_model.dart';
+import 'package:wanderlog/core/supabase/supabase_config.dart';
 
 /// 地点数据仓库
 class PlaceRepository {
-  final SupabaseClient _client;
 
   PlaceRepository([SupabaseClient? client])
       : _client = client ?? SupabaseConfig.client;
+  final SupabaseClient _client;
 
   /// 获取地点列表 (分页)
   Future<List<PlaceModel>> getPlaces({
@@ -52,7 +52,7 @@ class PlaceRepository {
     final response = await _client.rpc<List<dynamic>>('search_places', params: {
       'search_term': keyword,
       'limit_count': limit,
-    });
+    },);
 
     return response.map((e) => PlaceModel.fromJson(e as Map<String, dynamic>)).toList();
   }
@@ -69,7 +69,7 @@ class PlaceRepository {
       'lng': longitude,
       'radius_km': radiusKm,
       'limit_count': limit,
-    });
+    },);
 
     return response.map((e) => PlaceModel.fromJson(e as Map<String, dynamic>)).toList();
   }

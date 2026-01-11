@@ -212,8 +212,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: _userPhotos.length,
-                itemBuilder: (context, index) {
-                  return Container(
+                itemBuilder: (context, index) => Container(
                     width: 80,
                     height: 80,
                     margin: const EdgeInsets.only(right: 8),
@@ -236,8 +235,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                               fit: BoxFit.cover,
                             ),
                     ),
-                  );
-                },
+                  ),
               ),
             ),
           ],

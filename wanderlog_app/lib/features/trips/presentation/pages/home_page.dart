@@ -175,9 +175,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         index: _selectedTab,
                         children: [
                           // Tab 0: Collection
-                          _isLoadingRecommendations
-                              ? const Center(child: CircularProgressIndicator())
-                              : _recommendations.isEmpty
+                          if (_isLoadingRecommendations) const Center(child: CircularProgressIndicator()) else _recommendations.isEmpty
                                   ? Center(
                                       child: Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
@@ -444,8 +442,7 @@ class _Header extends ConsumerWidget {
   final VoidCallback? onAskAITap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
+  Widget build(BuildContext context, WidgetRef ref) => Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(
@@ -514,7 +511,6 @@ class _Header extends ConsumerWidget {
         ],
       ),
     );
-  }
 }
 
 class _TabSwitcher extends StatelessWidget {
@@ -559,8 +555,7 @@ class _PillTab extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: onTap,
       child: Container(
@@ -579,7 +574,6 @@ class _PillTab extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 
 class _TripCard extends StatefulWidget {
@@ -759,8 +753,8 @@ class _TripCardState extends State<_TripCard> {
                       // 城市标签宽度 = 文字宽度 + padding (12 * 2)
                       final cityTagWidth = cityTextPainter.width + 24;
                       // 数量标签宽度约 42 (padding 10*2 + 数字约10 + icon 12)
-                      final countTagWidth = 42.0;
-                      final spacing = 8.0;
+                      const countTagWidth = 42.0;
+                      const spacing = 8.0;
                       final totalNeeded = cityTagWidth + countTagWidth + spacing;
                       
                       // 如果空间不够，只显示城市名

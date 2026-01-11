@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
-import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/features/trips/presentation/pages/myland/spots_tab.dart';
 import 'package:wanderlog/features/trips/presentation/pages/myland/collections_tab.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/trips_bottom_nav.dart';

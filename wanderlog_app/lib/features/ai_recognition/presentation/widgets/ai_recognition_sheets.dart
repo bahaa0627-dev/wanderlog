@@ -486,7 +486,7 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
     );
 
     if (imageUrl.isEmpty) {
-      return SizedBox(height: 160, child: placeholder);
+      return const SizedBox(height: 160, child: placeholder);
     }
 
     if (imageUrl.startsWith('data:')) {
@@ -497,10 +497,10 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
           width: double.infinity,
           height: 160,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => SizedBox(height: 160, child: placeholder),
+          errorBuilder: (_, __, ___) => const SizedBox(height: 160, child: placeholder),
         );
       }
-      return SizedBox(height: 160, child: placeholder);
+      return const SizedBox(height: 160, child: placeholder);
     }
 
     return Image.network(

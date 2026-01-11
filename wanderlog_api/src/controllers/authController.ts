@@ -5,6 +5,7 @@ import { OAuth2Client } from 'google-auth-library';
 import prisma from '../config/database';
 import { logger } from '../utils/logger';
 import { generateVerificationCode } from '../utils/tokenGenerator';
+import { ensureAuthTablesExist } from '../utils/ensureAuthTables';
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
@@ -47,6 +48,7 @@ const googleClient = new OAuth2Client({
 
 export const register = async (req: Request, res: Response) => {
   try {
+    await ensureAuthTablesExist();
     const { email, password, name } = req.body;
 
     // Check if user exists
@@ -122,6 +124,7 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
+    await ensureAuthTablesExist();
     const { email, password } = req.body;
 
     // 管理员登录（简单验证，用于后台管理）
@@ -190,6 +193,7 @@ export const getMe = async (req: Request, res: Response) => {
  */
 export const verifyEmail = async (req: Request, res: Response) => {
   try {
+    await ensureAuthTablesExist();
     const { code } = req.body;
     const userId = req.user.id;
 
@@ -260,6 +264,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
  */
 export const resendVerification = async (req: Request, res: Response) => {
   try {
+    await ensureAuthTablesExist();
     const userId = req.user.id;
 
     const user = await prisma.user.findUnique({
@@ -320,11 +325,36 @@ export const resendVerification = async (req: Request, res: Response) => {
  */
 export const forgotPassword = async (req: Request, res: Response) => {
   try {
+    await ensureAuthTablesExist();
     const { email } = req.body;
 
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { email },
     });
+
+    // Fallback: if user was created via Supabase Auth but doesn't exist in our custom users table,
+    // look it up in auth.users and create a shadow record so the reset-code flow can proceed.
+    if (!user) {
+      const authUsers = await prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM auth.users
+        WHERE email = ${email}
+        LIMIT 1
+      `;
+
+      const authUserId = authUsers[0]?.id;
+      if (authUserId) {
+        user = await prisma.user.create({
+          data: {
+            id: authUserId,
+            email,
+            authProvider: 'supabase',
+            isEmailVerified: true,
+            emailVerifiedAt: new Date(),
+          },
+        });
+      }
+    }
 
     // 如果用户不存在，返回错误（改进用户体验）
     if (!user) {
@@ -380,6 +410,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
  */
 export const resetPassword = async (req: Request, res: Response) => {
   try {
+    await ensureAuthTablesExist();
     const { email, code, newPassword } = req.body;
 
     const user = await prisma.user.findUnique({

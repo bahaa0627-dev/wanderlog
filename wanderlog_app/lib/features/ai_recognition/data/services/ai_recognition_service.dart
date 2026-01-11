@@ -35,17 +35,7 @@ class _ProxyHttpOverrides extends HttpOverrides {
 }
 
 /// 用户查询意图解析结果
-class QueryIntent {
-  final String? city;
-  final String? country;
-  final String? category;
-  final List<String> tags;
-  final int? limit;
-  final bool wantsPopular;
-  final bool wantsRandom;
-  final String? specificPlaceName;
-  final String? nearbyLocation; // 附近搜索的地点名称
-  final bool wantsNearMe; // 用户说"我附近"
+class QueryIntent { // 用户说"我附近"
 
   QueryIntent({
     this.city,
@@ -74,6 +64,16 @@ class QueryIntent {
       wantsNearMe: json['wants_near_me'] as bool? ?? false,
     );
   }
+  final String? city;
+  final String? country;
+  final String? category;
+  final List<String> tags;
+  final int? limit;
+  final bool wantsPopular;
+  final bool wantsRandom;
+  final String? specificPlaceName;
+  final String? nearbyLocation; // 附近搜索的地点名称
+  final bool wantsNearMe;
 
   @override
   String toString() => 'QueryIntent(city: $city, category: $category, tags: $tags, limit: $limit, nearbyLocation: $nearbyLocation, wantsNearMe: $wantsNearMe)';
@@ -330,7 +330,7 @@ class AIRecognitionService {
 
       // 限制用户请求的数量，每次对话最多 5 个
       final requestedLimit = intent.limit ?? 5;
-      int effectiveLimit = requestedLimit > _maxLimit ? _maxLimit : requestedLimit;
+      final int effectiveLimit = requestedLimit > _maxLimit ? _maxLimit : requestedLimit;
       
       // 如果用户要求超过 5 个，提示他们
       String? limitWarning;
@@ -464,7 +464,7 @@ class AIRecognitionService {
               'tags': loc['tags'] ?? intent.tags ?? [],
               'aiSummary': loc['description'] ?? loc['aiSummary'] ?? '',
               'isFromAI': true, // AI 推荐显示 AI 标签
-            }).map(AIRecognitionResult.spotFromJson).toList();
+            },).map(AIRecognitionResult.spotFromJson).toList();
             
             allSpots.addAll(aiSpots);
             print('✅ Added ${aiSpots.length} AI-generated places');
@@ -659,9 +659,8 @@ class AIRecognitionService {
     required double lat,
     required double lng,
     required double maxDistanceKm,
-    String? category,
+    required int limit, String? category,
     List<String>? tags,
-    required int limit,
   }) async {
     final client = SupabaseConfig.client;
 
@@ -960,7 +959,7 @@ class AIRecognitionService {
     String query, 
     QueryIntent intent, 
     int count, 
-    {String? userCity, String? userCountry, CancelToken? cancelToken}
+    {String? userCity, String? userCountry, CancelToken? cancelToken,}
   ) async {
     final apiBaseUrl = dotenv.env['API_BASE_URL'] ?? '';
     if (apiBaseUrl.isEmpty) return [];
@@ -969,8 +968,8 @@ class AIRecognitionService {
     if (cancelToken?.isCancelled ?? false) return [];
 
     // 确定搜索的城市：优先使用 intent 中的城市，其次是用户位置的城市
-    String? searchCity = intent.city ?? userCity;
-    String? searchCountry = intent.country ?? userCountry;
+    final String? searchCity = intent.city ?? userCity;
+    final String? searchCountry = intent.country ?? userCountry;
 
     try {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -1007,9 +1006,7 @@ class AIRecognitionService {
   Future<List<String>> _getTextOnlyRecommendations(
     String query,
     QueryIntent intent,
-    int count,
-    {CancelToken? cancelToken}
-  ) async {
+    int count) async {
     // 简化实现：直接返回空列表，因为主要的 AI 推荐已经通过后端代理
     // 如果需要纯文本推荐，可以在后端添加相应的接口
     return [];
@@ -1208,7 +1205,7 @@ Important rules:
   /// 详细信息（地址、营业时间、额外图片等）在用户点击时再获取
   Future<List<Map<String, dynamic>>> _fetchSpotDetailsFromGoogleMaps(
     List<Map<String, dynamic>> locations,
-    {CancelToken? cancelToken}
+    {CancelToken? cancelToken,}
   ) async {
     if (locations.isEmpty) {
       return [];
@@ -1316,8 +1313,8 @@ Important rules:
           'id': newId,
           'google_place_id': placeId,
           'name': searchResult['name'] as String,
-          'city': (searchResult['city'] as String?)?.isNotEmpty == true ? searchResult['city'] : city,
-          'country': (searchResult['country'] as String?)?.isNotEmpty == true ? searchResult['country'] : country,
+          'city': (searchResult['city'] as String?)?.isNotEmpty ?? false ? searchResult['city'] : city,
+          'country': (searchResult['country'] as String?)?.isNotEmpty ?? false ? searchResult['country'] : country,
           'latitude': (searchResult['latitude'] as num?)?.toDouble() ?? 0.0,
           'longitude': (searchResult['longitude'] as num?)?.toDouble() ?? 0.0,
           'rating': (searchResult['rating'] as num?)?.toDouble(),
@@ -1347,8 +1344,8 @@ Important rules:
           'id': newId,
           'googlePlaceId': placeId,
           'name': searchResult['name'] as String,
-          'city': (searchResult['city'] as String?)?.isNotEmpty == true ? searchResult['city'] : city,
-          'country': (searchResult['country'] as String?)?.isNotEmpty == true ? searchResult['country'] : country,
+          'city': (searchResult['city'] as String?)?.isNotEmpty ?? false ? searchResult['city'] : city,
+          'country': (searchResult['country'] as String?)?.isNotEmpty ?? false ? searchResult['country'] : country,
           'category': searchResult['category'] as String? ?? 'Place',
           'latitude': (searchResult['latitude'] as num?)?.toDouble() ?? 0.0,
           'longitude': (searchResult['longitude'] as num?)?.toDouble() ?? 0.0,

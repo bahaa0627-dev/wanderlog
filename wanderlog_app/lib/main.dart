@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:app_links/app_links.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/app_router.dart';
 import 'package:wanderlog/core/network/dio_client.dart';
 import 'package:wanderlog/core/storage/storage_service.dart';
 import 'package:wanderlog/core/supabase/supabase_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,15 +38,75 @@ void main() async {
   );
 }
 
-class WanderlogApp extends ConsumerWidget {
+class WanderlogApp extends ConsumerStatefulWidget {
   const WanderlogApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
+  ConsumerState<WanderlogApp> createState() => _WanderlogAppState();
+}
+
+class _WanderlogAppState extends ConsumerState<WanderlogApp> {
+  late AppLinks _appLinks;
+  late final StreamSubscription<AuthState> _authSub;
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _router = AppRouter.createRouter(ref);
+    _initDeepLinks();
+    _listenSupabaseAuth();
+  }
+
+  void _listenSupabaseAuth() {
+    _authSub = SupabaseConfig.auth.onAuthStateChange.listen((data) {
+      if (!mounted) return;
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        // User opened the Supabase recovery link.
+        _router.go('/reset-password');
+      }
+    });
+  }
+
+  Future<void> _initDeepLinks() async {
+    _appLinks = AppLinks();
+
+    // 处理 App 启动时的深度链接
+    try {
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null) {
+        _handleDeepLink(initialUri);
+      }
+    } catch (e) {
+      debugPrint('Error getting initial deep link: $e');
+    }
+
+    // 监听后续的深度链接
+    _appLinks.uriLinkStream.listen((uri) {
+      _handleDeepLink(uri);
+    }, onError: (Object e) {
+      debugPrint('Error handling deep link: $e');
+    },);
+  }
+
+  void _handleDeepLink(Uri uri) {
+    debugPrint('Deep link received: $uri');
+    // Supabase Flutter SDK 会自动处理 auth 回调
+    // 这里只需要确保 App 不会崩溃
+  }
+
+  @override
+  void dispose() {
+    _authSub.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => MaterialApp.router(
       title: 'VAGO',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.themeData,
-      routerConfig: AppRouter.createRouter(ref),
+      routerConfig: _router,
     );
 }
 

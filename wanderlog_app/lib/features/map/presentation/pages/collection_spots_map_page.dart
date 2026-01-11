@@ -870,9 +870,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
 /// 底部地点卡片组件
 class _BottomSpotCard extends StatefulWidget {
   const _BottomSpotCard({
-    super.key,
-    required this.spot,
-    required this.onTap,
+    required this.spot, required this.onTap, super.key,
   });
 
   final map_page.Spot spot;
@@ -1018,7 +1016,7 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
       );
 
   Widget _buildCover() {
-    final placeholder = ColoredBox(
+    const placeholder = ColoredBox(
       color: AppTheme.lightGray,
       child: const Icon(
         Icons.place,
@@ -1150,8 +1148,6 @@ class LinkItem {
 class _LinkChip extends StatelessWidget {
   const _LinkChip({
     required this.label,
-    this.url,
-    this.leading,
   });
 
   final String label;
@@ -1325,7 +1321,7 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
 
   Widget _buildPersonRow(LinkItem person) {
     String? compressedAvatarUrl;
-    if (person.avatarUrl?.isNotEmpty == true) {
+    if (person.avatarUrl?.isNotEmpty ?? false) {
       final url = person.avatarUrl!;
       if (url.contains('supabase') || url.contains('storage')) {
         compressedAvatarUrl = url.contains('?') 
@@ -1394,8 +1390,7 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
     );
   }
 
-  Widget _buildDefaultAvatar() {
-    return Container(
+  Widget _buildDefaultAvatar() => Container(
       color: AppTheme.lightGray,
       child: const Icon(
         Icons.person,
@@ -1403,10 +1398,8 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
         color: AppTheme.mediumGray,
       ),
     );
-  }
 
-  Widget _buildWorkRow(LinkItem work) {
-    return GestureDetector(
+  Widget _buildWorkRow(LinkItem work) => GestureDetector(
       onTap: work.link != null ? () => _openLink(work.link!) : null,
       child: Row(
         children: [
@@ -1450,10 +1443,8 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
         ],
       ),
     );
-  }
 
-  Widget _buildDescriptionRow(String description) {
-    return Text(
+  Widget _buildDescriptionRow(String description) => Text(
       description,
       style: AppTheme.bodyMedium(context).copyWith(
         fontSize: 14,
@@ -1463,7 +1454,6 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
       maxLines: _isExpanded ? null : 1,
       overflow: _isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
     );
-  }
 
   Future<void> _openLink(String url) async {
     final languageCode = Localizations.localeOf(context).languageCode;

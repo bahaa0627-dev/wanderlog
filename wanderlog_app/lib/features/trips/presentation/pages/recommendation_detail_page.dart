@@ -8,7 +8,6 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
-import 'package:wanderlog/shared/widgets/ui_components.dart';
 
 class RecommendationDetailPage extends ConsumerStatefulWidget {
   const RecommendationDetailPage({

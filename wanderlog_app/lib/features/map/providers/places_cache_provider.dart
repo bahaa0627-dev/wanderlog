@@ -8,14 +8,7 @@ import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 const String _lastSelectedCityKey = 'last_selected_city';
 
 /// 地点数据缓存状态
-class PlacesCacheState {
-  final Map<String, List<PublicPlaceDto>> placesByCity;
-  final List<String> cities;
-  final bool isLoading;
-  final bool isInitialLoading; // 首次快速加载
-  final String? error;
-  final DateTime? lastLoadedAt;
-  final String? lastSelectedCity; // 用户上次选择的城市
+class PlacesCacheState { // 用户上次选择的城市
 
   const PlacesCacheState({
     this.placesByCity = const {},
@@ -26,6 +19,13 @@ class PlacesCacheState {
     this.lastLoadedAt,
     this.lastSelectedCity,
   });
+  final Map<String, List<PublicPlaceDto>> placesByCity;
+  final List<String> cities;
+  final bool isLoading;
+  final bool isInitialLoading; // 首次快速加载
+  final String? error;
+  final DateTime? lastLoadedAt;
+  final String? lastSelectedCity;
 
   PlacesCacheState copyWith({
     Map<String, List<PublicPlaceDto>>? placesByCity,
@@ -35,8 +35,7 @@ class PlacesCacheState {
     String? error,
     DateTime? lastLoadedAt,
     String? lastSelectedCity,
-  }) {
-    return PlacesCacheState(
+  }) => PlacesCacheState(
       placesByCity: placesByCity ?? this.placesByCity,
       cities: cities ?? this.cities,
       isLoading: isLoading ?? this.isLoading,
@@ -45,7 +44,6 @@ class PlacesCacheState {
       lastLoadedAt: lastLoadedAt ?? this.lastLoadedAt,
       lastSelectedCity: lastSelectedCity ?? this.lastSelectedCity,
     );
-  }
 
   bool get hasData => placesByCity.isNotEmpty;
   
@@ -58,13 +56,13 @@ class PlacesCacheState {
 
 /// 地点数据缓存 Notifier
 class PlacesCacheNotifier extends StateNotifier<PlacesCacheState> {
-  final Ref _ref;
-  bool _lastCityLoaded = false;
-  Completer<void>? _lastCityCompleter;
 
   PlacesCacheNotifier(this._ref) : super(const PlacesCacheState()) {
     _loadLastSelectedCity();
   }
+  final Ref _ref;
+  bool _lastCityLoaded = false;
+  Completer<void>? _lastCityCompleter;
 
   /// 加载上次选择的城市
   Future<void> _loadLastSelectedCity() async {
@@ -252,6 +250,4 @@ class PlacesCacheNotifier extends StateNotifier<PlacesCacheState> {
 }
 
 /// 全局地点缓存 Provider
-final placesCacheProvider = StateNotifierProvider<PlacesCacheNotifier, PlacesCacheState>((ref) {
-  return PlacesCacheNotifier(ref);
-});
+final placesCacheProvider = StateNotifierProvider<PlacesCacheNotifier, PlacesCacheState>((ref) => PlacesCacheNotifier(ref));

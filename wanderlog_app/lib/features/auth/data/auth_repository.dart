@@ -3,7 +3,6 @@ import 'package:wanderlog/core/storage/storage_service.dart';
 import 'package:wanderlog/shared/models/user_model.dart';
 
 class AuthRepository {
-
   AuthRepository(this._dio, this._storage);
   final Dio _dio;
   final StorageService _storage;
@@ -31,7 +30,8 @@ class AuthRepository {
       );
 
       final token = response.data!['token'] as String;
-      final user = User.fromJson(response.data!['user'] as Map<String, dynamic>);
+      final user =
+          User.fromJson(response.data!['user'] as Map<String, dynamic>);
 
       await _saveToken(token);
 
@@ -41,7 +41,8 @@ class AuthRepository {
     }
   }
 
-  Future<AuthResult> register(String email, String password, String? name) async {
+  Future<AuthResult> register(
+      String email, String password, String? name) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/auth/register',
@@ -53,7 +54,8 @@ class AuthRepository {
       );
 
       final token = response.data!['token'] as String;
-      final user = User.fromJson(response.data!['user'] as Map<String, dynamic>);
+      final user =
+          User.fromJson(response.data!['user'] as Map<String, dynamic>);
 
       await _saveToken(token);
 
@@ -85,7 +87,8 @@ class AuthRepository {
       );
 
       final token = response.data!['token'] as String;
-      final user = User.fromJson(response.data!['user'] as Map<String, dynamic>);
+      final user =
+          User.fromJson(response.data!['user'] as Map<String, dynamic>);
 
       await _saveToken(token);
 
@@ -145,7 +148,8 @@ class AuthRepository {
       );
 
       final token = response.data!['accessToken'] as String;
-      final user = User.fromJson(response.data!['user'] as Map<String, dynamic>);
+      final user =
+          User.fromJson(response.data!['user'] as Map<String, dynamic>);
 
       await _saveToken(token);
 
@@ -156,23 +160,25 @@ class AuthRepository {
   }
 
   String _handleError(DioException e) {
+    // Network / connectivity issues
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return '无法连接到服务器，请确认后端服务已启动，并检查 API_BASE_URL（真机/模拟器不要用 localhost）。';
+    }
+
     if (e.response != null) {
-      final message = e.response?.data['message'];
-      if (message != null) return message as String;
+      final data = e.response?.data;
+      if (data is Map && data['message'] != null) {
+        return data['message'].toString();
+      }
     }
     return e.message ?? 'An error occurred';
   }
 }
 
 class AuthResult {
-
   AuthResult({required this.user, required this.token});
   final User user;
   final String token;
 }
-
-
-
-
-
-

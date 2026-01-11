@@ -1,14 +1,7 @@
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
-import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_result.dart';
-import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
-import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 
 const String _kAIIntroShownKey = 'ai_intro_shown';
 

@@ -42,14 +42,15 @@ dependencies:
   # Routing
   go_router: ^13.0.0
   
+  # Deep Links
+  app_links: ^6.3.2
+  
   # Maps
   mapbox_maps_flutter: ^2.0.0
   # Alternative: flutter_map: ^7.0.2
   
   # Authentication
   google_sign_in: ^7.2.0
-  firebase_auth: ^5.3.3
-  firebase_core: ^3.8.1
   
   # Payment
   flutter_stripe: ^11.1.0

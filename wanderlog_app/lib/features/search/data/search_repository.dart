@@ -222,6 +222,4 @@ class SearchPlaceResult {
 }
 
 /// Provider
-final searchRepositoryProvider = Provider<SearchRepository>((ref) {
-  return SearchRepository();
-});
+final searchRepositoryProvider = Provider<SearchRepository>((ref) => SearchRepository());

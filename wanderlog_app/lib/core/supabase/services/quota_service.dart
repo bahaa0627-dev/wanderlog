@@ -1,15 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../supabase_config.dart';
+import 'package:wanderlog/core/supabase/supabase_config.dart';
 
 /// 配额状态模型
 class QuotaStatus {
-  final String? userId;
-  final DateTime quotaDate;
-  final int deepSearchCount;
-  final int detailViewCount;
-  final int deepSearchRemaining;
-  final int detailViewRemaining;
-  final DateTime resetTime;
 
   QuotaStatus({
     this.userId,
@@ -20,18 +13,6 @@ class QuotaStatus {
     required this.detailViewRemaining,
     required this.resetTime,
   });
-
-  /// 是否可以进行深度搜索
-  bool get canDeepSearch => deepSearchRemaining > 0;
-
-  /// 是否可以查看详情
-  bool get canViewDetail => detailViewRemaining > 0;
-
-  /// 深度搜索配额是否低（≤2）
-  bool get isDeepSearchLow => deepSearchRemaining <= 2;
-
-  /// 详情查看配额是否低（≤2）
-  bool get isDetailViewLow => detailViewRemaining <= 2;
 
   factory QuotaStatus.fromJson(Map<String, dynamic> json) {
     final deepSearchCount = json['deep_search_count'] as int? ?? 0;
@@ -48,12 +29,6 @@ class QuotaStatus {
     );
   }
 
-  /// 计算下次重置时间（UTC 00:00）
-  static DateTime _calculateResetTime() {
-    final now = DateTime.now().toUtc();
-    return DateTime.utc(now.year, now.month, now.day + 1);
-  }
-
   /// 默认配额状态（未登录或新用户）
   factory QuotaStatus.defaultStatus() {
     return QuotaStatus(
@@ -65,14 +40,39 @@ class QuotaStatus {
       resetTime: _calculateResetTime(),
     );
   }
+  final String? userId;
+  final DateTime quotaDate;
+  final int deepSearchCount;
+  final int detailViewCount;
+  final int deepSearchRemaining;
+  final int detailViewRemaining;
+  final DateTime resetTime;
+
+  /// 是否可以进行深度搜索
+  bool get canDeepSearch => deepSearchRemaining > 0;
+
+  /// 是否可以查看详情
+  bool get canViewDetail => detailViewRemaining > 0;
+
+  /// 深度搜索配额是否低（≤2）
+  bool get isDeepSearchLow => deepSearchRemaining <= 2;
+
+  /// 详情查看配额是否低（≤2）
+  bool get isDetailViewLow => detailViewRemaining <= 2;
+
+  /// 计算下次重置时间（UTC 00:00）
+  static DateTime _calculateResetTime() {
+    final now = DateTime.now().toUtc();
+    return DateTime.utc(now.year, now.month, now.day + 1);
+  }
 }
 
 /// 配额服务 - 管理 AI 搜索配额
 class QuotaService {
-  final SupabaseClient _client;
 
   QuotaService([SupabaseClient? client])
       : _client = client ?? SupabaseConfig.client;
+  final SupabaseClient _client;
 
   /// 深度搜索每日限制
   static const int deepSearchLimit = 10;

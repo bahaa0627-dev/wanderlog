@@ -1,17 +1,5 @@
 /// 合集数据模型 (对应 Supabase collections 表)
 class CollectionModel {
-  final String id;
-  final String name;
-  final String coverImage;
-  final String? description;
-  final String? people;
-  final String? works;
-  final String? source;
-  final bool isPublished;
-  final DateTime? publishedAt;
-  final int sortOrder;
-  final DateTime createdAt;
-  final DateTime updatedAt;
 
   CollectionModel({
     required this.id,
@@ -46,9 +34,20 @@ class CollectionModel {
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
   }
+  final String id;
+  final String name;
+  final String coverImage;
+  final String? description;
+  final String? people;
+  final String? works;
+  final String? source;
+  final bool isPublished;
+  final DateTime? publishedAt;
+  final int sortOrder;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
-  Map<String, dynamic> toJson() {
-    return {
+  Map<String, dynamic> toJson() => {
       'id': id,
       'name': name,
       'cover_image': coverImage,
@@ -62,5 +61,4 @@ class CollectionModel {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
-  }
 }

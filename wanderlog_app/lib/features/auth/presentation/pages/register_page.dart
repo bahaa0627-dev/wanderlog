@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:wanderlog/core/supabase/supabase_config.dart';
+import 'package:wanderlog/core/providers/locale_provider.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 
@@ -22,6 +23,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
 
+  // 获取用户选择的语言
+  bool get _isChinese {
+    final locale = ref.read(localeProvider);
+    return locale.languageCode == 'zh';
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -29,29 +36,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     _nameController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
-  }
-
-  void _showUserExistsDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Account Exists'),
-        content: const Text('This email is already registered. Would you like to login instead?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.go('/login');
-            },
-            child: const Text('Go to Login'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _onRegister() async {
@@ -69,11 +53,27 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           },
         );
         debugPrint('SignUp response: ${response.user?.email}');
+        debugPrint('SignUp identities: ${response.user?.identities}');
+        debugPrint('SignUp identities length: ${response.user?.identities?.length}');
         
         if (response.user != null) {
-          if (mounted) {
-            // 注册成功后跳转到验证邮箱页面，传递 email
-            context.go('/verify-email', extra: _emailController.text.trim());
+          // 检查用户是否已经存在（identities 为空表示用户已存在）
+          final identities = response.user!.identities;
+          if (identities == null || identities.isEmpty) {
+            // 用户已存在
+            debugPrint('User already exists - showing toast');
+            if (mounted) {
+              CustomToast.showError(
+                context, 
+                _isChinese ? '该邮箱已注册，请登录' : 'Email already registered, please login',
+              );
+            }
+          } else {
+            // 新用户注册成功，跳转到验证邮箱页面
+            debugPrint('New user - navigating to verify email');
+            if (mounted) {
+              context.go('/verify-email', extra: _emailController.text.trim());
+            }
           }
         }
       } on AuthException catch (e) {
@@ -82,10 +82,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           if (e.message.contains('already registered') || 
               e.message.contains('User already registered') ||
               e.message.contains('already been registered')) {
-            _showUserExistsDialog();
+            CustomToast.showError(
+              context, 
+              _isChinese ? '该邮箱已注册，请登录' : 'Email already registered, please login',
+            );
           } else if (e.message.contains('weak password') || 
                      e.message.contains('Password should be')) {
-            CustomToast.showError(context, 'Password is too weak. Please use at least 6 characters.');
+            CustomToast.showError(
+              context, 
+              _isChinese ? '密码太弱，请使用至少6个字符' : 'Password is too weak. Please use at least 6 characters.',
+            );
           } else {
             CustomToast.showError(context, e.message);
           }
@@ -103,8 +109,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -239,5 +244,4 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         ),
       ),
     );
-  }
 }

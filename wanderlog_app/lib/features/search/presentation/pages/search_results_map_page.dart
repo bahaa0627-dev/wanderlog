@@ -23,10 +23,7 @@ import 'package:wanderlog/features/map/presentation/widgets/tag_type_filter_bar.
 /// 搜索结果地图页面
 class SearchResultsMapPage extends ConsumerStatefulWidget {
   const SearchResultsMapPage({
-    super.key,
-    required this.city,
-    required this.country,
-    required this.selectedTags,
+    required this.city, required this.country, required this.selectedTags, super.key,
   });
 
   final String city;
@@ -116,7 +113,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     final lowerTags = _activeFilterTags.map((t) => t.toLowerCase()).toSet();
     
     _cachedFilteredSpots = _spots.where((spot) => 
-      spot.tags.any((tag) => lowerTags.contains(tag.toLowerCase()))
+      spot.tags.any((tag) => lowerTags.contains(tag.toLowerCase())),
     ).toList();
   }
 
@@ -214,7 +211,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     
     // 调试日志
     if (place.name.contains('Yoyogi') || place.name.contains('Ebisu')) {
-      print('🏷️ Converting ${place.name}: category=${displayCategory}, tags=${place.tags}, allTags=$allTags');
+      print('🏷️ Converting ${place.name}: category=$displayCategory, tags=${place.tags}, allTags=$allTags');
     }
     
     return Spot(
@@ -517,7 +514,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
           // Loading overlay
           if (_isLoading)
             Positioned.fill(
-              child: Container(
+              child: ColoredBox(
                 color: Colors.white.withOpacity(0.92),
                 child: Center(
                   child: Column(
@@ -711,8 +708,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     );
   }
 
-  Widget _buildAiFailedOverlay() {
-    return Positioned.fill(
+  Widget _buildAiFailedOverlay() => Positioned.fill(
       child: Container(
         color: Colors.white,
         child: SafeArea(
@@ -784,10 +780,8 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
         ),
       ),
     );
-  }
 
-  Widget _buildEmptyState() {
-    return Positioned.fill(
+  Widget _buildEmptyState() => Positioned.fill(
       child: Container(
         color: Colors.white.withOpacity(0.9),
         child: Center(
@@ -807,7 +801,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
         ),
       ),
     );
-  }
 }
 
 
@@ -816,11 +809,8 @@ class _MapSurface extends StatelessWidget {
     required this.mapKey,
     required this.spots,
     required this.fallbackCenter,
-    this.currentCenter,
-    required this.currentZoom,
+    required this.currentZoom, required this.onSpotTap, required this.onCameraMove, this.currentCenter,
     this.selectedSpot,
-    required this.onSpotTap,
-    required this.onCameraMove,
   });
 
   final GlobalKey<MapboxSpotMapState> mapKey;
@@ -833,8 +823,7 @@ class _MapSurface extends StatelessWidget {
   final void Function(Position, double) onCameraMove;
 
   @override
-  Widget build(BuildContext context) {
-    return MapboxSpotMap(
+  Widget build(BuildContext context) => MapboxSpotMap(
       key: mapKey,
       spots: spots,
       initialCenter: currentCenter ?? fallbackCenter,
@@ -843,7 +832,6 @@ class _MapSurface extends StatelessWidget {
       onSpotTap: onSpotTap,
       onCameraMove: onCameraMove,
     );
-  }
 }
 
 /// 底部地点卡片组件 - 全图+渐变覆盖样式（与首页 map 一致）
@@ -914,7 +902,7 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
   }
 
   Widget _buildCover() {
-    final placeholder = ColoredBox(
+    const placeholder = ColoredBox(
       color: AppTheme.lightGray,
       child: const Icon(Icons.place, size: 52, color: AppTheme.mediumGray),
     );
@@ -1185,8 +1173,7 @@ class _SearchMenuOverlayInPageState extends ConsumerState<_SearchMenuOverlayInPa
     );
   }
 
-  Widget _buildDropdownRow() {
-    return Row(
+  Widget _buildDropdownRow() => Row(
       children: [
         Expanded(child: _buildCompactDropdown(
           value: _selectedCountry,
@@ -1203,15 +1190,13 @@ class _SearchMenuOverlayInPageState extends ConsumerState<_SearchMenuOverlayInPa
         Expanded(child: _buildCityDropdown()),
       ],
     );
-  }
 
   Widget _buildCompactDropdown({
     required String? value,
     required String hint,
     required List<String> items,
     required ValueChanged<String?> onChanged,
-  }) {
-    return Container(
+  }) => Container(
       height: 44,
       decoration: BoxDecoration(
         color: AppTheme.white,
@@ -1247,7 +1232,6 @@ class _SearchMenuOverlayInPageState extends ConsumerState<_SearchMenuOverlayInPa
         ),
       ),
     );
-  }
 
   Widget _buildCityDropdown() {
     final hasCountry = _selectedCountry != null;
@@ -1272,32 +1256,29 @@ class _SearchMenuOverlayInPageState extends ConsumerState<_SearchMenuOverlayInPa
             padding: EdgeInsets.only(right: 8),
             child: Icon(Icons.keyboard_arrow_down, color: AppTheme.black, size: 20),
           ),
-          selectedItemBuilder: hasCountry ? (context) => cities.map((item) {
-            return Padding(
+          selectedItemBuilder: hasCountry ? (context) => cities.map((item) => Padding(
               padding: const EdgeInsets.only(left: 16),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(item, style: AppTheme.bodyMedium(context).copyWith(fontSize: 14), overflow: TextOverflow.ellipsis),
               ),
-            );
-          }).toList() : null,
+            )).toList() : null,
           items: hasCountry
               ? cities.map((item) => DropdownMenuItem<String>(
                   value: item,
                   child: Text(item, style: AppTheme.bodyMedium(context).copyWith(fontSize: 14)),
-                )).toList()
+                ),).toList()
               : [DropdownMenuItem<String>(
                   enabled: false,
                   child: Text('Choose country first', style: AppTheme.bodyMedium(context).copyWith(color: AppTheme.mediumGray, fontSize: 14, fontStyle: FontStyle.italic)),
-                )],
+                ),],
           onChanged: hasCountry ? (value) => setState(() => _selectedCity = value) : null,
         ),
       ),
     );
   }
 
-  Widget _buildInterestCategory(String category, List<String> tags) {
-    return Padding(
+  Widget _buildInterestCategory(String category, List<String> tags) => Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1312,7 +1293,6 @@ class _SearchMenuOverlayInPageState extends ConsumerState<_SearchMenuOverlayInPa
         ],
       ),
     );
-  }
 
   Widget _buildTagChip(String tag) {
     final isSelected = _selectedTags.contains(tag);

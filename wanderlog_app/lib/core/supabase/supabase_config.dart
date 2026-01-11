@@ -18,12 +18,14 @@ class SupabaseConfig {
     await Supabase.initialize(
       url: url,
       anonKey: anonKey,
-      authOptions: FlutterAuthClientOptions(
+      authOptions: const FlutterAuthClientOptions(
+        // 使用 implicit 流程避免 PKCE code verifier 问题
         authFlowType: AuthFlowType.implicit,
       ),
       realtimeClientOptions: const RealtimeClientOptions(
         logLevel: RealtimeLogLevel.info,
       ),
+      debug: false,
     );
   }
 

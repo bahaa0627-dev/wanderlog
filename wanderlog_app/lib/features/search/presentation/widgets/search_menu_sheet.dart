@@ -11,9 +11,7 @@ import 'package:wanderlog/features/search/presentation/pages/search_results_map_
 /// 搜索菜单组件 - 从搜索框下方弹出
 class SearchMenuOverlay extends ConsumerStatefulWidget {
   const SearchMenuOverlay({
-    super.key,
-    required this.searchBoxKey,
-    required this.onClose,
+    required this.searchBoxKey, required this.onClose, super.key,
   });
 
   final GlobalKey searchBoxKey;
@@ -123,8 +121,7 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
     );
   }
 
-  Widget _buildContent() {
-    return Column(
+  Widget _buildContent() => Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // 可滚动内容
@@ -154,17 +151,13 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
         _buildSearchButton(),
       ],
     );
-  }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
+  Widget _buildSectionTitle(String title) => Text(
       title,
       style: AppTheme.headlineMedium(context).copyWith(fontSize: 22),
     );
-  }
 
-  Widget _buildDropdownRow() {
-    return Row(
+  Widget _buildDropdownRow() => Row(
       children: [
         // Country dropdown
         Expanded(
@@ -187,7 +180,6 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
         ),
       ],
     );
-  }
 
   Widget _buildCompactDropdown({
     required String? value,
@@ -245,8 +237,7 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
             padding: EdgeInsets.only(right: 8),
             child: Icon(Icons.keyboard_arrow_down, color: AppTheme.black, size: 20),
           ),
-          selectedItemBuilder: (context) => items.map((item) {
-            return Padding(
+          selectedItemBuilder: (context) => items.map((item) => Padding(
               padding: const EdgeInsets.only(left: 16),
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -256,17 +247,14 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-            );
-          }).toList(),
-          items: items.map((item) {
-            return DropdownMenuItem<String>(
+            )).toList(),
+          items: items.map((item) => DropdownMenuItem<String>(
               value: item,
               child: Text(
                 item,
                 style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
               ),
-            );
-          }).toList(),
+            )).toList(),
           onChanged: onChanged,
         ),
       ),
@@ -302,8 +290,7 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
             padding: EdgeInsets.only(right: 8),
             child: Icon(Icons.keyboard_arrow_down, color: AppTheme.black, size: 20),
           ),
-          selectedItemBuilder: hasCountry ? (context) => cities.map((item) {
-            return Padding(
+          selectedItemBuilder: hasCountry ? (context) => cities.map((item) => Padding(
               padding: const EdgeInsets.only(left: 16),
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -313,18 +300,15 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-            );
-          }).toList() : null,
+            )).toList() : null,
           items: hasCountry
-              ? cities.map((item) {
-                  return DropdownMenuItem<String>(
+              ? cities.map((item) => DropdownMenuItem<String>(
                     value: item,
                     child: Text(
                       item,
                       style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
                     ),
-                  );
-                }).toList()
+                  )).toList()
               : [
                   DropdownMenuItem<String>(
                     enabled: false,
@@ -348,8 +332,7 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
     );
   }
 
-  Widget _buildInterestCategory(String category, List<String> tags) {
-    return Padding(
+  Widget _buildInterestCategory(String category, List<String> tags) => Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,7 +350,6 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
         ],
       ),
     );
-  }
 
   Widget _buildTagChip(String tag) {
     final isSelected = _selectedTags.contains(tag);
@@ -389,8 +371,7 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
     );
   }
 
-  Widget _buildSearchButton() {
-    return Container(
+  Widget _buildSearchButton() => Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       child: PrimaryButton(
@@ -398,21 +379,18 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
         onPressed: _handleSearch,
       ),
     );
-  }
 }
 
 /// 搜索菜单底部弹出组件（保留兼容）
 class SearchMenuSheet extends ConsumerStatefulWidget {
   const SearchMenuSheet({super.key});
 
-  static Future<void> show(BuildContext context) {
-    return showModalBottomSheet<void>(
+  static Future<void> show(BuildContext context) => showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const SearchMenuSheet(),
     );
-  }
 
   @override
   ConsumerState<SearchMenuSheet> createState() => _SearchMenuSheetState();
@@ -420,7 +398,5 @@ class SearchMenuSheet extends ConsumerStatefulWidget {
 
 class _SearchMenuSheetState extends ConsumerState<SearchMenuSheet> {
   @override
-  Widget build(BuildContext context) {
-    return Container();
-  }
+  Widget build(BuildContext context) => Container();
 }

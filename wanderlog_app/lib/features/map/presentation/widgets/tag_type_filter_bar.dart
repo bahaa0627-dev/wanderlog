@@ -65,8 +65,7 @@ class TagTypeFilterBar extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       height: 50,
       padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: const BoxDecoration(
@@ -123,7 +122,6 @@ class TagTypeFilterBar extends StatelessWidget {
         },
       ),
     );
-  }
 
   /// 根据标签类型筛选标签列表
   static List<String> filterTagsByType(List<String> tags, String? selectedType) {

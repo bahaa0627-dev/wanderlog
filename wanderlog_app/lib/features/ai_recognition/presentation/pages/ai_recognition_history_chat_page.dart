@@ -1294,13 +1294,12 @@ class _AIRecognitionHistoryChatPageState
 
 /// 地点卡片组件 - 用于显示AI识别的地点
 class SpotCardOverlay extends StatelessWidget {
-  const SpotCardOverlay({super.key, required this.spot});
+  const SpotCardOverlay({required this.spot, super.key});
 
   final Spot spot;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: () {
         // 点击查看详情 - 使用简单的底部弹窗
         showModalBottomSheet<void>(
@@ -1390,7 +1389,6 @@ class SpotCardOverlay extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 
 /// 简单的地点详情弹窗
@@ -1400,8 +1398,7 @@ class _SpotDetailSheet extends StatelessWidget {
   final Spot spot;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       height: MediaQuery.of(context).size.height * 0.6,
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -1487,5 +1484,4 @@ class _SpotDetailSheet extends StatelessWidget {
         ],
       ),
     );
-  }
 }

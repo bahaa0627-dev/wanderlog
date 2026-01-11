@@ -455,7 +455,7 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
                     border: Border.all(color: AppTheme.black, width: 1),
                   ),
                   child: const Icon(Icons.fullscreen,
-                      size: 20, color: AppTheme.black),
+                      size: 20, color: AppTheme.black,),
                 ),
               ),
             ),
@@ -514,7 +514,7 @@ class _FullscreenRecommendationMapState
     // 如果有初始选中的地点，找到它的索引
     if (_selectedPlace != null) {
       final index = widget.places.indexWhere((p) =>
-          (p.id ?? p.name) == (_selectedPlace!.id ?? _selectedPlace!.name));
+          (p.id ?? p.name) == (_selectedPlace!.id ?? _selectedPlace!.name),);
       if (index >= 0) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_cardPageController.hasClients) {
@@ -886,7 +886,7 @@ class _FullscreenRecommendationMapState
                   boxShadow: AppTheme.cardShadow,
                 ),
                 child: const Icon(Icons.arrow_back_ios_new,
-                    size: 18, color: AppTheme.black),
+                    size: 18, color: AppTheme.black,),
               ),
             ),
           ),
@@ -1020,7 +1020,7 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
   }
 
   Widget _buildCover() {
-    final placeholder = ColoredBox(
+    const placeholder = ColoredBox(
       color: AppTheme.lightGray,
       child: const Center(
         child: Icon(Icons.place, size: 52, color: AppTheme.mediumGray),
@@ -1116,7 +1116,7 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                           Row(
                             children: [
                               const Icon(Icons.star,
-                                  size: 14, color: AppTheme.primaryYellow),
+                                  size: 14, color: AppTheme.primaryYellow,),
                               const SizedBox(width: 4),
                               Text(
                                 widget.place.rating!.toStringAsFixed(1),
@@ -1140,8 +1140,8 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                         else if (widget.place.recommendationPhrase != null)
                           Row(
                             children: [
-                              Icon(Icons.auto_awesome,
-                                  size: 14, color: AppTheme.primaryYellow),
+                              const Icon(Icons.auto_awesome,
+                                  size: 14, color: AppTheme.primaryYellow,),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(

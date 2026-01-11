@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
-import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 
 /// Collections Tab - 显示用户收藏的合集

@@ -106,7 +106,7 @@ class _AIChatPageState extends State<AIChatPage> {
         isUser: false,
         text: 'Cancelled answering.',
         timestamp: DateTime.now(),
-      ));
+      ),);
     });
     _scrollToBottom(animated: true);
   }
@@ -207,7 +207,7 @@ class _AIChatPageState extends State<AIChatPage> {
           isUser: true,
           text: history.queryText,
           timestamp: history.timestamp,
-        ));
+        ),);
       }
       // 图片识别历史
       else if (history.imageUrls.isNotEmpty) {
@@ -217,7 +217,7 @@ class _AIChatPageState extends State<AIChatPage> {
           imageUrls: history.imageUrls,
           text: 'Help me find these places',
           timestamp: history.timestamp,
-        ));
+        ),);
       }
       
       // AI 回复消息
@@ -226,7 +226,7 @@ class _AIChatPageState extends State<AIChatPage> {
         isUser: false,
         text: history.result.message,
         timestamp: history.timestamp,
-      ));
+      ),);
       
       // AI 返回的地点卡片
       if (history.result.spots.isNotEmpty) {
@@ -235,7 +235,7 @@ class _AIChatPageState extends State<AIChatPage> {
           isUser: false,
           spots: history.result.spots.cast<Spot>(),
           timestamp: history.timestamp,
-        ));
+        ),);
       }
     }
 
@@ -363,7 +363,7 @@ class _AIChatPageState extends State<AIChatPage> {
     );
     
     // 返回登录结果
-    return result == true;
+    return result ?? false;
   }
 
   Future<void> _handleSendMessage() async {
@@ -392,7 +392,7 @@ class _AIChatPageState extends State<AIChatPage> {
           imageUrls: imagesToSend.map((e) => e.path).toList(),
           text: textToSend.isNotEmpty ? textToSend : 'Help me find these places',
           timestamp: DateTime.now(),
-        ));
+        ),);
       } else {
         _messages.add(_ChatMessage(id: userMessageId, isUser: true, text: textToSend, timestamp: DateTime.now()));
       }
@@ -419,7 +419,7 @@ class _AIChatPageState extends State<AIChatPage> {
             _messages.add(_ChatMessage(
               id: 'error_${DateTime.now().millisecondsSinceEpoch}',
               isUser: false, text: 'Sorry, something went wrong: $e', timestamp: DateTime.now(),
-            ));
+            ),);
           });
         }
       }
@@ -438,12 +438,12 @@ class _AIChatPageState extends State<AIChatPage> {
         _messages.add(_ChatMessage(
           id: 'ai_text_${DateTime.now().millisecondsSinceEpoch}',
           isUser: false, text: result.message, timestamp: DateTime.now(),
-        ));
+        ),);
         if (result.spots.isNotEmpty) {
           _messages.add(_ChatMessage(
             id: 'ai_spots_${DateTime.now().millisecondsSinceEpoch}',
             isUser: false, spots: result.spots.cast<Spot>(), timestamp: DateTime.now(),
-          ));
+          ),);
         }
       });
 
@@ -495,12 +495,12 @@ class _AIChatPageState extends State<AIChatPage> {
         _messages.add(_ChatMessage(
           id: 'ai_text_${DateTime.now().millisecondsSinceEpoch}',
           isUser: false, text: result.message, timestamp: DateTime.now(),
-        ));
+        ),);
         if (result.spots.isNotEmpty) {
           _messages.add(_ChatMessage(
             id: 'ai_spots_${DateTime.now().millisecondsSinceEpoch}',
             isUser: false, spots: result.spots.cast<Spot>(), timestamp: DateTime.now(),
-          ));
+          ),);
         }
       });
 
@@ -517,8 +517,7 @@ class _AIChatPageState extends State<AIChatPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -544,7 +543,6 @@ class _AIChatPageState extends State<AIChatPage> {
         ],
       ),
     );
-  }
 
   /// 构建配额指示器
   Widget _buildQuotaIndicator() {
@@ -553,7 +551,7 @@ class _AIChatPageState extends State<AIChatPage> {
     
     final isLow = status.isDeepSearchLow;
     final remaining = status.deepSearchRemaining;
-    final total = QuotaService.deepSearchLimit;
+    const total = QuotaService.deepSearchLimit;
     
     return GestureDetector(
       onTap: _showQuotaDetails,
@@ -783,7 +781,7 @@ class _AIChatPageState extends State<AIChatPage> {
           border: Border.all(color: AppTheme.black, width: 1.5),
         ),
         child: const SizedBox(width: 20, height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black))),
+          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black)),),
       ),
     ],
   );
@@ -858,7 +856,7 @@ class _AIChatPageState extends State<AIChatPage> {
               ...message.spots!.map((spot) => Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: _SpotCardOverlay(spot: spot),
-              )),
+              ),),
           ],
         ),
       ),
@@ -881,7 +879,7 @@ class _AIChatPageState extends State<AIChatPage> {
         borderRadius: BorderRadius.circular(8),
         child: Image.file(File(imageUrls.first), width: 200, height: 150, fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => Container(width: 200, height: 150, color: AppTheme.lightGray,
-            child: const Icon(Icons.broken_image, color: AppTheme.mediumGray))),
+            child: const Icon(Icons.broken_image, color: AppTheme.mediumGray),),),
       );
     }
     return Wrap(
@@ -890,8 +888,8 @@ class _AIChatPageState extends State<AIChatPage> {
         borderRadius: BorderRadius.circular(6),
         child: Image.file(File(url), width: 80, height: 80, fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => Container(width: 80, height: 80, color: AppTheme.lightGray,
-            child: const Icon(Icons.broken_image, size: 24, color: AppTheme.mediumGray))),
-      )).toList(),
+            child: const Icon(Icons.broken_image, size: 24, color: AppTheme.mediumGray),),),
+      ),).toList(),
     );
   }
 
@@ -1209,7 +1207,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
 
   Widget _buildCoverImage(String imageUrl) {
     const placeholder = ColoredBox(color: AppTheme.lightGray,
-      child: Center(child: Icon(Icons.image_not_supported, size: 48, color: AppTheme.mediumGray)));
+      child: Center(child: Icon(Icons.image_not_supported, size: 48, color: AppTheme.mediumGray)),);
     if (imageUrl.isEmpty) return placeholder;
     if (imageUrl.startsWith('data:')) {
       final bytes = _decodeBase64Image(imageUrl);
@@ -1274,7 +1272,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.black.withOpacity(0.6),
-                        )),
+                        ),),
                       ],
                     ),
                   ),
@@ -1300,23 +1298,23 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: Colors.black.withOpacity(0.48),
-                          )),
-                        )).toList(),
+                          ),),
+                        ),).toList(),
                       ),
                     const SizedBox(height: 8),
                     Text(widget.spot.name,
                       style: AppTheme.labelLarge(context).copyWith(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
+                      maxLines: 2, overflow: TextOverflow.ellipsis,),
                     const SizedBox(height: 4),
                     Row(children: [
                       const Icon(Icons.star, size: 16, color: AppTheme.primaryYellow),
                       const SizedBox(width: 4),
                       Text(widget.spot.rating.toStringAsFixed(1),
-                        style: AppTheme.bodySmall(context).copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+                        style: AppTheme.bodySmall(context).copyWith(color: Colors.white, fontWeight: FontWeight.w600),),
                       const SizedBox(width: 4),
                       Text('(${widget.spot.ratingCount})',
-                        style: AppTheme.bodySmall(context).copyWith(color: Colors.white.withOpacity(0.8), fontSize: 12)),
-                    ]),
+                        style: AppTheme.bodySmall(context).copyWith(color: Colors.white.withOpacity(0.8), fontSize: 12),),
+                    ],),
                   ],
                 ),
               ),
@@ -1348,7 +1346,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                           size: 22,
                           color: _isInWishlist ? AppTheme.primaryYellow : Colors.white,
                         ),
-                        Icon(
+                        const Icon(
                           Icons.favorite_border,
                           size: 22,
                           color: AppTheme.black,

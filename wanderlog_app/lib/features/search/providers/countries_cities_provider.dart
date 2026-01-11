@@ -86,9 +86,7 @@ const Set<String> _knownCountries = {
 };
 
 /// 国家城市数据缓存 Provider
-final countriesCitiesProvider = StateNotifierProvider<CountriesCitiesNotifier, Map<String, List<String>>>((ref) {
-  return CountriesCitiesNotifier(ref);
-});
+final countriesCitiesProvider = StateNotifierProvider<CountriesCitiesNotifier, Map<String, List<String>>>((ref) => CountriesCitiesNotifier(ref));
 
 class CountriesCitiesNotifier extends StateNotifier<Map<String, List<String>>> {
   CountriesCitiesNotifier(this._ref) : super({});
@@ -185,7 +183,5 @@ class CountriesCitiesNotifier extends StateNotifier<Map<String, List<String>>> {
   List<String> get countries => state.keys.toList()..sort();
 
   /// 获取指定国家的城市列表
-  List<String> getCities(String country) {
-    return state[country] ?? [];
-  }
+  List<String> getCities(String country) => state[country] ?? [];
 }

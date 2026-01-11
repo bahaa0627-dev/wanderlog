@@ -132,7 +132,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           imageUrls: history.imageUrls,
           text: history.queryText ?? 'Help me find these places',
           timestamp: history.timestamp,
-        ));
+        ),);
       } else if (history.queryText != null && history.queryText!.isNotEmpty) {
         // 文本搜索历史
         _messages.add(_ChatMessage(
@@ -140,7 +140,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           isUser: true,
           text: history.queryText,
           timestamp: history.timestamp,
-        ));
+        ),);
       }
       
       // 添加 AI 回复消息
@@ -151,7 +151,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           isUser: false,
           searchV2Result: history.searchV2Result,
           timestamp: history.timestamp,
-        ));
+        ),);
       } else {
         // 旧格式：兼容旧的历史记录
         _messages.add(_ChatMessage(
@@ -159,14 +159,14 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           isUser: false,
           text: history.result.message,
           timestamp: history.timestamp,
-        ));
+        ),);
         if (history.result.spots.isNotEmpty) {
           _messages.add(_ChatMessage(
             id: '${history.id}_ai_spots',
             isUser: false,
             spots: history.result.spots.cast<Spot>(),
             timestamp: history.timestamp,
-          ));
+          ),);
         }
       }
     }
@@ -319,7 +319,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           imageUrls: imagesToSend.map((e) => e.path).toList(),
           text: textToSend.isNotEmpty ? textToSend : 'Help me find these places',
           timestamp: DateTime.now(),
-        ));
+        ),);
       } else {
         _messages.add(_ChatMessage(id: userMessageId, isUser: true, text: textToSend, timestamp: DateTime.now()));
       }
@@ -343,15 +343,17 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           _messages.add(_ChatMessage(
             id: 'error_${DateTime.now().millisecondsSinceEpoch}',
             isUser: false, text: '抱歉，处理消息时出错了：$e', timestamp: DateTime.now(),
-          ));
+          ),);
         });
       }
     } finally {
-      if (mounted && _isSendingMessage) setState(() { 
+      if (mounted && _isSendingMessage) {
+        setState(() { 
         _isSendingMessage = false; 
         _cancelToken = null;
         _searchLoadingState = const SearchLoadingState.complete();
       });
+      }
       _scrollToBottom(animated: true);
     }
   }
@@ -380,7 +382,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           isUser: false, 
           text: 'Please login to use AI search.',
           timestamp: DateTime.now(),
-        ));
+        ),);
       });
       return;
     }
@@ -420,7 +422,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           isUser: false, 
           text: result.error!,
           timestamp: DateTime.now(),
-        ));
+        ),);
       });
       return;
     }
@@ -432,7 +434,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         isUser: false,
         searchV2Result: result,
         timestamp: DateTime.now(),
-      ));
+      ),);
     });
 
     // 保存历史记录（保存完整的 SearchV2Result）
@@ -465,12 +467,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         _messages.add(_ChatMessage(
           id: 'ai_text_${DateTime.now().millisecondsSinceEpoch}',
           isUser: false, text: result.message, timestamp: DateTime.now(),
-        ));
+        ),);
         if (result.spots.isNotEmpty) {
           _messages.add(_ChatMessage(
             id: 'ai_spots_${DateTime.now().millisecondsSinceEpoch}',
             isUser: false, spots: result.spots.cast<Spot>(), timestamp: DateTime.now(),
-          ));
+          ),);
         }
       });
 
@@ -494,11 +496,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       return null;
     }
 
-    String? _returnIfDifferent(String languageCode) {
-      return languageCode == defaultLanguage ? null : languageCode;
-    }
+    String? returnIfDifferent(String languageCode) => languageCode == defaultLanguage ? null : languageCode;
 
-    int _countMatches(RegExp pattern) => pattern.allMatches(lowerQuery).length;
+    int countMatches(RegExp pattern) => pattern.allMatches(lowerQuery).length;
 
     // 检测中文、日文、韩文字符（这些语言有独特字符，判断可靠）
     final chineseRegex = RegExp(r'[\u4e00-\u9fff\u3400-\u4dbf]');
@@ -511,13 +511,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
     if (chineseCount > 0 || japaneseCount > 0 || koreanCount > 0) {
       if (japaneseCount > 0) {
-        return _returnIfDifferent('ja');
+        return returnIfDifferent('ja');
       }
       if (koreanCount > chineseCount) {
-        return _returnIfDifferent('ko');
+        return returnIfDifferent('ko');
       }
       if (chineseCount > 0) {
-        return _returnIfDifferent('zh');
+        return returnIfDifferent('zh');
       }
     }
 
@@ -527,9 +527,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       r'\b(je|tu|il|nous|vous|ils|le|la|les|un|une|des|du|de|et|ou|mais|donc|car|ni|que|qui|quoi|où|quand|comment|pourquoi|avec|pour|dans|sur|sous|chez|vers|par|entre|sans|avant|après|pendant|depuis|jusqu|contre|malgré|selon|sauf|voici|voilà|café|restaurant|hôtel|musée|église|château|jardin|plage|montagne|ville|rue|place|pont|gare|aéroport|boulangerie|pâtisserie|librairie|pharmacie|hôpital|école|université|théâtre|cinéma|stade|parc|forêt|lac|rivière|mer|océan|île|quartier|arrondissement|avenue|boulevard)\b',
       caseSensitive: false,
     );
-    final frenchKeywordMatches = _countMatches(frenchKeywordRegex);
+    final frenchKeywordMatches = countMatches(frenchKeywordRegex);
     if (frenchAccentRegex.hasMatch(query) || frenchKeywordMatches >= 2) {
-      return _returnIfDifferent('fr');
+      return returnIfDifferent('fr');
     }
 
     // 西班牙语：同样要求有重音/倒置标点或至少两个关键词
@@ -538,9 +538,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       r'\b(yo|tú|él|ella|nosotros|vosotros|ellos|el|la|los|las|un|una|unos|unas|del|al|porque|qué|quién|dónde|cuándo|cómo|por|para|con|sin|sobre|entre|hasta|café|restaurante|hotel|museo|iglesia|castillo|jardín|playa|montaña|ciudad|calle|plaza|puente|estación|aeropuerto|metro|autobús|tren|avión|barco|coche|bicicleta|taxi)\b',
       caseSensitive: false,
     );
-    final spanishKeywordMatches = _countMatches(spanishKeywordRegex);
+    final spanishKeywordMatches = countMatches(spanishKeywordRegex);
     if (spanishAccentRegex.hasMatch(query) || spanishKeywordMatches >= 2) {
-      return _returnIfDifferent('es');
+      return returnIfDifferent('es');
     }
 
     // 德语：必须包含变音符/ß，或至少两个典型德语词汇
@@ -549,9 +549,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       r'\b(ich|du|er|sie|es|wir|ihr|der|die|das|ein|eine|und|oder|aber|weil|dass|wenn|wie|warum|mit|ohne|für|gegen|durch|bei|nach|von|zu|aus|seit|bis|straße|platz|brücke|bahnhof|flughafen|bäckerei|schloss|garten|strand|stadt|viertel|ubahn|zug|flugzeug|schiff|fahrrad|motorrad)\b',
       caseSensitive: false,
     );
-    final germanKeywordMatches = _countMatches(germanKeywordRegex);
+    final germanKeywordMatches = countMatches(germanKeywordRegex);
     if (germanAccentRegex.hasMatch(query) || germanKeywordMatches >= 2) {
-      return _returnIfDifferent('de');
+      return returnIfDifferent('de');
     }
 
     // 其他语言暂不强制覆写
@@ -903,7 +903,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           ...message.spots!.map((spot) => Padding(
             padding: const EdgeInsets.only(top: 12),
             child: _SpotCardOverlay(spot: spot),
-          )),
+          ),),
       ],
     );
   }
@@ -1179,7 +1179,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           sections.add(_CitySection(
             cityKey: currentCityKey,
             content: currentContent.trim(),
-          ));
+          ),);
         }
         currentCityKey = detectedCityKey;
         currentContent = '$line\n';
@@ -1193,7 +1193,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       sections.add(_CitySection(
         cityKey: currentCityKey,
         content: currentContent.trim(),
-      ));
+      ),);
     }
     
     debugPrint('🏙️ Found ${sections.length} sections');
@@ -1235,7 +1235,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               color: AppTheme.black,
               fontWeight: FontWeight.w600,
             ),
-          ));
+          ),);
           widgets.add(const SizedBox(height: 12));
           widgets.add(_buildHorizontalSpotCards(placesWithImage));
         }
@@ -1345,7 +1345,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               fontWeight: FontWeight.w600,
             ),
           ),
-        ));
+        ),);
       } else if (line.startsWith('### ')) {
         // 三级标题
         widgets.add(Padding(
@@ -1357,7 +1357,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               fontWeight: FontWeight.w600,
             ),
           ),
-        ));
+        ),);
       } else if (line.startsWith('- ') || line.startsWith('  - ')) {
         // 无序列表项
         final indent = line.startsWith('  - ') ? 16.0 : 0.0;
@@ -1373,7 +1373,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               ),
             ],
           ),
-        ));
+        ),);
       } else if (RegExp(r'^\d+\.\s').hasMatch(line.trim())) {
         // 有序列表项（如 "1. [Site Name](URL) - description"）
         final match = RegExp(r'^(\d+)\.\s(.*)$').firstMatch(line.trim());
@@ -1391,7 +1391,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                 ),
               ],
             ),
-          ));
+          ),);
         } else {
           // fallback: 直接渲染
           widgets.add(_buildRichText(line));
@@ -1443,14 +1443,14 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         type: 'link',
         text: match.group(1)!,
         url: match.group(2),
-      ));
+      ),);
     }
     
     // 收集加粗匹配（排除与链接重叠的）
     for (final match in boldRegex.allMatches(text)) {
       final overlaps = allMatches.any((m) => 
         (match.start >= m.start && match.start < m.end) ||
-        (match.end > m.start && match.end <= m.end)
+        (match.end > m.start && match.end <= m.end),
       );
       if (!overlaps) {
         allMatches.add(_RichTextMatch(
@@ -1458,7 +1458,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           end: match.end,
           type: 'bold',
           text: match.group(1)!,
-        ));
+        ),);
       }
     }
     
@@ -1487,7 +1487,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             color: AppTheme.black,
             height: 1.5,
           ),
-        ));
+        ),);
       }
       
       if (match.type == 'bold') {
@@ -1500,7 +1500,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             fontSize: 16,
             height: 1.5,
           ),
-        ));
+        ),);
       } else if (match.type == 'link' && match.url != null) {
         // 链接
         final linkUrl = match.url!;
@@ -1523,7 +1523,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                 debugPrint('🔗 Cannot launch URL: $linkUrl');
               }
             },
-        ));
+        ),);
       }
       
       lastEnd = match.end;
@@ -1537,7 +1537,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           color: AppTheme.black,
           height: 1.5,
         ),
-      ));
+      ),);
     }
     
     return RichText(
@@ -1546,8 +1546,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
   
   /// 构建城市地点分组展示（城市名 + 横滑卡片）
-  Widget _buildCityPlacesSection(CityPlacesGroup cityGroup) {
-    return Column(
+  Widget _buildCityPlacesSection(CityPlacesGroup cityGroup) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 城市名称标题
@@ -1563,7 +1562,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         _buildHorizontalPlaceCards(cityGroup.places),
       ],
     );
-  }
   
   /// 构建横滑地点卡片列表
   Widget _buildHorizontalPlaceCards(List<PlaceResult> places) {
@@ -1596,7 +1594,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         borderRadius: BorderRadius.circular(8),
         child: Image.file(File(imageUrls.first), width: 200, height: 150, fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => Container(width: 200, height: 150, color: AppTheme.lightGray,
-            child: const Icon(Icons.broken_image, color: AppTheme.mediumGray))),
+            child: const Icon(Icons.broken_image, color: AppTheme.mediumGray),),),
       );
     }
     return Wrap(
@@ -1605,8 +1603,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         borderRadius: BorderRadius.circular(6),
         child: Image.file(File(url), width: 80, height: 80, fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => Container(width: 80, height: 80, color: AppTheme.lightGray,
-            child: const Icon(Icons.broken_image, size: 24, color: AppTheme.mediumGray))),
-      )).toList(),
+            child: const Icon(Icons.broken_image, size: 24, color: AppTheme.mediumGray),),),
+      ),).toList(),
     );
   }
 
@@ -1759,7 +1757,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
 
   Widget _buildCoverImage(String imageUrl) {
     const placeholder = ColoredBox(color: AppTheme.lightGray,
-      child: Center(child: Icon(Icons.image_not_supported, size: 48, color: AppTheme.mediumGray)));
+      child: Center(child: Icon(Icons.image_not_supported, size: 48, color: AppTheme.mediumGray)),);
     if (imageUrl.isEmpty) return placeholder;
     if (imageUrl.startsWith('data:')) {
       final bytes = _decodeBase64Image(imageUrl);
@@ -1904,32 +1902,32 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                               fontSize: 10, 
                               fontWeight: FontWeight.w600,
                               color: AppTheme.black,
-                            )),
-                          )).toList(),
+                            ),),
+                          ),).toList(),
                         ),
                       const SizedBox(height: 6),
                       Text(widget.spot.name,
                         style: AppTheme.labelLarge(context).copyWith(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                        maxLines: 1, overflow: TextOverflow.ellipsis,),
                       const SizedBox(height: 2),
                       if (widget.spot.isAIOnly || !widget.spot.hasRating)
                         Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.auto_awesome, size: 12, color: AppTheme.primaryYellow),
+                          const Icon(Icons.auto_awesome, size: 12, color: AppTheme.primaryYellow),
                           const SizedBox(width: 4),
                           Flexible(child: Text(widget.spot.recommendationPhrase ?? 'AI Recommended',
                             style: AppTheme.bodySmall(context).copyWith(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
-                            maxLines: 1, overflow: TextOverflow.ellipsis)),
-                        ])
+                            maxLines: 1, overflow: TextOverflow.ellipsis,),),
+                        ],)
                       else
                         Row(mainAxisSize: MainAxisSize.min, children: [
                           const Icon(Icons.star, size: 14, color: AppTheme.primaryYellow),
                           const SizedBox(width: 4),
                           Text(widget.spot.rating.toStringAsFixed(1),
-                            style: AppTheme.bodySmall(context).copyWith(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+                            style: AppTheme.bodySmall(context).copyWith(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),),
                           const SizedBox(width: 4),
                           Text('(${widget.spot.ratingCount})',
-                            style: AppTheme.bodySmall(context).copyWith(color: Colors.white.withValues(alpha: 0.8), fontSize: 11)),
-                        ]),
+                            style: AppTheme.bodySmall(context).copyWith(color: Colors.white.withValues(alpha: 0.8), fontSize: 11),),
+                        ],),
                     ],
                   ),
                 ),
@@ -2097,11 +2095,6 @@ class _PlaceDetailLoaderState extends State<_PlaceDetailLoader> {
 
 /// 富文本匹配结果辅助类
 class _RichTextMatch {
-  final int start;
-  final int end;
-  final String type; // 'bold' or 'link'
-  final String text;
-  final String? url;
   
   _RichTextMatch({
     required this.start,
@@ -2110,14 +2103,19 @@ class _RichTextMatch {
     required this.text,
     this.url,
   });
+  final int start;
+  final int end;
+  final String type; // 'bold' or 'link'
+  final String text;
+  final String? url;
 }
 
 /// 城市内容分段辅助类
 class _CitySection {
-  final String? cityKey;
-  final String content;
   
   _CitySection({this.cityKey, required this.content});
+  final String? cityKey;
+  final String content;
 }
 
 /// 大尺寸地点卡片 - 用于单个地点展示
@@ -2188,9 +2186,9 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
         });
         CustomToast.showSuccess(context, 'Removed from wishlist');
       } else {
-        final cityName = widget.place.city?.isNotEmpty == true 
+        final cityName = widget.place.city?.isNotEmpty ?? false 
             ? widget.place.city! 
-            : (widget.place.country?.isNotEmpty == true 
+            : (widget.place.country?.isNotEmpty ?? false 
                 ? widget.place.country! 
                 : 'Saved Places');
         
@@ -2370,8 +2368,7 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                             Wrap(
                               spacing: 6,
                               runSpacing: 4,
-                              children: displayTags.take(2).map((tag) {
-                                return Container(
+                              children: displayTags.take(2).map((tag) => Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: AppTheme.primaryYellow,
@@ -2385,8 +2382,7 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                                       color: AppTheme.black,
                                     ),
                                   ),
-                                );
-                              }).toList(),
+                                )).toList(),
                             ),
                           const SizedBox(height: 8),
                           // 地点名称 - 更大字号
@@ -2406,7 +2402,7 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.auto_awesome, size: 16, color: AppTheme.primaryYellow),
+                                const Icon(Icons.auto_awesome, size: 16, color: AppTheme.primaryYellow),
                                 const SizedBox(width: 6),
                                 Text(
                                   widget.place.recommendationPhrase ?? 'AI Recommended',
@@ -2471,8 +2467,7 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: displayTags.skip(2).take(4).map((tag) {
-              return Container(
+            children: displayTags.skip(2).take(4).map((tag) => Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.lightGray,
@@ -2485,8 +2480,7 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                     color: AppTheme.darkGray,
                   ),
                 ),
-              );
-            }).toList(),
+              )).toList(),
           ),
         ],
       ],

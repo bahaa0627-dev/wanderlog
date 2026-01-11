@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
-import '../supabase_config.dart';
+import 'package:wanderlog/core/supabase/supabase_config.dart';
 
 /// 图片上传服务 (Cloudflare R2)
 class ImageService {
@@ -107,35 +107,29 @@ class ImageService {
   }
 
   /// 获取缩略图 URL
-  static String getThumbnailUrl(String originalUrl, {int size = 200}) {
-    return getOptimizedUrl(
+  static String getThumbnailUrl(String originalUrl, {int size = 200}) => getOptimizedUrl(
       originalUrl,
       width: size,
       height: size,
       fit: 'cover',
       quality: 70,
     );
-  }
 
   /// 获取列表图 URL
-  static String getListImageUrl(String originalUrl) {
-    return getOptimizedUrl(
+  static String getListImageUrl(String originalUrl) => getOptimizedUrl(
       originalUrl,
       width: 400,
       height: 300,
       fit: 'cover',
       quality: 80,
     );
-  }
 
   /// 获取详情页大图 URL
-  static String getDetailImageUrl(String originalUrl) {
-    return getOptimizedUrl(
+  static String getDetailImageUrl(String originalUrl) => getOptimizedUrl(
       originalUrl,
       width: 800,
       quality: 85,
     );
-  }
 
   /// 从 URL 下载图片并上传到 R2（用于 Google 图片迁移）
   /// 

@@ -2,6 +2,7 @@
 /// 
 /// 对应后端 /places/ai/search-v2 API 的响应结构
 /// Requirements: 3.5, 9.1
+library;
 
 import 'package:flutter/foundation.dart';
 
@@ -31,33 +32,6 @@ enum IntentType {
 
 /// SearchV2 完整响应结果
 class SearchV2Result {
-  SearchV2Result({
-    required this.success,
-    required this.acknowledgment,
-    this.categories,
-    required this.places,
-    this.mapPlaces,
-    this.cityPlaces,
-    required this.overallSummary,
-    required this.quotaRemaining,
-    required this.stage,
-    this.error,
-    this.intent,
-    this.textContent,
-    this.identifiedPlaceName,
-  });
-
-  /// 意图类型
-  final IntentType? intent;
-
-  /// 文本内容（用于 non_travel 和 travel_consultation 意图）
-  final String? textContent;
-  
-  /// 按城市分组的地点（用于 travel_consultation 多城市场景）
-  final List<CityPlacesGroup>? cityPlaces;
-  
-  /// AI 识别的地点名称（用于 specific_place 意图，当用户查询模糊时）
-  final String? identifiedPlaceName;
 
   /// 从 JSON 创建
   factory SearchV2Result.fromJson(Map<String, dynamic> json) {
@@ -180,6 +154,58 @@ class SearchV2Result {
         );
     }
   }
+
+  /// 创建空结果
+  factory SearchV2Result.empty() {
+    return SearchV2Result(
+      success: false,
+      acknowledgment: '',
+      places: [],
+      overallSummary: '',
+      quotaRemaining: 0,
+      stage: SearchStage.complete,
+      intent: null,
+      textContent: null,
+    );
+  }
+
+  /// 创建错误结果
+  factory SearchV2Result.error(String errorMessage) {
+    return SearchV2Result(
+      success: false,
+      acknowledgment: '',
+      places: [],
+      overallSummary: '',
+      quotaRemaining: 0,
+      stage: SearchStage.complete,
+      error: errorMessage,
+      intent: null,
+      textContent: null,
+    );
+  }
+  SearchV2Result({
+    required this.success,
+    required this.acknowledgment,
+    required this.places, required this.overallSummary, required this.quotaRemaining, required this.stage, this.categories,
+    this.mapPlaces,
+    this.cityPlaces,
+    this.error,
+    this.intent,
+    this.textContent,
+    this.identifiedPlaceName,
+  });
+
+  /// 意图类型
+  final IntentType? intent;
+
+  /// 文本内容（用于 non_travel 和 travel_consultation 意图）
+  final String? textContent;
+  
+  /// 按城市分组的地点（用于 travel_consultation 多城市场景）
+  final List<CityPlacesGroup>? cityPlaces;
+  
+  /// AI 识别的地点名称（用于 specific_place 意图，当用户查询模糊时）
+  final String? identifiedPlaceName;
   
   /// 解析意图类型
   static IntentType _parseIntent(String? intent) {
@@ -310,35 +336,6 @@ class SearchV2Result {
         return SearchStage.complete;
     }
   }
-
-  /// 创建空结果
-  factory SearchV2Result.empty() {
-    return SearchV2Result(
-      success: false,
-      acknowledgment: '',
-      places: [],
-      overallSummary: '',
-      quotaRemaining: 0,
-      stage: SearchStage.complete,
-      intent: null,
-      textContent: null,
-    );
-  }
-
-  /// 创建错误结果
-  factory SearchV2Result.error(String errorMessage) {
-    return SearchV2Result(
-      success: false,
-      acknowledgment: '',
-      places: [],
-      overallSummary: '',
-      quotaRemaining: 0,
-      stage: SearchStage.complete,
-      error: errorMessage,
-      intent: null,
-      textContent: null,
-    );
-  }
 }
 
 /// 分类组
@@ -349,15 +346,13 @@ class CategoryGroup {
   });
 
   /// 从 JSON 创建
-  factory CategoryGroup.fromJson(Map<String, dynamic> json) {
-    return CategoryGroup(
+  factory CategoryGroup.fromJson(Map<String, dynamic> json) => CategoryGroup(
       title: json['title'] as String? ?? '',
       places: (json['places'] as List?)
               ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );
-  }
 
   /// 分类标题（如 "精品咖啡"、"小众博物馆"）
   final String title;
@@ -366,12 +361,10 @@ class CategoryGroup {
   final List<PlaceResult> places;
 
   /// 转换为 JSON
-  Map<String, dynamic> toJson() {
-    return {
+  Map<String, dynamic> toJson() => {
       'title': title,
       'places': places.map((e) => e.toJson()).toList(),
     };
-  }
 }
 
 /// 城市地点分组（用于 travel_consultation 多城市场景）
@@ -382,15 +375,13 @@ class CityPlacesGroup {
   });
 
   /// 从 JSON 创建
-  factory CityPlacesGroup.fromJson(Map<String, dynamic> json) {
-    return CityPlacesGroup(
+  factory CityPlacesGroup.fromJson(Map<String, dynamic> json) => CityPlacesGroup(
       city: json['city'] as String? ?? '',
       places: (json['places'] as List?)
               ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );
-  }
 
   /// 城市名称
   final String city;
@@ -399,25 +390,18 @@ class CityPlacesGroup {
   final List<PlaceResult> places;
 
   /// 转换为 JSON
-  Map<String, dynamic> toJson() {
-    return {
+  Map<String, dynamic> toJson() => {
       'city': city,
       'places': places.map((e) => e.toJson()).toList(),
     };
-  }
 }
 
 /// 地点结果
 class PlaceResult {
   PlaceResult({
-    this.id,
+    required this.name, required this.summary, required this.coverImage, required this.latitude, required this.longitude, required this.isVerified, required this.source, this.id,
     this.googlePlaceId,
-    required this.name,
-    required this.summary,
-    required this.coverImage,
     this.images = const [],
-    required this.latitude,
-    required this.longitude,
     this.city,
     this.country,
     this.rating,
@@ -426,8 +410,6 @@ class PlaceResult {
     this.tags,
     this.displayTagsEn,
     this.displayTagsZh,
-    required this.isVerified,
-    required this.source,
     // 详情页需要的额外字段
     this.address,
     this.phoneNumber,
@@ -556,8 +538,7 @@ class PlaceResult {
   }
 
   /// 转换为 JSON
-  Map<String, dynamic> toJson() {
-    return {
+  Map<String, dynamic> toJson() => {
       'id': id,
       'googlePlaceId': googlePlaceId,
       'name': name,
@@ -581,7 +562,6 @@ class PlaceResult {
       'website': website,
       'openingHours': openingHours,
     };
-  }
 
   /// 解析数据来源
   static PlaceSource _parseSource(String? source) {
@@ -654,8 +634,7 @@ class PlaceResult {
     String? phoneNumber,
     String? website,
     String? openingHours,
-  }) {
-    return PlaceResult(
+  }) => PlaceResult(
       id: id ?? this.id,
       googlePlaceId: googlePlaceId ?? this.googlePlaceId,
       name: name ?? this.name,
@@ -679,7 +658,6 @@ class PlaceResult {
       website: website ?? this.website,
       openingHours: openingHours ?? this.openingHours,
     );
-  }
 }
 
 /// 搜索加载状态

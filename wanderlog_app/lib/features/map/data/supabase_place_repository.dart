@@ -91,7 +91,7 @@ class SupabasePlaceRepository {
       final response = await _client.rpc('search_places', params: {
         'search_term': keyword,
         'limit_count': limit,
-      });
+      },);
 
       return (response as List)
           .map((e) => PublicPlaceDto.fromSupabase(e as Map<String, dynamic>))
@@ -114,7 +114,7 @@ class SupabasePlaceRepository {
         'lng': longitude,
         'radius_km': radiusKm,
         'limit_count': limit,
-      });
+      },);
 
       return (response as List)
           .map((e) => PublicPlaceDto.fromSupabase(e as Map<String, dynamic>))

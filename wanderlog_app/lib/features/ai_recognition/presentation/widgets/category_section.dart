@@ -90,8 +90,7 @@ class _PlaceCardWithSummary extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
+  Widget build(BuildContext context) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 4:3 卡片
@@ -119,7 +118,6 @@ class _PlaceCardWithSummary extends StatelessWidget {
           ),
       ],
     );
-  }
 }
 
 /// 多分类展示组件 - 用于展示多个分类

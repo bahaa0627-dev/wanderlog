@@ -1,12 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../supabase_config.dart';
+import 'package:wanderlog/core/supabase/supabase_config.dart';
 
 /// 认证服务
 class AuthService {
-  final SupabaseClient _client;
 
   AuthService([SupabaseClient? client])
       : _client = client ?? SupabaseConfig.client;
+  final SupabaseClient _client;
 
   /// 当前用户
   User? get currentUser => _client.auth.currentUser;
@@ -22,30 +22,26 @@ class AuthService {
     required String email,
     required String password,
     String? name,
-  }) async {
-    return await _client.auth.signUp(
+  }) async => await _client.auth.signUp(
       email: email,
       password: password,
       data: name != null ? {'name': name} : null,
     );
-  }
 
   /// 邮箱登录
   Future<AuthResponse> signIn({
     required String email,
     required String password,
-  }) async {
-    return await _client.auth.signInWithPassword(
+  }) async => await _client.auth.signInWithPassword(
       email: email,
       password: password,
     );
-  }
 
   /// Google 登录
   Future<bool> signInWithGoogle() async {
     final response = await _client.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: 'io.wanderlog.app://login-callback',
+      redirectTo: SupabaseConfig.redirectUrl,
     );
     return response;
   }
@@ -54,22 +50,23 @@ class AuthService {
   Future<bool> signInWithApple() async {
     final response = await _client.auth.signInWithOAuth(
       OAuthProvider.apple,
-      redirectTo: 'io.wanderlog.app://login-callback',
+      redirectTo: SupabaseConfig.redirectUrl,
     );
     return response;
   }
 
   /// 发送密码重置邮件
   Future<void> resetPassword(String email) async {
-    await _client.auth.resetPasswordForEmail(email);
+    await _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: SupabaseConfig.redirectUrl,
+    );
   }
 
   /// 更新密码
-  Future<UserResponse> updatePassword(String newPassword) async {
-    return await _client.auth.updateUser(
+  Future<UserResponse> updatePassword(String newPassword) async => await _client.auth.updateUser(
       UserAttributes(password: newPassword),
     );
-  }
 
   /// 更新用户信息
   Future<UserResponse> updateProfile({
@@ -100,7 +97,5 @@ class AuthService {
   Session? get currentSession => _client.auth.currentSession;
 
   /// 刷新 session
-  Future<AuthResponse> refreshSession() async {
-    return await _client.auth.refreshSession();
-  }
+  Future<AuthResponse> refreshSession() async => await _client.auth.refreshSession();
 }

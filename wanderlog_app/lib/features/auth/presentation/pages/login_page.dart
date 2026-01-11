@@ -169,8 +169,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -315,6 +314,5 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ),
       ),
     );
-  }
 }
 

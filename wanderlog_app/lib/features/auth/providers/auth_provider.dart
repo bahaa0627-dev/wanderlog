@@ -4,6 +4,7 @@ import 'package:wanderlog/core/storage/storage_service.dart';
 import 'package:wanderlog/core/supabase/supabase_config.dart';
 import 'package:wanderlog/shared/models/user_model.dart';
 import 'package:wanderlog/features/auth/data/auth_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 // Auth Repository Provider
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -165,7 +166,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> forgotPassword(String email) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _repository.forgotPassword(email);
+      // Use Supabase password recovery (email link), not backend codes.
+      await SupabaseConfig.auth.resetPasswordForEmail(
+        email,
+        redirectTo: SupabaseConfig.redirectUrl,
+      );
       state = state.copyWith(isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -173,14 +178,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Update password during Supabase recovery flow.
+  Future<void> updatePassword(String newPassword) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await SupabaseConfig.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  /// Backward-compatible wrapper (legacy code-based reset).
+  /// Supabase recovery flow doesn't require `email`/`code`.
   Future<void> resetPassword(String email, String code, String newPassword) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _repository.resetPassword(
-        email: email,
-        code: code,
-        newPassword: newPassword,
-      );
+      await updatePassword(newPassword);
       state = state.copyWith(isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

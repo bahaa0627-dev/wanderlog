@@ -149,8 +149,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Scaffold(
       appBar: AppBar(
         title: const Text('Verify Email'),
         leading: IconButton(
@@ -241,5 +240,4 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
         ),
       ),
     );
-  }
 }

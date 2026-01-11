@@ -756,7 +756,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
       // Load all destination details in parallel for speed
       final detailFutures = destinations
-          .where((d) => d.city?.trim().isNotEmpty == true)
+          .where((d) => d.city?.trim().isNotEmpty ?? false)
           .map((d) => repo.getTripById(d.id).catchError((_) => d));
       final details = await Future.wait(detailFutures);
 
@@ -2053,7 +2053,7 @@ class _SpotCarouselCard extends StatelessWidget {
 
   /// Build image widget that handles both data URIs and network URLs
   Widget _buildImageWidget(String imageSource) {
-    final placeholder = ColoredBox(
+    const placeholder = ColoredBox(
       color: AppTheme.lightGray,
       child: const Icon(
         Icons.photo,
@@ -2109,9 +2109,9 @@ class _SpotCarouselCard extends StatelessWidget {
               Positioned.fill(
                 child: imageUrl != null
                     ? _buildImageWidget(imageUrl)
-                    : ColoredBox(
+                    : const ColoredBox(
                         color: AppTheme.lightGray,
-                        child: const Icon(
+                        child: Icon(
                           Icons.photo,
                           size: 48,
                           color: AppTheme.mediumGray,
@@ -2170,7 +2170,7 @@ class _SpotCarouselCard extends StatelessWidget {
                               color: AppTheme.black,
                             ),
                           ),
-                        )).toList(),
+                        ),).toList(),
                     ),
                   ],
                 ),
@@ -2426,7 +2426,7 @@ class _VisitedSpotCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholder() => Container(
+  Widget _buildPlaceholder() => ColoredBox(
       color: AppTheme.background,
       child: const Center(
         child: Icon(

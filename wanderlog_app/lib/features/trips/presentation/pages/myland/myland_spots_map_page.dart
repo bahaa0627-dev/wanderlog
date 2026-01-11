@@ -773,7 +773,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     );
   }
 
-  Widget _buildBottomCards(List<map_page.Spot> spots, {double extraHeight = 0}) {
+  Widget _buildBottomCards(List<map_page.Spot> spots) {
     const double cardWidth = 210;
     const double cardHeight = 280; // 宽:高 = 3:4
 
@@ -963,7 +963,7 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
       );
 
   Widget _buildCover() {
-    final placeholder = ColoredBox(
+    const placeholder = ColoredBox(
       color: AppTheme.lightGray,
       child: const Icon(
         Icons.place,

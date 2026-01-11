@@ -1,36 +1,5 @@
 /// 地点数据模型 (对应 Supabase places 表)
 class PlaceModel {
-  final String id;
-  final String name;
-  final String? city;
-  final String? country;
-  final double latitude;
-  final double longitude;
-  final String? address;
-  final String? description;
-  final String? openingHours;
-  final double? rating;
-  final int? ratingCount;
-  final String? category;
-  final String? categorySlug;
-  final String? categoryEn;
-  final String? categoryZh;
-  final String? aiSummary;
-  final String? aiDescription;
-  final List<String> aiTags;
-  final List<String> displayTagsEn;
-  final List<String> displayTagsZh;
-  final String? coverImage;
-  final List<String> images;
-  final List<String> tags;
-  final int? priceLevel;
-  final String? website;
-  final String? phoneNumber;
-  final String? googlePlaceId;
-  final String? source;
-  final bool isVerified;
-  final DateTime createdAt;
-  final DateTime updatedAt;
 
   PlaceModel({
     required this.id,
@@ -101,9 +70,39 @@ class PlaceModel {
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
   }
+  final String id;
+  final String name;
+  final String? city;
+  final String? country;
+  final double latitude;
+  final double longitude;
+  final String? address;
+  final String? description;
+  final String? openingHours;
+  final double? rating;
+  final int? ratingCount;
+  final String? category;
+  final String? categorySlug;
+  final String? categoryEn;
+  final String? categoryZh;
+  final String? aiSummary;
+  final String? aiDescription;
+  final List<String> aiTags;
+  final List<String> displayTagsEn;
+  final List<String> displayTagsZh;
+  final String? coverImage;
+  final List<String> images;
+  final List<String> tags;
+  final int? priceLevel;
+  final String? website;
+  final String? phoneNumber;
+  final String? googlePlaceId;
+  final String? source;
+  final bool isVerified;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
-  Map<String, dynamic> toJson() {
-    return {
+  Map<String, dynamic> toJson() => {
       'id': id,
       'name': name,
       'city': city,
@@ -136,7 +135,6 @@ class PlaceModel {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
-  }
 
   static List<String> _parseStringList(dynamic value) {
     if (value == null) return [];

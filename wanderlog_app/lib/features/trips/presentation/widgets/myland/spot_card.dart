@@ -191,7 +191,7 @@ class SpotCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholder() => Container(
+  Widget _buildPlaceholder() => ColoredBox(
       color: AppTheme.background,
       child: const Center(
         child: Icon(

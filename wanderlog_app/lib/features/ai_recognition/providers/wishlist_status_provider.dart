@@ -18,10 +18,8 @@ final wishlistStatusProvider = FutureProvider<Map<String, String?>>((ref) async 
     final tripSpots = trip.tripSpots ?? [];
     for (final tripSpot in tripSpots) {
       // 使用 spotId (UUID) 作为 key
-      if (tripSpot.spotId != null) {
-        statusMap[tripSpot.spotId!] = trip.id;
-      }
-      // 同时使用 spot.name 作为 key，解决 AI 地点 ID 不匹配问题
+      statusMap[tripSpot.spotId!] = trip.id;
+          // 同时使用 spot.name 作为 key，解决 AI 地点 ID 不匹配问题
       if (tripSpot.spot != null && tripSpot.spot!.name.isNotEmpty) {
         statusMap[tripSpot.spot!.name] = trip.id;
       }

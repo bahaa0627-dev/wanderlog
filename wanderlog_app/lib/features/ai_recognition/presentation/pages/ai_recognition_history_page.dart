@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_history.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_history_service.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_recognition_history_chat_page.dart';
-import 'package:wanderlog/features/ai_recognition/presentation/widgets/ai_recognition_sheets_new.dart';
 
 /// AI识别历史记录列表页面
 class AIRecognitionHistoryPage extends StatefulWidget {

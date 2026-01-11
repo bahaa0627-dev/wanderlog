@@ -163,7 +163,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     try {
       final isFromAI = (widget.spot as dynamic).isFromAI as bool?;
       final isVerified = (widget.spot as dynamic).isVerified as bool?;
-      return (isFromAI == true) && (isVerified != true);
+      return (isFromAI ?? false) && (isVerified != true);
     } catch (e) {
       return false;
     }
@@ -814,7 +814,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         return false;
       }
       // 使用 city，如果为空则使用 "Saved Places" 作为默认目的地
-      final cityName = (_spotCity?.isNotEmpty == true) ? _spotCity! : 'Saved Places';
+      final cityName = (_spotCity?.isNotEmpty ?? false) ? _spotCity! : 'Saved Places';
       final destId = await ensureDestinationForCity(ref, cityName);
       if (destId == null) {
         setState(() => _isWishlist = false);
@@ -1030,8 +1030,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         ),
         if (_isOpeningHoursExpanded && weekdayText != null) ...[
           const SizedBox(height: 12),
-          ...weekdayText.map((dayText) {
-            return Padding(
+          ...weekdayText.map((dayText) => Padding(
               padding: const EdgeInsets.only(bottom: 4, left: 26),
               child: Text(
                 dayText,
@@ -1039,8 +1038,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                   color: AppTheme.black.withOpacity(0.6),
                 ),
               ),
-            );
-          }),
+            )),
         ],
       ],
     );
@@ -1050,8 +1048,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     required IconData icon,
     required String text,
     VoidCallback? onCopy,
-  }) {
-    return Row(
+  }) => Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Icon(icon, size: 18, color: AppTheme.black),
@@ -1074,7 +1071,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
           ),
       ],
     );
-  }
 
   /// 构建合集入口卡片 - 封面图左上角，宽度自适应
   Widget _buildCollectionEntryCard() {
@@ -1247,7 +1243,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                       color: index == _currentImageIndex ? AppTheme.primaryYellow : Colors.white.withOpacity(0.5),
                       border: Border.all(color: AppTheme.black, width: 1),
                     ),
-                  )),
+                  ),),
                 ),
               ),
             // 合集入口卡片 - 封面图左上角
@@ -1314,7 +1310,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                           ),
                         ),
                       ),
-                    )).toList(),
+                    ),).toList(),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -1333,7 +1329,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                 if (_isAIOnlySpot || (_spotRating == null || _spotRating == 0)) ...[
                   Row(
                     children: [
-                      Icon(Icons.auto_awesome, size: 20, color: AppTheme.primaryYellow),
+                      const Icon(Icons.auto_awesome, size: 20, color: AppTheme.primaryYellow),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -1360,7 +1356,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                         index < _spotRating!.floor() ? Icons.star : (index < _spotRating! ? Icons.star_half : Icons.star_border),
                         color: AppTheme.primaryYellow,
                         size: 20,
-                      )),
+                      ),),
                       if (_spotRatingCount != null) ...[
                         const SizedBox(width: 8),
                         Text(
@@ -1482,8 +1478,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     );
   }
 
-  Widget _buildAddressRowWithNavigation() {
-    return Row(
+  Widget _buildAddressRowWithNavigation() => Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Icon(Icons.location_on_outlined, size: 18, color: AppTheme.black),
@@ -1505,7 +1500,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         ),
       ],
     );
-  }
 
   void _showNavigationOptions() {
     final lat = _getLatitude();
@@ -1594,8 +1588,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     required String icon,
     required String title,
     required VoidCallback onTap,
-  }) {
-    return GestureDetector(
+  }) => GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1625,7 +1618,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         ),
       ),
     );
-  }
 
   Future<void> _openGoogleMaps(double lat, double lng, String name) async {
     final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng&query_place_id=$name');

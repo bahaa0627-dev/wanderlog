@@ -144,9 +144,9 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
         widget.onWishlistChanged?.call(false);
         CustomToast.showSuccess(context, 'Removed from wishlist');
       } else {
-        final cityName = widget.place.city?.isNotEmpty == true 
+        final cityName = widget.place.city?.isNotEmpty ?? false 
             ? widget.place.city! 
-            : (widget.place.country?.isNotEmpty == true 
+            : (widget.place.country?.isNotEmpty ?? false 
                 ? widget.place.country! 
                 : 'Saved Places');
         
@@ -257,13 +257,12 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   // 标签
-                  if ((widget.place.displayTagsEn ?? widget.place.tags)?.isNotEmpty == true) ...[
+                  if ((widget.place.displayTagsEn ?? widget.place.tags)?.isNotEmpty ?? false) ...[
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 4,
                       runSpacing: 4,
-                      children: (widget.place.displayTagsEn ?? widget.place.tags ?? []).take(2).map((tag) {
-                        return Container(
+                      children: (widget.place.displayTagsEn ?? widget.place.tags ?? []).take(2).map((tag) => Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: AppTheme.primaryYellow.withOpacity(0.3),
@@ -277,8 +276,7 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
                               color: AppTheme.black,
                             ),
                           ),
-                        );
-                      }).toList(),
+                        )).toList(),
                     ),
                   ],
                 ],
@@ -375,8 +373,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
 
   Widget _buildCoverImage() {
     // AI 地点的占位符 - 使用渐变背景和图标
-    Widget buildAIPlaceholder() {
-      return Container(
+    Widget buildAIPlaceholder() => Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -409,7 +406,6 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
           ),
         ),
       );
-    }
 
     const defaultPlaceholder = ColoredBox(
       color: AppTheme.lightGray,
@@ -444,13 +440,13 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
   Widget _buildRatingOrPhrase(BuildContext context) {
     // AI-only 地点显示推荐短语
     if (widget.place.isAIOnly || !widget.place.hasRating) {
-      final phrase = widget.place.recommendationPhrase?.isNotEmpty == true 
+      final phrase = widget.place.recommendationPhrase?.isNotEmpty ?? false 
           ? widget.place.recommendationPhrase!
           : _getDefaultPhrase();
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.auto_awesome, size: 14, color: AppTheme.primaryYellow),
+          const Icon(Icons.auto_awesome, size: 14, color: AppTheme.primaryYellow),
           const SizedBox(width: 4),
           Text(
             phrase,
@@ -530,8 +526,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
     return Wrap(
       spacing: 4,
       runSpacing: 4,
-      children: displayTags.take(2).map((tag) {
-        return Container(
+      children: displayTags.take(2).map((tag) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: AppTheme.primaryYellow,
@@ -545,8 +540,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
               color: AppTheme.black,
             ),
           ),
-        );
-      }).toList(),
+        )).toList(),
     );
   }
 
@@ -581,9 +575,9 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
       } else {
         // 未收藏，添加
         // 使用 city，如果为空则使用 country，如果都为空则使用 "Saved Places"
-        final cityName = widget.place.city?.isNotEmpty == true 
+        final cityName = widget.place.city?.isNotEmpty ?? false 
             ? widget.place.city! 
-            : (widget.place.country?.isNotEmpty == true 
+            : (widget.place.country?.isNotEmpty ?? false 
                 ? widget.place.country! 
                 : 'Saved Places');
         

@@ -34,12 +34,9 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
 
       if (mounted) {
         CustomToast.showSuccess(
-            context, 'Verification code sent to your email',);
-        // 直接跳转到重置密码页面
-        await Future<void>.delayed(const Duration(milliseconds: 500));
-        if (mounted) {
-          context.go('/reset-password', extra: _emailController.text);
-        }
+          context,
+          'Password reset link sent to your email',
+        );
       }
     } catch (e) {
       if (mounted) {

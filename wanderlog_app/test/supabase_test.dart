@@ -23,7 +23,7 @@ void main() {
       final data = jsonDecode(response.body) as List;
       expect(data.isNotEmpty, true);
       print('✅ 获取到 ${data.length} 个地点');
-      for (var place in data) {
+      for (final place in data) {
         print('  - ${place['name']} (${place['city']})');
       }
     });
@@ -41,7 +41,7 @@ void main() {
       final data = jsonDecode(response.body) as List;
       expect(data.isNotEmpty, true);
       print('✅ 获取到 ${data.length} 个合集');
-      for (var collection in data) {
+      for (final collection in data) {
         print('  - ${collection['name']}');
       }
     });

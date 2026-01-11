@@ -35,8 +35,7 @@ class DialogUtils {
   }
 
   /// 统一的白底黑框 Toast 样式
-  static SnackBar _buildSnackBar(String message, {IconData? icon}) {
-    return SnackBar(
+  static SnackBar _buildSnackBar(String message, {IconData? icon}) => SnackBar(
       content: Row(
         children: [
           if (icon != null) ...[
@@ -64,7 +63,6 @@ class DialogUtils {
       elevation: 0,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
-  }
 
   static void showSuccessSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();

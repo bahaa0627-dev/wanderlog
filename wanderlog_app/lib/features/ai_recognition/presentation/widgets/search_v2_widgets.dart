@@ -7,6 +7,7 @@
 /// - 9.4, 9.5: Flat place list for non-categorized results
 /// - 10.3, 10.4, 10.5: Recommendation map view
 /// - 11.1, 11.2, 11.4: AI place cards with recommendation phrases
+library;
 
 export 'ai_place_card.dart';
 export 'category_section.dart';

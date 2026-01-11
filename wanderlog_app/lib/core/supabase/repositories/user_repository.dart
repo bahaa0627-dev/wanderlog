@@ -1,13 +1,13 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/place_model.dart';
-import '../supabase_config.dart';
+import 'package:wanderlog/core/supabase/models/place_model.dart';
+import 'package:wanderlog/core/supabase/supabase_config.dart';
 
 /// 用户数据仓库 (收藏、打卡等)
 class UserRepository {
-  final SupabaseClient _client;
 
   UserRepository([SupabaseClient? client])
       : _client = client ?? SupabaseConfig.client;
+  final SupabaseClient _client;
 
   String? get _userId => _client.auth.currentUser?.id;
 

@@ -134,8 +134,7 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: AppTheme.background,
@@ -156,10 +155,8 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
               ? _buildErrorView()
               : _buildContent(),
     );
-  }
 
-  Widget _buildErrorView() {
-    return Center(
+  Widget _buildErrorView() => Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -174,10 +171,8 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
         ],
       ),
     );
-  }
 
-  Widget _buildContent() {
-    return Column(
+  Widget _buildContent() => Column(
       children: [
         Expanded(
           child: SingleChildScrollView(
@@ -207,17 +202,13 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
         _buildSearchButton(),
       ],
     );
-  }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
+  Widget _buildSectionTitle(String title) => Text(
       title,
       style: AppTheme.headlineMedium(context).copyWith(fontSize: 20),
     );
-  }
 
-  Widget _buildCountryDropdown() {
-    return Container(
+  Widget _buildCountryDropdown() => Container(
       decoration: BoxDecoration(
         color: AppTheme.white,
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -258,7 +249,6 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
         ),
       ),
     );
-  }
 
   Widget _buildCityDropdown() {
     final cities = _availableCities;
@@ -294,15 +284,13 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
             ),
           ),
           items: hasCountry
-              ? cities.map((city) {
-                  return DropdownMenuItem<String>(
+              ? cities.map((city) => DropdownMenuItem<String>(
                     value: city,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(city, style: AppTheme.bodyMedium(context)),
                     ),
-                  );
-                }).toList()
+                  )).toList()
               : null,
           onChanged: hasCountry
               ? (value) {
@@ -368,8 +356,7 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
     );
   }
 
-  Widget _buildSearchButton() {
-    return Container(
+  Widget _buildSearchButton() => Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.white,
@@ -391,5 +378,4 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
         ),
       ),
     );
-  }
 }

@@ -10,6 +10,46 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// Auth models (custom email/password + verification codes)
+model User {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String   @unique
+  password        String?
+  name            String?
+  avatarUrl       String?  @map("avatar_url")
+  authProvider    String   @default("email") @map("auth_provider")
+  googleId        String?  @unique @map("google_id")
+  isEmailVerified Boolean  @default(false) @map("is_email_verified")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  refreshToken    String?  @map("refresh_token")
+  tokenVersion    Int      @default(0) @map("token_version")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  verificationTokens VerificationToken[]
+
+  @@index([email])
+  @@index([googleId])
+  @@map("users")
+}
+
+model VerificationToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @unique
+  type      String
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId, type])
+  @@index([expiresAt])
+  @@map("verification_tokens")
+}
+
 model Profile {
   id        String   @id @db.Uuid
   name      String?

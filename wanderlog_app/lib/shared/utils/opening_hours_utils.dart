@@ -25,7 +25,7 @@ class OpeningHoursUtils {
     final now = _nowWallClockUtc(utcOffsetMinutes);
 
     // 24/7: single period with open 00:00 and no close
-    if (hasPeriods && _is24HoursPeriods(periods!)) {
+    if (hasPeriods && _is24HoursPeriods(periods)) {
       return OpeningHoursEvaluation(
         now: now,
         isOpen: true,
@@ -41,7 +41,7 @@ class OpeningHoursUtils {
       final bool? openNow = openNowFlag is bool ? openNowFlag : null;
 
       final googleEval = _evaluateFromPeriods(
-        periods: periods!,
+        periods: periods,
         now: now,
         numbering: _DayNumbering.sunday0,
       );
@@ -94,9 +94,7 @@ class OpeningHoursUtils {
   static OpeningHoursEvaluation? evaluateWithTimezone(
     Map<String, dynamic>? raw,
     String timezoneId,
-  ) {
-    return evaluate(raw);
-  }
+  ) => evaluate(raw);
 
   static String _formatSummary(DateTime now, OpeningHoursComputation computed) {
     if (computed.isOpen && computed.closingTime != null) {
@@ -177,8 +175,8 @@ class OpeningHoursUtils {
 
     final isClosingSoon = isOpen &&
         closingTime != null &&
-        closingTime!.difference(now) > Duration.zero &&
-        closingTime!.difference(now) <= const Duration(hours: 2);
+        closingTime.difference(now) > Duration.zero &&
+        closingTime.difference(now) <= const Duration(hours: 2);
 
     return OpeningHoursComputation(
       isOpen: isOpen,
@@ -484,7 +482,7 @@ class OpeningHoursUtils {
         ? _toSunday0(reference)
         : _toMonday0(reference);
 
-    var delta = dayIndex - refIndex;
+    final delta = dayIndex - refIndex;
     var candidate = startOfDay.add(Duration(days: delta));
     candidate = candidate.add(Duration(hours: hours, minutes: minutes));
     return candidate;

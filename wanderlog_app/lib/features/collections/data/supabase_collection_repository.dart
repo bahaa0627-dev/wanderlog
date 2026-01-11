@@ -54,8 +54,7 @@ class SupabaseCollectionRepository {
   }
   
   /// 转换合集列表，添加 spotCount 和转换字段名
-  List<Map<String, dynamic>> _convertCollectionsList(List<dynamic> collections, {bool isFavorited = false}) {
-    return collections.map((collection) {
+  List<Map<String, dynamic>> _convertCollectionsList(List<dynamic> collections, {bool isFavorited = false}) => collections.map((collection) {
       final spots = collection['collection_spots'] as List<dynamic>? ?? [];
       final convertedSpots = spots.map((spot) {
         final place = spot['place'] as Map<String, dynamic>?;
@@ -84,7 +83,6 @@ class SupabaseCollectionRepository {
         'collectionSpots': convertedSpots,
       };
     }).toList().cast<Map<String, dynamic>>();
-  }
 
   /// 获取单个合集详情（含地点）- 单次查询优化
   Future<Map<String, dynamic>> getCollection(String id) async {
@@ -172,7 +170,7 @@ class SupabaseCollectionRepository {
     }
     
     // 安全解析 tags
-    List<String> parsedTags = [];
+    final List<String> parsedTags = [];
     final rawTags = place['tags'];
     if (rawTags is List) {
       for (final item in rawTags) {

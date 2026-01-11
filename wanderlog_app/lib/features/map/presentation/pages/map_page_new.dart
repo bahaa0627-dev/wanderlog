@@ -131,8 +131,7 @@ class Spot {
     String? phoneNumber,
     String? website,
     Map<String, dynamic>? openingHours,
-  }) {
-    return Spot(
+  }) => Spot(
       id: id ?? this.id,
       name: name ?? this.name,
       city: city ?? this.city,
@@ -154,7 +153,6 @@ class Spot {
       website: website ?? this.website,
       openingHours: openingHours ?? this.openingHours,
     );
-  }
 }
 
 class MapPageSnapshot {
@@ -1707,8 +1705,7 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
+  Widget build(BuildContext context) => DraggableScrollableSheet(
       initialChildSize: 0.5,
       minChildSize: 0.3,
       maxChildSize: 0.8,
@@ -1729,11 +1726,9 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
         ),
       ),
     );
-  }
   
   /// 简单城市列表（没有国家数据时使用）
-  Widget _buildSimpleCityList(ScrollController scrollController) {
-    return ListView.builder(
+  Widget _buildSimpleCityList(ScrollController scrollController) => ListView.builder(
       controller: scrollController,
       itemCount: widget.allCities.length,
       itemBuilder: (context, index) {
@@ -1747,11 +1742,9 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
         );
       },
     );
-  }
   
   /// 国家城市两列选择
-  Widget _buildCountryCityColumns(ScrollController scrollController) {
-    return Row(
+  Widget _buildCountryCityColumns(ScrollController scrollController) => Row(
       children: [
         // 左侧国家列表
         Expanded(
@@ -1823,7 +1816,6 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
         ),
       ],
     );
-  }
 }
 
 /// 底部地点卡片组件 - 全图+渐变覆盖样式（无收藏按钮，收藏在详情页）
@@ -1893,7 +1885,7 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
 
   /// Build image widget that handles both data URIs and network URLs
   Widget _buildCover() {
-    final placeholder = ColoredBox(
+    const placeholder = ColoredBox(
       color: AppTheme.lightGray,
       child: const Icon(
         Icons.place,

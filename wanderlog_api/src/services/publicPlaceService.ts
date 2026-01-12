@@ -1018,7 +1018,7 @@ class PublicPlaceService {
       select: { city: true },
       distinct: ['city'],
       orderBy: { city: 'asc' },
-      take: 200,
+      // 移除 take 限制，返回所有城市
     });
 
     const normalize = (value: string) =>
@@ -1394,6 +1394,184 @@ class PublicPlaceService {
     }
 
     return result;
+  }
+
+  /**
+   * 获取国家和城市列表（带地点数量统计，用于地图首页下拉）
+   * 
+   * 筛选规则：
+   * 1. 国家内地点数量 > 100 才显示该国家
+   * 2. 城市内地点数量 > 10 才显示该城市
+   * 3. 如果符合条件的城市不足 5 个，补齐按数量排列的 top 其他城市
+   */
+  async getCountriesAndCitiesWithStats(options?: {
+    minCountryPlaces?: number;  // 国家最小地点数，默认 100
+    minCityPlaces?: number;     // 城市最小地点数，默认 10
+    minCitiesPerCountry?: number; // 每个国家最少显示城市数，默认 5
+  }) {
+    const minCountryPlaces = options?.minCountryPlaces ?? 100;
+    const minCityPlaces = options?.minCityPlaces ?? 10;
+    const minCitiesPerCountry = options?.minCitiesPerCountry ?? 5;
+
+    // 获取每个国家-城市组合的地点数量
+    const placeCounts = await prisma.place.groupBy({
+      by: ['country', 'city'],
+      _count: { id: true },
+      where: {
+        country: { not: null },
+        city: { not: null },
+      },
+    });
+
+    // 已知的有效国家列表（不区分大小写匹配）
+    const validCountriesLower = new Set([
+      'japan', 'thailand', 'denmark', 'france', 'austria', 
+      'germany', 'indonesia', 'italy', 'spain', 'united kingdom',
+      'south korea', 'taiwan', 'china', 'vietnam', 'singapore',
+      'malaysia', 'philippines', 'australia', 'new zealand',
+      'netherlands', 'belgium', 'switzerland', 'portugal', 'greece',
+      'turkey', 'india', 'canada', 'mexico', 'brazil', 'argentina',
+      'united states', 'usa'
+    ]);
+
+    // 按国家分组统计
+    const countryStats: Record<string, {
+      originalName: string;
+      totalPlaces: number;
+      cities: { name: string; count: number }[];
+    }> = {};
+
+    for (const row of placeCounts) {
+      if (!row.country || !row.city) continue;
+      const country = row.country.trim();
+      const city = row.city.trim();
+      if (!country || !city) continue;
+
+      const countryLower = country.toLowerCase();
+      
+      // 只接受有效的国家
+      if (!validCountriesLower.has(countryLower)) continue;
+      
+      // 跳过国家和城市相同的情况
+      if (countryLower === city.toLowerCase()) continue;
+
+      if (!countryStats[countryLower]) {
+        countryStats[countryLower] = {
+          originalName: country,
+          totalPlaces: 0,
+          cities: [],
+        };
+      }
+
+      countryStats[countryLower].totalPlaces += row._count.id;
+      countryStats[countryLower].cities.push({
+        name: city,
+        count: row._count.id,
+      });
+    }
+
+    // 构建结果
+    const result: Record<string, {
+      placeCount: number;
+      cities: { name: string; placeCount: number }[];
+    }> = {};
+
+    for (const [countryKey, stats] of Object.entries(countryStats)) {
+      // 规则1: 国家地点数量 > minCountryPlaces 才显示
+      if (stats.totalPlaces < minCountryPlaces) continue;
+
+      // 按地点数量降序排列城市
+      const sortedCities = stats.cities.sort((a, b) => b.count - a.count);
+
+      // 规则2: 城市地点数量 > minCityPlaces 才显示
+      const qualifiedCities = sortedCities.filter(c => c.count >= minCityPlaces);
+
+      // 规则3: 如果符合条件的城市不足 minCitiesPerCountry 个，补齐 top 城市
+      let finalCities: { name: string; placeCount: number }[];
+      if (qualifiedCities.length >= minCitiesPerCountry) {
+        finalCities = qualifiedCities.map(c => ({ name: c.name, placeCount: c.count }));
+      } else {
+        // 补齐到 minCitiesPerCountry 个
+        const topCities = sortedCities.slice(0, minCitiesPerCountry);
+        finalCities = topCities.map(c => ({ name: c.name, placeCount: c.count }));
+      }
+
+      // 按地点数量倒序排列（多的在前面）
+      finalCities.sort((a, b) => b.placeCount - a.placeCount);
+
+      result[stats.originalName] = {
+        placeCount: stats.totalPlaces,
+        cities: finalCities,
+      };
+    }
+
+    // 按国家名称字母排序
+    const sortedResult: typeof result = {};
+    const sortedCountries = Object.keys(result).sort();
+    for (const country of sortedCountries) {
+      sortedResult[country] = result[country];
+    }
+
+    return sortedResult;
+  }
+
+  /**
+   * 获取城市 Top N 评分人数最多的地点
+   */
+  async getTopPlacesByCity(options: {
+    city: string;
+    country?: string;
+    limit?: number;  // 默认 20
+  }) {
+    const { city, country, limit = 20 } = options;
+
+    const where: any = {
+      city: { equals: city, mode: 'insensitive' },
+    };
+
+    if (country) {
+      where.country = { equals: country, mode: 'insensitive' };
+    }
+
+    const places = await prisma.place.findMany({
+      where,
+      orderBy: [
+        { ratingCount: { sort: 'desc', nulls: 'last' } },
+        { rating: { sort: 'desc', nulls: 'last' } },
+      ],
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        country: true,
+        latitude: true,
+        longitude: true,
+        address: true,
+        description: true,
+        openingHours: true,
+        rating: true,
+        ratingCount: true,
+        category: true,
+        categoryEn: true,
+        categoryZh: true,
+        aiSummary: true,
+        aiDescription: true,
+        tags: true,
+        aiTags: true,
+        coverImage: true,
+        images: true,
+        price: true,
+        priceLevel: true,
+        website: true,
+        phoneNumber: true,
+        googlePlaceId: true,
+        source: true,
+        createdAt: true,
+      },
+    });
+
+    return places;
   }
 
   /**

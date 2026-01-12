@@ -796,6 +796,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         }
       }
     } catch (e) {
+      debugPrint('❌ Favorite collection error: $e');
       if (mounted) {
         CustomToast.showError(context, l10n.operationFailed);
       }

@@ -707,6 +707,81 @@ class PublicPlaceController {
   }
 
   /**
+   * 获取国家和城市列表（带地点数量统计，用于地图首页下拉）
+   * GET /api/public-places/countries-cities-stats
+   * 
+   * Query params:
+   * - minCountryPlaces: 国家最小地点数（默认 100）
+   * - minCityPlaces: 城市最小地点数（默认 10）
+   * - minCitiesPerCountry: 每个国家最少显示城市数（默认 5）
+   */
+  async getCountriesAndCitiesWithStats(req: Request, res: Response): Promise<void> {
+    try {
+      const { minCountryPlaces, minCityPlaces, minCitiesPerCountry } = req.query;
+
+      const data = await publicPlaceService.getCountriesAndCitiesWithStats({
+        minCountryPlaces: minCountryPlaces ? parseInt(minCountryPlaces as string) : undefined,
+        minCityPlaces: minCityPlaces ? parseInt(minCityPlaces as string) : undefined,
+        minCitiesPerCountry: minCitiesPerCountry ? parseInt(minCitiesPerCountry as string) : undefined,
+      });
+
+      res.json({
+        success: true,
+        data,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * 获取城市 Top N 评分人数最多的地点
+   * GET /api/public-places/top-by-city
+   * 
+   * Query params:
+   * - city: 城市名称（必填）
+   * - country: 国家名称（可选）
+   * - limit: 返回数量（默认 20）
+   */
+  async getTopPlacesByCity(req: Request, res: Response): Promise<void> {
+    try {
+      const { city, country, limit } = req.query;
+
+      if (!city) {
+        return res.status(400).json({
+          success: false,
+          error: 'city is required',
+        });
+      }
+
+      const places = await publicPlaceService.getTopPlacesByCity({
+        city: city as string,
+        country: country as string | undefined,
+        limit: limit ? parseInt(limit as string) : undefined,
+      });
+
+      res.json({
+        success: true,
+        data: places.map(place => transformPlace(place)),
+        pagination: {
+          total: places.length,
+          page: 1,
+          limit: limit ? parseInt(limit as string) : 20,
+          totalPages: 1,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
    * 获取筛选选项（国家、城市、分类及其数量）
    * GET /api/public-places/filter-options
    */

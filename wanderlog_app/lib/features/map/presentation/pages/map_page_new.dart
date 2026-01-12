@@ -13,14 +13,14 @@ import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
 import 'package:wanderlog/features/map/data/supabase_place_repository.dart';
-import 'package:wanderlog/features/map/data/sample_public_places.dart';
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 import 'package:wanderlog/features/map/providers/places_cache_provider.dart';
-import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
+import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
@@ -647,7 +647,8 @@ class _MapPageState extends ConsumerState<MapPage> {
       fallbackCenter: cityFallback,
       currentCenter: _currentMapCenter,
       currentZoom: _currentZoom,
-      selectedSpot: _selectedSpot,
+      // 默认态（非全屏）不显示选中的 marker
+      selectedSpot: _isFullscreen ? _selectedSpot : null,
       onSpotTap: _handleSpotTap,
       onCameraMove: _handleCameraMove,
     );
@@ -739,18 +740,51 @@ class _MapPageState extends ConsumerState<MapPage> {
                         _CitySelector(
                           selectedCity: _selectedCity,
                           cities: _cities,
-                          onCityChanged: (city) {
+                          onCityChanged: (city, country) async {
+                            // 保存用户选择的城市
+                            ref.read(placesCacheProvider.notifier).saveSelectedCity(city);
+                            
+                            // 检查该城市是否有地点数据
+                            final hasData = (_spotsByCity[city] ?? const <Spot>[]).isNotEmpty;
+                            
+                            if (!hasData) {
+                              // 如果没有数据，先加载该城市的地点（传递国家参数解决同名城市问题）
+                              print('📍 [MapPage] 城市 $city (国家: $country) 没有数据，开始加载...');
+                              final repository = ref.read(publicPlaceRepositoryProvider);
+                              try {
+                                final places = await repository.fetchTopPlacesByCity(
+                                  city: city,
+                                  country: country,  // 传递国家参数
+                                  limit: 20,
+                                );
+                                if (places.isNotEmpty) {
+                                  // 转换为 Spot 并更新状态
+                                  final spots = _selectTopSpotsForCity(city, places);
+                                  if (spots.isNotEmpty) {
+                                    final updatedSpotsByCity = Map<String, List<Spot>>.from(_spotsByCity);
+                                    updatedSpotsByCity[city] = spots;
+                                    _spotsByCity = updatedSpotsByCity;
+                                    // 使用所有地点的中心点作为城市坐标
+                                    _cityCoordinates[city] = _calculateCenterOfSpots(spots);
+                                  }
+                                  print('✅ [MapPage] 加载 $city 完成: ${places.length} 个地点');
+                                }
+                              } catch (e) {
+                                print('❌ [MapPage] 加载 $city 失败: $e');
+                              }
+                            }
+                            
                             setState(() {
                               _selectedCity = city;
                               _selectedSpot = null;
-                              _carouselSpots = const [];
+                              _carouselSpots = _spotsByCity[city] ?? const [];
                               _currentCardIndex = 0;
                               _currentMapCenter = _cityCoordinates[city];
                             });
                             _jumpToPage(0);
-                            _animateCamera(_cityCoordinates[city]!);
-                            // 保存用户选择的城市
-                            ref.read(placesCacheProvider.notifier).saveSelectedCity(city);
+                            if (_cityCoordinates[city] != null) {
+                              _animateCamera(_cityCoordinates[city]!);
+                            }
                           },
                         ),
                         if (_isFullscreen) ...[
@@ -1088,7 +1122,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     if (updatedCacheState.hasData) {
       // 使用缓存数据
       print('📍 [MapPage] 使用缓存数据');
-      _loadFromCache(updatedCacheState);
+      await _loadFromCache(updatedCacheState);
       return;
     }
 
@@ -1117,12 +1151,12 @@ class _MapPageState extends ConsumerState<MapPage> {
         }
       });
       
-      subscription = ref.listenManual(placesCacheProvider, (previous, next) {
+      subscription = ref.listenManual(placesCacheProvider, (previous, next) async {
         print('📍 [MapPage] 缓存状态变化: hasData=${next.hasData}, isLoading=${next.isLoading}, error=${next.error}');
         if (next.hasData) {
           timeoutTimer?.cancel();
           subscription.close();
-          _loadFromCache(next);
+          await _loadFromCache(next);
           if (!completer.isCompleted) completer.complete();
         } else if (!next.isLoading && !next.isInitialLoading && next.error != null) {
           timeoutTimer?.cancel();
@@ -1160,12 +1194,12 @@ class _MapPageState extends ConsumerState<MapPage> {
       }
     });
     
-    subscription = ref.listenManual(placesCacheProvider, (previous, next) {
+    subscription = ref.listenManual(placesCacheProvider, (previous, next) async {
       print('📍 [MapPage] 预加载状态变化: hasData=${next.hasData}, isLoading=${next.isLoading}, error=${next.error}');
       if (next.hasData) {
         timeoutTimer?.cancel();
         subscription.close();
-        _loadFromCache(next);
+        await _loadFromCache(next);
         if (!completer.isCompleted) completer.complete();
       } else if (!next.isLoading && !next.isInitialLoading && next.error != null) {
         timeoutTimer?.cancel();
@@ -1180,8 +1214,27 @@ class _MapPageState extends ConsumerState<MapPage> {
     await completer.future;
   }
 
+  /// 计算一组地点的中心坐标
+  Position _calculateCenterOfSpots(List<Spot> spots) {
+    if (spots.isEmpty) {
+      return Position(2.3522, 48.8566); // Paris 作为默认
+    }
+    if (spots.length == 1) {
+      return Position(spots.first.longitude, spots.first.latitude);
+    }
+    
+    // 计算所有地点的平均经纬度
+    double sumLat = 0;
+    double sumLng = 0;
+    for (final spot in spots) {
+      sumLat += spot.latitude;
+      sumLng += spot.longitude;
+    }
+    return Position(sumLng / spots.length, sumLat / spots.length);
+  }
+
   /// 从缓存加载数据
-  void _loadFromCache(PlacesCacheState cacheState) {
+  Future<void> _loadFromCache(PlacesCacheState cacheState) async {
     final Map<String, List<Spot>> nextSpotsByCity = <String, List<Spot>>{};
     
     for (final entry in cacheState.placesByCity.entries) {
@@ -1189,10 +1242,8 @@ class _MapPageState extends ConsumerState<MapPage> {
       if (spots.isNotEmpty) {
         nextSpotsByCity[entry.key] = spots;
         if (!_cityCoordinates.containsKey(entry.key)) {
-          _cityCoordinates[entry.key] = Position(
-            spots.first.longitude,
-            spots.first.latitude,
-          );
+          // 使用所有地点的中心点作为城市坐标
+          _cityCoordinates[entry.key] = _calculateCenterOfSpots(spots);
         }
       }
     }
@@ -1202,14 +1253,55 @@ class _MapPageState extends ConsumerState<MapPage> {
     final citiesWithSpots = nextSpotsByCity.keys.toList()..sort();
     final resolvedCity = _resolveCitySelection(nextSpotsByCity, citiesWithSpots);
     
+    // 如果选中的城市没有数据，尝试加载
+    if ((nextSpotsByCity[resolvedCity] ?? const <Spot>[]).isEmpty && resolvedCity.isNotEmpty) {
+      print('📍 [MapPage] 城市 $resolvedCity 没有数据，开始加载...');
+      final repository = ref.read(publicPlaceRepositoryProvider);
+      try {
+        // 尝试从 countriesCitiesStats 获取国家信息
+        String? country;
+        final statsState = ref.read(countriesCitiesStatsProvider);
+        if (statsState.hasData) {
+          for (final countryStats in statsState.countries) {
+            if (countryStats.cities.any((c) => c.name == resolvedCity)) {
+              country = countryStats.name;
+              break;
+            }
+          }
+        }
+        
+        final places = await repository.fetchTopPlacesByCity(
+          city: resolvedCity,
+          country: country,  // 传递国家参数
+          limit: 20,
+        );
+        if (places.isNotEmpty) {
+          final spots = _selectTopSpotsForCity(resolvedCity, places);
+          if (spots.isNotEmpty) {
+            nextSpotsByCity[resolvedCity] = spots;
+            // 使用所有地点的中心点作为城市坐标
+            _cityCoordinates[resolvedCity] = _calculateCenterOfSpots(spots);
+          }
+          print('✅ [MapPage] 加载 $resolvedCity 完成: ${places.length} 个地点');
+        }
+      } catch (e) {
+        print('❌ [MapPage] 加载 $resolvedCity 失败: $e');
+      }
+    }
+    
+    if (!mounted) return;
+    
     // 默认态不选中任何地点
     final Spot? resolvedSpot;
     final List<Spot> nearby;
     if (_isFullscreen) {
       resolvedSpot = _resolveSelectedSpot(resolvedCity, nextSpotsByCity, _selectedSpot);
-      nearby = resolvedSpot != null
-          ? _computeNearbySpots(resolvedSpot, baseSpots: nextSpotsByCity[resolvedCity])
-          : const <Spot>[];
+      // 如果有选中的地点，显示附近地点；否则显示该城市的所有地点
+      if (resolvedSpot != null) {
+        nearby = _computeNearbySpots(resolvedSpot, baseSpots: nextSpotsByCity[resolvedCity]);
+      } else {
+        nearby = nextSpotsByCity[resolvedCity] ?? const <Spot>[];
+      }
     } else {
       resolvedSpot = null;
       nearby = const <Spot>[];
@@ -1268,12 +1360,9 @@ class _MapPageState extends ConsumerState<MapPage> {
         final spots = _selectTopSpotsForCity(city, places);
         if (spots.isNotEmpty) {
           nextSpotsByCity[city] = spots;
-          // Calculate city center from the first spot
+          // 使用所有地点的中心点作为城市坐标
           if (!_cityCoordinates.containsKey(city)) {
-            _cityCoordinates[city] = Position(
-              spots.first.longitude,
-              spots.first.latitude,
-            );
+            _cityCoordinates[city] = _calculateCenterOfSpots(spots);
           }
         }
       } on SupabasePlaceRepositoryException catch (error) {
@@ -1346,23 +1435,36 @@ class _MapPageState extends ConsumerState<MapPage> {
     }
   }
 
+  static const String _defaultCity = 'Paris';  // 默认城市
+
   String _resolveCitySelection(
     Map<String, List<Spot>> nextSpotsByCity,
     List<String> citiesWithSpots,
   ) {
-    // If we have a previously selected city that still has spots, keep it
-    if (_selectedCity.isNotEmpty &&
-        (nextSpotsByCity[_selectedCity] ?? const <Spot>[]).isNotEmpty) {
+    // 1. 如果已经有选中的城市（来自 snapshot 或用户选择），优先保持
+    //    即使该城市暂时没有数据，也保持选择（数据会后续加载）
+    if (_selectedCity.isNotEmpty) {
       return _selectedCity;
     }
     
-    // 尝试使用缓存中保存的上次选择的城市
+    // 2. 尝试使用缓存中保存的上次选择的城市
     final cacheState = ref.read(placesCacheProvider);
     final lastSelectedCity = cacheState.lastSelectedCity;
-    if (lastSelectedCity != null &&
-        lastSelectedCity.isNotEmpty &&
-        (nextSpotsByCity[lastSelectedCity] ?? const <Spot>[]).isNotEmpty) {
+    if (lastSelectedCity != null && lastSelectedCity.isNotEmpty) {
       return lastSelectedCity;
+    }
+    
+    // 3. 尝试使用默认城市 Paris
+    if ((nextSpotsByCity[_defaultCity] ?? const <Spot>[]).isNotEmpty) {
+      return _defaultCity;
+    }
+    
+    // 4. 使用第一个有数据的城市
+    if ((nextSpotsByCity[_defaultCity] ?? const <Spot>[]).isNotEmpty) {
+      return _defaultCity;
+    }
+    if (citiesWithSpots.contains(_defaultCity)) {
+      return _defaultCity;
     }
     
     // Otherwise, pick the first city with spots
@@ -1503,7 +1605,12 @@ class _MapPageState extends ConsumerState<MapPage> {
       coverImage: images.isNotEmpty ? images.first : _fallbackCoverImage,
       images: images.isNotEmpty ? images : <String>[_fallbackCoverImage],
       tags: tags,
-      aiSummary: place.aiSummary ?? place.aiDescription,
+      aiSummary: place.aiSummary ?? place.aiDescription ?? place.description,
+      // 详情页需要的额外字段
+      address: place.address,
+      phoneNumber: place.phoneNumber,
+      website: place.website,
+      openingHours: place.openingHours,
     );
   }
 
@@ -1596,7 +1703,8 @@ class _CitySelector extends ConsumerStatefulWidget {
 
   final String selectedCity;
   final List<String> cities;
-  final ValueChanged<String> onCityChanged;
+  /// 城市选择回调，参数为 (city, country)
+  final void Function(String city, String? country) onCityChanged;
 
   @override
   ConsumerState<_CitySelector> createState() => _CitySelectorState();
@@ -1629,13 +1737,13 @@ class _CitySelectorState extends ConsumerState<_CitySelector> {
       );
 
   void _showCityPicker(BuildContext context) {
-    // 获取国家城市数据
-    final countriesCitiesState = ref.read(countriesCitiesProvider);
-    final notifier = ref.read(countriesCitiesProvider.notifier);
+    // 获取带统计信息的国家城市数据
+    final statsNotifier = ref.read(countriesCitiesStatsProvider.notifier);
+    final statsState = ref.read(countriesCitiesStatsProvider);
     
     // 如果数据还没加载，先加载
-    if (!notifier.isLoaded) {
-      notifier.preload();
+    if (!statsState.hasData && !statsState.isLoading) {
+      statsNotifier.load();
     }
     
     showModalBottomSheet<void>(
@@ -1647,65 +1755,82 @@ class _CitySelectorState extends ConsumerState<_CitySelector> {
       ),
       builder: (sheetContext) => _CountryCityPickerSheet(
         selectedCity: widget.selectedCity,
-        countriesCities: countriesCitiesState,
         allCities: widget.cities,
-        onCitySelected: (city) {
+        onCitySelected: (city, country) {
           Navigator.pop(sheetContext); // 先关闭半层
-          widget.onCityChanged(city);  // 再触发回调
+          widget.onCityChanged(city, country);  // 再触发回调，传递国家参数
         },
       ),
     );
   }
 }
 
-/// 国家城市选择器底部弹窗
-class _CountryCityPickerSheet extends StatefulWidget {
+/// 国家城市选择器底部弹窗（使用带统计信息的数据）
+class _CountryCityPickerSheet extends ConsumerStatefulWidget {
   const _CountryCityPickerSheet({
     required this.selectedCity,
-    required this.countriesCities,
     required this.allCities,
     required this.onCitySelected,
   });
 
   final String selectedCity;
-  final Map<String, List<String>> countriesCities;
   final List<String> allCities;
-  final ValueChanged<String> onCitySelected;
+  final void Function(String city, String? country) onCitySelected;
 
   @override
-  State<_CountryCityPickerSheet> createState() => _CountryCityPickerSheetState();
+  ConsumerState<_CountryCityPickerSheet> createState() => _CountryCityPickerSheetState();
 }
 
-class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
+class _CountryCityPickerSheetState extends ConsumerState<_CountryCityPickerSheet> {
   String? _selectedCountry;
   
   @override
   void initState() {
     super.initState();
-    // 根据当前选中的城市找到对应的国家
-    _selectedCountry = _findCountryForCity(widget.selectedCity);
+    // 确保数据已加载
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final statsState = ref.read(countriesCitiesStatsProvider);
+      if (!statsState.hasData && !statsState.isLoading) {
+        ref.read(countriesCitiesStatsProvider.notifier).load();
+      }
+      // 根据当前选中的城市找到对应的国家
+      _updateSelectedCountry();
+    });
   }
   
-  String? _findCountryForCity(String city) {
-    for (final entry in widget.countriesCities.entries) {
-      if (entry.value.contains(city)) {
-        return entry.key;
+  void _updateSelectedCountry() {
+    final statsState = ref.read(countriesCitiesStatsProvider);
+    if (statsState.hasData) {
+      final country = _findCountryForCity(widget.selectedCity, statsState);
+      if (country != null && country != _selectedCountry) {
+        setState(() {
+          _selectedCountry = country;
+        });
       }
     }
-    return widget.countriesCities.keys.isNotEmpty 
-        ? widget.countriesCities.keys.first 
-        : null;
   }
   
-  List<String> get _countries => widget.countriesCities.keys.toList()..sort();
-  
-  List<String> get _citiesForSelectedCountry {
-    if (_selectedCountry == null) return widget.allCities;
-    return widget.countriesCities[_selectedCountry] ?? [];
+  String? _findCountryForCity(String city, CountriesCitiesStatsState statsState) {
+    for (final country in statsState.countries) {
+      if (country.cities.any((c) => c.name == city)) {
+        return country.name;
+      }
+    }
+    return statsState.countries.isNotEmpty 
+        ? statsState.countries.first.name 
+        : null;
   }
 
   @override
-  Widget build(BuildContext context) => DraggableScrollableSheet(
+  Widget build(BuildContext context) {
+    final statsState = ref.watch(countriesCitiesStatsProvider);
+    
+    // 如果选中的国家还没设置，尝试设置
+    if (_selectedCountry == null && statsState.hasData) {
+      _selectedCountry = _findCountryForCity(widget.selectedCity, statsState);
+    }
+    
+    return DraggableScrollableSheet(
       initialChildSize: 0.5,
       minChildSize: 0.3,
       maxChildSize: 0.8,
@@ -1718,14 +1843,17 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
             Text('Select City', style: AppTheme.headlineMedium(context)),
             const SizedBox(height: 16),
             Expanded(
-              child: widget.countriesCities.isEmpty
-                  ? _buildSimpleCityList(scrollController)
-                  : _buildCountryCityColumns(scrollController),
+              child: statsState.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : statsState.hasData
+                      ? _buildCountryCityColumns(scrollController, statsState)
+                      : _buildSimpleCityList(scrollController),
             ),
           ],
         ),
       ),
     );
+  }
   
   /// 简单城市列表（没有国家数据时使用）
   Widget _buildSimpleCityList(ScrollController scrollController) => ListView.builder(
@@ -1738,13 +1866,19 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
           trailing: city == widget.selectedCity
               ? const Icon(Icons.check, color: AppTheme.primaryYellow)
               : null,
-          onTap: () => widget.onCitySelected(city),
+          onTap: () => widget.onCitySelected(city, null),
         );
       },
     );
   
   /// 国家城市两列选择
-  Widget _buildCountryCityColumns(ScrollController scrollController) => Row(
+  Widget _buildCountryCityColumns(ScrollController scrollController, CountriesCitiesStatsState statsState) {
+    final countries = statsState.countries;
+    final citiesForCountry = _selectedCountry != null 
+        ? statsState.getCities(_selectedCountry!)
+        : <CityStats>[];
+    
+    return Row(
       children: [
         // 左侧国家列表
         Expanded(
@@ -1756,14 +1890,14 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
               ),
             ),
             child: ListView.builder(
-              itemCount: _countries.length,
+              itemCount: countries.length,
               itemBuilder: (context, index) {
-                final country = _countries[index];
-                final isSelected = country == _selectedCountry;
+                final country = countries[index];
+                final isSelected = country.name == _selectedCountry;
                 return GestureDetector(
                   onTap: () {
                     setState(() {
-                      _selectedCountry = country;
+                      _selectedCountry = country.name;
                     });
                   },
                   child: Container(
@@ -1773,7 +1907,7 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
                       children: [
                         Expanded(
                           child: Text(
-                            country,
+                            country.name,
                             style: AppTheme.bodyMedium(context).copyWith(
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             ),
@@ -1795,27 +1929,38 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
           flex: 3,
           child: ListView.builder(
             controller: scrollController,
-            itemCount: _citiesForSelectedCountry.length,
+            itemCount: citiesForCountry.length,
             itemBuilder: (context, index) {
-              final city = _citiesForSelectedCountry[index];
-              final isSelected = city == widget.selectedCity;
-              return ListTile(
-                title: Text(
-                  city,
-                  style: AppTheme.bodyLarge(context).copyWith(
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              final city = citiesForCountry[index];
+              final isSelected = city.name == widget.selectedCity;
+              return GestureDetector(
+                onTap: () => widget.onCitySelected(city.name, _selectedCountry),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  color: isSelected ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          city.name,
+                          style: AppTheme.bodyMedium(context).copyWith(
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(Icons.check, size: 18, color: AppTheme.primaryYellow),
+                    ],
                   ),
                 ),
-                trailing: isSelected
-                    ? const Icon(Icons.check, color: AppTheme.primaryYellow)
-                    : null,
-                onTap: () => widget.onCitySelected(city),
               );
             },
           ),
         ),
       ],
     );
+  }
 }
 
 /// 底部地点卡片组件 - 全图+渐变覆盖样式（无收藏按钮，收藏在详情页）
@@ -2495,7 +2640,10 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
             status: TripSpotStatus.wishlist,
             spotPayload: _spotPayload(),
           );
+      // 立即更新同步缓存，避免下次打开时闪烁
+      WishlistStatusCache.update(widget.spot.id, destId);
       ref.invalidate(tripsProvider);
+      ref.invalidate(wishlistStatusProvider);
       return true;
     } catch (e) {
       _showError('Error: $e');
@@ -2519,7 +2667,10 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
             spotId: widget.spot.id,
             remove: true,
           );
+      // 立即更新同步缓存，避免下次打开时闪烁
+      WishlistStatusCache.update(widget.spot.id, null);
       ref.invalidate(tripsProvider);
+      ref.invalidate(wishlistStatusProvider);
       return true;
     } catch (e) {
       _showError('Error: $e');

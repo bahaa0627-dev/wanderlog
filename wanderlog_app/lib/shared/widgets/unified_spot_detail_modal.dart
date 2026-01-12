@@ -361,6 +361,26 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
 
   /// 从缓存同步读取收藏状态（立即生效，无需等待）
   void _loadWishlistStatusFromCache() {
+    // 1. 首先尝试从同步缓存读取完整状态（最快，无延迟）
+    final fullStatus = WishlistStatusCache.getFullStatus(_spotId);
+    if (fullStatus != null && fullStatus.destinationId != null) {
+      _isWishlist = true;
+      _destinationId = fullStatus.destinationId;
+      _isMustGo = fullStatus.isMustGo;
+      _isTodaysPlan = fullStatus.isTodaysPlan;
+      _isVisited = fullStatus.isVisited;
+      return;
+    }
+    
+    // 2. 尝试从基础缓存读取
+    final (isInCache, cachedDestId) = WishlistStatusCache.check(_spotId);
+    if (isInCache) {
+      _isWishlist = true;
+      _destinationId = cachedDestId;
+      return;
+    }
+    
+    // 3. 回退到 FutureProvider 缓存
     final statusAsync = ref.read(wishlistStatusProvider);
     statusAsync.whenData((statusMap) {
       final (isInWishlist, destId) = checkWishlistStatus(statusMap, _spotId);
@@ -558,7 +578,16 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
               userNotes: notes,
               spotPayload: _spotPayload(),
             );
+            // 立即更新同步缓存，避免下次打开时闪烁
+            WishlistStatusCache.updateFullStatus(
+              _spotId,
+              destinationId: destId,
+              isMustGo: _isMustGo,
+              isTodaysPlan: false,
+              isVisited: true,
+            );
             ref.invalidate(tripsProvider);
+            ref.invalidate(wishlistStatusProvider);
             if (mounted) {
               setState(() {
                 _isWishlist = true;
@@ -697,7 +726,10 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
           spotId: _spotId,
           remove: true,
         );
+        // 立即更新同步缓存，避免下次打开时闪烁
+        WishlistStatusCache.update(_spotId, null);
         ref.invalidate(tripsProvider);
+        ref.invalidate(wishlistStatusProvider);
         if (mounted) {
           setState(() {
             _isVisited = false;
@@ -828,8 +860,16 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         status: TripSpotStatus.wishlist,
         spotPayload: _spotPayload(),
       );
+      // 立即更新同步缓存，避免下次打开时闪烁
+      WishlistStatusCache.updateFullStatus(
+        _spotId,
+        destinationId: destId,
+        isMustGo: false,
+        isTodaysPlan: false,
+        isVisited: false,
+      );
       ref.invalidate(tripsProvider);
-      ref.invalidate(wishlistStatusProvider); // 同步更新卡片收藏状态
+      ref.invalidate(wishlistStatusProvider);
       if (mounted) {
         setState(() => _hasStatusChanged = true);
       }
@@ -856,8 +896,10 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         spotId: _spotId,
         remove: true,
       );
+      // 立即更新同步缓存，避免下次打开时闪烁
+      WishlistStatusCache.update(_spotId, null);
       ref.invalidate(tripsProvider);
-      ref.invalidate(wishlistStatusProvider); // 同步更新卡片收藏状态
+      ref.invalidate(wishlistStatusProvider);
       if (mounted) {
         setState(() => _hasStatusChanged = true);
       }
@@ -890,7 +932,14 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         status: TripSpotStatus.wishlist,
         priority: isChecked ? SpotPriority.mustGo : SpotPriority.optional,
       );
+      // 立即更新同步缓存，避免下次打开时闪烁
+      WishlistStatusCache.updateFullStatus(
+        _spotId,
+        destinationId: _destinationId,
+        isMustGo: isChecked,
+      );
       ref.invalidate(tripsProvider);
+      ref.invalidate(wishlistStatusProvider);
       if (mounted) {
         setState(() => _hasStatusChanged = true);
       }
@@ -922,7 +971,14 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         spotId: _spotId,
         status: isChecked ? TripSpotStatus.todaysPlan : TripSpotStatus.wishlist,
       );
+      // 立即更新同步缓存，避免下次打开时闪烁
+      WishlistStatusCache.updateFullStatus(
+        _spotId,
+        destinationId: _destinationId,
+        isTodaysPlan: isChecked,
+      );
       ref.invalidate(tripsProvider);
+      ref.invalidate(wishlistStatusProvider);
       if (mounted) {
         setState(() => _hasStatusChanged = true);
       }

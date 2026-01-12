@@ -6,6 +6,7 @@ import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
 import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 
 const String _lastSelectedCityKey = 'last_selected_city';
+const String _defaultCity = 'Paris';  // 默认城市
 
 /// 地点数据缓存状态
 class PlacesCacheState { // 用户上次选择的城市
@@ -153,19 +154,23 @@ class PlacesCacheNotifier extends StateNotifier<PlacesCacheState> {
         return;
       }
 
-      // 2. 优先加载用户上次选择的城市，否则加载第一个城市
-      final targetCity = (state.lastSelectedCity != null && cities.contains(state.lastSelectedCity))
-          ? state.lastSelectedCity!
-          : cities.first;
+      // 2. 优先加载用户上次选择的城市，否则使用默认城市 Paris
+      String targetCity;
+      if (state.lastSelectedCity != null && cities.contains(state.lastSelectedCity)) {
+        targetCity = state.lastSelectedCity!;
+      } else if (cities.contains(_defaultCity)) {
+        targetCity = _defaultCity;
+      } else {
+        targetCity = cities.first;
+      }
       
       final Map<String, List<PublicPlaceDto>> placesByCity = {};
       
       try {
-        print('📍 [PlacesCache] 正在加载 $targetCity 的地点...');
-        final places = await repository.fetchPlacesByCity(
+        print('📍 [PlacesCache] 正在加载 $targetCity 的 Top 20 地点...');
+        final places = await repository.fetchTopPlacesByCity(
           city: targetCity,
-          limit: 10, // 只加载10个
-          minRating: 0.0,
+          limit: 20, // Top 20 评分人数最多的地点
         ).timeout(const Duration(seconds: 15));
         
         if (places.isNotEmpty) {
@@ -214,13 +219,12 @@ class PlacesCacheNotifier extends StateNotifier<PlacesCacheState> {
       final repository = _ref.read(publicPlaceRepositoryProvider);
       final Map<String, List<PublicPlaceDto>> placesByCity = Map.from(initialPlaces);
       
-      // 加载所有城市的完整数据
+      // 加载所有城市的 top 20 评分人数最多的地点
       for (final city in cities) {
         try {
-          final places = await repository.fetchPlacesByCity(
+          final places = await repository.fetchTopPlacesByCity(
             city: city,
-            limit: 200,
-            minRating: 0.0,
+            limit: 20,  // 只获取 top 20 评分人数最多的地点
           ).timeout(const Duration(seconds: 10));
           
           if (places.isNotEmpty) {

@@ -737,27 +737,31 @@ class _TripCardState extends State<_TripCard> {
                   top: 12,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
+                      final textStyle = AppTheme.labelSmall(context).copyWith(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      );
+                      
                       // 计算城市名称需要的宽度
                       final cityTextPainter = TextPainter(
-                        text: TextSpan(
-                          text: widget.city,
-                          style: AppTheme.labelSmall(context).copyWith(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        text: TextSpan(text: widget.city, style: textStyle),
                         maxLines: 1,
                         textDirection: TextDirection.ltr,
                       )..layout();
                       
-                      // 城市标签宽度 = 文字宽度 + padding (12 * 2)
-                      final cityTagWidth = cityTextPainter.width + 24;
-                      // 数量标签宽度约 42 (padding 10*2 + 数字约10 + icon 12)
-                      const countTagWidth = 42.0;
+                      // 计算地点数量需要的宽度
+                      final countTextPainter = TextPainter(
+                        text: TextSpan(text: widget.count.toString(), style: textStyle),
+                        maxLines: 1,
+                        textDirection: TextDirection.ltr,
+                      )..layout();
+                      
+                      final cityTagWidth = cityTextPainter.width + 24; // padding 12*2
+                      final countTagWidth = countTextPainter.width + 20 + 12; // padding 10*2 + icon 10 + spacing 2
                       const spacing = 8.0;
                       final totalNeeded = cityTagWidth + countTagWidth + spacing;
                       
-                      // 如果空间不够，只显示城市名
+                      // 如果空间不够，隐藏地点数量；如果还不够，城市名用省略号
                       final showCount = totalNeeded <= constraints.maxWidth;
                       
                       return Row(
@@ -780,7 +784,7 @@ class _TripCardState extends State<_TripCard> {
                                   Text(
                                     widget.count.toString(),
                                     style: AppTheme.labelSmall(context).copyWith(
-                                      fontSize: 12,
+                                      fontSize: 10,
                                       color: AppTheme.black,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -788,7 +792,7 @@ class _TripCardState extends State<_TripCard> {
                                   const SizedBox(width: 2),
                                   const Icon(
                                     Icons.location_on,
-                                    size: 12,
+                                    size: 10,
                                     color: AppTheme.black,
                                   ),
                                 ],
@@ -810,7 +814,7 @@ class _TripCardState extends State<_TripCard> {
                               child: Text(
                                 widget.city,
                                 style: AppTheme.labelSmall(context).copyWith(
-                                  fontSize: 12,
+                                  fontSize: 10,
                                   color: AppTheme.black,
                                   fontWeight: FontWeight.bold,
                                 ),

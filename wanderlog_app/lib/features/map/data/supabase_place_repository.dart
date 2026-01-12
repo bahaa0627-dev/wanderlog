@@ -57,19 +57,34 @@ class SupabasePlaceRepository {
   Future<List<String>> fetchCities({String? query}) async {
     print('📍 [SupabasePlaceRepo] fetchCities 开始');
     try {
-      final response = await _client
-          .from('places')
-          .select('city')
-          .not('city', 'is', null);
-
-      print('📍 [SupabasePlaceRepo] fetchCities 响应: ${(response as List).length} 条');
+      // 使用分页获取所有城市，避免默认 1000 行限制
+      final allCities = <String>{};
+      int offset = 0;
+      const batchSize = 1000;
       
-      final cities = (response)
-          .map((e) => e['city'] as String?)
-          .where((c) => c != null && c.isNotEmpty)
-          .cast<String>()
-          .toSet()
-          .toList();
+      while (true) {
+        final response = await _client
+            .from('places')
+            .select('city')
+            .not('city', 'is', null)
+            .range(offset, offset + batchSize - 1);
+
+        final batch = (response as List)
+            .map((e) => e['city'] as String?)
+            .where((c) => c != null && c.isNotEmpty)
+            .cast<String>();
+        
+        allCities.addAll(batch);
+        
+        if ((response).length < batchSize) {
+          break;  // 没有更多数据了
+        }
+        offset += batchSize;
+      }
+
+      print('📍 [SupabasePlaceRepo] fetchCities 完成: ${allCities.length} 个城市');
+      
+      var cities = allCities.toList();
 
       if (query != null && query.isNotEmpty) {
         final lowerQuery = query.toLowerCase();
@@ -77,7 +92,6 @@ class SupabasePlaceRepository {
       }
 
       cities.sort();
-      print('📍 [SupabasePlaceRepo] fetchCities 完成: ${cities.length} 个城市');
       return cities;
     } catch (e) {
       print('❌ [SupabasePlaceRepo] fetchCities 失败: $e');
@@ -98,6 +112,36 @@ class SupabasePlaceRepository {
           .toList();
     } catch (e) {
       throw SupabasePlaceRepositoryException('Failed to search places: $e');
+    }
+  }
+
+  /// 获取城市 Top N 评分人数最多的地点
+  /// 按 rating_count 降序排列，然后按 rating 降序排列
+  Future<List<PublicPlaceDto>> fetchTopPlacesByCity({
+    required String city,
+    String? country,
+    int limit = 20,
+  }) async {
+    try {
+      var query = _client
+          .from('places')
+          .select()
+          .eq('city', city);
+
+      if (country != null && country.isNotEmpty) {
+        query = query.eq('country', country);
+      }
+
+      final response = await query
+          .order('rating_count', ascending: false, nullsFirst: false)
+          .order('rating', ascending: false, nullsFirst: false)
+          .limit(limit);
+
+      return (response as List)
+          .map((e) => PublicPlaceDto.fromSupabase(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw SupabasePlaceRepositoryException('Failed to load top places for $city: $e');
     }
   }
 

@@ -440,63 +440,95 @@ class _CollectionCardState extends State<_CollectionCard> {
                   left: 12,
                   right: 12,
                   top: 12,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      // 地点数量 - 64% 白色背景，黑色文字，在左侧
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.white.withOpacity(0.64),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              widget.spotsCount.toString(),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final textStyle = AppTheme.labelSmall(context).copyWith(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      );
+                      
+                      // 计算城市名称需要的宽度
+                      final cityTextPainter = TextPainter(
+                        text: TextSpan(text: widget.city, style: textStyle),
+                        maxLines: 1,
+                        textDirection: TextDirection.ltr,
+                      )..layout();
+                      
+                      // 计算地点数量需要的宽度
+                      final countTextPainter = TextPainter(
+                        text: TextSpan(text: widget.spotsCount.toString(), style: textStyle),
+                        maxLines: 1,
+                        textDirection: TextDirection.ltr,
+                      )..layout();
+                      
+                      final cityTagWidth = cityTextPainter.width + 24; // padding 12*2
+                      final countTagWidth = countTextPainter.width + 20 + 12; // padding 10*2 + icon 10 + spacing 2
+                      const spacing = 8.0;
+                      final totalNeeded = cityTagWidth + countTagWidth + spacing;
+                      
+                      // 如果空间不够，隐藏地点数量
+                      final showSpots = totalNeeded <= constraints.maxWidth;
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (showSpots) ...[
+                            // 地点数量
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.white.withOpacity(0.64),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    widget.spotsCount.toString(),
+                                    style: AppTheme.labelSmall(context).copyWith(
+                                      fontSize: 10,
+                                      color: AppTheme.black,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  const Icon(
+                                    Icons.location_on,
+                                    size: 10,
+                                    color: AppTheme.black,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: spacing),
+                          ],
+                          // 城市名称
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.white,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              widget.city,
                               style: AppTheme.labelSmall(context).copyWith(
-                                fontSize: 12,
+                                fontSize: 10,
                                 color: AppTheme.black,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(width: 2),
-                            const Icon(
-                              Icons.location_on,
-                              size: 12,
-                              color: AppTheme.black,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // 城市名称 - 白色背景，黑色文字，在右侧
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          widget.city,
-                          style: AppTheme.labelSmall(context).copyWith(
-                            fontSize: 12,
-                            color: AppTheme.black,
-                            fontWeight: FontWeight.bold,
                           ),
-                        ),
-                      ),
-                    ],
+                        ],
+                      );
+                    },
                   ),
                 ),
-
                 // 底部标题和标签层 - 固定在底部
                 Positioned(
                   left: 12,

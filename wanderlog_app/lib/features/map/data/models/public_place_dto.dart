@@ -19,6 +19,8 @@ class PublicPlaceDto {
     this.priceLevel,
     this.website,
     this.phoneNumber,
+    this.openingHours,
+    this.description,
     this.aiTags = const [],
     this.displayTagsEn = const [],
     this.displayTagsZh = const [],
@@ -47,6 +49,8 @@ class PublicPlaceDto {
         priceLevel: _parseInt(json['priceLevel']),
         website: json['website'] as String?,
         phoneNumber: json['phoneNumber'] as String?,
+        openingHours: _parseOpeningHours(json['openingHours']),
+        description: json['description'] as String?,
         aiTags: _parseAiTags(json['aiTags']),
         displayTagsEn: _parseStringList(json['display_tags_en']),
         displayTagsZh: _parseStringList(json['display_tags_zh']),
@@ -76,6 +80,8 @@ class PublicPlaceDto {
         priceLevel: _parseInt(json['price_level']),
         website: json['website'] as String?,
         phoneNumber: json['phone_number'] as String?,
+        openingHours: _parseOpeningHours(json['opening_hours']),
+        description: json['description'] as String?,
         aiTags: _parseAiTags(json['ai_tags']),
         displayTagsEn: _parseStringList(json['display_tags_en']),
         displayTagsZh: _parseStringList(json['display_tags_zh']),
@@ -103,6 +109,8 @@ class PublicPlaceDto {
   final int? priceLevel;
   final String? website;
   final String? phoneNumber;
+  final Map<String, dynamic>? openingHours;
+  final String? description;
   final List<String> aiTags;
   final List<String> displayTagsEn;
   final List<String> displayTagsZh;
@@ -235,6 +243,23 @@ DateTime? _parseDateTime(dynamic value) {
   }
   if (value is String && value.isNotEmpty) {
     return DateTime.tryParse(value);
+  }
+  return null;
+}
+
+/// 解析营业时间 - 支持 JSON 字符串或 Map
+Map<String, dynamic>? _parseOpeningHours(dynamic value) {
+  if (value == null) return null;
+  if (value is Map<String, dynamic>) return value;
+  if (value is String && value.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } catch (_) {
+      // 解析失败，返回 null
+    }
   }
   return null;
 }

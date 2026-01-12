@@ -12,6 +12,12 @@ router.get('/stats', publicPlaceController.getStats.bind(publicPlaceController))
 // 获取国家和城市列表（按国家分组）
 router.get('/countries-cities', publicPlaceController.getCountriesAndCities.bind(publicPlaceController));
 
+// 获取国家和城市列表（带地点数量统计，用于地图首页下拉）
+router.get('/countries-cities-stats', publicPlaceController.getCountriesAndCitiesWithStats.bind(publicPlaceController));
+
+// 获取城市 Top N 评分人数最多的地点
+router.get('/top-by-city', publicPlaceController.getTopPlacesByCity.bind(publicPlaceController));
+
 // 获取筛选选项（国家、城市、分类及其数量）
 router.get('/filter-options', publicPlaceController.getFilterOptions.bind(publicPlaceController));
 

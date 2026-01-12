@@ -316,11 +316,11 @@ class PublicPlaceController {
 
   /**
    * 搜索地点
-   * GET /api/public-places/search?q=query
+   * GET /api/public-places/search?q=query&city=Paris&country=France
    */
   async searchPlaces(req: Request, res: Response): Promise<void> {
     try {
-      const { q } = req.query;
+      const { q, city, country } = req.query;
 
       if (!q) {
         return res.status(400).json({
@@ -329,7 +329,11 @@ class PublicPlaceController {
         });
       }
 
-      const places = await publicPlaceService.searchPlaces(q as string);
+      const places = await publicPlaceService.searchPlaces(
+        q as string,
+        city as string | undefined,
+        country as string | undefined
+      );
 
       res.json({
         success: true,
@@ -712,8 +716,7 @@ class PublicPlaceController {
    * 
    * Query params:
    * - minCountryPlaces: 国家最小地点数（默认 100）
-   * - minCityPlaces: 城市最小地点数（默认 10）
-   * - minCitiesPerCountry: 每个国家最少显示城市数（默认 5）
+   * - minCityPlaces: 城市最小地点数（默认 5，少于此数量的城市不显示）
    */
   async getCountriesAndCitiesWithStats(req: Request, res: Response): Promise<void> {
     try {
@@ -770,6 +773,90 @@ class PublicPlaceController {
           total: places.length,
           page: 1,
           limit: limit ? parseInt(limit as string) : 20,
+          totalPages: 1,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * 获取城市的 Top N 标签统计
+   * GET /api/public-places/city-tag-stats
+   * 
+   * Query params:
+   * - city: 城市名称（必填）
+   * - country: 国家名称（可选）
+   * - limit: 返回数量（默认 10）
+   */
+  async getCityTagStats(req: Request, res: Response): Promise<void> {
+    try {
+      const { city, country, limit } = req.query;
+
+      if (!city) {
+        return res.status(400).json({
+          success: false,
+          error: 'city is required',
+        });
+      }
+
+      const result = await publicPlaceService.getCityTagStats({
+        city: city as string,
+        country: country as string | undefined,
+        limit: limit ? parseInt(limit as string) : undefined,
+      });
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * 按城市和单个标签筛选地点
+   * GET /api/public-places/places-by-tag
+   * 
+   * Query params:
+   * - city: 城市名称（必填）
+   * - country: 国家名称（可选）
+   * - tag: 标签名称（必填）
+   * - limit: 返回数量（默认 50）
+   */
+  async getPlacesByCityAndTag(req: Request, res: Response): Promise<void> {
+    try {
+      const { city, country, tag, limit } = req.query;
+
+      if (!city || !tag) {
+        return res.status(400).json({
+          success: false,
+          error: 'city and tag are required',
+        });
+      }
+
+      const places = await publicPlaceService.getPlacesByCityAndTag({
+        city: city as string,
+        country: country as string | undefined,
+        tag: tag as string,
+        limit: limit ? parseInt(limit as string) : undefined,
+      });
+
+      res.json({
+        success: true,
+        data: places.map(place => transformPlace(place)),
+        pagination: {
+          total: places.length,
+          page: 1,
+          limit: limit ? parseInt(limit as string) : 50,
           totalPages: 1,
         },
       });

@@ -206,6 +206,29 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     return phrases[_spotName.length % phrases.length];
   }
 
+  /// 获取后端计算好的展示标签（优先使用）
+  List<String> get _spotDisplayTags {
+    try {
+      final dynamic rawTags = (widget.spot as dynamic).displayTagsEn;
+      print('🏷️ [_spotDisplayTags] rawTags: $rawTags (${rawTags.runtimeType})');
+      if (rawTags == null) return <String>[];
+      
+      if (rawTags is List<String>) {
+        return rawTags;
+      }
+      if (rawTags is List) {
+        // Handle List<dynamic> case
+        final result = rawTags.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+        print('🏷️ [_spotDisplayTags] converted result: $result');
+        return result;
+      }
+    } catch (e) {
+      print('🏷️ [_spotDisplayTags] error: $e');
+      // 忽略错误，回退到 tags
+    }
+    return <String>[];
+  }
+
   List<String> get _spotTags {
     if (widget.spot is Spot) {
       return (widget.spot as Spot).tags;
@@ -419,17 +442,80 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   List<String> _effectiveTags() {
     final List<String> result = [];
     final Set<String> seen = {};
-    final category = _getCategory();
-    if (category != null && category.isNotEmpty) {
-      result.add(category);
-      seen.add(category.toLowerCase());
-    }
-    for (final tag in _spotTags) {
-      final key = tag.toLowerCase();
-      if (seen.add(key)) {
-        result.add(tag);
+    
+    // Debug logging
+    print('🏷️ [_effectiveTags] _spotDisplayTags: $_spotDisplayTags');
+    print('🏷️ [_effectiveTags] _spotTags: $_spotTags');
+    print('🏷️ [_effectiveTags] category: ${_getCategory()}');
+    
+    // 1. 优先使用后端计算好的 displayTagsEn
+    final displayTags = _spotDisplayTags;
+    if (displayTags.isNotEmpty) {
+      for (final tag in displayTags) {
+        if (result.length >= 4) break;
+        final key = tag.toLowerCase();
+        if (key.isNotEmpty && seen.add(key)) {
+          result.add(tag);
+        }
+      }
+      if (result.isNotEmpty) {
+        print('🏷️ [_effectiveTags] using displayTags, result: $result');
+        return result;
       }
     }
+    
+    // 2. 回退：先添加分类
+    final category = _getCategory();
+    if (category != null && category.isNotEmpty) {
+      final key = category.toLowerCase();
+      if (seen.add(key)) {
+        result.add(category);
+      }
+    }
+    
+    // 3. 添加 tags
+    final tags = _spotTags;
+    for (final tag in tags) {
+      if (result.length >= 4) break;
+      
+      String tagStr = tag;
+      // 处理可能的 JSON 对象格式
+      if (tag.startsWith('{') && tag.contains('en:')) {
+        final match = RegExp(r'en:\s*([^,}]+)').firstMatch(tag);
+        if (match != null) {
+          tagStr = match.group(1)?.trim() ?? tag;
+        }
+      }
+      
+      final key = tagStr.toLowerCase();
+      if (key.isNotEmpty && seen.add(key)) {
+        result.add(tagStr);
+      }
+    }
+    
+    // 4. 尝试从 spot 对象获取 aiTags
+    try {
+      final dynamic aiTags = (widget.spot as dynamic).aiTags;
+      if (aiTags is List) {
+        for (final tag in aiTags) {
+          if (result.length >= 4) break;
+          String tagStr = '';
+          if (tag is Map) {
+            tagStr = tag['en']?.toString() ?? '';
+          } else if (tag is String) {
+            tagStr = tag;
+          }
+          if (tagStr.isNotEmpty) {
+            final key = tagStr.toLowerCase();
+            if (seen.add(key)) {
+              result.add(tagStr);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    
+    print('🏷️ [_effectiveTags] final result: $result');
     return result;
   }
 
@@ -1347,26 +1433,34 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 12),
-                // 3. Tags - max 3 tags, no scroll
+                // 3. Tags - max 4 tags, horizontal scroll
                 if (_effectiveTags().isNotEmpty) ...[
-                  Row(
-                    children: _effectiveTags().take(3).map((tag) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF2F2F2),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
-                        ),
-                        child: Text(
-                          tag,
-                          style: AppTheme.labelSmall(context).copyWith(
-                            color: AppTheme.black.withOpacity(0.48),
+                  SizedBox(
+                    height: 28,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _effectiveTags().take(4).length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final tag = _effectiveTags()[index];
+                        return Container(
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF2F2F2),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
                           ),
-                        ),
-                      ),
-                    ),).toList(),
+                          child: Text(
+                            tag,
+                            style: AppTheme.labelSmall(context).copyWith(
+                              color: AppTheme.black.withOpacity(0.48),
+                              height: 1.0,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(height: 16),
                 ],

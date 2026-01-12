@@ -66,8 +66,8 @@ class TagTypeFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      height: 46,
+      padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -79,9 +79,10 @@ class TagTypeFilterBar extends StatelessWidget {
       ),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 4),
+        clipBehavior: Clip.none,
         itemCount: tagTypes.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
           final typeKey = tagTypes.keys.elementAt(index);
           final typeInfo = tagTypes[typeKey]!;
@@ -92,26 +93,25 @@ class TagTypeFilterBar extends StatelessWidget {
               onTypeChanged(typeKey == 'all' ? null : typeKey);
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: isSelected ? AppTheme.primaryYellow : Colors.white,
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                border: Border.all(
-                  color: AppTheme.black,
-                  width: AppTheme.borderMedium,
-                ),
+                border: Border.all(color: AppTheme.black, width: 1),
+                boxShadow: AppTheme.searchBoxShadow,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     typeInfo.emoji,
-                    style: const TextStyle(fontSize: 16),
+                    style: const TextStyle(fontSize: 13),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   Text(
                     typeInfo.label,
-                    style: AppTheme.labelMedium(context).copyWith(
+                    style: AppTheme.labelSmall(context).copyWith(
+                      color: AppTheme.black,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                     ),
                   ),

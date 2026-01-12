@@ -55,7 +55,7 @@ class AppTheme {
   static List<BoxShadow> searchBoxShadow = [
     const BoxShadow(
       color: Color(0xFF000000),
-      offset: Offset(1, 2),
+      offset: Offset(1, 1),
       blurRadius: 0,
       spreadRadius: 0,
     ),

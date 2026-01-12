@@ -21,14 +21,91 @@ const safeParseJson = <T>(value: any, fallback: T): T => {
   return fallback;
 };
 
-const normalizePlace = (place: any) =>
-  place
-    ? {
-        ...place,
-        tags: safeParseJson(place.tags, []),
-        images: safeParseJson(place.images, []),
+const normalizePlace = (place: any) => {
+  if (!place) return null;
+  
+  const tags = safeParseJson(place.tags, []);
+  const aiTags = safeParseJson(place.aiTags || place.ai_tags, []);
+  const images = safeParseJson(place.images, []);
+  const category = place.categoryEn || place.category_en || place.category || '';
+  
+  // 构建 displayTagsEn: category + tags 的值 + aiTags，最多4个
+  const displayTagsEn: string[] = [];
+  const seen = new Set<string>();
+  
+  // 1. 添加 category
+  if (category && typeof category === 'string' && category.trim()) {
+    const cat = category.trim();
+    if (!seen.has(cat.toLowerCase())) {
+      displayTagsEn.push(cat);
+      seen.add(cat.toLowerCase());
+    }
+  }
+  
+  // 2. 添加 tags 对象的值（如 style, theme 等）
+  if (tags && typeof tags === 'object' && !Array.isArray(tags)) {
+    for (const [key, value] of Object.entries(tags)) {
+      if (displayTagsEn.length >= 4) break;
+      if (typeof value === 'string' && value.trim()) {
+        const tag = value.trim();
+        if (!seen.has(tag.toLowerCase())) {
+          displayTagsEn.push(tag);
+          seen.add(tag.toLowerCase());
+        }
+      } else if (Array.isArray(value)) {
+        for (const v of value) {
+          if (displayTagsEn.length >= 4) break;
+          if (typeof v === 'string' && v.trim()) {
+            const tag = v.trim();
+            if (!seen.has(tag.toLowerCase())) {
+              displayTagsEn.push(tag);
+              seen.add(tag.toLowerCase());
+            }
+          }
+        }
       }
-    : null;
+    }
+  } else if (Array.isArray(tags)) {
+    for (const tag of tags) {
+      if (displayTagsEn.length >= 4) break;
+      if (typeof tag === 'string' && tag.trim()) {
+        const t = tag.trim();
+        if (!seen.has(t.toLowerCase())) {
+          displayTagsEn.push(t);
+          seen.add(t.toLowerCase());
+        }
+      }
+    }
+  }
+  
+  // 3. 添加 aiTags
+  if (Array.isArray(aiTags)) {
+    for (const tag of aiTags) {
+      if (displayTagsEn.length >= 4) break;
+      if (typeof tag === 'string' && tag.trim()) {
+        const t = tag.trim();
+        if (!seen.has(t.toLowerCase())) {
+          displayTagsEn.push(t);
+          seen.add(t.toLowerCase());
+        }
+      } else if (tag && typeof tag === 'object' && tag.en) {
+        const t = String(tag.en).trim();
+        if (t && !seen.has(t.toLowerCase())) {
+          displayTagsEn.push(t);
+          seen.add(t.toLowerCase());
+        }
+      }
+    }
+  }
+  
+  return {
+    ...place,
+    tags,
+    aiTags,
+    images,
+    displayTagsEn,
+  };
+};
 
 class CollectionController {
   /**

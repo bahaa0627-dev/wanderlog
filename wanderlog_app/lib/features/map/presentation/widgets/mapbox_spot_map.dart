@@ -7,6 +7,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/category_emoji.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 
 /// 共享的 Mapbox 地图组件 - 使用原生标记渲染
@@ -185,17 +186,20 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
       // 再添加选中标记，确保在最上层
       if (selectedId != null) {
-        final selectedSpot = spotsToAdd.firstWhere(
-          (s) => s.id == selectedId,
-          orElse: () => spots.firstWhere((s) => s.id == selectedId, orElse: () => spots[0]),
-        );
-        try {
-          final selectedAnnotation = await _createAnnotation(selectedSpot, isSelected: true);
-          if (generation != _markerGeneration) return;
-          _annotationsBySpotId[selectedSpot.id] = selectedAnnotation;
-          _spotByAnnotationId[selectedAnnotation.id] = selectedSpot;
-        } catch (e) {
-          print('⚠️ [共享地图] 添加选中标记失败: $e');
+        // 只有当选中的 spot 在列表中时才添加选中标记
+        final selectedSpotIndex = spotsToAdd.indexWhere((s) => s.id == selectedId);
+        if (selectedSpotIndex != -1) {
+          final selectedSpot = spotsToAdd[selectedSpotIndex];
+          try {
+            final selectedAnnotation = await _createAnnotation(selectedSpot, isSelected: true);
+            if (generation != _markerGeneration) return;
+            _annotationsBySpotId[selectedSpot.id] = selectedAnnotation;
+            _spotByAnnotationId[selectedAnnotation.id] = selectedSpot;
+          } catch (e) {
+            print('⚠️ [共享地图] 添加选中标记失败: $e');
+          }
+        } else {
+          print('⚠️ [共享地图] 选中的 spot 不在当前列表中: $selectedId');
         }
       }
 
@@ -312,8 +316,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       if (pending != null && pending != _lastSelectedSpotId) {
         print('📍 [共享地图] 处理待处理的选中: $pending');
         _pendingSelectedId = null;
-        // 递归调用处理待处理的请求
-        _refreshSelectedMarkerById(pending);
+        // 使用 Future.microtask 避免递归调用栈过深
+        Future.microtask(() => _refreshSelectedMarkerById(pending));
       }
     }
   }
@@ -333,28 +337,43 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       if (oldSelectedId != null &&
           oldSelectedId != newSelectedId &&
           _annotationsBySpotId.containsKey(oldSelectedId)) {
-        final previousSpot = widget.spots.firstWhere(
-          (s) => s.id == oldSelectedId,
-          orElse: () => widget.spots.first,
-        );
-        final oldAnnotation = _annotationsBySpotId[oldSelectedId];
-        
-        if (oldAnnotation != null) {
-          print('📍 [共享地图] 还原旧标记: ${previousSpot.name}');
+        // 只有当旧的 spot 还在当前列表中时才还原
+        final previousSpotIndex = widget.spots.indexWhere((s) => s.id == oldSelectedId);
+        if (previousSpotIndex != -1) {
+          final previousSpot = widget.spots[previousSpotIndex];
+          final oldAnnotation = _annotationsBySpotId[oldSelectedId];
           
-          // 删除旧标记并重建为普通样式
-          await manager.delete(oldAnnotation);
-          _spotByAnnotationId.remove(oldAnnotation.id);
-          
-          final restored = await _createAnnotation(previousSpot, isSelected: false);
-          _annotationsBySpotId[oldSelectedId] = restored;
-          _spotByAnnotationId[restored.id] = previousSpot;
+          if (oldAnnotation != null) {
+            print('📍 [共享地图] 还原旧标记: ${previousSpot.name}');
+            
+            // 删除旧标记并重建为普通样式
+            await manager.delete(oldAnnotation);
+            _spotByAnnotationId.remove(oldAnnotation.id);
+            
+            final restored = await _createAnnotation(previousSpot, isSelected: false);
+            _annotationsBySpotId[oldSelectedId] = restored;
+            _spotByAnnotationId[restored.id] = previousSpot;
+          }
+        } else {
+          // 旧的 spot 不在当前列表中，只需删除其标记
+          final oldAnnotation = _annotationsBySpotId[oldSelectedId];
+          if (oldAnnotation != null) {
+            print('📍 [共享地图] 删除不在列表中的旧标记: $oldSelectedId');
+            await manager.delete(oldAnnotation);
+            _spotByAnnotationId.remove(oldAnnotation.id);
+            _annotationsBySpotId.remove(oldSelectedId);
+          }
         }
       }
 
       // 更新新选中标记的样式并提升到最上层
-      final newSpot = widget.spots
-          .firstWhere((s) => s.id == newSelectedId, orElse: () => widget.spots[0]);
+      final newSpotIndex = widget.spots.indexWhere((s) => s.id == newSelectedId);
+      if (newSpotIndex == -1) {
+        print('⚠️ [共享地图] 新选中的 spot 不在列表中: $newSelectedId');
+        return;
+      }
+      
+      final newSpot = widget.spots[newSpotIndex];
       final existing = _annotationsBySpotId[newSelectedId];
       
       print('📍 [共享地图] 选中新标记: ${newSpot.name}');
@@ -453,7 +472,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     canvas.drawRRect(rrect, borderPaint);
 
     // 获取图标 Emoji - 已访问显示打勾，否则显示分类 emoji
-    final iconEmoji = isVisited ? '✓' : _getCategoryEmoji(category);
+    final iconEmoji = isVisited ? '✓' : getCategoryEmoji(category);
 
     // 绘制 Emoji 图标
     final iconPainter = TextPainter(
@@ -518,51 +537,6 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
     return byteData!.buffer.asUint8List();
-  }
-
-  /// 获取分类 Emoji
-  String _getCategoryEmoji(String category) {
-    switch (category.toLowerCase()) {
-      case 'restaurant':
-        return '🍽️';
-      case 'museum':
-        return '🏛️';
-      case 'park':
-        return '🌳';
-      case 'landmark':
-        return '📍';
-      case 'cafe':
-      case 'coffee':
-        return '☕️';
-      case 'bakery':
-        return '🥐';
-      case 'shopping':
-        return '🛍️';
-      case 'church':
-        return '⛪️';
-      case 'theater':
-        return '🎭';
-      case 'waterfront':
-        return '🌊';
-      case 'library':
-      case 'bookstore':
-        return '📚';
-      case 'architecture':
-        return '🏛️';
-      case 'neighborhood':
-        return '📌';
-      case 'bar':
-        return '🍸';
-      case 'zoo':
-      case 'aquarium':
-        return '🐾';
-      case 'market':
-        return '🛒';
-      case 'temple':
-        return '🛕';
-      default:
-        return '📍';
-    }
   }
 
   /// 移动相机到指定位置

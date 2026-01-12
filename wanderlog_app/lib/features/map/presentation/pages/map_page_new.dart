@@ -11,11 +11,14 @@ import 'package:image_picker/image_picker.dart' as picker;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/category_emoji.dart';
+import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
 import 'package:wanderlog/features/map/data/supabase_place_repository.dart';
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 import 'package:wanderlog/features/map/providers/places_cache_provider.dart';
+import 'package:wanderlog/features/search/data/search_repository.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
@@ -50,6 +53,7 @@ class Spot {
     required this.coverImage,
     required this.images,
     required this.tags,
+    this.displayTagsEn = const [],
     this.aiSummary,
     this.isFromAI = false,
     this.isVerified = true,
@@ -73,6 +77,8 @@ class Spot {
   final String coverImage;
   final List<String> images;
   final List<String> tags;
+  /// 后端计算好的展示标签（category + aiTags + tags 的合并结果）
+  final List<String> displayTagsEn;
   final String? aiSummary;
   final bool isFromAI;
   
@@ -122,6 +128,7 @@ class Spot {
     String? coverImage,
     List<String>? images,
     List<String>? tags,
+    List<String>? displayTagsEn,
     String? aiSummary,
     bool? isFromAI,
     bool? isVerified,
@@ -143,6 +150,7 @@ class Spot {
       coverImage: coverImage ?? this.coverImage,
       images: images ?? this.images,
       tags: tags ?? this.tags,
+      displayTagsEn: displayTagsEn ?? this.displayTagsEn,
       aiSummary: aiSummary ?? this.aiSummary,
       isFromAI: isFromAI ?? this.isFromAI,
       isVerified: isVerified ?? this.isVerified,
@@ -236,18 +244,59 @@ class _MapPageState extends ConsumerState<MapPage> {
   static const String _fallbackCoverImage =
       'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80';
 
-  static const List<String> _tagOptions = [
-    'Architecture',
-    'Museum',
-    'Coffee',
-    'Food',
-    'Nature',
-    'History',
-    'Culture',
-  ];
+  // 动态计算当前城市的热门标签（从缓存获取）
+  List<String> get _dynamicTagOptions {
+    // 优先使用后端计算的标签统计
+    final cacheState = ref.read(placesCacheProvider);
+    final cachedTags = cacheState.getTopTags(_selectedCity);
+    if (cachedTags.isNotEmpty) {
+      print('🏷️ [_dynamicTagOptions] 使用缓存的标签: ${cachedTags.map((t) => '${t.name}(${t.count})').join(', ')}');
+      return cachedTags.map((t) => t.name).toList();
+    }
+    
+    // 回退：基于当前加载的地点计算
+    final spots = _currentCitySpots;
+    if (spots.isEmpty) return const [];
+    
+    // 统计所有标签出现次数
+    final tagCounts = <String, int>{};
+    
+    for (final spot in spots) {
+      // 统计 category（优先）
+      final category = spot.category.trim();
+      if (category.isNotEmpty) {
+        final normalizedCategory = _capitalizeTag(category);
+        tagCounts[normalizedCategory] = (tagCounts[normalizedCategory] ?? 0) + 1;
+      }
+      
+      // 统计 displayTagsEn（后端计算好的展示标签，包含 category + structuredTags + aiTags）
+      for (final tag in spot.displayTagsEn) {
+        final normalizedTag = _capitalizeTag(tag.trim());
+        if (normalizedTag.isNotEmpty) {
+          tagCounts[normalizedTag] = (tagCounts[normalizedTag] ?? 0) + 1;
+        }
+      }
+    }
+    
+    // 按出现次数倒序排序，取前 10 个
+    final sortedTags = tagCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    // Debug logging
+    print('🏷️ [_dynamicTagOptions] 本地计算的标签: ${sortedTags.take(10).map((e) => '${e.key}(${e.value})').join(', ')}');
+    
+    return sortedTags.take(10).map((e) => e.key).toList();
+  }
+  
+  // 标签首字母大写
+  String _capitalizeTag(String tag) {
+    if (tag.isEmpty) return tag;
+    return tag[0].toUpperCase() + tag.substring(1).toLowerCase();
+  }
 
   final GlobalKey<MapboxSpotMapState> _mapKey = GlobalKey<MapboxSpotMapState>();
   late String _selectedCity;
+  String? _selectedCountry; // 当前选中城市对应的国家
   Spot? _selectedSpot;
   late bool _isFullscreen;
   late final bool _isOverlayInstance;
@@ -262,6 +311,9 @@ class _MapPageState extends ConsumerState<MapPage> {
   bool _hasRequestedExit = false;
   bool _hideMapChrome = false;
   bool _isLaunchingOverlay = false;
+  bool _isLoadingTaggedSpots = false; // 标签筛选加载状态
+  bool _isSearching = false; // 搜索加载状态
+  final FocusNode _searchFocusNode = FocusNode(); // 搜索框焦点
 
   Map<String, List<Spot>> _spotsByCity = const <String, List<Spot>>{};
   List<String> _availableCities = const <String>[];
@@ -301,7 +353,15 @@ class _MapPageState extends ConsumerState<MapPage> {
       initialPage: _currentCardIndex,
     );
 
+    // 监听搜索框变化，用于显示/隐藏清除按钮
+    _searchController.addListener(_onSearchTextChanged);
+
     _loadPublicPlaces();
+  }
+
+  void _onSearchTextChanged() {
+    // 触发 rebuild 以更新清除按钮的显示状态
+    if (mounted) setState(() {});
   }
 
   @override
@@ -320,8 +380,10 @@ class _MapPageState extends ConsumerState<MapPage> {
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchTextChanged);
     _cardPageController.dispose();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -330,13 +392,12 @@ class _MapPageState extends ConsumerState<MapPage> {
   List<Spot> get _currentCitySpots => _spotsByCity[_selectedCity] ?? const [];
 
   List<Spot> get _filteredSpots {
-    final spots = _currentCitySpots;
-    if (_selectedTags.isEmpty) {
-      return spots;
+    // 如果正在搜索或有搜索结果，使用 carouselSpots
+    if (_searchController.text.isNotEmpty || _selectedTags.isNotEmpty) {
+      return _carouselSpots;
     }
-    return spots
-        .where((spot) => spot.tags.any(_selectedTags.contains))
-        .toList();
+    // 否则返回当前城市的所有地点
+    return _currentCitySpots;
   }
 
   Future<void> _animateCamera(Position newCenter, {double? zoom}) async {
@@ -741,62 +802,57 @@ class _MapPageState extends ConsumerState<MapPage> {
                           selectedCity: _selectedCity,
                           cities: _cities,
                           onCityChanged: (city, country) async {
+                            print('🔄 [MapPage] 城市切换: $city (国家: $country)');
                             // 保存用户选择的城市
                             ref.read(placesCacheProvider.notifier).saveSelectedCity(city);
                             
-                            // 检查该城市是否有地点数据
-                            final hasData = (_spotsByCity[city] ?? const <Spot>[]).isNotEmpty;
+                            // 使用缓存的按需加载
+                            final places = await ref.read(placesCacheProvider.notifier).loadCityOnDemand(city, country: country);
+                            print('🔄 [MapPage] 加载完成: ${places.length} 个地点');
                             
-                            if (!hasData) {
-                              // 如果没有数据，先加载该城市的地点（传递国家参数解决同名城市问题）
-                              print('📍 [MapPage] 城市 $city (国家: $country) 没有数据，开始加载...');
-                              final repository = ref.read(publicPlaceRepositoryProvider);
-                              try {
-                                final places = await repository.fetchTopPlacesByCity(
-                                  city: city,
-                                  country: country,  // 传递国家参数
-                                  limit: 20,
-                                );
-                                if (places.isNotEmpty) {
-                                  // 转换为 Spot 并更新状态
-                                  final spots = _selectTopSpotsForCity(city, places);
-                                  if (spots.isNotEmpty) {
-                                    final updatedSpotsByCity = Map<String, List<Spot>>.from(_spotsByCity);
-                                    updatedSpotsByCity[city] = spots;
-                                    _spotsByCity = updatedSpotsByCity;
-                                    // 使用所有地点的中心点作为城市坐标
-                                    _cityCoordinates[city] = _calculateCenterOfSpots(spots);
-                                  }
-                                  print('✅ [MapPage] 加载 $city 完成: ${places.length} 个地点');
-                                }
-                              } catch (e) {
-                                print('❌ [MapPage] 加载 $city 失败: $e');
+                            // 转换为 Spot
+                            List<Spot> spots = [];
+                            if (places.isNotEmpty) {
+                              spots = _selectTopSpotsForCity(city, places);
+                              if (spots.isNotEmpty) {
+                                final updatedSpotsByCity = Map<String, List<Spot>>.from(_spotsByCity);
+                                updatedSpotsByCity[city] = spots;
+                                _spotsByCity = updatedSpotsByCity;
+                                _cityCoordinates[city] = _calculateCenterOfSpots(spots);
                               }
                             }
                             
+                            final finalSpots = _spotsByCity[city] ?? const <Spot>[];
+                            print('🔄 [MapPage] 最终 carouselSpots: ${finalSpots.length} 个');
+                            
+                            // 计算合适的缩放级别，确保至少 5 个 marker 可见
+                            final (:center, :zoom) = _calculateCenterAndZoomForSpots(finalSpots, minSpots: 5);
+                            
                             setState(() {
                               _selectedCity = city;
+                              _selectedCountry = country; // 保存国家信息
                               _selectedSpot = null;
-                              _carouselSpots = _spotsByCity[city] ?? const [];
+                              _selectedTags.clear(); // 切换城市时清除已选标签
+                              _carouselSpots = finalSpots;
                               _currentCardIndex = 0;
-                              _currentMapCenter = _cityCoordinates[city];
+                              _currentMapCenter = center;
+                              _currentZoom = zoom;
                             });
                             _jumpToPage(0);
-                            if (_cityCoordinates[city] != null) {
-                              _animateCamera(_cityCoordinates[city]!);
-                            }
+                            _animateCamera(center, zoom: zoom);
                           },
                         ),
                         if (_isFullscreen) ...[
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
                           Expanded(child: _buildFullscreenSearchBar(context)),
                         ],
                         if (!_isFullscreen) const Spacer(),
-                        if (_isFullscreen) const SizedBox(width: 12),
+                        if (_isFullscreen) const SizedBox(width: 8),
                         IconButtonCustom(
                           icon: _isFullscreen
                               ? Icons.fullscreen_exit
                               : Icons.fullscreen,
+                          size: 36,
                           onPressed: () {
                             if (_isFullscreen) {
                               _requestExitFullscreen();
@@ -810,7 +866,7 @@ class _MapPageState extends ConsumerState<MapPage> {
                     ),
                   ),
                   if (_isFullscreen) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     _buildTagBar(),
                   ],
                 ],
@@ -924,83 +980,178 @@ class _MapPageState extends ConsumerState<MapPage> {
   }
 
   Widget _buildFullscreenSearchBar(BuildContext context) => Container(
-        height: 48,
+        height: 36,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderMedium,
-          ),
+          border: Border.all(color: AppTheme.black, width: 1),
+          boxShadow: AppTheme.searchBoxShadow,
         ),
         child: Row(
           children: [
             const SizedBox(width: 12),
-            const Icon(
-              Icons.search,
-              size: 20,
-              color: AppTheme.mediumGray,
-            ),
+            if (_isSearching)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
+                ),
+              )
+            else
+              const Icon(
+                Icons.search,
+                size: 18,
+                color: AppTheme.mediumGray,
+              ),
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
                 controller: _searchController,
-                style: AppTheme.bodyMedium(context),
+                focusNode: _searchFocusNode,
+                style: AppTheme.bodySmall(context).copyWith(
+                  color: AppTheme.black,
+                ),
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _performSearch(),
                 decoration: InputDecoration(
                   hintText: 'Find your interest',
                   hintStyle: AppTheme.bodySmall(context).copyWith(
                     color: AppTheme.mediumGray,
                   ),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
             ),
-            IconButton(
-              icon: const Icon(
-                Icons.photo_camera,
-                size: 20,
-                color: AppTheme.mediumGray,
-              ),
-              onPressed: () async {
-                try {
-                  final picked = await picker.ImagePicker().pickImage(
-                    source: picker.ImageSource.gallery,
-                  );
-                  if (picked != null) {
-                    setState(() => _searchPickedImage = picked);
-                  }
-                } catch (_) {}
-              },
-            ),
-            if (_searchPickedImage != null) ...[
-              const SizedBox(width: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.file(
-                  File(_searchPickedImage!.path),
-                  width: 36,
-                  height: 36,
-                  fit: BoxFit.cover,
+            if (_searchController.text.isNotEmpty)
+              GestureDetector(
+                onTap: _clearSearch,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: AppTheme.mediumGray,
+                  ),
                 ),
-              ),
+              )
+            else
               const SizedBox(width: 12),
-            ] else ...[
-              const SizedBox(width: 12),
-            ],
           ],
         ),
       );
 
+  /// 执行搜索
+  Future<void> _performSearch() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+    
+    // 收起键盘
+    _searchFocusNode.unfocus();
+    
+    setState(() {
+      _isSearching = true;
+      _selectedTags.clear(); // 清除标签筛选
+    });
+    
+    try {
+      print('🔍 [MapPage] 搜索: "$query" in $_selectedCity');
+      
+      final repository = ref.read(publicPlaceRepositoryProvider);
+      final places = await repository.searchPlacesByCity(
+        query: query,
+        city: _selectedCity,
+        country: _selectedCountry,
+      );
+      
+      print('🔍 [MapPage] 搜索结果: ${places.length} 个地点');
+      
+      if (places.isEmpty) {
+        // 没有结果，显示 toast
+        if (mounted) {
+          DialogUtils.showToast(context, 'Sorry no related places, please try again');
+          setState(() {
+            _isSearching = false;
+          });
+        }
+        return;
+      }
+      
+      // 转换为 Spot
+      final spots = places
+          .map((place) => _mapPublicPlaceToSpot(_selectedCity, place))
+          .whereType<Spot>()
+          .toList();
+      
+      if (spots.isEmpty) {
+        if (mounted) {
+          DialogUtils.showToast(context, 'Sorry no related places, please try again');
+          setState(() {
+            _isSearching = false;
+          });
+        }
+        return;
+      }
+      
+      // 计算中心点和缩放
+      final (:center, :zoom) = _calculateCenterAndZoomForSpots(spots, minSpots: 5);
+      
+      setState(() {
+        _carouselSpots = spots;
+        _isSearching = false;
+        _selectedSpot = spots.first;
+        _currentCardIndex = 0;
+        _currentMapCenter = center;
+        _currentZoom = zoom;
+      });
+      
+      _jumpToPage(0);
+      _animateCamera(center, zoom: zoom);
+      
+    } catch (e) {
+      print('❌ [MapPage] 搜索失败: $e');
+      if (mounted) {
+        DialogUtils.showToast(context, 'Sorry no related places, please try again');
+        setState(() {
+          _isSearching = false;
+        });
+      }
+    }
+  }
+
+  /// 清除搜索
+  void _clearSearch() {
+    _searchController.clear();
+    // 恢复显示默认的城市地点
+    final defaultSpots = _spotsByCity[_selectedCity] ?? const <Spot>[];
+    final (:center, :zoom) = _calculateCenterAndZoomForSpots(defaultSpots, minSpots: 5);
+    
+    setState(() {
+      _carouselSpots = defaultSpots;
+      _selectedSpot = defaultSpots.isNotEmpty ? defaultSpots.first : null;
+      _currentCardIndex = 0;
+      _currentMapCenter = center;
+      _currentZoom = zoom;
+    });
+    
+    _jumpToPage(0);
+    _animateCamera(center, zoom: zoom);
+  }
+
   Widget _buildTagBar() {
-    const tags = _tagOptions;
+    final tags = _dynamicTagOptions;
+    if (tags.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 42,
+      height: 38,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 4),
         scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
         itemCount: tags.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final tag = tags[index];
           final isSelected = _selectedTags.contains(tag);
@@ -1008,23 +1159,23 @@ class _MapPageState extends ConsumerState<MapPage> {
           return GestureDetector(
             onTap: () => _toggleTag(tag),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: isSelected ? AppTheme.primaryYellow : Colors.white,
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                border: Border.all(
-                  color: AppTheme.black,
-                  width: AppTheme.borderMedium,
-                ),
+                border: Border.all(color: AppTheme.black, width: 1),
+                boxShadow: AppTheme.searchBoxShadow,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(emoji, style: const TextStyle(fontSize: 16)),
-                  const SizedBox(width: 6),
+                  Text(emoji, style: const TextStyle(fontSize: 13)),
+                  const SizedBox(width: 4),
                   Text(
                     tag,
-                    style: AppTheme.labelMedium(context),
+                    style: AppTheme.labelSmall(context).copyWith(
+                      color: AppTheme.black,
+                    ),
                   ),
                 ],
               ),
@@ -1035,40 +1186,126 @@ class _MapPageState extends ConsumerState<MapPage> {
     );
   }
 
-  void _toggleTag(String tag) {
+  void _toggleTag(String tag) async {
+    final wasSelected = _selectedTags.contains(tag);
+    
     setState(() {
-      if (_selectedTags.contains(tag)) {
+      if (wasSelected) {
         _selectedTags.remove(tag);
       } else {
+        // 单选模式：清除其他标签，只选中当前标签
+        _selectedTags.clear();
         _selectedTags.add(tag);
       }
       _selectedSpot = null;
-      _carouselSpots = const [];
       _currentCardIndex = 0;
     });
-    _jumpToPage(0);
-    // 共享组件会自动更新
+    
+    // 如果取消选择，恢复显示默认的城市地点
+    if (wasSelected) {
+      final defaultSpots = _spotsByCity[_selectedCity] ?? const <Spot>[];
+      setState(() {
+        _carouselSpots = defaultSpots;
+        // 设置第一个 spot 为选中状态
+        _selectedSpot = defaultSpots.isNotEmpty ? defaultSpots.first : null;
+        _currentCardIndex = 0;
+      });
+      _jumpToPage(0);
+      return;
+    }
+    
+    // 选中标签时，优先使用缓存的标签地点
+    final cacheNotifier = ref.read(placesCacheProvider.notifier);
+    
+    // 尝试获取国家信息
+    if (_selectedCountry == null) {
+      final statsState = ref.read(countriesCitiesStatsProvider);
+      if (statsState.hasData) {
+        for (final countryStats in statsState.countries) {
+          if (countryStats.cities.any((c) => c.name == _selectedCity)) {
+            _selectedCountry = countryStats.name;
+            break;
+          }
+        }
+      }
+    }
+    
+    setState(() {
+      _isLoadingTaggedSpots = true;
+    });
+    
+    try {
+      print('🏷️ [MapPage] 获取标签 "$tag" 的地点...');
+      
+      // 使用缓存的标签地点（如果没有会自动从后端加载）
+      final places = await cacheNotifier.getPlacesByTag(
+        _selectedCity, 
+        tag, 
+        country: _selectedCountry,
+      );
+      
+      print('🏷️ [MapPage] 获取到 ${places.length} 个地点');
+      
+      // 转换为 Spot
+      final spots = places.map((place) => _mapPublicPlaceToSpot(_selectedCity, place)).whereType<Spot>().toList();
+      
+      // 计算中心点和缩放
+      final (:center, :zoom) = _calculateCenterAndZoomForSpots(spots, minSpots: 5);
+      
+      setState(() {
+        _carouselSpots = spots;
+        _isLoadingTaggedSpots = false;
+        // 设置第一个 spot 为选中状态
+        _selectedSpot = spots.isNotEmpty ? spots.first : null;
+        _currentCardIndex = 0;
+        if (spots.isNotEmpty) {
+          _currentMapCenter = center;
+          _currentZoom = zoom;
+        }
+      });
+      
+      _jumpToPage(0);
+      if (spots.isNotEmpty) {
+        _animateCamera(center, zoom: zoom);
+      }
+    } catch (e) {
+      print('❌ [MapPage] 获取标签地点失败: $e');
+      setState(() {
+        _isLoadingTaggedSpots = false;
+      });
+      _jumpToPage(0);
+    }
+  }
+  
+  /// 将搜索结果转换为 Spot
+  Spot _convertSearchResultToSpot(SearchPlaceResult place) {
+    // 优先使用 displayTagsEn（包含 category + aiTags + tags 的合并结果）
+    final displayTags = place.displayTagsEn.isNotEmpty 
+        ? place.displayTagsEn 
+        : (place.tags.isNotEmpty 
+            ? place.tags 
+            : [place.categoryEn ?? place.category ?? 'Hidden Gem']);
+    
+    return Spot(
+      id: place.id,
+      name: place.name,
+      city: place.city ?? _selectedCity,
+      category: place.categoryEn ?? place.category ?? 'Point of Interest',
+      latitude: place.latitude,
+      longitude: place.longitude,
+      rating: place.rating ?? 0.0,
+      ratingCount: place.ratingCount ?? 0,
+      coverImage: place.coverImage ?? _fallbackCoverImage,
+      images: place.images,
+      tags: place.tags,
+      displayTagsEn: displayTags,
+      aiSummary: place.aiSummary,
+      address: place.address,
+    );
   }
 
   String _tagEmoji(String tag) {
-    switch (tag.toLowerCase()) {
-      case 'architecture':
-        return '🏛️';
-      case 'museum':
-        return '🎨';
-      case 'coffee':
-        return '☕';
-      case 'food':
-        return '🍽️';
-      case 'nature':
-        return '🌿';
-      case 'history':
-        return '📜';
-      case 'culture':
-        return '🎭';
-      default:
-        return '📍';
-    }
+    return getCategoryEmoji(tag);
   }
 
   void _showSpotDetail(Spot spot) async {
@@ -1214,7 +1451,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     await completer.future;
   }
 
-  /// 计算一组地点的中心坐标
+  /// 计算一组地点的中心坐标（使用 bounding box 中心，确保 markers 居中显示）
   Position _calculateCenterOfSpots(List<Spot> spots) {
     if (spots.isEmpty) {
       return Position(2.3522, 48.8566); // Paris 作为默认
@@ -1223,14 +1460,95 @@ class _MapPageState extends ConsumerState<MapPage> {
       return Position(spots.first.longitude, spots.first.latitude);
     }
     
-    // 计算所有地点的平均经纬度
-    double sumLat = 0;
-    double sumLng = 0;
+    // 使用 bounding box 的中心点，而不是简单平均值
+    // 这样可以确保所有 markers 都在视野范围内且相对居中
+    double minLat = spots.first.latitude;
+    double maxLat = spots.first.latitude;
+    double minLng = spots.first.longitude;
+    double maxLng = spots.first.longitude;
+    
     for (final spot in spots) {
-      sumLat += spot.latitude;
-      sumLng += spot.longitude;
+      if (spot.latitude < minLat) minLat = spot.latitude;
+      if (spot.latitude > maxLat) maxLat = spot.latitude;
+      if (spot.longitude < minLng) minLng = spot.longitude;
+      if (spot.longitude > maxLng) maxLng = spot.longitude;
     }
-    return Position(sumLng / spots.length, sumLat / spots.length);
+    
+    // 返回 bounding box 的中心点
+    final centerLat = (minLat + maxLat) / 2;
+    final centerLng = (minLng + maxLng) / 2;
+    
+    return Position(centerLng, centerLat);
+  }
+
+  /// 计算合适的缩放级别，确保至少 minSpots 个地点在视野中
+  /// 返回 (center, zoom) 元组
+  ({Position center, double zoom}) _calculateCenterAndZoomForSpots(List<Spot> spots, {int minSpots = 5}) {
+    if (spots.isEmpty) {
+      return (center: Position(2.3522, 48.8566), zoom: _collapsedMapZoom);
+    }
+    if (spots.length == 1) {
+      return (center: Position(spots.first.longitude, spots.first.latitude), zoom: 14.0);
+    }
+    
+    // 取前 minSpots 个地点（按评分人数排序后的）来计算 bounding box
+    final spotsToFit = spots.take(math.min(minSpots, spots.length)).toList();
+    
+    double minLat = spotsToFit.first.latitude;
+    double maxLat = spotsToFit.first.latitude;
+    double minLng = spotsToFit.first.longitude;
+    double maxLng = spotsToFit.first.longitude;
+    
+    for (final spot in spotsToFit) {
+      if (spot.latitude < minLat) minLat = spot.latitude;
+      if (spot.latitude > maxLat) maxLat = spot.latitude;
+      if (spot.longitude < minLng) minLng = spot.longitude;
+      if (spot.longitude > maxLng) maxLng = spot.longitude;
+    }
+    
+    // 计算中心点
+    final centerLat = (minLat + maxLat) / 2;
+    final centerLng = (minLng + maxLng) / 2;
+    final center = Position(centerLng, centerLat);
+    
+    // 计算 bounding box 的跨度
+    final latSpan = maxLat - minLat;
+    final lngSpan = maxLng - minLng;
+    
+    // 添加一些边距（20%）
+    final paddedLatSpan = latSpan * 1.2;
+    final paddedLngSpan = lngSpan * 1.2;
+    
+    // 根据跨度计算合适的缩放级别
+    // Mapbox 缩放级别公式：zoom = log2(360 / span)
+    // 我们取纬度和经度中较大的跨度来确定缩放级别
+    final maxSpan = math.max(paddedLatSpan, paddedLngSpan);
+    
+    double zoom;
+    if (maxSpan <= 0.001) {
+      zoom = 16.0; // 非常近
+    } else if (maxSpan <= 0.01) {
+      zoom = 14.0;
+    } else if (maxSpan <= 0.05) {
+      zoom = 13.0;
+    } else if (maxSpan <= 0.1) {
+      zoom = 12.0;
+    } else if (maxSpan <= 0.5) {
+      zoom = 11.0;
+    } else if (maxSpan <= 1.0) {
+      zoom = 10.0;
+    } else if (maxSpan <= 2.0) {
+      zoom = 9.0;
+    } else {
+      zoom = 8.0;
+    }
+    
+    // 确保缩放级别在合理范围内
+    zoom = zoom.clamp(8.0, 16.0);
+    
+    print('📍 [MapPage] 计算缩放级别: ${spotsToFit.length} 个地点, latSpan=$latSpan, lngSpan=$lngSpan, zoom=$zoom');
+    
+    return (center: center, zoom: zoom);
   }
 
   /// 从缓存加载数据
@@ -1250,7 +1568,11 @@ class _MapPageState extends ConsumerState<MapPage> {
 
     if (!mounted) return;
 
-    final citiesWithSpots = nextSpotsByCity.keys.toList()..sort();
+    // 只显示地点数量 >= 5 的城市
+    final citiesWithSpots = nextSpotsByCity.entries
+        .where((entry) => entry.value.length >= 5)
+        .map((entry) => entry.key)
+        .toList()..sort();
     final resolvedCity = _resolveCitySelection(nextSpotsByCity, citiesWithSpots);
     
     // 如果选中的城市没有数据，尝试加载
@@ -1307,7 +1629,11 @@ class _MapPageState extends ConsumerState<MapPage> {
       nearby = const <Spot>[];
     }
     
-    final targetCenter = _cityPosition(resolvedCity);
+    // 计算初始视图：确保至少 5 个 marker 在屏幕中央
+    final citySpots = nextSpotsByCity[resolvedCity] ?? const <Spot>[];
+    final (:center, :zoom) = _calculateCenterAndZoomForSpots(citySpots, minSpots: 5);
+    final targetCenter = center;
+    final targetZoom = zoom;
 
     setState(() {
       _availableCities = citiesWithSpots;
@@ -1317,11 +1643,12 @@ class _MapPageState extends ConsumerState<MapPage> {
       _carouselSpots = nearby;
       _currentCardIndex = 0;
       _currentMapCenter = targetCenter;
+      _currentZoom = targetZoom;
       _isLoadingSpots = false;
       _loadingError = null;
     });
 
-    _updateMapPosition(targetCenter, resolvedSpot);
+    _updateMapPosition(targetCenter, resolvedSpot, targetZoom);
   }
 
   /// 直接从 API 加载数据
@@ -1376,9 +1703,9 @@ class _MapPageState extends ConsumerState<MapPage> {
       return;
     }
 
-    // Only include cities that have spots, sorted alphabetically
+    // Only include cities that have at least 5 spots
     final citiesWithSpots = cities
-        .where((city) => (nextSpotsByCity[city] ?? const <Spot>[]).isNotEmpty)
+        .where((city) => (nextSpotsByCity[city] ?? const <Spot>[]).length >= 5)
         .toList()
       ..sort();
 
@@ -1404,7 +1731,11 @@ class _MapPageState extends ConsumerState<MapPage> {
       nearby = const <Spot>[];
     }
     
-    final targetCenter = _cityPosition(resolvedCity);
+    // 计算初始视图：确保至少 5 个 marker 在屏幕中央
+    final citySpots = nextSpotsByCity[resolvedCity] ?? const <Spot>[];
+    final (:center, :zoom) = _calculateCenterAndZoomForSpots(citySpots, minSpots: 5);
+    final targetCenter = center;
+    final targetZoom = zoom;
 
     setState(() {
       _availableCities = citiesWithSpots;
@@ -1414,21 +1745,23 @@ class _MapPageState extends ConsumerState<MapPage> {
       _carouselSpots = nearby;
       _currentCardIndex = 0;
       _currentMapCenter = targetCenter;
+      _currentZoom = targetZoom;
       _isLoadingSpots = false;
       _loadingError = firstError;
     });
 
-    _updateMapPosition(targetCenter, _selectedSpot);
+    _updateMapPosition(targetCenter, _selectedSpot, targetZoom);
   }
 
-  void _updateMapPosition(Position targetCenter, [Spot? spot]) async {
+  void _updateMapPosition(Position targetCenter, [Spot? spot, double? zoom]) async {
     final mapState = _mapKey.currentState;
     if (mapState != null) {
+      final targetZoom = zoom ?? (spot != null
+          ? math.max(_currentZoom, 14.0)
+          : _currentZoom);
       await mapState.jumpToPosition(
         targetCenter,
-        zoom: spot != null
-            ? math.max(_currentZoom, 14.0)
-            : _collapsedMapZoom,
+        zoom: targetZoom,
       );
     } else {
       _jumpToCollapsedViewport(targetCenter);
@@ -1584,12 +1917,24 @@ class _MapPageState extends ConsumerState<MapPage> {
       return null;
     }
 
+    // Debug logging for Sydney Opera House
+    if (place.name.toLowerCase().contains('opera')) {
+      print('🎭 [_mapPublicPlaceToSpot] Processing: ${place.name}');
+      print('🎭 [_mapPublicPlaceToSpot] place.displayTagsEn: ${place.displayTagsEn}');
+      print('🎭 [_mapPublicPlaceToSpot] place.aiTags: ${place.aiTags}');
+      print('🎭 [_mapPublicPlaceToSpot] place.categoryEn: ${place.categoryEn}');
+    }
+
     // 优先使用后端计算好的 displayTagsEn，否则回退到 aiTags 或 category
-    final tags = place.displayTagsEn.isNotEmpty
+    final displayTags = place.displayTagsEn.isNotEmpty
         ? place.displayTagsEn
         : (place.aiTags.isNotEmpty
             ? place.aiTags
             : <String>[place.categoryEn ?? place.category ?? 'Hidden Gem']);
+
+    if (place.name.toLowerCase().contains('opera')) {
+      print('🎭 [_mapPublicPlaceToSpot] Final displayTags: $displayTags');
+    }
 
     return Spot(
       id: place.placeId,
@@ -1604,7 +1949,8 @@ class _MapPageState extends ConsumerState<MapPage> {
       ratingCount: place.ratingCount ?? 0,
       coverImage: images.isNotEmpty ? images.first : _fallbackCoverImage,
       images: images.isNotEmpty ? images : <String>[_fallbackCoverImage],
-      tags: tags,
+      tags: place.aiTags,
+      displayTagsEn: displayTags,
       aiSummary: place.aiSummary ?? place.aiDescription ?? place.description,
       // 详情页需要的额外字段
       address: place.address,
@@ -1715,22 +2061,23 @@ class _CitySelectorState extends ConsumerState<_CitySelector> {
   Widget build(BuildContext context) => GestureDetector(
         onTap: () => _showCityPicker(context),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border:
-                Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+            border: Border.all(color: AppTheme.black, width: 1),
+            boxShadow: AppTheme.searchBoxShadow,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 widget.selectedCity,
-                style: AppTheme.labelLarge(context),
+                style: AppTheme.labelMedium(context),
               ),
-              const SizedBox(width: 4),
-              const Icon(Icons.keyboard_arrow_down, size: 20),
+              const SizedBox(width: 2),
+              const Icon(Icons.keyboard_arrow_down, size: 16),
             ],
           ),
         ),
@@ -1874,8 +2221,9 @@ class _CountryCityPickerSheetState extends ConsumerState<_CountryCityPickerSheet
   /// 国家城市两列选择
   Widget _buildCountryCityColumns(ScrollController scrollController, CountriesCitiesStatsState statsState) {
     final countries = statsState.countries;
+    // 过滤掉地点数量 < 5 的城市
     final citiesForCountry = _selectedCountry != null 
-        ? statsState.getCities(_selectedCountry!)
+        ? statsState.getCities(_selectedCountry!).where((c) => c.placeCount >= 5).toList()
         : <CityStats>[];
     
     return Row(

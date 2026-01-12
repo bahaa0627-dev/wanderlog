@@ -265,6 +265,28 @@ export const CATEGORIES: Record<string, CategoryDefinition> = {
     fsqKeywords: ['Zoo', 'Aquarium', 'Wildlife Park'],
     defaultTags: [],
   },
+  building: {
+    slug: 'building',
+    en: 'Building',
+    zh: '建筑',
+    googleTypes: ['premise', 'establishment'],
+    googleKeywords: ['building', 'tower', 'skyscraper', 'office building', 'historic building'],
+    osmTags: ['building=yes', 'building=commercial', 'building=office', 'building=tower'],
+    wikidataP31: ['building', 'skyscraper', 'tower', 'office building'],
+    fsqKeywords: ['Building', 'Office', 'Tower'],
+    defaultTags: ['domain:architecture'],
+  },
+  others: {
+    slug: 'others',
+    en: 'Others',
+    zh: '其他',
+    googleTypes: [],
+    googleKeywords: [],
+    osmTags: [],
+    wikidataP31: [],
+    fsqKeywords: [],
+    defaultTags: [],
+  },
 };
 
 // 分类 slug 列表
@@ -308,7 +330,9 @@ export const CATEGORY_PRIORITY: string[] = [
   'market',
   'shopping_mall',
   'shop',
+  'building',       // 建筑
   'landmark',       // 地标作为兜底
+  'others',         // 其他作为最后兜底
 ];
 
 // ============================================
@@ -371,7 +395,7 @@ export const LANDMARK_EXCLUSION_LIST: string[] = [
   'museum', 'art_gallery', 'library', 'park', 'shopping_mall',
   'cafe', 'bakery', 'restaurant', 'bar', 'hotel', 'church',
   'castle', 'cemetery', 'market', 'bookstore', 'yarn_store', 'thrift_store',
-  'university', 'temple', 'zoo'
+  'university', 'temple', 'zoo', 'building'
 ];
 
 // shop 的排除列表：如果已匹配这些分类，则不应再匹配 shop
@@ -484,6 +508,18 @@ export const CATEGORY_MIGRATION_MAP: Record<string, MigrationMapping> = {
   'Zoo': { slug: 'zoo' },
   'aquarium': { slug: 'zoo' },
   'Aquarium': { slug: 'zoo' },
+  // Building 分类
+  'building': { slug: 'building' },
+  'Building': { slug: 'building' },
+  'tower': { slug: 'building' },
+  'Tower': { slug: 'building' },
+  'skyscraper': { slug: 'building' },
+  'Skyscraper': { slug: 'building' },
+  // Others 分类
+  'others': { slug: 'others' },
+  'Others': { slug: 'others' },
+  'other': { slug: 'others' },
+  'Other': { slug: 'others' },
   // 其他常见分类
   'lodging': { slug: 'hotel' },
   'Lodging': { slug: 'hotel' },

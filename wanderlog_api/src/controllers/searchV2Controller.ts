@@ -91,6 +91,30 @@ const CONFIG = {
   MIN_PLACES_FOR_CARDS: 3, // 少于这个数量时，改用文本格式
 };
 
+/**
+ * 计算加权评分
+ * 公式: rating * log10(ratingCount + 1)
+ * 这样评分高且评价人数多的地点会排在前面
+ */
+function calculateWeightedScore(rating: number | null, ratingCount: number | null): number {
+  const r = rating ?? 0;
+  const count = ratingCount ?? 0;
+  // log10(1) = 0, 所以加 1 确保最小值为 0
+  // 评价人数越多，权重越高
+  return r * Math.log10(count + 1);
+}
+
+/**
+ * 按加权评分排序地点数组
+ */
+function sortByWeightedScore<T extends { rating: number | null; ratingCount: number | null }>(places: T[]): T[] {
+  return [...places].sort((a, b) => {
+    const scoreA = calculateWeightedScore(a.rating, a.ratingCount);
+    const scoreB = calculateWeightedScore(b.rating, b.ratingCount);
+    return scoreB - scoreA; // 降序
+  });
+}
+
 // 分类映射：相关分类合并搜索
 const CATEGORY_MAPPING: Record<string, string[]> = {
   'cafe': ['cafe'],
@@ -221,22 +245,49 @@ function buildFallbackOverallSummary(parsedQuery: ParsedQuery, count: number, la
  * @returns 合并后的标签数组
  */
 /**
- * 构建展示标签：category_en + ai_tags 的并集，返回字符串数组
+ * 从结构化 tags 对象中提取标签列表
+ * tags 格式: { meal: ['breakfast', 'brunch'], style: ['cozy'], architect: ['Jørn Utzon'] }
+ * 返回: ['breakfast', 'brunch', 'cozy', 'Jørn Utzon']
+ */
+function extractTagsFromStructured(tags: Record<string, string[]> | null | undefined): string[] {
+  if (!tags || typeof tags !== 'object') return [];
+  
+  const result: string[] = [];
+  for (const key of Object.keys(tags)) {
+    const values = tags[key];
+    if (Array.isArray(values)) {
+      for (const v of values) {
+        if (typeof v === 'string' && v.trim()) {
+          result.push(v.trim());
+        }
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * 构建展示标签：category_en + ai_tags + structured_tags 的并集，返回字符串数组
  * @param categoryEn 分类英文名
  * @param aiTags AI 标签数组（AITagElement[] 或字符串数组）
  * @param language 语言参数，决定使用 'en' 或 'zh' 字段
+ * @param structuredTags 结构化标签对象（可选）
  * @returns 合并后的标签数组
  */
 function buildDisplayTags(
   categoryEn: string | null | undefined, 
   aiTags: any,
-  language: 'en' | 'zh' = 'en'
+  language: 'en' | 'zh' = 'en',
+  structuredTags?: Record<string, string[]> | null
 ): string[] {
   const tags: string[] = [];
+  const seen = new Set<string>();
   
   // 1. 添加 category_en 作为第一个标签
   if (categoryEn && categoryEn.trim()) {
-    tags.push(categoryEn.trim());
+    const cat = categoryEn.trim();
+    tags.push(cat);
+    seen.add(cat.toLowerCase());
   }
   
   // 2. 添加 ai_tags（根据语言参数提取对应字段）
@@ -250,8 +301,26 @@ function buildDisplayTags(
         // Object format: use tag[language] with fallback to tag.en then tag.id
         tagStr = tag[language] || tag.en || tag.id || null;
       }
-      if (tagStr && tagStr.trim() && !tags.includes(tagStr.trim())) {
-        tags.push(tagStr.trim());
+      if (tagStr && tagStr.trim()) {
+        const trimmed = tagStr.trim();
+        const key = trimmed.toLowerCase();
+        if (!seen.has(key)) {
+          tags.push(trimmed);
+          seen.add(key);
+        }
+      }
+    }
+  }
+  
+  // 3. 添加结构化标签（补充到最多 4 个）
+  if (structuredTags) {
+    const extracted = extractTagsFromStructured(structuredTags);
+    for (const tag of extracted) {
+      if (tags.length >= 4) break; // 最多 4 个标签
+      const key = tag.toLowerCase();
+      if (!seen.has(key)) {
+        tags.push(tag);
+        seen.add(key);
       }
     }
   }
@@ -771,7 +840,7 @@ async function matchAIPlacesFromDB(aiPlaces: AIPlace[], language: 'en' | 'zh' = 
         }
       }
       
-      const displayTags = buildDisplayTags(bestMatch.categoryEn, finalAiTags, language);
+      const displayTags = buildDisplayTags(bestMatch.categoryEn, finalAiTags, language, bestMatch.tags as Record<string, string[]> | null);
       logger.info(`[SearchV2] Matched "${aiPlace.name}" -> "${bestMatch.name}" (coverImage: ${bestMatch.coverImage ? 'YES' : 'NO'}, categoryEn: ${bestMatch.categoryEn}, displayTags: ${JSON.stringify(displayTags)})`);
       
       matchedPlaces.set(aiPlace.name, {
@@ -838,15 +907,17 @@ async function getPlacesByCategory(
       whereConditions.unshift(cityCondition);
     }
     
-    // 多取一些数据，然后随机打乱，实现每次结果不同
+    // 多取一些数据，然后按加权评分排序
     const rawPlaces = await prisma.place.findMany({
       where: { AND: whereConditions },
-      orderBy: [{ rating: 'desc' }, { ratingCount: 'desc' }],
-      take: limit * 3, // 多取3倍数据用于随机
+      take: limit * 3, // 多取3倍数据用于筛选
     });
     
-    // 随机打乱数组（Fisher-Yates shuffle）
-    const shuffled = [...rawPlaces];
+    // 按加权评分排序（rating * log10(ratingCount + 1)）
+    const sortedPlaces = sortByWeightedScore(rawPlaces);
+    
+    // 随机打乱数组（Fisher-Yates shuffle）- 在排序后的基础上轻微打乱
+    const shuffled = [...sortedPlaces];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -878,10 +949,11 @@ async function getPlacesByCategory(
         
         const morePlaces = await prisma.place.findMany({
           where: { AND: moreWhereConditions },
-          orderBy: [{ rating: 'desc' }, { ratingCount: 'desc' }],
           take: (limit - places.length) * 2,
         });
-        for (const p of morePlaces) {
+        // 按加权评分排序
+        const sortedMorePlaces = sortByWeightedScore(morePlaces);
+        for (const p of sortedMorePlaces) {
           const normalizedName = p.name.toLowerCase().trim();
           if (!existingIds.includes(p.id) && !seenNames.has(normalizedName) && places.length < limit) {
             places.push(p);
@@ -893,7 +965,7 @@ async function getPlacesByCategory(
     }
   } else if (cityCondition) {
     // 没有分类但有城市，按城市搜索
-    places = await prisma.place.findMany({
+    const rawPlaces = await prisma.place.findMany({
       where: {
         AND: [
           cityCondition,
@@ -902,9 +974,10 @@ async function getPlacesByCategory(
           { coverImage: { not: '' } },
         ],
       },
-      orderBy: [{ rating: 'desc' }, { ratingCount: 'desc' }],
-      take: limit,
+      take: limit * 2,
     });
+    // 按加权评分排序
+    places = sortByWeightedScore(rawPlaces).slice(0, limit);
   }
   // 如果既没有分类也没有城市，返回空数组
   
@@ -970,12 +1043,14 @@ async function getPlacesByQueryAllowNoImage(
   // 多取一些，后面按 name 去重
   const rawPlaces = await prisma.place.findMany({
     where: { AND: andConditions },
-    orderBy: [{ rating: 'desc' }, { ratingCount: 'desc' }, { isVerified: 'desc' }],
     take: limit * 4,
   });
 
+  // 按加权评分排序
+  const sortedPlaces = sortByWeightedScore(rawPlaces);
+
   const places: any[] = [];
-  for (const p of rawPlaces) {
+  for (const p of sortedPlaces) {
     const normalizedName = (p.name || '').toLowerCase().trim();
     if (!normalizedName) continue;
     if (seenNames.has(normalizedName)) continue;
@@ -1034,11 +1109,13 @@ async function getPlacesByQueryWithImage(
 
     const nameMatchPlaces = await prisma.place.findMany({
       where: { AND: nameMatchConditions },
-      orderBy: [{ ratingCount: 'desc' }, { rating: 'desc' }],
       take: limit * 2,
     });
 
-    for (const p of nameMatchPlaces) {
+    // 按加权评分排序
+    const sortedNameMatchPlaces = sortByWeightedScore(nameMatchPlaces);
+
+    for (const p of sortedNameMatchPlaces) {
       const normalizedName = (p.name || '').toLowerCase().trim();
       if (!normalizedName) continue;
       if (seenNames.has(normalizedName)) continue;
@@ -1087,11 +1164,13 @@ async function getPlacesByQueryWithImage(
 
     const rawPlaces = await prisma.place.findMany({
       where: { AND: andConditions },
-      orderBy: [{ ratingCount: 'desc' }, { rating: 'desc' }, { isVerified: 'desc' }],
       take: (limit - places.length) * 4,
     });
 
-    for (const p of rawPlaces) {
+    // 按加权评分排序
+    const sortedRawPlaces = sortByWeightedScore(rawPlaces);
+
+    for (const p of sortedRawPlaces) {
       const normalizedName = (p.name || '').toLowerCase().trim();
       if (!normalizedName) continue;
       if (seenNames.has(normalizedName)) continue;
@@ -1165,13 +1244,19 @@ async function getPlacesByQueryWithImageForMap(
 
   const rawPlaces = await prisma.place.findMany({
     where: { AND: andConditions },
-    // For map: bias toward less-reviewed places; rating breaks ties.
-    orderBy: [{ ratingCount: 'asc' }, { rating: 'desc' }, { isVerified: 'desc' }],
+    // For map: bias toward less-reviewed places
     take: limit * 4,
   });
 
+  // 地图视图：按加权评分升序，优先显示小众但评分不错的地点
+  const sortedPlaces = [...rawPlaces].sort((a, b) => {
+    const scoreA = calculateWeightedScore(a.rating, a.ratingCount);
+    const scoreB = calculateWeightedScore(b.rating, b.ratingCount);
+    return scoreA - scoreB; // 升序，小众地点优先
+  });
+
   const places: any[] = [];
-  for (const p of rawPlaces) {
+  for (const p of sortedPlaces) {
     const normalizedName = (p.name || '').toLowerCase().trim();
     if (!normalizedName) continue;
     if (seenNames.has(normalizedName)) continue;
@@ -1314,7 +1399,7 @@ Return JSON:
             country: dbPlace.country || '',
             rating: dbPlace.rating,
             ratingCount: dbPlace.ratingCount,
-            tags: buildDisplayTags(dbPlace.categoryEn, dbPlace.aiTags, language as 'en' | 'zh'),
+            tags: buildDisplayTags(dbPlace.categoryEn, dbPlace.aiTags, language as 'en' | 'zh', dbPlace.tags as Record<string, string[]> | null),
             isVerified: hasRating || dbPlace.isVerified || false,
             source: 'cache',
             address: dbPlace.address || undefined,
@@ -1347,7 +1432,7 @@ Return JSON:
       country: p.country || '',
       rating: p.rating,
       ratingCount: p.ratingCount,
-      tags: buildDisplayTags(p.categoryEn, p.aiTags, language as 'en' | 'zh'),
+      tags: buildDisplayTags(p.categoryEn, p.aiTags, language as 'en' | 'zh', p.tags as Record<string, string[]> | null),
       isVerified: (p.rating !== null && p.rating > 0) || p.isVerified || false,
       source: 'cache' as const,
       address: p.address || undefined,
@@ -1718,7 +1803,7 @@ export const searchV2 = async (req: Request, res: Response) => {
           country: p.country || '',
           rating: p.rating,
           ratingCount: p.ratingCount,
-          tags: buildDisplayTags(p.categoryEn, p.aiTags, language as 'en' | 'zh'),
+          tags: buildDisplayTags(p.categoryEn, p.aiTags, language as 'en' | 'zh', p.tags as Record<string, string[]> | null),
           isVerified: hasRating || p.isVerified || false,
           source: 'cache',
           address: p.address || undefined,
@@ -1840,7 +1925,7 @@ export const searchV2 = async (req: Request, res: Response) => {
           country: p.country || '',
           rating: p.rating,
           ratingCount: p.ratingCount,
-          tags: buildDisplayTags(p.categoryEn, p.aiTags, language as 'en' | 'zh'),
+          tags: buildDisplayTags(p.categoryEn, p.aiTags, language as 'en' | 'zh', p.tags as Record<string, string[]> | null),
           isVerified: hasRating || p.isVerified || false,
           source: 'cache',
           address: p.address || undefined,
@@ -1883,7 +1968,7 @@ export const searchV2 = async (req: Request, res: Response) => {
           country: p.country || '',
           rating: p.rating,
           ratingCount: p.ratingCount,
-          tags: buildDisplayTags(p.categoryEn, p.aiTags, language as 'en' | 'zh'),
+          tags: buildDisplayTags(p.categoryEn, p.aiTags, language as 'en' | 'zh', p.tags as Record<string, string[]> | null),
           isVerified: hasRating || p.isVerified || false,
           source: 'cache',
           address: p.address || undefined,

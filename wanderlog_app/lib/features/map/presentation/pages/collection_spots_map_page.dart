@@ -139,6 +139,17 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
       tagList.add(category);
     }
     
+    // 构建 displayTagsEn：category + tags 合并
+    final List<String> displayTags = [];
+    if (category.isNotEmpty) {
+      displayTags.add(category);
+    }
+    for (final tag in tagList) {
+      if (!displayTags.contains(tag) && displayTags.length < 4) {
+        displayTags.add(tag);
+      }
+    }
+    
     return map_page.Spot(
       id: spot.id,
       name: spot.name,
@@ -151,6 +162,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
       coverImage: coverImg,
       images: imageList,
       tags: tagList,
+      displayTagsEn: displayTags,
       aiSummary: null,
     );
   }
@@ -246,7 +258,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
       final List<map_page.Spot> spots = [];
       
       for (final cs in widget.preloadedSpots!) {
-        final spotData = cs['spot'] as Map<String, dynamic>?;
+        final spotData = (cs['spot'] ?? cs['place']) as Map<String, dynamic>?;
         if (spotData == null) continue;
         
         try {
@@ -280,6 +292,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
             ratingCount: (spotData['ratingCount'] as num?)?.toInt() ?? (spotData['rating_count'] as num?)?.toInt() ?? 0,
             category: spotData['category']?.toString() ?? 'place',
             tags: _parseTagsList(spotData['tags'] ?? spotData['aiTags'] ?? spotData['ai_tags']),
+            displayTagsEn: _computeDisplayTags(spotData),
             images: imagesList.isNotEmpty ? imagesList : (coverImg.isNotEmpty ? [coverImg] : []),
             aiSummary: spotData['aiSummary']?.toString() ?? spotData['ai_summary']?.toString(),
             // 详情页需要的额外字段
@@ -337,9 +350,9 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
           final cs = collectionSpots[index];
           print('🔎 处理第 ${index + 1} 个地点: ${cs.runtimeType}');
 
-          final spotData = cs['spot'] as Map<String, dynamic>?;
+          final spotData = (cs['spot'] ?? cs['place']) as Map<String, dynamic>?;
           if (spotData == null) {
-            print('⚠️ 第 ${index + 1} 个地点缺少 spot 数据');
+            print('⚠️ 第 ${index + 1} 个地点缺少 spot/place 数据');
             continue;
           }
 
@@ -375,6 +388,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
               ratingCount: (spotData['ratingCount'] as num?)?.toInt() ?? (spotData['rating_count'] as num?)?.toInt() ?? 0,
               category: spotData['category']?.toString() ?? 'place',
               tags: _parseTagsList(spotData['tags'] ?? spotData['aiTags'] ?? spotData['ai_tags']),
+              displayTagsEn: _computeDisplayTags(spotData),
               images: imagesList.isNotEmpty ? imagesList : (coverImg.isNotEmpty ? [coverImg] : []),
               aiSummary: spotData['aiSummary']?.toString() ?? spotData['ai_summary']?.toString(),
               // 详情页需要的额外字段
@@ -481,6 +495,98 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
     return [];
   }
 
+  /// 计算展示标签：优先使用后端返回的 displayTagsEn，否则从 category + tags + aiTags 计算
+  /// 与 PublicPlaceDto._computeDisplayTags 逻辑一致
+  List<String> _computeDisplayTags(Map<String, dynamic> spotData) {
+    print('🏷️ [_computeDisplayTags] spotData keys: ${spotData.keys}');
+    print('🏷️ [_computeDisplayTags] displayTagsEn from backend: ${spotData['displayTagsEn']}');
+    
+    // 优先使用后端已经计算好的 displayTagsEn
+    final backendDisplayTags = spotData['displayTagsEn'];
+    if (backendDisplayTags is List && backendDisplayTags.isNotEmpty) {
+      final result = backendDisplayTags
+          .map((e) => e?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .take(4)
+          .toList();
+      if (result.isNotEmpty) {
+        print('🏷️ [_computeDisplayTags] using backend displayTagsEn: $result');
+        return result;
+      }
+    }
+    
+    // 回退：从 category + tags + aiTags 计算
+    final result = <String>[];
+    final seen = <String>{};
+    
+    print('🏷️ [_computeDisplayTags] category: ${spotData['category']}');
+    print('🏷️ [_computeDisplayTags] categoryEn: ${spotData['categoryEn']}');
+    print('🏷️ [_computeDisplayTags] tags: ${spotData['tags']} (${spotData['tags']?.runtimeType})');
+    print('🏷️ [_computeDisplayTags] aiTags: ${spotData['aiTags']}');
+    print('🏷️ [_computeDisplayTags] ai_tags: ${spotData['ai_tags']}');
+    
+    // 1. 添加 category
+    final category = spotData['categoryEn']?.toString() ?? 
+                     spotData['category_en']?.toString() ?? 
+                     spotData['category']?.toString();
+    if (category != null && category.isNotEmpty) {
+      result.add(category);
+      seen.add(category.toLowerCase());
+    }
+    
+    // 2. 添加结构化标签（tags 字段可能是 Map 或 List 格式）
+    final rawTags = spotData['tags'];
+    if (rawTags is Map) {
+      for (final entry in rawTags.entries) {
+        if (result.length >= 4) break;
+        final value = entry.value;
+        if (value is List) {
+          for (final v in value) {
+            if (result.length >= 4) break;
+            final tag = v?.toString() ?? '';
+            if (tag.isNotEmpty && !seen.contains(tag.toLowerCase())) {
+              result.add(tag);
+              seen.add(tag.toLowerCase());
+            }
+          }
+        } else if (value is String && value.isNotEmpty) {
+          if (!seen.contains(value.toLowerCase())) {
+            result.add(value);
+            seen.add(value.toLowerCase());
+          }
+        }
+      }
+    } else if (rawTags is List) {
+      // tags 已经是 List 格式
+      for (final tag in rawTags) {
+        if (result.length >= 4) break;
+        String tagStr = '';
+        if (tag is Map) {
+          tagStr = tag['en']?.toString() ?? '';
+        } else if (tag is String) {
+          tagStr = tag;
+        }
+        if (tagStr.isNotEmpty && !seen.contains(tagStr.toLowerCase())) {
+          result.add(tagStr);
+          seen.add(tagStr.toLowerCase());
+        }
+      }
+    }
+    
+    // 3. 添加 aiTags
+    final aiTags = _parseTagsList(spotData['aiTags'] ?? spotData['ai_tags']);
+    for (final tag in aiTags) {
+      if (result.length >= 4) break;
+      if (!seen.contains(tag.toLowerCase())) {
+        result.add(tag);
+        seen.add(tag.toLowerCase());
+      }
+    }
+    
+    print('🏷️ [_computeDisplayTags] computed result: $result');
+    return result;
+  }
+
   /// 解析图片列表 - 支持字符串数组和 JSON 字符串
   List<String> _parseImagesList(dynamic value) {
     if (value == null) return [];
@@ -526,17 +632,27 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   };
 
   Position _getCityCenter() {
-    // 如果有 spots，计算中心点
+    // 如果有 spots，计算 bounding box 中心点（确保 markers 居中显示）
     if (_citySpots.isNotEmpty) {
-      double totalLat = 0;
-      double totalLng = 0;
-      for (final spot in _citySpots) {
-        totalLat += spot.latitude;
-        totalLng += spot.longitude;
+      if (_citySpots.length == 1) {
+        return Position(_citySpots.first.longitude, _citySpots.first.latitude);
       }
+      
+      double minLat = _citySpots.first.latitude;
+      double maxLat = _citySpots.first.latitude;
+      double minLng = _citySpots.first.longitude;
+      double maxLng = _citySpots.first.longitude;
+      
+      for (final spot in _citySpots) {
+        if (spot.latitude < minLat) minLat = spot.latitude;
+        if (spot.latitude > maxLat) maxLat = spot.latitude;
+        if (spot.longitude < minLng) minLng = spot.longitude;
+        if (spot.longitude > maxLng) maxLng = spot.longitude;
+      }
+      
       return Position(
-        totalLng / _citySpots.length,
-        totalLat / _citySpots.length,
+        (minLng + maxLng) / 2,
+        (minLat + maxLat) / 2,
       );
     }
     
@@ -1136,10 +1252,19 @@ class LinkItem {
     return list.map((item) {
       if (item is! Map) return null;
       final map = item as Map<String, dynamic>;
+      // 处理 link 字段：空字符串视为 null
+      final link = map['link'] as String?;
+      final effectiveLink = (link != null && link.isNotEmpty) ? link : null;
+      // 处理 avatarUrl 字段：支持 avatarUrl 和 avatar_url 两种格式，也支持 base64
+      String? avatarUrl = (map['avatarUrl'] as String?) ?? (map['avatar_url'] as String?);
+      // Debug log
+      if (isPeople && avatarUrl != null) {
+        print('🖼️ [LinkItem] avatarUrl found: ${avatarUrl.substring(0, avatarUrl.length > 50 ? 50 : avatarUrl.length)}...');
+      }
       return LinkItem(
         name: map['name'] as String? ?? '',
-        link: map['link'] as String?,
-        avatarUrl: isPeople ? map['avatarUrl'] as String? : null,
+        link: effectiveLink,
+        avatarUrl: isPeople ? avatarUrl : null,
         coverImage: isPeople ? null : map['coverImage'] as String?,
       );
     }).whereType<LinkItem>().where((item) => item.name.isNotEmpty).toList();
@@ -1323,37 +1448,57 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
   }
 
   Widget _buildPersonRow(LinkItem person) {
-    String? compressedAvatarUrl;
-    if (person.avatarUrl?.isNotEmpty ?? false) {
+    final hasLink = person.link != null && person.link!.isNotEmpty;
+    final hasAvatar = person.avatarUrl?.isNotEmpty ?? false;
+    
+    // 处理头像 URL：支持普通 URL 和 base64
+    Widget avatarWidget;
+    if (hasAvatar) {
       final url = person.avatarUrl!;
-      if (url.contains('supabase') || url.contains('storage')) {
-        compressedAvatarUrl = url.contains('?') 
-            ? '$url&width=48&height=48' 
-            : '$url?width=48&height=48';
+      if (url.startsWith('data:image')) {
+        // Base64 图片
+        try {
+          final base64Data = url.split(',').last;
+          final bytes = base64Decode(base64Data);
+          avatarWidget = Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            width: 20,
+            height: 20,
+            errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
+          );
+        } catch (e) {
+          avatarWidget = _buildDefaultAvatar();
+        }
       } else {
-        compressedAvatarUrl = url;
+        // 普通 URL
+        String compressedUrl = url;
+        if (url.contains('supabase') || url.contains('storage')) {
+          compressedUrl = url.contains('?') 
+              ? '$url&width=48&height=48' 
+              : '$url?width=48&height=48';
+        }
+        avatarWidget = CachedNetworkImage(
+          imageUrl: compressedUrl,
+          fit: BoxFit.cover,
+          memCacheWidth: 48,
+          memCacheHeight: 48,
+          placeholder: (_, __) => _buildDefaultAvatar(),
+          errorWidget: (_, __, ___) => _buildDefaultAvatar(),
+        );
       }
+    } else {
+      avatarWidget = _buildDefaultAvatar();
     }
 
     return GestureDetector(
-      onTap: person.link != null ? () => _openLink(person.link!) : null,
+      onTap: hasLink ? () => _openLink(person.link!) : null,
       child: Row(
         children: [
           SizedBox(
             width: 20,
             height: 20,
-            child: ClipOval(
-              child: compressedAvatarUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: compressedAvatarUrl,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 48,
-                      memCacheHeight: 48,
-                      placeholder: (_, __) => _buildDefaultAvatar(),
-                      errorWidget: (_, __, ___) => _buildDefaultAvatar(),
-                    )
-                  : _buildDefaultAvatar(),
-            ),
+            child: ClipOval(child: avatarWidget),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -1368,7 +1513,7 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (person.link != null)
+          if (hasLink)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [

@@ -2151,7 +2151,7 @@ class _SpotCarouselCard extends StatelessWidget {
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
-                      children: _effectiveTags().take(3).map((tag) => Container(
+                      children: _effectiveTags().take(4).map((tag) => Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
                             vertical: 4,

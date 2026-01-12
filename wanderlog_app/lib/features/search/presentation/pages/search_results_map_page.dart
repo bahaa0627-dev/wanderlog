@@ -457,33 +457,32 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                   children: [
                     IconButtonCustom(
                       icon: Icons.arrow_back,
+                      size: 36,
                       onPressed: () => Navigator.of(context).pop(),
                       backgroundColor: Colors.white,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: GestureDetector(
                         key: _searchBoxKey,
                         onTap: _openSearchMenu,
                         child: Container(
-                          height: 48,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          height: 36,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                            border: Border.all(
-                              color: AppTheme.black,
-                              width: AppTheme.borderMedium,
-                            ),
+                            border: Border.all(color: AppTheme.black, width: 1),
+                            boxShadow: AppTheme.searchBoxShadow,
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.search, size: 20, color: AppTheme.mediumGray),
+                              const Icon(Icons.search, size: 18, color: AppTheme.mediumGray),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   '$_currentCity, $_currentCountry',
-                                  style: AppTheme.bodyMedium(context),
+                                  style: AppTheme.bodySmall(context),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -494,7 +493,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 // Tag type filter bar
                 TagTypeFilterBar(
                   selectedType: _selectedTagType,
@@ -586,11 +585,14 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                       return;
                     }
                     
-                    // 用户手动滑动卡片，移动相机
-                    setState(() {
-                      _currentCardIndex = index;
-                      _selectedSpot = spot;
-                    });
+                    // 用户手动滑动卡片，移动相机并更新 marker 高亮
+                    _currentCardIndex = index;
+                    _selectedSpot = spot;
+                    
+                    // 更新地图 marker 高亮状态
+                    _mapKey.currentState?.updateSelectedSpot(spot);
+                    
+                    // 移动相机到选中的地点
                     _animateCamera(Position(spot.longitude, spot.latitude));
                   },
                   itemCount: filteredSpots.length,
@@ -666,12 +668,13 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     }
 
     return SizedBox(
-      height: 42,
+      height: 38,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 0),
+        padding: const EdgeInsets.only(left: 0, right: 0, bottom: 4),
         scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
         itemCount: displayTags.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final tag = displayTags[index];
           final isSelected = _activeFilterTags.contains(tag);
@@ -684,21 +687,24 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
           return GestureDetector(
             onTap: () => _toggleFilterTag(tag),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: isSelected ? AppTheme.primaryYellow : Colors.white,
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                border: Border.all(
-                  color: AppTheme.black,
-                  width: AppTheme.borderMedium,
-                ),
+                border: Border.all(color: AppTheme.black, width: 1),
+                boxShadow: AppTheme.searchBoxShadow,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(emoji, style: const TextStyle(fontSize: 16)),
-                  const SizedBox(width: 6),
-                  Text(displayName, style: AppTheme.labelMedium(context)),
+                  Text(emoji, style: const TextStyle(fontSize: 13)),
+                  const SizedBox(width: 4),
+                  Text(
+                    displayName, 
+                    style: AppTheme.labelSmall(context).copyWith(
+                      color: AppTheme.black,
+                    ),
+                  ),
                 ],
               ),
             ),

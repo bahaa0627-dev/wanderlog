@@ -1238,6 +1238,8 @@
                         <option value="university">University (大学)</option>
                         <option value="temple">Temple (寺庙)</option>
                         <option value="zoo">Zoo (动物园)</option>
+                        <option value="building">Building (建筑)</option>
+                        <option value="others">Others (其他)</option>
                     </select>
                 </div>
             </div>
@@ -3969,10 +3971,20 @@
                 values.forEach(value => {
                     const chip = document.createElement('span');
                     chip.style.cssText = `display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:${colors.bg};border-radius:12px;font-size:12px;white-space:nowrap;`;
-                    chip.innerHTML = `
-                        <span style="font-weight:500;color:${colors.text};">${value}</span>
-                        <button type="button" onclick="removeTag('${type}', '${value}')" style="border:none;background:none;cursor:pointer;color:${colors.text};font-size:14px;line-height:1;padding:0 2px;" title="删除">×</button>
-                    `;
+                    
+                    const textSpan = document.createElement('span');
+                    textSpan.style.cssText = `font-weight:500;color:${colors.text};`;
+                    textSpan.textContent = value;
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.style.cssText = `border:none;background:none;cursor:pointer;color:${colors.text};font-size:14px;line-height:1;padding:0 2px;`;
+                    removeBtn.title = '删除';
+                    removeBtn.textContent = '×';
+                    removeBtn.addEventListener('click', () => removeTag(type, value));
+                    
+                    chip.appendChild(textSpan);
+                    chip.appendChild(removeBtn);
                     targetContainer.appendChild(chip);
                 });
             }
@@ -3999,18 +4011,29 @@
                 return;
             }
             
-            const chips = aiTags.map((tag, idx) => {
+            container.innerHTML = '';
+            aiTags.forEach((tag, idx) => {
                 // 支持字符串或对象格式
                 const displayText = typeof tag === 'string' ? tag : (tag.en || tag.id || JSON.stringify(tag));
-                return `
-                    <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#fff3cd;border-radius:12px;font-size:12px;white-space:nowrap;">
-                        <span style="font-weight:500;color:#856404;">${displayText}</span>
-                        <button type="button" onclick="removeAiTag(${idx})" style="border:none;background:none;cursor:pointer;color:#856404;font-size:14px;line-height:1;padding:0 2px;" title="删除">×</button>
-                    </span>
-                `;
-            }).join('');
-            
-            container.innerHTML = chips;
+                
+                const chip = document.createElement('span');
+                chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#fff3cd;border-radius:12px;font-size:12px;white-space:nowrap;';
+                
+                const textSpan = document.createElement('span');
+                textSpan.style.cssText = 'font-weight:500;color:#856404;';
+                textSpan.textContent = displayText;
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.style.cssText = 'border:none;background:none;cursor:pointer;color:#856404;font-size:14px;line-height:1;padding:0 2px;';
+                removeBtn.title = '删除';
+                removeBtn.textContent = '×';
+                removeBtn.addEventListener('click', () => removeAiTag(idx));
+                
+                chip.appendChild(textSpan);
+                chip.appendChild(removeBtn);
+                container.appendChild(chip);
+            });
         }
         
         // 删除结构化标签

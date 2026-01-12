@@ -16,6 +16,7 @@ import 'package:wanderlog/features/collections/providers/collections_cache_provi
 import 'package:wanderlog/features/map/providers/places_cache_provider.dart';
 import 'package:wanderlog/features/search/presentation/widgets/search_menu_sheet.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
+import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/features/profile/presentation/pages/settings_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -58,6 +59,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       ref.read(placesCacheProvider.notifier).preloadPlaces();
       ref.read(collectionsCacheProvider.notifier).preloadCollections();
       ref.read(countriesCitiesProvider.notifier).preload();
+      // 预加载城市选择器数据（带统计信息），避免打开时加载慢
+      ref.read(countriesCitiesStatsProvider.notifier).load();
     });
   }
 

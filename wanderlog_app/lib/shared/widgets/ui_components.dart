@@ -455,9 +455,9 @@ class IconButtonCustom extends StatelessWidget {
             shape: BoxShape.circle,
             border: Border.all(
               color: AppTheme.black,
-              width: 2,
+              width: 1,
             ),
-            boxShadow: AppTheme.cardShadow,
+            boxShadow: AppTheme.searchBoxShadow,
           ),
           child: Icon(
             icon,

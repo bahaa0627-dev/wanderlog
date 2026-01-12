@@ -368,6 +368,7 @@ class _CollectionCardState extends State<_CollectionCard> {
         onTap: widget.onTap,
         child: Container(
           decoration: BoxDecoration(
+            color: _dominantColor, // 添加背景色，防止加载时出现间隙
             borderRadius: BorderRadius.circular(cardRadius),
             border: Border.all(
               color: AppTheme.black,

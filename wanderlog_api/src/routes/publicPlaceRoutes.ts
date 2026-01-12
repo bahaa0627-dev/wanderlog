@@ -18,6 +18,12 @@ router.get('/countries-cities-stats', publicPlaceController.getCountriesAndCitie
 // 获取城市 Top N 评分人数最多的地点
 router.get('/top-by-city', publicPlaceController.getTopPlacesByCity.bind(publicPlaceController));
 
+// 获取城市的 Top N 标签统计
+router.get('/city-tag-stats', publicPlaceController.getCityTagStats.bind(publicPlaceController));
+
+// 按城市和单个标签筛选地点
+router.get('/places-by-tag', publicPlaceController.getPlacesByCityAndTag.bind(publicPlaceController));
+
 // 获取筛选选项（国家、城市、分类及其数量）
 router.get('/filter-options', publicPlaceController.getFilterOptions.bind(publicPlaceController));
 

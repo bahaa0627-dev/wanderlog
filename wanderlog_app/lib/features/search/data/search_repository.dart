@@ -156,6 +156,7 @@ class SearchPlaceResult {
     this.categoryZh,
     this.coverImage,
     this.images = const [],
+    this.displayTagsEn = const [],
     this.tags = const [],
     this.aiSummary,
   });
@@ -163,7 +164,15 @@ class SearchPlaceResult {
   factory SearchPlaceResult.fromJson(Map<String, dynamic> json) {
     List<String> parseStringList(dynamic value) {
       if (value == null) return [];
-      if (value is List) return value.map((e) => e.toString()).toList();
+      if (value is List) {
+        return value.map((e) {
+          // 如果是 aiTag 对象格式 {en: "xxx", zh: "xxx", ...}，提取 en 字段
+          if (e is Map) {
+            return (e['en'] ?? e['zh'] ?? e.toString()) as String;
+          }
+          return e.toString();
+        }).where((s) => s.isNotEmpty).toList();
+      }
       if (value is String) {
         try {
           // 尝试解析 JSON 字符串
@@ -197,6 +206,8 @@ class SearchPlaceResult {
       categoryZh: json['category_zh'] as String? ?? json['categoryZh'] as String?,
       coverImage: json['coverImage'] as String?,
       images: parseStringList(json['images']),
+      // 优先使用 display_tags_en（包含 category + aiTags + tags 的合并结果）
+      displayTagsEn: parseStringList(json['display_tags_en']),
       tags: parseStringList(json['aiTags'] ?? json['tags']),
       aiSummary: json['aiSummary'] as String?,
     );
@@ -217,6 +228,7 @@ class SearchPlaceResult {
   final String? categoryZh;
   final String? coverImage;
   final List<String> images;
+  final List<String> displayTagsEn; // 后端计算好的展示标签
   final List<String> tags;
   final String? aiSummary;
 }

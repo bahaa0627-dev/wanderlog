@@ -829,7 +829,6 @@ class PublicPlaceService {
       
       // 执行归一化
       const normalized = await normalizationService.normalize(normInput);
-      console.log('[updatePlace] normalized:', JSON.stringify(normalized, null, 2));
       
       // 只更新分类相关字段，不覆盖手动设置的 tags 和 aiTags
       updateData.category = updates.category || existingPlace?.category || null;
@@ -989,19 +988,41 @@ class PublicPlaceService {
   /**
    * 搜索地点
    */
-  async searchPlaces(query: string) {
+  async searchPlaces(query: string, city?: string, country?: string) {
+    const normalizedQuery = query.toLowerCase().trim();
+    
+    // 构建基础条件
+    const baseConditions: any[] = [];
+    
+    // 城市筛选
+    if (city) {
+      baseConditions.push({ city: { equals: city, mode: 'insensitive' } });
+    }
+    
+    // 国家筛选
+    if (country) {
+      baseConditions.push({ country: { equals: country, mode: 'insensitive' } });
+    }
+    
+    // 搜索条件：名称、分类、标签模糊匹配
+    const searchConditions = [
+      { name: { contains: normalizedQuery, mode: 'insensitive' } },
+      { category: { contains: normalizedQuery, mode: 'insensitive' } },
+      { categoryEn: { contains: normalizedQuery, mode: 'insensitive' } },
+    ];
+    
     return await prisma.place.findMany({
       where: {
-        OR: [
-          { name: { contains: query } },
-          { city: { contains: query } },
-          { country: { contains: query } },
-          { address: { contains: query } },
-          { category: { contains: query } },
+        AND: [
+          ...baseConditions,
+          { OR: searchConditions }
         ]
       },
-      take: 20,
-      orderBy: { rating: 'desc' }
+      take: 50,
+      orderBy: [
+        { ratingCount: 'desc' },
+        { rating: 'desc' }
+      ]
     });
   }
 
@@ -1406,12 +1427,12 @@ class PublicPlaceService {
    */
   async getCountriesAndCitiesWithStats(options?: {
     minCountryPlaces?: number;  // 国家最小地点数，默认 100
-    minCityPlaces?: number;     // 城市最小地点数，默认 10
-    minCitiesPerCountry?: number; // 每个国家最少显示城市数，默认 5
+    minCityPlaces?: number;     // 城市最小地点数，默认 5
+    minCitiesPerCountry?: number; // 每个国家最少显示城市数，默认 3 (reserved for future use)
   }) {
     const minCountryPlaces = options?.minCountryPlaces ?? 100;
-    const minCityPlaces = options?.minCityPlaces ?? 10;
-    const minCitiesPerCountry = options?.minCitiesPerCountry ?? 5;
+    const minCityPlaces = options?.minCityPlaces ?? 5;  // 改为 5，少于 5 个地点的城市不显示
+    void options?.minCitiesPerCountry; // Reserved for future use
 
     // 获取每个国家-城市组合的地点数量
     const placeCounts = await prisma.place.groupBy({
@@ -1476,25 +1497,21 @@ class PublicPlaceService {
       cities: { name: string; placeCount: number }[];
     }> = {};
 
-    for (const [countryKey, stats] of Object.entries(countryStats)) {
+    for (const [, stats] of Object.entries(countryStats)) {
       // 规则1: 国家地点数量 > minCountryPlaces 才显示
       if (stats.totalPlaces < minCountryPlaces) continue;
 
       // 按地点数量降序排列城市
       const sortedCities = stats.cities.sort((a, b) => b.count - a.count);
 
-      // 规则2: 城市地点数量 > minCityPlaces 才显示
+      // 规则2: 城市地点数量 >= minCityPlaces 才显示
       const qualifiedCities = sortedCities.filter(c => c.count >= minCityPlaces);
 
-      // 规则3: 如果符合条件的城市不足 minCitiesPerCountry 个，补齐 top 城市
-      let finalCities: { name: string; placeCount: number }[];
-      if (qualifiedCities.length >= minCitiesPerCountry) {
-        finalCities = qualifiedCities.map(c => ({ name: c.name, placeCount: c.count }));
-      } else {
-        // 补齐到 minCitiesPerCountry 个
-        const topCities = sortedCities.slice(0, minCitiesPerCountry);
-        finalCities = topCities.map(c => ({ name: c.name, placeCount: c.count }));
-      }
+      // 如果没有符合条件的城市，跳过这个国家
+      if (qualifiedCities.length === 0) continue;
+
+      // 直接使用符合条件的城市，不再补齐
+      const finalCities = qualifiedCities.map(c => ({ name: c.name, placeCount: c.count }));
 
       // 按地点数量倒序排列（多的在前面）
       finalCities.sort((a, b) => b.placeCount - a.placeCount);
@@ -1575,6 +1592,115 @@ class PublicPlaceService {
   }
 
   /**
+   * 标签同义词映射表
+   * 用于模糊搜索：用户搜索 "bread" 时也会匹配 "bakery"
+   */
+  private static readonly TAG_SYNONYMS: Record<string, string[]> = {
+    // 食物相关
+    'bread': ['bakery', 'boulangerie', 'pastry'],
+    'bakery': ['bread', 'boulangerie', 'pastry'],
+    'coffee': ['cafe', 'café', 'coffeeshop', 'coffee shop'],
+    'cafe': ['coffee', 'café', 'coffeeshop', 'coffee shop'],
+    'café': ['coffee', 'cafe', 'coffeeshop'],
+    'brunch': ['breakfast', 'cafe', 'restaurant'],
+    'breakfast': ['brunch', 'cafe'],
+    'ramen': ['restaurant', 'noodle', 'japanese'],
+    'sushi': ['restaurant', 'japanese'],
+    'pizza': ['restaurant', 'italian', 'pizzeria'],
+    'burger': ['restaurant', 'fast food'],
+    'french': ['french cuisine', 'bistro', 'brasserie'],
+    'italian': ['italian cuisine', 'trattoria', 'ristorante'],
+    'japanese': ['japanese cuisine', 'izakaya'],
+    'chinese': ['chinese cuisine', 'dim sum'],
+    'thai': ['thai cuisine'],
+    'indian': ['indian cuisine', 'curry'],
+    'mexican': ['mexican cuisine', 'taqueria'],
+    'korean': ['korean cuisine', 'bbq'],
+    'vietnamese': ['vietnamese cuisine', 'pho'],
+    
+    // 饮品相关
+    'bar': ['pub', 'cocktail', 'wine bar', 'beer'],
+    'pub': ['bar', 'beer', 'tavern'],
+    'wine': ['wine bar', 'bar', 'vineyard'],
+    'cocktail': ['bar', 'cocktail bar', 'speakeasy'],
+    'beer': ['pub', 'bar', 'brewery', 'beer garden'],
+    
+    // 文化场所
+    'museum': ['gallery', 'exhibition', 'art museum'],
+    'gallery': ['art gallery', 'museum', 'exhibition'],
+    'art': ['art gallery', 'gallery', 'museum'],
+    'design': ['design museum'],  // design 只匹配 design museum，不扩展到所有 museum
+    'history': ['historical', 'museum', 'heritage'],
+    
+    // 自然景观
+    'park': ['garden', 'nature', 'green space'],
+    'garden': ['park', 'botanical garden', 'nature'],
+    'nature': ['park', 'garden', 'hiking', 'outdoor'],
+    'hiking': ['trail', 'nature', 'outdoor', 'trekking'],
+    'beach': ['seaside', 'coast', 'ocean'],
+    
+    // 宗教场所
+    'temple': ['shrine', 'religious', 'buddhist'],
+    'shrine': ['temple', 'religious', 'shinto'],
+    'church': ['cathedral', 'religious', 'chapel'],
+    'mosque': ['religious', 'islamic'],
+    
+    // 购物
+    'shop': ['store', 'shopping', 'boutique', 'retail'],
+    'store': ['shop', 'shopping', 'boutique'],
+    'shopping': ['shop', 'store', 'mall', 'market'],
+    'market': ['food market', 'flea market', 'bazaar', 'shopping'],
+    'bookstore': ['book shop', 'books', 'library'],
+    
+    // 住宿
+    'hotel': ['accommodation', 'lodging', 'inn'],
+    'hostel': ['accommodation', 'budget hotel'],
+    
+    // 建筑
+    'architecture': ['building', 'landmark', 'historic'],
+    'landmark': ['monument', 'attraction', 'architecture'],
+  };
+
+  /**
+   * 扩展标签：添加同义词
+   * 例如：['bread'] -> ['bread', 'bakery', 'boulangerie', 'pastry']
+   */
+  private expandTagsWithSynonyms(tags: string[]): string[] {
+    const expanded = new Set<string>();
+    
+    for (const tag of tags) {
+      const tagLower = tag.toLowerCase();
+      expanded.add(tagLower);
+      
+      // 添加同义词
+      const synonyms = PublicPlaceService.TAG_SYNONYMS[tagLower];
+      if (synonyms) {
+        for (const synonym of synonyms) {
+          expanded.add(synonym.toLowerCase());
+        }
+      }
+      
+      // 处理复合词搜索，如 "French restaurant"
+      const words = tagLower.split(/\s+/);
+      if (words.length > 1) {
+        // 添加每个单词作为独立标签
+        for (const word of words) {
+          expanded.add(word);
+          // 也添加单词的同义词
+          const wordSynonyms = PublicPlaceService.TAG_SYNONYMS[word];
+          if (wordSynonyms) {
+            for (const synonym of wordSynonyms) {
+              expanded.add(synonym.toLowerCase());
+            }
+          }
+        }
+      }
+    }
+    
+    return Array.from(expanded);
+  }
+
+  /**
    * 按城市和标签筛选地点（不区分大小写）
    */
   async searchByFilters(options: {
@@ -1596,10 +1722,11 @@ class PublicPlaceService {
 
     const places = await prisma.place.findMany({
       where,
-      take: limit * 4, // 取更多以便内存过滤后仍有足够数据
+      // 当有标签筛选时，取更多数据以确保筛选后有足够结果
+      take: tags && tags.length > 0 ? 1000 : limit * 4,
       orderBy: [
+        { ratingCount: 'desc' }, // 按评价人数倒序
         { rating: 'desc' },
-        { ratingCount: 'desc' },
       ],
       select: {
         id: true,
@@ -1612,6 +1739,8 @@ class PublicPlaceService {
         rating: true,
         ratingCount: true,
         category: true,
+        categorySlug: true,
+        categoryEn: true,
         aiSummary: true,
         aiTags: true,
         tags: true,
@@ -1620,16 +1749,49 @@ class PublicPlaceService {
       },
     });
 
-    // 如果有标签，在内存中过滤 category、aiTags 和 tags 字段（不区分大小写）
+    console.log(`🔍 [searchByFilters] Found ${places.length} places in ${city}, ${country}`);
+    
+    // 打印前几个地点的详细信息用于调试
+    if (places.length > 0) {
+      console.log(`🔍 [searchByFilters] Sample places:`);
+      for (const p of places.slice(0, 3)) {
+        console.log(`  - ${p.name}: categorySlug=${p.categorySlug}, categoryEn=${p.categoryEn}, tags=${JSON.stringify(p.tags)}`);
+      }
+    }
+
+    // 如果有标签，在内存中过滤 category、categoryEn、aiTags 和 tags 字段（不区分大小写）
     let filteredPlaces = places;
     if (tags && tags.length > 0) {
-      const tagsLower = tags.map(t => t.toLowerCase());
+      // 扩展标签：添加同义词映射
+      const expandedTags = this.expandTagsWithSynonyms(tags);
+      const tagsLower = expandedTags.map(t => t.toLowerCase());
+      
+      console.log(`🔍 [searchByFilters] Filtering by tags: ${tags.join(', ')} -> expanded: ${expandedTags.join(', ')}`);
       
       filteredPlaces = places.filter(place => {
+        // 检查 categorySlug（不区分大小写）- 这是最准确的分类标识
+        if (place.categorySlug) {
+          const categorySlugLower = place.categorySlug.toLowerCase();
+          if (tagsLower.some(tag => categorySlugLower.includes(tag) || tag.includes(categorySlugLower))) {
+            console.log(`✅ [searchByFilters] Matched by categorySlug: ${place.name} (categorySlug: ${place.categorySlug})`);
+            return true;
+          }
+        }
+        
         // 检查 category（不区分大小写）
         if (place.category) {
           const categoryLower = place.category.toLowerCase();
           if (tagsLower.some(tag => categoryLower.includes(tag))) {
+            console.log(`✅ [searchByFilters] Matched by category: ${place.name} (category: ${place.category})`);
+            return true;
+          }
+        }
+        
+        // 检查 categoryEn（不区分大小写）
+        if (place.categoryEn) {
+          const categoryEnLower = place.categoryEn.toLowerCase();
+          if (tagsLower.some(tag => categoryEnLower.includes(tag))) {
+            console.log(`✅ [searchByFilters] Matched by categoryEn: ${place.name} (categoryEn: ${place.categoryEn})`);
             return true;
           }
         }
@@ -1650,6 +1812,7 @@ class PublicPlaceService {
             }
             return false;
           })) {
+            console.log(`✅ [searchByFilters] Matched by aiTags: ${place.name}`);
             return true;
           }
         }
@@ -1666,6 +1829,7 @@ class PublicPlaceService {
                 }
                 return false;
               })) {
+                console.log(`✅ [searchByFilters] Matched by tags: ${place.name} (tags: ${JSON.stringify(place.tags)})`);
                 return true;
               }
             }
@@ -1675,6 +1839,20 @@ class PublicPlaceService {
         return false;
       });
     }
+    
+    // 过滤掉没有图片的地点
+    filteredPlaces = filteredPlaces.filter(place => {
+      if (!place.coverImage) return false;
+      // 排除占位符图片
+      if (place.coverImage.includes('placeholder')) return false;
+      if (place.coverImage.includes('example.com')) return false;
+      return true;
+    });
+    
+    // 按评分人数倒序排序
+    filteredPlaces.sort((a, b) => (b.ratingCount || 0) - (a.ratingCount || 0));
+
+    console.log(`🔍 [searchByFilters] After filtering: ${filteredPlaces.length} places (returning ${Math.min(filteredPlaces.length, limit)})`);
 
     return {
       places: filteredPlaces.slice(0, limit),
@@ -1778,6 +1956,187 @@ class PublicPlaceService {
       totalTags: tags.length,
       totalCount: tags.reduce((sum, tag) => sum + tag.count, 0),
     };
+  }
+
+  /**
+   * 获取城市的 Top N 标签统计
+   * 统计 category_en + ai_tags + tags 的出现次数
+   * 返回按出现次数排序的标签列表
+   */
+  async getCityTagStats(options: {
+    city: string;
+    country?: string;
+    limit?: number;  // 默认 10
+  }) {
+    const { city, country, limit = 10 } = options;
+
+    const where: any = {
+      city: { equals: city, mode: 'insensitive' },
+    };
+
+    if (country) {
+      where.country = { equals: country, mode: 'insensitive' };
+    }
+
+    // 获取该城市所有地点的标签相关字段
+    const places = await prisma.place.findMany({
+      where,
+      select: {
+        categoryEn: true,
+        aiTags: true,
+        tags: true,
+      },
+    });
+
+    // 统计标签出现次数
+    const tagCounts: Record<string, number> = {};
+
+    for (const place of places) {
+      // 1. 统计 categoryEn
+      if (place.categoryEn && typeof place.categoryEn === 'string') {
+        const category = place.categoryEn.trim();
+        if (category) {
+          // 首字母大写
+          const normalized = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+          tagCounts[normalized] = (tagCounts[normalized] || 0) + 1;
+        }
+      }
+
+      // 2. 统计 aiTags
+      if (place.aiTags && Array.isArray(place.aiTags)) {
+        for (const tag of place.aiTags as any[]) {
+          const tagEn = typeof tag === 'object' && tag.en ? tag.en : (typeof tag === 'string' ? tag : null);
+          if (tagEn && typeof tagEn === 'string') {
+            const normalized = tagEn.charAt(0).toUpperCase() + tagEn.slice(1).toLowerCase();
+            tagCounts[normalized] = (tagCounts[normalized] || 0) + 1;
+          }
+        }
+      }
+
+      // 3. 统计 tags（结构化标签）
+      if (place.tags && typeof place.tags === 'object') {
+        const tagsObj = place.tags as any;
+        for (const key of Object.keys(tagsObj)) {
+          const value = tagsObj[key];
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              if (typeof item === 'string' && item.trim()) {
+                const normalized = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
+                tagCounts[normalized] = (tagCounts[normalized] || 0) + 1;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 按出现次数排序，取 Top N
+    const sortedTags = Object.entries(tagCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+
+    return {
+      tags: sortedTags,
+      totalPlaces: places.length,
+    };
+  }
+
+  /**
+   * 按城市和单个标签筛选地点
+   * 用于标签点击后加载该标签的 Top 50 地点
+   */
+  async getPlacesByCityAndTag(options: {
+    city: string;
+    country?: string;
+    tag: string;
+    limit?: number;  // 默认 50
+  }) {
+    const { city, country, tag, limit = 50 } = options;
+
+    const where: any = {
+      city: { equals: city, mode: 'insensitive' },
+    };
+
+    if (country) {
+      where.country = { equals: country, mode: 'insensitive' };
+    }
+
+    // 获取该城市所有地点
+    const places = await prisma.place.findMany({
+      where,
+      orderBy: [
+        { ratingCount: { sort: 'desc', nulls: 'last' } },
+        { rating: { sort: 'desc', nulls: 'last' } },
+      ],
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        country: true,
+        latitude: true,
+        longitude: true,
+        address: true,
+        description: true,
+        openingHours: true,
+        rating: true,
+        ratingCount: true,
+        category: true,
+        categoryEn: true,
+        categoryZh: true,
+        aiSummary: true,
+        aiDescription: true,
+        tags: true,
+        aiTags: true,
+        coverImage: true,
+        images: true,
+        price: true,
+        priceLevel: true,
+        website: true,
+        phoneNumber: true,
+        googlePlaceId: true,
+        source: true,
+        createdAt: true,
+      },
+    });
+
+    // 在内存中筛选匹配标签的地点
+    const tagLower = tag.toLowerCase();
+    const matchedPlaces = places.filter(place => {
+      // 检查 categoryEn
+      if (place.categoryEn && place.categoryEn.toLowerCase() === tagLower) {
+        return true;
+      }
+
+      // 检查 aiTags
+      if (place.aiTags && Array.isArray(place.aiTags)) {
+        for (const t of place.aiTags as any[]) {
+          const tagEn = typeof t === 'object' && t.en ? t.en : (typeof t === 'string' ? t : null);
+          if (tagEn && tagEn.toLowerCase() === tagLower) {
+            return true;
+          }
+        }
+      }
+
+      // 检查 tags（结构化标签）
+      if (place.tags && typeof place.tags === 'object') {
+        const tagsObj = place.tags as any;
+        for (const key of Object.keys(tagsObj)) {
+          const value = tagsObj[key];
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              if (typeof item === 'string' && item.toLowerCase() === tagLower) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+
+      return false;
+    });
+
+    return matchedPlaces.slice(0, limit);
   }
 }
 

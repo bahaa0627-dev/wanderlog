@@ -185,6 +185,35 @@ class SupabaseCollectionRepository {
       }
     }
     
+    // 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
+    final displayTagsEn = <String>[];
+    final seenTags = <String>{};
+    
+    // 1. 先添加 category
+    final category = place['category'] as String?;
+    if (category != null && category.isNotEmpty) {
+      displayTagsEn.add(category);
+      seenTags.add(category.toLowerCase());
+    }
+    
+    // 2. 添加 tags
+    for (final tag in parsedTags) {
+      if (displayTagsEn.length >= 4) break;
+      final key = tag.toLowerCase();
+      if (seenTags.add(key)) {
+        displayTagsEn.add(tag);
+      }
+    }
+    
+    // 3. 添加 aiTags
+    for (final tag in parsedAiTags) {
+      if (displayTagsEn.length >= 4) break;
+      final key = tag.toLowerCase();
+      if (seenTags.add(key)) {
+        displayTagsEn.add(tag);
+      }
+    }
+    
     return {
       'id': place['id'],
       'name': place['name'],
@@ -201,6 +230,7 @@ class SupabaseCollectionRepository {
       'category': place['category'],
       'tags': parsedTags.isNotEmpty ? parsedTags : parsedAiTags,
       'aiTags': parsedAiTags,
+      'displayTagsEn': displayTagsEn, // category + tags + aiTags 合并后取前 4 个
       'aiSummary': place['ai_summary'],
       'aiDescription': place['ai_description'],
       'googlePlaceId': place['google_place_id'],
@@ -349,6 +379,51 @@ class SupabaseCollectionRepository {
       }
     }
     
+    // 安全解析 tags
+    final List<String> parsedTags = [];
+    final rawTags = place['tags'];
+    if (rawTags is List) {
+      for (final item in rawTags) {
+        if (item is String) {
+          parsedTags.add(item);
+        } else if (item is Map<String, dynamic>) {
+          final en = item['en'] as String?;
+          if (en != null && en.isNotEmpty) {
+            parsedTags.add(en);
+          }
+        }
+      }
+    }
+    
+    // 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
+    final displayTagsEn = <String>[];
+    final seenTags = <String>{};
+    
+    // 1. 先添加 category
+    final category = place['category'] as String?;
+    if (category != null && category.isNotEmpty) {
+      displayTagsEn.add(category);
+      seenTags.add(category.toLowerCase());
+    }
+    
+    // 2. 添加 tags
+    for (final tag in parsedTags) {
+      if (displayTagsEn.length >= 4) break;
+      final key = tag.toLowerCase();
+      if (seenTags.add(key)) {
+        displayTagsEn.add(tag);
+      }
+    }
+    
+    // 3. 添加 aiTags
+    for (final tag in parsedAiTags) {
+      if (displayTagsEn.length >= 4) break;
+      final key = tag.toLowerCase();
+      if (seenTags.add(key)) {
+        displayTagsEn.add(tag);
+      }
+    }
+    
     return {
       'id': place['id'],
       'name': place['name'],
@@ -363,8 +438,9 @@ class SupabaseCollectionRepository {
       'rating': place['rating'],
       'ratingCount': place['rating_count'],
       'category': place['category'],
-      'tags': place['tags'],
+      'tags': parsedTags.isNotEmpty ? parsedTags : parsedAiTags,
       'aiTags': parsedAiTags,
+      'displayTagsEn': displayTagsEn, // category + tags + aiTags 合并后取前 4 个
       'aiSummary': place['ai_summary'],
       'aiDescription': place['ai_description'],
     };

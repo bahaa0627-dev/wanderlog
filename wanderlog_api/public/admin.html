@@ -4440,7 +4440,7 @@
                 
                 // 解析 aiTags (AI 展示标签)
                 const aiTagsJsonText = document.getElementById('placeAiTagsJson').value.trim();
-                let aiTags = null;
+                let aiTags = [];  // 默认为空数组，而不是 null
                 if (aiTagsJsonText) {
                     try {
                         aiTags = JSON.parse(aiTagsJsonText);
@@ -4479,7 +4479,7 @@
                     phoneNumber: document.getElementById('placePhone').value.trim() || undefined,
                     openingHours: openingHours ? JSON.stringify(openingHours) : undefined,
                     tags: tags ? JSON.stringify(tags) : undefined,
-                    aiTags: aiTags ? JSON.stringify(aiTags) : undefined,
+                    aiTags: JSON.stringify(aiTags),  // 始终发送 aiTags，即使是空数组
                     coverImage: coverImage || undefined,
                     images: placeImages.length > 0 ? JSON.stringify(placeImages) : undefined,
                     customFields: customFields,

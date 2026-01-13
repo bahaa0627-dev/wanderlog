@@ -169,7 +169,7 @@ class SupabaseCollectionRepository {
       }
     }
     
-    // 安全解析 tags
+    // 安全解析 tags - 支持 List 和 Map 两种格式
     final List<String> parsedTags = [];
     final rawTags = place['tags'];
     if (rawTags is List) {
@@ -183,14 +183,28 @@ class SupabaseCollectionRepository {
           }
         }
       }
+    } else if (rawTags is Map) {
+      // 处理结构化标签格式: {type: ['Architecture'], architect: ['Junya Ishigami']}
+      for (final entry in rawTags.entries) {
+        final value = entry.value;
+        if (value is List) {
+          for (final v in value) {
+            if (v is String && v.isNotEmpty) {
+              parsedTags.add(v);
+            }
+          }
+        } else if (value is String && value.isNotEmpty) {
+          parsedTags.add(value);
+        }
+      }
     }
     
     // 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
     final displayTagsEn = <String>[];
     final seenTags = <String>{};
     
-    // 1. 先添加 category
-    final category = place['category'] as String?;
+    // 1. 先添加 category（优先使用 category_en）
+    final category = (place['category_en'] as String?) ?? (place['category'] as String?);
     if (category != null && category.isNotEmpty) {
       displayTagsEn.add(category);
       seenTags.add(category.toLowerCase());
@@ -227,7 +241,8 @@ class SupabaseCollectionRepository {
       'images': place['images'],
       'rating': place['rating'],
       'ratingCount': place['rating_count'],
-      'category': place['category'],
+      'category': category ?? place['category'],
+      'categoryEn': place['category_en'],
       'tags': parsedTags.isNotEmpty ? parsedTags : parsedAiTags,
       'aiTags': parsedAiTags,
       'displayTagsEn': displayTagsEn, // category + tags + aiTags 合并后取前 4 个
@@ -379,7 +394,7 @@ class SupabaseCollectionRepository {
       }
     }
     
-    // 安全解析 tags
+    // 安全解析 tags - 支持 List 和 Map 两种格式
     final List<String> parsedTags = [];
     final rawTags = place['tags'];
     if (rawTags is List) {
@@ -393,14 +408,28 @@ class SupabaseCollectionRepository {
           }
         }
       }
+    } else if (rawTags is Map) {
+      // 处理结构化标签格式: {type: ['Architecture'], architect: ['Junya Ishigami']}
+      for (final entry in rawTags.entries) {
+        final value = entry.value;
+        if (value is List) {
+          for (final v in value) {
+            if (v is String && v.isNotEmpty) {
+              parsedTags.add(v);
+            }
+          }
+        } else if (value is String && value.isNotEmpty) {
+          parsedTags.add(value);
+        }
+      }
     }
     
     // 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
     final displayTagsEn = <String>[];
     final seenTags = <String>{};
     
-    // 1. 先添加 category
-    final category = place['category'] as String?;
+    // 1. 先添加 category（优先使用 category_en）
+    final category = (place['category_en'] as String?) ?? (place['category'] as String?);
     if (category != null && category.isNotEmpty) {
       displayTagsEn.add(category);
       seenTags.add(category.toLowerCase());
@@ -437,7 +466,8 @@ class SupabaseCollectionRepository {
       'images': place['images'],
       'rating': place['rating'],
       'ratingCount': place['rating_count'],
-      'category': place['category'],
+      'category': category ?? place['category'],
+      'categoryEn': place['category_en'],
       'tags': parsedTags.isNotEmpty ? parsedTags : parsedAiTags,
       'aiTags': parsedAiTags,
       'displayTagsEn': displayTagsEn, // category + tags + aiTags 合并后取前 4 个

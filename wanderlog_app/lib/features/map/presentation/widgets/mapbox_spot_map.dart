@@ -239,8 +239,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       ),
       image: markerImage,
       iconAnchor: IconAnchor.BOTTOM,
-      // 略微放大以增大可点击区域
-      iconSize: isSelected ? 2.4 : 2.1,
+      // 2x 分辨率图片，缩放比例减半
+      iconSize: isSelected ? 1.2 : 1.0,
       // 选中的 marker 使用更高的 sortKey，确保在最上层
       // sortKey 越大越在上面
       symbolSortKey: isSelected ? 1000.0 : 0.0,
@@ -436,15 +436,102 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     bool isVisited = false,
     Color labelColor = AppTheme.black,
   }) async {
+    // 使用 2x 分辨率让图像更清晰
+    const double scale = 2.0;
+    
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
+    
+    // 应用缩放
+    canvas.scale(scale);
 
-    const int size = 220;
-    const double markerWidth = 180.0;
+    const double maxMarkerWidth = 220.0;
+    const double minMarkerWidth = 80.0;
     const double markerHeight = 50.0;
-    const double iconSize = 22.0;
-    const double iconPadding = 12.0;
-    const double offsetX = 20.0; // 左边距，确保标记居中
+    const double iconSize = 20.0;
+    const double fontSize = 16.0;
+    const double triangleHeight = 12.0;
+    const double triangleWidth = 16.0;
+    const double cornerRadius = 25.0;
+    const double horizontalPadding = 14.0;
+    const double iconTextGap = 6.0;
+    const double offsetX = 30.0;
+    const double offsetY = 5.0;
+
+    // 获取图标 Emoji
+    final iconEmoji = isVisited ? '✓' : getCategoryEmoji(category);
+
+    // 先测量 emoji 宽度
+    final iconPainter = TextPainter(
+      text: TextSpan(
+        text: iconEmoji,
+        style: TextStyle(
+          color: labelColor,
+          fontSize: iconSize,
+          fontFamily: 'ReemKufi',
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    iconPainter.layout();
+
+    // 测量 "..." 的宽度（预估值）
+    const double ellipsisWidth = 24.0;
+
+    // 测量文字宽度（不截断）
+    final fullTextPainter = TextPainter(
+      text: TextSpan(
+        text: title,
+        style: TextStyle(
+          color: labelColor,
+          fontSize: fontSize,
+          fontWeight: FontWeight.normal,
+          fontFamily: 'ReemKufi',
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    );
+    fullTextPainter.layout();
+
+    // 计算需要的宽度
+    final contentWidth = horizontalPadding + iconPainter.width + iconTextGap + fullTextPainter.width + horizontalPadding;
+    final markerWidth = contentWidth.clamp(minMarkerWidth, maxMarkerWidth);
+    
+    // 计算可用的文字宽度
+    final availableTextWidth = markerWidth - horizontalPadding - iconPainter.width - iconTextGap - horizontalPadding;
+    
+    // 判断是否需要截断
+    String displayText;
+    if (fullTextPainter.width > availableTextWidth) {
+      // 需要截断，留出 "..." 的空间
+      final maxTextWidth = availableTextWidth - ellipsisWidth;
+      // 逐字符测量找到合适的截断点
+      var truncatedText = '';
+      for (var i = 0; i < title.length; i++) {
+        final testText = title.substring(0, i + 1);
+        final testPainter = TextPainter(
+          text: TextSpan(
+            text: testText,
+            style: TextStyle(
+              color: labelColor,
+              fontSize: fontSize,
+              fontWeight: FontWeight.normal,
+              fontFamily: 'ReemKufi',
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        );
+        testPainter.layout();
+        if (testPainter.width > maxTextWidth) {
+          break;
+        }
+        truncatedText = testText;
+      }
+      displayText = '$truncatedText...';
+    } else {
+      displayText = title;
+    }
 
     // 绘制标记背景
     final bgPaint = Paint()
@@ -454,86 +541,100 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final borderPaint = Paint()
       ..color = isVisited ? AppTheme.markerLabelGray : AppTheme.black
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
+      ..strokeWidth = 1.5; // 稍微加粗边框让它更清晰
 
-    // 绘制阴影
+    // 清晰的阴影
     final shadowPaint = Paint()
       ..color = Colors.black.withOpacity(0.2)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+      ..style = PaintingStyle.fill;
 
-    final rrect = RRect.fromRectAndRadius(
-      const Rect.fromLTWH(offsetX + 5, 5, markerWidth, markerHeight),
-      const Radius.circular(AppTheme.radiusLarge),
-    );
+    // 创建气泡形状路径
+    final left = offsetX;
+    final top = offsetY;
+    final right = offsetX + markerWidth;
+    final bottom = offsetY + markerHeight;
+    final centerX = offsetX + markerWidth / 2;
+    final tipY = bottom + triangleHeight;
 
-    // 画阴影和背景
-    canvas.drawRRect(rrect, shadowPaint);
-    canvas.drawRRect(rrect, bgPaint);
-    canvas.drawRRect(rrect, borderPaint);
+    Path createBubblePath() {
+      final path = Path();
+      path.moveTo(left + cornerRadius, top);
+      path.lineTo(right - cornerRadius, top);
+      path.arcToPoint(
+        Offset(right, top + cornerRadius),
+        radius: const Radius.circular(cornerRadius),
+      );
+      path.lineTo(right, bottom - cornerRadius);
+      path.arcToPoint(
+        Offset(right - cornerRadius, bottom),
+        radius: const Radius.circular(cornerRadius),
+      );
+      path.lineTo(centerX + triangleWidth / 2, bottom);
+      path.lineTo(centerX, tipY);
+      path.lineTo(centerX - triangleWidth / 2, bottom);
+      path.lineTo(left + cornerRadius, bottom);
+      path.arcToPoint(
+        Offset(left, bottom - cornerRadius),
+        radius: const Radius.circular(cornerRadius),
+      );
+      path.lineTo(left, top + cornerRadius);
+      path.arcToPoint(
+        Offset(left + cornerRadius, top),
+        radius: const Radius.circular(cornerRadius),
+      );
+      path.close();
+      return path;
+    }
 
-    // 获取图标 Emoji - 已访问显示打勾，否则显示分类 emoji
-    final iconEmoji = isVisited ? '✓' : getCategoryEmoji(category);
+    final bubblePath = createBubblePath();
 
-    // 绘制 Emoji 图标
-    final iconPainter = TextPainter(
-      text: TextSpan(
-        text: iconEmoji,
-        style: TextStyle(
-          // Spec: visited/check-in border + text: #8D8D8D
-          color: labelColor,
-          fontSize: iconSize,
-          fontFamily: 'ReemKufi',
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    iconPainter.layout();
+    // 画阴影
+    canvas.save();
+    canvas.translate(1.5, 2);
+    canvas.drawPath(bubblePath, shadowPaint);
+    canvas.restore();
+
+    // 画背景和边框
+    canvas.drawPath(bubblePath, bgPaint);
+    canvas.drawPath(bubblePath, borderPaint);
+
+    // 计算垂直居中位置
+    const contentAreaTop = offsetY;
+    const contentAreaHeight = markerHeight;
+    final iconY = contentAreaTop + (contentAreaHeight - iconPainter.height) / 2;
+
+    // 绘制 emoji
     iconPainter.paint(
       canvas,
-      const Offset(
-        offsetX + 10 + iconPadding,
-        (markerHeight - iconSize) / 2 + 5,
-      ),
+      Offset(offsetX + horizontalPadding, iconY),
     );
 
-    // 绘制文字（留出图标空间）
+    // 绘制文字
     final textPainter = TextPainter(
       text: TextSpan(
-        text: title.length > 10 ? '${title.substring(0, 10)}...' : title,
+        text: displayText,
         style: TextStyle(
           color: labelColor,
-          fontSize: 17,
-          fontWeight: FontWeight.bold,
+          fontSize: fontSize,
+          fontWeight: FontWeight.normal,
           fontFamily: 'ReemKufi',
         ),
       ),
       textDirection: TextDirection.ltr,
       maxLines: 1,
     );
-
-    textPainter.layout(maxWidth: markerWidth - 50);
+    textPainter.layout();
+    final textY = contentAreaTop + (contentAreaHeight - textPainter.height) / 2;
     textPainter.paint(
       canvas,
-      Offset(
-        offsetX + 10 + iconPadding + iconSize + 8,
-        (markerHeight - textPainter.height) / 2 + 5,
-      ),
+      Offset(offsetX + horizontalPadding + iconPainter.width + iconTextGap, textY),
     );
 
-    // 画底部的小三角形（指向坐标点）
-    final trianglePath = Path();
-    const centerX = offsetX + markerWidth / 2;
-    trianglePath.moveTo(centerX, markerHeight + 5);
-    trianglePath.lineTo(centerX - 10, markerHeight + 5);
-    trianglePath.lineTo(centerX, markerHeight + 15);
-    trianglePath.lineTo(centerX + 10, markerHeight + 5);
-    trianglePath.close();
-    canvas.drawPath(trianglePath, bgPaint);
-    canvas.drawPath(trianglePath, borderPaint);
-
-    // 转换为图片
+    // 转换为图片（使用 2x 分辨率）
     final picture = pictureRecorder.endRecording();
-    final image = await picture.toImage(size, size);
+    final imageWidth = ((markerWidth + offsetX * 2) * scale).toInt();
+    final imageHeight = ((markerHeight + triangleHeight + offsetY * 2) * scale).toInt();
+    final image = await picture.toImage(imageWidth, imageHeight);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
     return byteData!.buffer.asUint8List();

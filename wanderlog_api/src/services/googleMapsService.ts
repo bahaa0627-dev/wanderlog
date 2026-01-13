@@ -131,6 +131,7 @@ class GoogleMapsService {
             // 'price_level', // 移除，省钱
             'types',
             'opening_hours',
+            'utc_offset',  // 用于计算地点当地时间
             'website',
             'formatted_phone_number',
             'photos',
@@ -181,11 +182,22 @@ class GoogleMapsService {
       // 获取封面图和其他图片
       const { coverImage, images } = await this.extractImages(place.photos || []);
 
-      // 简化营业时间：只保留 weekday_text 数组
-      // 格式: ["Monday: 9:00 AM – 5:00 PM", "Tuesday: 9:00 AM – 5:00 PM", ...]
-      let openingHoursSimplified: string[] | undefined;
-      if (place.opening_hours?.weekday_text && Array.isArray(place.opening_hours.weekday_text)) {
-        openingHoursSimplified = place.opening_hours.weekday_text;
+      // 保存完整的营业时间数据，包括 utc_offset_minutes 用于时区计算
+      // 格式: { weekday_text: [...], periods: [...], utc_offset_minutes: 540, open_now: true }
+      let openingHoursData: any = undefined;
+      if (place.opening_hours) {
+        openingHoursData = {
+          weekday_text: place.opening_hours.weekday_text,
+          periods: place.opening_hours.periods,
+          utc_offset_minutes: (place as any).utc_offset_minutes ?? (place as any).utc_offset,
+          open_now: place.opening_hours.open_now,
+        };
+        // 移除 undefined 字段
+        Object.keys(openingHoursData).forEach(key => {
+          if (openingHoursData[key] === undefined) {
+            delete openingHoursData[key];
+          }
+        });
       }
 
       return {
@@ -197,8 +209,8 @@ class GoogleMapsService {
         longitude: place.geometry?.location?.lng || 0,
         address: place.formatted_address,
         description: place.editorial_summary?.overview,
-        openingHours: openingHoursSimplified
-          ? JSON.stringify(openingHoursSimplified)
+        openingHours: openingHoursData
+          ? JSON.stringify(openingHoursData)
           : undefined,
         rating: place.rating,
         ratingCount: place.user_ratings_total,

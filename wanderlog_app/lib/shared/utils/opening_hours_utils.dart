@@ -11,7 +11,16 @@ import 'package:flutter/foundation.dart';
 ///   keep calculations in a "wall-clock UTC" space (DateTime.utc with place
 ///   local components) so device timezone doesn't affect results.
 class OpeningHoursUtils {
-  static OpeningHoursEvaluation? evaluate(Map<String, dynamic>? raw) {
+  /// Evaluate opening hours with optional location context for timezone fallback.
+  /// 
+  /// [raw] - The opening hours data from the API
+  /// [country] - Optional country name/code for timezone estimation
+  /// [longitude] - Optional longitude for timezone estimation
+  static OpeningHoursEvaluation? evaluate(
+    Map<String, dynamic>? raw, {
+    String? country,
+    double? longitude,
+  }) {
     if (raw == null) return null;
 
     final periods = _parsePeriods(raw['periods']);
@@ -21,7 +30,11 @@ class OpeningHoursUtils {
     final hasWeekdayText = weekdayText is List && weekdayText.isNotEmpty;
     if (!hasPeriods && !hasWeekdayText) return null;
 
-    final utcOffsetMinutes = _extractUtcOffset(raw);
+    // Try to get UTC offset from data, then fallback to country, then longitude
+    int? utcOffsetMinutes = _extractUtcOffset(raw);
+    utcOffsetMinutes ??= getUtcOffsetByCountry(country);
+    utcOffsetMinutes ??= estimateUtcOffsetFromLongitude(longitude);
+    
     final now = _nowWallClockUtc(utcOffsetMinutes);
 
     // 24/7: single period with open 00:00 and no close
@@ -99,19 +112,23 @@ class OpeningHoursUtils {
   static String _formatSummary(DateTime now, OpeningHoursComputation computed) {
     if (computed.isOpen && computed.closingTime != null) {
       final diff = computed.closingTime!.difference(now);
-      if (diff > Duration.zero && diff <= const Duration(hours: 2)) {
-        return 'Open, Closes ${_formatClosingCountdown(diff)}, ${_formatTime(computed.closingTime!)}';
+      if (diff > Duration.zero && diff < const Duration(hours: 1)) {
+        // 不足 1 小时
+        final mins = diff.inMinutes.clamp(1, 59);
+        return 'Open, ${mins}mins left, Closes ${_formatTime(computed.closingTime!)}';
+      }
+      if (diff >= const Duration(hours: 1) && diff <= const Duration(hours: 2)) {
+        // 1-2 小时
+        return 'Open, Closes within 2h, ${_formatTime(computed.closingTime!)}';
       }
       return 'Open, Closes ${_formatTime(computed.closingTime!)}';
     }
 
     if (!computed.isOpen && computed.nextOpeningTime != null) {
       final timeText = _formatTime(computed.nextOpeningTime!);
-      if (_isSameDay(computed.nextOpeningTime!, now) ||
-          _isTomorrow(computed.nextOpeningTime!, now)) {
-        return 'Closed, Open $timeText';
-      }
-      return 'Closed, Open ${_weekdayLabel(computed.nextOpeningTime!.weekday)} $timeText';
+      final dayLabel = _weekdayLabel(computed.nextOpeningTime!.weekday);
+      // 始终显示星期几
+      return 'Closed, Opens $timeText $dayLabel';
     }
 
     return computed.isOpen ? 'Open' : 'Closed';
@@ -247,7 +264,7 @@ class OpeningHoursUtils {
       return OpeningHoursEvaluation(
         now: now,
         isOpen: false,
-        summaryText: nextOpenText == null ? 'Closed' : 'Closed, Open $nextOpenText',
+        summaryText: nextOpenText == null ? 'Closed' : 'Closed, Opens $nextOpenText',
         closingTime: null,
         nextOpeningTime: null,
         isClosingSoon: false,
@@ -271,13 +288,29 @@ class OpeningHoursUtils {
 
       if (isOpenNow) {
         final closing = _format12hMinutes(parsed.closeMinutes);
+        final minsUntilClose = closeMinutes - currentMinutes;
+        String summaryText;
+        bool isClosingSoon = false;
+        
+        if (minsUntilClose < 60) {
+          // 不足 1 小时
+          summaryText = 'Open, ${minsUntilClose}mins left, Closes $closing';
+          isClosingSoon = true;
+        } else if (minsUntilClose <= 120) {
+          // 1-2 小时
+          summaryText = 'Open, Closes within 2h, $closing';
+          isClosingSoon = true;
+        } else {
+          summaryText = 'Open, Closes $closing';
+        }
+        
         return OpeningHoursEvaluation(
           now: now,
           isOpen: true,
-          summaryText: 'Open, Closes $closing',
+          summaryText: summaryText,
           closingTime: null,
           nextOpeningTime: null,
-          isClosingSoon: false,
+          isClosingSoon: isClosingSoon,
         );
       }
 
@@ -287,7 +320,7 @@ class OpeningHoursUtils {
         return OpeningHoursEvaluation(
           now: now,
           isOpen: false,
-          summaryText: 'Closed, Open $opening',
+          summaryText: 'Closed, Opens $opening',
           closingTime: null,
           nextOpeningTime: null,
           isClosingSoon: false,
@@ -304,7 +337,7 @@ class OpeningHoursUtils {
       return OpeningHoursEvaluation(
         now: now,
         isOpen: false,
-        summaryText: nextOpenText == null ? 'Closed' : 'Closed, Open $nextOpenText',
+        summaryText: nextOpenText == null ? 'Closed' : 'Closed, Opens $nextOpenText',
         closingTime: null,
         nextOpeningTime: null,
         isClosingSoon: false,
@@ -322,9 +355,12 @@ class OpeningHoursUtils {
     );
   }
 
-  static String? _findNextOpeningFromWeekdayText(List weekdayText, int currentIndex) {
+  static String? _findNextOpeningFromWeekdayText(List weekdayText, int startIndex) {
+    // weekday_text 顺序: Monday=0, Tuesday=1, ..., Sunday=6
+    const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    
     for (int offset = 0; offset < 7; offset++) {
-      final index = (currentIndex + offset) % weekdayText.length;
+      final index = (startIndex + offset) % weekdayText.length;
       final dayText = weekdayText[index]?.toString() ?? '';
       final colonIndex = dayText.indexOf(':');
       if (colonIndex != -1 && colonIndex < dayText.length - 1) {
@@ -336,7 +372,10 @@ class OpeningHoursUtils {
             caseSensitive: false,
           ).firstMatch(hours);
           if (openingMatch != null) {
-            return _formatTimeFromMatch(openingMatch);
+            final timeText = _formatTimeFromMatch(openingMatch);
+            final dayLabel = weekdayLabels[index];
+            // 始终返回 "时间 星期几" 格式
+            return '$timeText $dayLabel';
           }
         }
       }
@@ -354,8 +393,9 @@ class OpeningHoursUtils {
   }
 
   static _ParsedHoursRange? _parseSingleRangeHours(String hours) {
+    // Support both "–" (en-dash) and "to" as separators
     final match = RegExp(
-      r'(\d{1,2}):?(\d{2})?\s*(AM|PM)\s*–\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)',
+      r'(\d{1,2}):?(\d{2})?\s*(AM|PM)\s*(?:–|to)\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)',
       caseSensitive: false,
     ).firstMatch(hours);
     if (match == null) return null;
@@ -416,6 +456,102 @@ class OpeningHoursUtils {
     if (candidate is int) return candidate;
     if (candidate is String) return int.tryParse(candidate);
     return null;
+  }
+
+  /// 根据经度估算 UTC 偏移（分钟）
+  /// 这是一个粗略估算，每 15 度经度约等于 1 小时时差
+  /// 用于没有 utc_offset_minutes 数据时的回退方案
+  static int? estimateUtcOffsetFromLongitude(double? longitude) {
+    if (longitude == null) return null;
+    // 每 15 度经度 = 1 小时 = 60 分钟
+    // 四舍五入到最近的 30 分钟
+    final rawMinutes = (longitude / 15 * 60).round();
+    return (rawMinutes / 30).round() * 30;
+  }
+
+  /// 根据国家代码获取典型的 UTC 偏移（分钟）
+  /// 用于没有 utc_offset_minutes 数据时的回退方案
+  static int? getUtcOffsetByCountry(String? country) {
+    if (country == null || country.isEmpty) return null;
+    final c = country.toLowerCase();
+    // 常见国家的典型时区偏移
+    const countryOffsets = <String, int>{
+      'japan': 540,      // UTC+9
+      'jp': 540,
+      '日本': 540,
+      'china': 480,      // UTC+8
+      'cn': 480,
+      '中国': 480,
+      'south korea': 540, // UTC+9
+      'korea': 540,
+      'kr': 540,
+      '韩国': 540,
+      'taiwan': 480,     // UTC+8
+      'tw': 480,
+      '台湾': 480,
+      'singapore': 480,  // UTC+8
+      'sg': 480,
+      'hong kong': 480,  // UTC+8
+      'hk': 480,
+      'thailand': 420,   // UTC+7
+      'th': 420,
+      'vietnam': 420,    // UTC+7
+      'vn': 420,
+      'indonesia': 420,  // UTC+7 (WIB)
+      'id': 420,
+      'malaysia': 480,   // UTC+8
+      'my': 480,
+      'philippines': 480, // UTC+8
+      'ph': 480,
+      'australia': 600,  // UTC+10 (AEST)
+      'au': 600,
+      'new zealand': 720, // UTC+12
+      'nz': 720,
+      'india': 330,      // UTC+5:30
+      'in': 330,
+      'united states': -300, // UTC-5 (EST)
+      'usa': -300,
+      'us': -300,
+      'canada': -300,    // UTC-5 (EST)
+      'ca': -300,
+      'united kingdom': 0, // UTC+0
+      'uk': 0,
+      'gb': 0,
+      'france': 60,      // UTC+1
+      'fr': 60,
+      'germany': 60,     // UTC+1
+      'de': 60,
+      'italy': 60,       // UTC+1
+      'it': 60,
+      'spain': 60,       // UTC+1
+      'es': 60,
+      'netherlands': 60, // UTC+1
+      'nl': 60,
+      'belgium': 60,     // UTC+1
+      'be': 60,
+      'switzerland': 60, // UTC+1
+      'ch': 60,
+      'austria': 60,     // UTC+1
+      'at': 60,
+      'portugal': 0,     // UTC+0
+      'pt': 0,
+      'greece': 120,     // UTC+2
+      'gr': 120,
+      'turkey': 180,     // UTC+3
+      'tr': 180,
+      'russia': 180,     // UTC+3 (Moscow)
+      'ru': 180,
+      'uae': 240,        // UTC+4
+      'ae': 240,
+      'dubai': 240,
+      'brazil': -180,    // UTC-3
+      'br': -180,
+      'mexico': -360,    // UTC-6
+      'mx': -360,
+      'argentina': -180, // UTC-3
+      'ar': -180,
+    };
+    return countryOffsets[c];
   }
 
   static DateTime _nowWallClockUtc(int? offsetMinutes) {

@@ -10,11 +10,11 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' hide Spot;
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
+import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
-import 'package:wanderlog/features/map/presentation/widgets/tag_type_filter_bar.dart';
 
 /// MyLand 地点地图页面 - 展示 MustGo 或 Today's Plan 中的地点
 class MyLandSpotsMapPage extends ConsumerStatefulWidget {
@@ -24,6 +24,7 @@ class MyLandSpotsMapPage extends ConsumerStatefulWidget {
     required this.tabLabel,
     this.allCities = const [],
     this.allSpotsByCity = const {},
+    this.spotsByCountryCity = const {},
     this.onCityChanged,
     this.onDataChanged,
     this.visitedSpots,
@@ -35,6 +36,7 @@ class MyLandSpotsMapPage extends ConsumerStatefulWidget {
   final String tabLabel; // "MustGo" 或 "Today's Plan"
   final List<String> allCities; // 所有可选城市
   final Map<String, List<Spot>> allSpotsByCity; // 按城市分组的所有地点
+  final Map<String, Map<String, List<Spot>>> spotsByCountryCity; // 按国家->城市分组的所有地点
   final ValueChanged<String>? onCityChanged;
   final VoidCallback? onDataChanged; // Callback when spot status changes
   final Map<String, bool>? visitedSpots; // spotId -> isVisited
@@ -53,15 +55,45 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
   map_page.Spot? _selectedSpot;
   bool _skipNextRecenter = false;
   final Set<String> _selectedTags = {};
-  String? _selectedTagType; // 标签类型筛选
   late String _currentCity;
+  String? _currentCountry;
   late List<Spot> _currentSpots;
+  String _searchQuery = '';
+
+  // 需要过滤的无效标签（旧的 Google 分类等）
+  static const Set<String> _invalidTags = {
+    'point_of_interest',
+    'Point_of_interest',
+    'Point_Of_Interest',
+    'place_of_interest',
+    'tourist_attraction',
+    'establishment',
+    'premise',
+    'subpremise',
+    'route',
+    'street_address',
+    'political',
+    'locality',
+    'sublocality',
+    'neighborhood',
+    'administrative_area_level_1',
+    'administrative_area_level_2',
+    'country',
+    'postal_code',
+  };
+
+  /// 检查是否为无效标签
+  static bool _isInvalidTag(String tag) {
+    final lowerTag = tag.toLowerCase().replaceAll(' ', '_');
+    return _invalidTags.any((invalid) => invalid.toLowerCase() == lowerTag);
+  }
 
   @override
   void initState() {
     super.initState();
     _currentCity = widget.cityName;
     _currentSpots = widget.spots;
+    _initCurrentCountry();
     _convertSpots();
     _cardPageController.addListener(_onCardPageChanged);
     
@@ -77,6 +109,21 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
           );
         }
       });
+    }
+  }
+  
+  /// 初始化当前国家（从地点数据中获取）
+  void _initCurrentCountry() {
+    // 从 spotsByCountryCity 中找到当前城市所属的国家
+    for (final entry in widget.spotsByCountryCity.entries) {
+      if (entry.value.containsKey(_currentCity)) {
+        _currentCountry = entry.key;
+        return;
+      }
+    }
+    // 如果没找到，尝试从当前地点中获取
+    if (_currentSpots.isNotEmpty) {
+      _currentCountry = _currentSpots.first.country;
     }
   }
 
@@ -96,57 +143,148 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     }
   }
 
-  /// 获取所有地点的分类和 tags 的并集
-  List<String> _getAllUniqueTags() {
-    final Set<String> tagSet = {};
-    for (final spot in _currentSpots) {
-      // 添加分类
-      final category = spot.category?.trim() ?? '';
-      if (category.isNotEmpty) {
-        tagSet.add(category);
+  /// 首字母大写
+  String _capitalizeTag(String tag) {
+    if (tag.isEmpty) return tag;
+    return tag[0].toUpperCase() + tag.substring(1).toLowerCase();
+  }
+
+  /// 从 aiTag 元素中提取标签字符串
+  String _extractTagString(dynamic aiTag) {
+    if (aiTag == null) return '';
+    if (aiTag is String) return aiTag.trim();
+    if (aiTag is Map) {
+      final en = aiTag['en'];
+      if (en != null && en is String && en.trim().isNotEmpty) {
+        return en.trim();
       }
-      // 添加 tags
-      for (final tag in spot.tags) {
-        final normalized = tag.trim();
-        if (normalized.isNotEmpty) {
-          tagSet.add(normalized);
+      final zh = aiTag['zh'];
+      if (zh != null && zh is String && zh.trim().isNotEmpty) {
+        return zh.trim();
+      }
+    }
+    return '';
+  }
+
+  /// 获取所有地点的标签（统计出现次数，按从多到少排序）
+  /// 复用 spots_tab.dart 的逻辑
+  List<String> _getAllUniqueTags() {
+    final tagCounts = <String, int>{};
+    
+    for (final spot in _currentSpots) {
+      // 优先使用 displayTagsEn（后端已处理好的展示标签，包含 category）
+      final displayTags = spot.displayTagsEn;
+      if (displayTags != null && displayTags.isNotEmpty) {
+        for (final tag in displayTags) {
+          final normalizedTag = tag.trim();
+          if (normalizedTag.isNotEmpty && !_isInvalidTag(normalizedTag)) {
+            final capitalizedTag = _capitalizeTag(normalizedTag);
+            tagCounts[capitalizedTag] = (tagCounts[capitalizedTag] ?? 0) + 1;
+          }
+        }
+      } else {
+        // 回退：统计 category
+        final category = spot.category?.trim() ?? '';
+        if (category.isNotEmpty && !_isInvalidTag(category)) {
+          final normalizedCategory = _capitalizeTag(category);
+          tagCounts[normalizedCategory] = (tagCounts[normalizedCategory] ?? 0) + 1;
+        }
+        
+        // 回退：统计 tags
+        for (final tag in spot.tags) {
+          final normalizedTag = tag.trim();
+          if (normalizedTag.isNotEmpty && !_isInvalidTag(normalizedTag)) {
+            final capitalizedTag = _capitalizeTag(normalizedTag);
+            tagCounts[capitalizedTag] = (tagCounts[capitalizedTag] ?? 0) + 1;
+          }
+        }
+        
+        // 回退：统计 aiTags
+        final aiTags = spot.aiTags;
+        if (aiTags != null) {
+          for (final aiTag in aiTags) {
+            final tagStr = _extractTagString(aiTag);
+            if (tagStr.isNotEmpty && !_isInvalidTag(tagStr)) {
+              final normalizedAiTag = _capitalizeTag(tagStr);
+              tagCounts[normalizedAiTag] = (tagCounts[normalizedAiTag] ?? 0) + 1;
+            }
+          }
         }
       }
     }
-    return tagSet.toList();
+    
+    // 按出现次数从多到少排序，最多取 8 个
+    final sortedTags = tagCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    return sortedTags.take(8).map((e) => e.key).toList();
   }
 
-  /// 根据选中的标签筛选地点
+  /// 根据选中的标签和搜索词筛选地点
   List<map_page.Spot> get _filteredSpots {
-    if (_selectedTags.isEmpty) {
-      return _mapSpots;
+    var spots = _mapSpots.toList();
+    
+    // 按标签筛选 - 检查 tags 列表（大小写不敏感）
+    if (_selectedTags.isNotEmpty) {
+      spots = spots.where((spot) {
+        final spotTags = spot.tags.map((t) => t.toLowerCase()).toSet();
+        return _selectedTags.any((tag) => spotTags.contains(tag.toLowerCase()));
+      }).toList();
     }
-    return _mapSpots.where((spot) {
-      final spotTags = spot.tags.map((t) => t.toLowerCase()).toSet();
-      final categoryLower = spot.category.toLowerCase();
-      return _selectedTags.any((tag) =>
-          spotTags.contains(tag.toLowerCase()) ||
-          categoryLower == tag.toLowerCase(),);
-    }).toList();
+    
+    // 按搜索词筛选
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      spots = spots.where((spot) {
+        return spot.name.toLowerCase().contains(query) ||
+            spot.city.toLowerCase().contains(query) ||
+            spot.category.toLowerCase().contains(query) ||
+            spot.tags.any((t) => t.toLowerCase().contains(query));
+      }).toList();
+    }
+    
+    return spots;
   }
 
   map_page.Spot _convertSpot(Spot spot) {
     final List<String> imageList = spot.images;
     final String coverImg = imageList.isNotEmpty ? imageList.first : '';
-    final List<String> tagList = spot.tags
-        .map((e) => e.toString().trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    final String category = (spot.category ?? 'place').trim();
-    if (category.isNotEmpty && !tagList.contains(category)) {
-      tagList.add(category);
+    
+    // 优先使用 displayTagsEn，过滤无效标签，首字母大写（与 _getAllUniqueTags 保持一致）
+    final List<String> tagList = [];
+    final displayTags = spot.displayTagsEn;
+    if (displayTags != null && displayTags.isNotEmpty) {
+      for (final tag in displayTags) {
+        final normalized = tag.trim();
+        if (normalized.isNotEmpty && !_isInvalidTag(normalized)) {
+          tagList.add(_capitalizeTag(normalized));
+        }
+      }
+    } else {
+      // 回退：使用 tags
+      for (final tag in spot.tags) {
+        final normalized = tag.trim();
+        if (normalized.isNotEmpty && !_isInvalidTag(normalized)) {
+          tagList.add(_capitalizeTag(normalized));
+        }
+      }
+      // 回退：添加 category
+      final String category = (spot.category ?? '').trim();
+      if (category.isNotEmpty && !_isInvalidTag(category)) {
+        final capitalizedCategory = _capitalizeTag(category);
+        if (!tagList.contains(capitalizedCategory)) {
+          tagList.add(capitalizedCategory);
+        }
+      }
     }
+    
+    final String category = (spot.category ?? 'place').trim();
 
     return map_page.Spot(
       id: spot.id,
       name: spot.name,
       city: spot.city ?? 'Unknown',
-      category: category.isNotEmpty ? category : 'place',
+      category: category.isNotEmpty && !_isInvalidTag(category) ? category : 'place',
       latitude: spot.latitude,
       longitude: spot.longitude,
       rating: spot.rating ?? 0.0,
@@ -155,6 +293,11 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
       images: imageList,
       tags: tagList,
       aiSummary: null,
+      // 详情页需要的额外字段
+      address: spot.address,
+      phoneNumber: spot.phoneNumber,
+      website: spot.website,
+      openingHours: spot.openingHours,
     );
   }
 
@@ -350,6 +493,15 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
   void _showCityPicker() {
     if (widget.allCities.isEmpty) return;
     
+    // 获取带统计信息的国家城市数据
+    final statsNotifier = ref.read(countriesCitiesStatsProvider.notifier);
+    final statsState = ref.read(countriesCitiesStatsProvider);
+    
+    // 如果数据还没加载，先加载
+    if (!statsState.hasData && !statsState.isLoading) {
+      statsNotifier.load();
+    }
+    
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -357,40 +509,16 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.8,
-        expand: false,
-        builder: (context, scrollController) => Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Select City', style: AppTheme.headlineMedium(context)),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.builder(
-                  controller: scrollController,
-                  itemCount: widget.allCities.length,
-                  itemBuilder: (context, index) {
-                    final city = widget.allCities[index];
-                    return ListTile(
-                      title: Text(city, style: AppTheme.bodyLarge(context)),
-                      trailing: city == _currentCity
-                          ? const Icon(Icons.check, color: AppTheme.primaryYellow)
-                          : null,
-                      onTap: () {
-                        Navigator.pop(context);
-                        _switchCity(city);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
+      builder: (sheetContext) => _CountryCityPickerSheet(
+        selectedCity: _currentCity,
+        allCities: widget.allCities,
+        onCitySelected: (city, country) {
+          Navigator.pop(sheetContext);
+          setState(() {
+            _currentCountry = country;
+          });
+          _switchCity(city);
+        },
       ),
     );
   }
@@ -492,7 +620,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
             ),
           ),
 
-          // 顶部导航栏 + 标签类型筛选 + 标签
+          // 顶部导航栏 + 标签
           Positioned(
             top: 0,
             left: 0,
@@ -502,15 +630,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
               children: [
                 _buildAppBar(context),
                 if (allTags.isNotEmpty) ...[
-                  TagTypeFilterBar(
-                    selectedType: _selectedTagType,
-                    onTypeChanged: (type) {
-                      setState(() {
-                        _selectedTagType = type;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 10),
                   _buildTagBar(allTags),
                 ],
               ],
@@ -605,104 +725,50 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     final paddingTop = MediaQuery.of(context).padding.top;
     return Container(
       padding: EdgeInsets.only(
-        top: paddingTop + 10,
+        top: paddingTop + 12,
         left: 16,
         right: 16,
         bottom: 10,
       ),
       child: Row(
         children: [
-          // 城市筛选器（可点击切换城市）
+          // 城市筛选器（可点击切换城市）- 与 map_page_new 保持一致
           GestureDetector(
             onTap: widget.allCities.isNotEmpty ? _showCityPicker : null,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: AppTheme.white,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                border: Border.all(
-                  color: AppTheme.black,
-                  width: AppTheme.borderMedium,
-                ),
+                border: Border.all(color: AppTheme.black, width: 1),
+                boxShadow: AppTheme.searchBoxShadow,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     _currentCity,
-                    style: AppTheme.labelLarge(context).copyWith(
+                    style: AppTheme.bodySmall(context).copyWith(
                       color: AppTheme.black,
                     ),
                   ),
                   if (widget.allCities.isNotEmpty) ...[
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 20,
-                      color: AppTheme.black,
-                    ),
+                    const SizedBox(width: 2),
+                    const Icon(Icons.keyboard_arrow_down, size: 16),
                   ],
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          // 中间搜索框
-          Expanded(
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                border: Border.all(
-                  color: AppTheme.black,
-                  width: AppTheme.borderMedium,
-                ),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 12),
-                  const Icon(
-                    Icons.search,
-                    size: 20,
-                    color: AppTheme.mediumGray,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      style: AppTheme.bodyMedium(context),
-                      decoration: InputDecoration(
-                        hintText: 'Find your...',
-                        hintStyle: AppTheme.bodySmall(context).copyWith(
-                          color: AppTheme.mediumGray,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.photo_camera,
-                      size: 20,
-                      color: AppTheme.mediumGray,
-                    ),
-                    onPressed: () {
-                      // TODO: 图片搜索功能
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // 缩小按钮（返回）
+          const SizedBox(width: 8),
+          // 搜索框
+          Expanded(child: _buildSearchBar(context)),
+          const SizedBox(width: 8),
+          // 缩小按钮（返回）- 与 map_page_new 保持一致
           IconButtonCustom(
             icon: Icons.fullscreen_exit,
+            size: 36,
             onPressed: () => Navigator.of(context).pop(),
             backgroundColor: Colors.white,
           ),
@@ -711,64 +777,113 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     );
   }
 
+  Widget _buildSearchBar(BuildContext context) => Container(
+        height: 36,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(color: AppTheme.black, width: 1),
+          boxShadow: AppTheme.searchBoxShadow,
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 12),
+            const Icon(
+              Icons.search,
+              size: 18,
+              color: AppTheme.mediumGray,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                style: AppTheme.bodySmall(context).copyWith(
+                  color: AppTheme.black,
+                ),
+                textInputAction: TextInputAction.search,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.trim();
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search spots',
+                  hintStyle: AppTheme.bodySmall(context).copyWith(
+                    color: AppTheme.mediumGray,
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+            if (_searchController.text.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _searchController.clear();
+                    _searchQuery = '';
+                  });
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: AppTheme.mediumGray,
+                  ),
+                ),
+              )
+            else
+              const SizedBox(width: 12),
+          ],
+        ),
+      );
+
   Widget _buildTagBar(List<String> tags) {
-    // 根据选中的标签类型筛选标签
-    final filteredTags = TagTypeFilterBar.filterTagsByType(tags, _selectedTagType);
-    
-    if (filteredTags.isEmpty) {
+    if (tags.isEmpty) {
       return const SizedBox.shrink();
     }
     
-    return Container(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: SizedBox(
-        height: 42,
-        child: ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          scrollDirection: Axis.horizontal,
-          itemCount: filteredTags.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (context, index) {
-            final tag = filteredTags[index];
-            final isSelected = _selectedTags.contains(tag);
-            final emoji = _tagEmoji(tag);
-            
-            // 获取显示名称（去掉前缀）
-            final displayName = TagTypeFilterBar.getTagDisplayName(tag);
-            
-            return GestureDetector(
-              onTap: () => _toggleTag(tag),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.primaryYellow : Colors.white,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  border: Border.all(
-                    color: AppTheme.black,
-                    width: AppTheme.borderMedium,
-                  ),
-                  boxShadow: isSelected ? AppTheme.cardShadow : null,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(emoji, style: const TextStyle(fontSize: 16)),
-                    const SizedBox(width: 6),
-                    Text(
-                      displayName,
-                      style: AppTheme.labelMedium(context).copyWith(
-                        color: AppTheme.black,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 4),
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        itemCount: tags.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final tag = tags[index];
+          final isSelected = _selectedTags.contains(tag);
+          final emoji = _tagEmoji(tag);
+          
+          return GestureDetector(
+            onTap: () => _toggleTag(tag),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primaryYellow : Colors.white,
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                border: Border.all(color: AppTheme.black, width: 1),
+                boxShadow: AppTheme.searchBoxShadow,
               ),
-            );
-          },
-        ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 13)),
+                  const SizedBox(width: 4),
+                  Text(
+                    tag,
+                    style: AppTheme.labelSmall(context).copyWith(
+                      color: AppTheme.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1028,6 +1143,235 @@ class _RatingRow extends StatelessWidget {
             ),
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// 国家城市选择器底部弹窗（使用带统计信息的数据）
+class _CountryCityPickerSheet extends ConsumerStatefulWidget {
+  const _CountryCityPickerSheet({
+    required this.selectedCity,
+    required this.allCities,
+    required this.onCitySelected,
+  });
+
+  final String selectedCity;
+  final List<String> allCities;
+  final void Function(String city, String? country) onCitySelected;
+
+  @override
+  ConsumerState<_CountryCityPickerSheet> createState() => _CountryCityPickerSheetState();
+}
+
+class _CountryCityPickerSheetState extends ConsumerState<_CountryCityPickerSheet> {
+  String? _selectedCountry;
+  
+  @override
+  void initState() {
+    super.initState();
+    // 确保数据已加载
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final statsState = ref.read(countriesCitiesStatsProvider);
+      if (!statsState.hasData && !statsState.isLoading) {
+        ref.read(countriesCitiesStatsProvider.notifier).load();
+      }
+      // 根据当前选中的城市找到对应的国家
+      _updateSelectedCountry();
+    });
+  }
+  
+  void _updateSelectedCountry() {
+    final statsState = ref.read(countriesCitiesStatsProvider);
+    if (statsState.hasData) {
+      final country = _findCountryForCity(widget.selectedCity, statsState);
+      if (country != null && country != _selectedCountry) {
+        setState(() {
+          _selectedCountry = country;
+        });
+      }
+    }
+  }
+  
+  String? _findCountryForCity(String city, CountriesCitiesStatsState statsState) {
+    // 跳过 "All" 选项
+    if (city == 'All') {
+      return statsState.countries.isNotEmpty 
+          ? statsState.countries.first.name 
+          : null;
+    }
+    for (final country in statsState.countries) {
+      if (country.cities.any((c) => c.name == city)) {
+        return country.name;
+      }
+    }
+    return statsState.countries.isNotEmpty 
+        ? statsState.countries.first.name 
+        : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statsState = ref.watch(countriesCitiesStatsProvider);
+    
+    // 如果选中的国家还没设置，尝试设置
+    if (_selectedCountry == null && statsState.hasData) {
+      _selectedCountry = _findCountryForCity(widget.selectedCity, statsState);
+    }
+    
+    return DraggableScrollableSheet(
+      initialChildSize: 0.5,
+      minChildSize: 0.3,
+      maxChildSize: 0.8,
+      expand: false,
+      builder: (context, scrollController) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Select City', style: AppTheme.headlineMedium(context)),
+            const SizedBox(height: 16),
+            Expanded(
+              child: statsState.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : statsState.hasData
+                      ? _buildCountryCityColumns(scrollController, statsState)
+                      : _buildSimpleCityList(scrollController),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  /// 简单城市列表（没有国家数据时使用）
+  Widget _buildSimpleCityList(ScrollController scrollController) => ListView.builder(
+      controller: scrollController,
+      itemCount: widget.allCities.length,
+      itemBuilder: (context, index) {
+        final city = widget.allCities[index];
+        final isSelected = city == widget.selectedCity;
+        return GestureDetector(
+          onTap: () => widget.onCitySelected(city, null),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            color: isSelected ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    city,
+                    style: AppTheme.bodyMedium(context).copyWith(
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isSelected)
+                  const Icon(Icons.check, size: 18, color: AppTheme.primaryYellow),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  
+  /// 国家城市两列选择
+  Widget _buildCountryCityColumns(ScrollController scrollController, CountriesCitiesStatsState statsState) {
+    final countries = statsState.countries;
+    // 只显示用户收藏的城市（在 allCities 中的城市）
+    final userCities = widget.allCities.where((c) => c != 'All').toSet();
+    final citiesForCountry = _selectedCountry != null 
+        ? statsState.getCities(_selectedCountry!)
+            .where((c) => userCities.contains(c.name))
+            .toList()
+        : <CityStats>[];
+    
+    // 过滤只显示有用户收藏城市的国家
+    final countriesWithUserCities = countries.where((country) {
+      return country.cities.any((c) => userCities.contains(c.name));
+    }).toList();
+    
+    return Row(
+      children: [
+        // 左侧国家列表
+        Expanded(
+          flex: 2,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                right: BorderSide(color: AppTheme.border, width: 1),
+              ),
+            ),
+            child: ListView.builder(
+              itemCount: countriesWithUserCities.length,
+              itemBuilder: (context, index) {
+                final country = countriesWithUserCities[index];
+                final isSelected = country.name == _selectedCountry;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedCountry = country.name;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    color: isSelected ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            country.name,
+                            style: AppTheme.bodyMedium(context).copyWith(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(Icons.chevron_right, size: 18, color: AppTheme.mediumGray),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        // 右侧城市列表
+        Expanded(
+          flex: 3,
+          child: ListView.builder(
+            controller: scrollController,
+            itemCount: citiesForCountry.length,
+            itemBuilder: (context, index) {
+              final city = citiesForCountry[index];
+              final isSelected = city.name == widget.selectedCity;
+              return GestureDetector(
+                onTap: () => widget.onCitySelected(city.name, _selectedCountry),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  color: isSelected ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          city.name,
+                          style: AppTheme.bodyMedium(context).copyWith(
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isSelected)
+                        const Icon(Icons.check, size: 18, color: AppTheme.primaryYellow),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ],
     );
   }

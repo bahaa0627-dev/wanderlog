@@ -62,8 +62,13 @@ class SpotListItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final spot = tripSpot.spot;
     if (spot == null) return const SizedBox.shrink();
-    final openingEval =
-        showOpeningHours ? OpeningHoursUtils.evaluate(spot.openingHours) : null;
+    final openingEval = showOpeningHours
+        ? OpeningHoursUtils.evaluate(
+            spot.openingHours,
+            country: spot.country,
+            longitude: spot.longitude,
+          )
+        : null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),

@@ -991,6 +991,10 @@ class PublicPlaceService {
   async searchPlaces(query: string, city?: string, country?: string) {
     const normalizedQuery = query.toLowerCase().trim();
     
+    // 扩展搜索词：添加同义词
+    const expandedQueries = this.expandTagsWithSynonyms([normalizedQuery]);
+    console.log(`🔍 [searchPlaces] Query: "${query}" -> expanded: ${expandedQueries.join(', ')}`);
+    
     // 构建基础条件
     const baseConditions: any[] = [];
     
@@ -1004,18 +1008,31 @@ class PublicPlaceService {
       baseConditions.push({ country: { equals: country, mode: 'insensitive' } });
     }
     
-    // 搜索条件：名称、分类、标签模糊匹配
-    const searchConditions = [
-      { name: { contains: normalizedQuery, mode: 'insensitive' } },
-      { category: { contains: normalizedQuery, mode: 'insensitive' } },
-      { categoryEn: { contains: normalizedQuery, mode: 'insensitive' } },
-    ];
+    // 搜索条件：名称、分类、categorySlug 模糊匹配（支持多个同义词）
+    const searchConditions: any[] = [];
+    for (const q of expandedQueries) {
+      searchConditions.push(
+        { name: { contains: q, mode: 'insensitive' } },
+        { category: { contains: q, mode: 'insensitive' } },
+        { categoryEn: { contains: q, mode: 'insensitive' } },
+        { categorySlug: { contains: q, mode: 'insensitive' } },
+      );
+    }
     
-    return await prisma.place.findMany({
+    const places = await prisma.place.findMany({
       where: {
         AND: [
           ...baseConditions,
-          { OR: searchConditions }
+          { OR: searchConditions },
+          // 只返回有我们托管的有效图片的地点
+          { coverImage: { not: null } },
+          { NOT: { coverImage: '' } },
+          {
+            OR: [
+              { coverImage: { contains: 'img.vago.to' } },
+              { coverImage: { contains: 'wanderlog-images' } },
+            ]
+          },
         ]
       },
       take: 50,
@@ -1024,32 +1041,58 @@ class PublicPlaceService {
         { rating: 'desc' }
       ]
     });
+    
+    console.log(`🔍 [searchPlaces] Found ${places.length} places`);
+    return places;
   }
 
   /**
    * 获取城市列表（去重，用于添加 trip）
+   * 只返回有 10 个以上地点且有封面图的城市
    */
   async getCities(query?: string) {
     /**
      * 需要兼容无空格输入（如 "ChiangMai"）匹配含空格城市（如 "Chiang Mai"）。
-     * 先取较大的 distinct 列表，再在内存里做“去空格/连字符”匹配。
+     * 先统计每个城市的地点数量，过滤出有 10 个以上地点且有封面图的城市。
      */
-    // 注意：当前城市数据存储在 Place 表，而非 publicPlace
-    const places = await prisma.place.findMany({
+    
+    // 统计每个城市的地点数量
+    const cityStats = await prisma.place.groupBy({
+      by: ['city'],
+      _count: { id: true },
+      where: {
+        city: { not: null },
+      },
+      having: {
+        id: { _count: { gte: 10 } }
+      },
+      orderBy: { city: 'asc' },
+    });
+
+    // 获取有封面图的城市列表
+    const citiesWithCover = await prisma.place.findMany({
       select: { city: true },
       distinct: ['city'],
-      orderBy: { city: 'asc' },
-      // 移除 take 限制，返回所有城市
+      where: {
+        city: { not: null },
+        coverImage: { not: null },
+      },
     });
+    const citiesWithCoverSet = new Set(citiesWithCover.map(p => p.city));
 
     const normalize = (value: string) =>
       value
         .toLowerCase()
         .replace(/[\s-]+/g, ''); // 去掉空格/连字符，便于宽松匹配
 
-    const cities = places
-      .map(p => p.city)
-      .filter((city): city is string => city !== null && city.trim() !== '');
+    // 过滤：地点数 >= 10 且有封面图
+    const cities = cityStats
+      .map(stat => stat.city)
+      .filter((city): city is string => 
+        city !== null && 
+        city.trim() !== '' && 
+        citiesWithCoverSet.has(city)
+      );
 
     if (!query || !query.trim()) {
       return cities;

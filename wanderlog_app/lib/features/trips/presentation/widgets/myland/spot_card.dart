@@ -20,20 +20,50 @@ class SpotCard extends StatelessWidget {
   final VoidCallback onToggleMustGo;
   final VoidCallback? onTap;
 
+  // 需要过滤的无效标签（旧的 Google 分类等）
+  static const Set<String> _invalidTags = {
+    'point_of_interest',
+    'Point_of_interest',
+    'Point_Of_Interest',
+    'place_of_interest',
+    'tourist_attraction',
+    'establishment',
+    'premise',
+    'subpremise',
+    'route',
+    'street_address',
+    'political',
+    'locality',
+    'sublocality',
+    'neighborhood',
+    'administrative_area_level_1',
+    'administrative_area_level_2',
+    'country',
+    'postal_code',
+  };
+
+  /// 检查是否为无效标签
+  static bool _isInvalidTag(String tag) {
+    final lowerTag = tag.toLowerCase().replaceAll(' ', '_');
+    return _invalidTags.any((invalid) => invalid.toLowerCase() == lowerTag);
+  }
+
   @override
   Widget build(BuildContext context) {
-    // For Japan, force local time to Asia/Tokyo
-    final openingEval = (spot.country == 'JP')
-      ? OpeningHoursUtils.evaluateWithTimezone(spot.openingHours, 'Asia/Tokyo')
-      : OpeningHoursUtils.evaluate(spot.openingHours);
+    // Use country and longitude for timezone fallback
+    final openingEval = OpeningHoursUtils.evaluate(
+      spot.openingHours,
+      country: spot.country,
+      longitude: spot.longitude,
+    );
     final String? openingText = openingEval?.summaryText;
     final bool isClosingSoon = openingEval?.isClosingSoon ?? false;
-    final String? priceText = _priceInfoText();
-    final String? tagsLine = _tagsLine();
+    final List<String>? tagsLine = _tagsList();
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        height: 180, // Fixed card height
         decoration: BoxDecoration(
           color: AppTheme.white,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -43,123 +73,129 @@ class SpotCard extends StatelessWidget {
           ),
           boxShadow: AppTheme.cardShadow,
         ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildCoverImage(),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  spot.name,
-                                  style: AppTheme.bodyLarge(context).copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Image fills full height
+            ClipRRect(
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(AppTheme.radiusMedium - 2),
+              ),
+              child: SizedBox(
+                width: 110,
+                child: spot.images.isNotEmpty
+                    ? _buildImageWidget(spot.images.first)
+                    : _buildPlaceholder(),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Top section: name, rating, opening hours
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                spot.name,
+                                style: AppTheme.bodyLarge(context).copyWith(
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                if (spot.rating != null) ...[
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.star,
-                                        size: 16,
-                                        color: AppTheme.primaryYellow,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        spot.rating!.toStringAsFixed(1),
-                                        style: AppTheme.labelMedium(context)
-                                            .copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '(1.2k)', // TODO: 从数据源获取评分人数
-                                        style: AppTheme.labelSmall(context)
-                                            .copyWith(
-                                          color: AppTheme.black
-                                              .withOpacity(0.6),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
+                            const SizedBox(width: 8),
+                            _buildFavoriteButton(),
+                          ],
+                        ),
+                        // Rating: number + stars + count
+                        if (spot.rating != null) ...[
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Text(
+                                spot.rating!.toStringAsFixed(1),
+                                style: AppTheme.labelLarge(context).copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              ..._buildStarRating(spot.rating!),
+                              const SizedBox(width: 4),
+                              Text(
+                                spot.ratingCount != null ? '(${spot.ratingCount})' : '',
+                                style: AppTheme.labelSmall(context).copyWith(
+                                  color: AppTheme.black.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          _buildFavoriteButton(),
                         ],
+                        if (openingText != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              '🕒 $openingText',
+                              style: AppTheme.labelSmall(context).copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isClosingSoon 
+                                    ? const Color(0xFFE53E3E)
+                                    : AppTheme.black,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    // Bottom section: Tags (no scroll, show what fits)
+                    if (tagsLine != null && tagsLine.isNotEmpty)
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          return _buildFittingTags(context, tagsLine, constraints.maxWidth);
+                        },
                       ),
-                      if (openingText != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            '🕒 $openingText',
-                            style: AppTheme.labelSmall(context).copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: isClosingSoon 
-                                  ? const Color(0xFFE53E3E) // 红色警示
-                                  : AppTheme.black,
-                            ),
-                          ),
-                        ),
-                      if (priceText != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            '🎫 $priceText',
-                            style: AppTheme.labelSmall(context).copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.black,
-                            ),
-                          ),
-                        ),
-                      if (tagsLine != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            tagsLine,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTheme.labelSmall(context).copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  List<Widget> _buildStarRating(double rating) {
+    final List<Widget> stars = [];
+    final int fullStars = rating.floor();
+    final bool hasHalfStar = (rating - fullStars) >= 0.5;
+    
+    for (int i = 0; i < 5; i++) {
+      if (i < fullStars) {
+        stars.add(const Icon(Icons.star, size: 14, color: AppTheme.primaryYellow));
+      } else if (i == fullStars && hasHalfStar) {
+        stars.add(const Icon(Icons.star_half, size: 14, color: AppTheme.primaryYellow));
+      } else {
+        stars.add(Icon(Icons.star_outline, size: 14, color: AppTheme.primaryYellow.withOpacity(0.5)));
+      }
+    }
+    return stars;
+  }
+
   Widget _buildCoverImage() => SizedBox(
-      width: 130,
+      width: 110,
       child: ClipRRect(
         borderRadius: const BorderRadius.horizontal(
           left: Radius.circular(AppTheme.radiusMedium - 2),
         ),
         child: AspectRatio(
-          aspectRatio: 3 / 4,
+          aspectRatio: 4 / 5,
           child: spot.images.isNotEmpty
               ? _buildImageWidget(spot.images.first)
               : _buildPlaceholder(),
@@ -623,14 +659,117 @@ class SpotCard extends StatelessWidget {
     return '\$${price * 10}';
   }
 
-  /// Combine category (if present) and tags into a single tag line
-  String? _tagsLine() {
+  String _formatRatingCount(int count) {
+    if (count >= 1000) {
+      final k = count / 1000;
+      return '${k.toStringAsFixed(k.truncateToDouble() == k ? 0 : 1)}k';
+    }
+    return count.toString();
+  }
+
+  Widget _buildTagChips(BuildContext context, List<String> tags) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: tags.map((tag) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2F2F2),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
+        ),
+        child: Text(
+          tag,
+          style: AppTheme.labelSmall(context).copyWith(
+            color: AppTheme.black.withOpacity(0.48),
+          ),
+        ),
+      )).toList(),
+    );
+  }
+
+  /// Build tags that fit within available width, no scrolling
+  Widget _buildFittingTags(BuildContext context, List<String> tags, double maxWidth) {
+    final List<Widget> fittingTags = [];
+    double usedWidth = 0;
+    const double spacing = 6;
+    const double horizontalPadding = 8 * 2; // padding inside each tag
+    const double borderWidth = 2; // border on both sides
+    
+    // Measure and add tags that fit
+    for (int i = 0; i < tags.length && fittingTags.length < 3; i++) {
+      final tag = tags[i];
+      // Estimate tag width: text width + padding + border
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: tag,
+          style: AppTheme.labelSmall(context).copyWith(
+            color: AppTheme.black.withOpacity(0.48),
+          ),
+        ),
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      
+      final tagWidth = textPainter.width + horizontalPadding + borderWidth;
+      final neededWidth = usedWidth + tagWidth + (fittingTags.isNotEmpty ? spacing : 0);
+      
+      if (neededWidth <= maxWidth) {
+        fittingTags.add(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2F2F2),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
+            ),
+            child: Text(
+              tag,
+              style: AppTheme.labelSmall(context).copyWith(
+                color: AppTheme.black.withOpacity(0.48),
+              ),
+            ),
+          ),
+        );
+        usedWidth = neededWidth;
+      }
+    }
+    
+    if (fittingTags.isEmpty) return const SizedBox.shrink();
+    
+    return Row(
+      children: fittingTags.map((widget) => Padding(
+        padding: EdgeInsets.only(right: widget == fittingTags.last ? 0 : spacing),
+        child: widget,
+      )).toList(),
+    );
+  }
+
+  /// Combine category (if present) and tags into a single tag list
+  List<String>? _tagsList() {
     final List<String> allTags = [];
     final Set<String> seen = {};
     
-    // Add category first if available
+    // 优先使用 displayTagsEn
+    final displayTags = spot.displayTagsEn;
+    if (displayTags != null && displayTags.isNotEmpty) {
+      for (final tag in displayTags) {
+        if (allTags.length >= 3) break;
+        final trimmedTag = tag.trim();
+        if (trimmedTag.isEmpty || _isInvalidTag(trimmedTag)) continue;
+        final key = trimmedTag.toLowerCase();
+        if (seen.add(key)) {
+          allTags.add(trimmedTag);
+        }
+      }
+      if (allTags.isNotEmpty) {
+        return allTags;
+      }
+    }
+    
+    // 回退：使用 category + tags
     final category = spot.category?.trim() ?? '';
-    if (category.isNotEmpty) {
+    if (category.isNotEmpty && !_isInvalidTag(category)) {
       allTags.add(category);
       seen.add(category.toLowerCase());
     }
@@ -638,7 +777,7 @@ class SpotCard extends StatelessWidget {
     // Add regular tags (which may include AI tags from backend)
     for (final rawTag in spot.tags) {
       final tag = rawTag.trim();
-      if (tag.isEmpty) continue;
+      if (tag.isEmpty || _isInvalidTag(tag)) continue;
       final key = tag.toLowerCase();
       if (seen.add(key)) {
         allTags.add(tag);
@@ -649,11 +788,6 @@ class SpotCard extends StatelessWidget {
       return null;
     }
     
-    final formatted = allTags
-        .take(3)
-        .map((tag) => '#${tag.replaceAll(RegExp(r'\s+'), '')}')
-        .toList();
-    
-    return formatted.join('   ');
+    return allTags.take(3).toList();
   }
 }

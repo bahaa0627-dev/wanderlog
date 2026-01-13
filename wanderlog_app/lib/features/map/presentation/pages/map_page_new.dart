@@ -244,6 +244,34 @@ class _MapPageState extends ConsumerState<MapPage> {
   static const String _fallbackCoverImage =
       'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80';
 
+  // 需要过滤的无效标签（旧的 Google 分类等）
+  static const Set<String> _invalidTags = {
+    'point_of_interest',
+    'Point_of_interest',
+    'Point_Of_Interest',
+    'place_of_interest',
+    'tourist_attraction',
+    'establishment',
+    'premise',
+    'subpremise',
+    'route',
+    'street_address',
+    'political',
+    'locality',
+    'sublocality',
+    'neighborhood',
+    'administrative_area_level_1',
+    'administrative_area_level_2',
+    'country',
+    'postal_code',
+  };
+
+  /// 检查是否为无效标签
+  static bool _isInvalidTag(String tag) {
+    final lowerTag = tag.toLowerCase().replaceAll(' ', '_');
+    return _invalidTags.any((invalid) => invalid.toLowerCase() == lowerTag);
+  }
+
   // 动态计算当前城市的热门标签（从缓存获取）
   List<String> get _dynamicTagOptions {
     // 优先使用后端计算的标签统计
@@ -251,10 +279,14 @@ class _MapPageState extends ConsumerState<MapPage> {
     final cachedTags = cacheState.getTopTags(_selectedCity);
     if (cachedTags.isNotEmpty) {
       print('🏷️ [_dynamicTagOptions] 使用缓存的标签: ${cachedTags.map((t) => '${t.name}(${t.count})').join(', ')}');
-      return cachedTags.map((t) => t.name).toList();
+      // 过滤无效标签
+      return cachedTags
+          .where((t) => !_isInvalidTag(t.name))
+          .map((t) => t.name)
+          .toList();
     }
     
-    // 回退：基于当前加载的地点计算
+    // 回退：基于当前加载的地点计算（复用 spots_tab.dart 的逻辑）
     final spots = _currentCitySpots;
     if (spots.isEmpty) return const [];
     
@@ -262,18 +294,30 @@ class _MapPageState extends ConsumerState<MapPage> {
     final tagCounts = <String, int>{};
     
     for (final spot in spots) {
-      // 统计 category（优先）
-      final category = spot.category.trim();
-      if (category.isNotEmpty) {
-        final normalizedCategory = _capitalizeTag(category);
-        tagCounts[normalizedCategory] = (tagCounts[normalizedCategory] ?? 0) + 1;
-      }
-      
-      // 统计 displayTagsEn（后端计算好的展示标签，包含 category + structuredTags + aiTags）
-      for (final tag in spot.displayTagsEn) {
-        final normalizedTag = _capitalizeTag(tag.trim());
-        if (normalizedTag.isNotEmpty) {
-          tagCounts[normalizedTag] = (tagCounts[normalizedTag] ?? 0) + 1;
+      // 优先使用 displayTagsEn（后端计算好的展示标签，包含 category + aiTags + tags）
+      if (spot.displayTagsEn.isNotEmpty) {
+        for (final tag in spot.displayTagsEn) {
+          final trimmedTag = tag.trim();
+          if (trimmedTag.isNotEmpty && !_isInvalidTag(trimmedTag)) {
+            final normalizedTag = _capitalizeTag(trimmedTag);
+            tagCounts[normalizedTag] = (tagCounts[normalizedTag] ?? 0) + 1;
+          }
+        }
+      } else {
+        // 回退：统计 category
+        final category = spot.category.trim();
+        if (category.isNotEmpty && !_isInvalidTag(category)) {
+          final normalizedCategory = _capitalizeTag(category);
+          tagCounts[normalizedCategory] = (tagCounts[normalizedCategory] ?? 0) + 1;
+        }
+        
+        // 回退：统计 tags
+        for (final tag in spot.tags) {
+          final normalizedTag = tag.trim();
+          if (normalizedTag.isNotEmpty && !_isInvalidTag(normalizedTag)) {
+            final capitalizedTag = _capitalizeTag(normalizedTag);
+            tagCounts[capitalizedTag] = (tagCounts[capitalizedTag] ?? 0) + 1;
+          }
         }
       }
     }
@@ -1246,8 +1290,32 @@ class _MapPageState extends ConsumerState<MapPage> {
       
       print('🏷️ [MapPage] 获取到 ${places.length} 个地点');
       
-      // 转换为 Spot
-      final spots = places.map((place) => _mapPublicPlaceToSpot(_selectedCity, place)).whereType<Spot>().toList();
+      List<Spot> spots;
+      if (places.isNotEmpty) {
+        // 转换为 Spot
+        spots = places.map((place) => _mapPublicPlaceToSpot(_selectedCity, place)).whereType<Spot>().toList();
+      } else {
+        // 后端没有数据，回退到本地筛选
+        print('🏷️ [MapPage] 后端无数据，回退到本地筛选...');
+        final allSpots = _spotsByCity[_selectedCity] ?? const <Spot>[];
+        final tagLower = tag.toLowerCase();
+        spots = allSpots.where((spot) {
+          // 检查 displayTagsEn
+          if (spot.displayTagsEn.any((t) => t.toLowerCase() == tagLower)) {
+            return true;
+          }
+          // 检查 tags
+          if (spot.tags.any((t) => t.toLowerCase() == tagLower)) {
+            return true;
+          }
+          // 检查 category
+          if (spot.category.toLowerCase() == tagLower) {
+            return true;
+          }
+          return false;
+        }).toList();
+        print('🏷️ [MapPage] 本地筛选到 ${spots.length} 个地点');
+      }
       
       // 计算中心点和缩放
       final (:center, :zoom) = _calculateCenterAndZoomForSpots(spots, minSpots: 5);
@@ -1917,6 +1985,11 @@ class _MapPageState extends ConsumerState<MapPage> {
       return null;
     }
 
+    // 过滤没有有效图片的地点
+    if (images.isEmpty) {
+      return null;
+    }
+
     // Debug logging for Sydney Opera House
     if (place.name.toLowerCase().contains('opera')) {
       print('🎭 [_mapPublicPlaceToSpot] Processing: ${place.name}');
@@ -1947,8 +2020,8 @@ class _MapPageState extends ConsumerState<MapPage> {
       longitude: place.longitude,
       rating: place.rating ?? 4.0,
       ratingCount: place.ratingCount ?? 0,
-      coverImage: images.isNotEmpty ? images.first : _fallbackCoverImage,
-      images: images.isNotEmpty ? images : <String>[_fallbackCoverImage],
+      coverImage: images.first,
+      images: images,
       tags: place.aiTags,
       displayTagsEn: displayTags,
       aiSummary: place.aiSummary ?? place.aiDescription ?? place.description,
@@ -2074,7 +2147,9 @@ class _CitySelectorState extends ConsumerState<_CitySelector> {
             children: [
               Text(
                 widget.selectedCity,
-                style: AppTheme.labelMedium(context),
+                style: AppTheme.bodySmall(context).copyWith(
+                  color: AppTheme.black,
+                ),
               ),
               const SizedBox(width: 2),
               const Icon(Icons.keyboard_arrow_down, size: 16),

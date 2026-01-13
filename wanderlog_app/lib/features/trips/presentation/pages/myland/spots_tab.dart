@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/category_emoji.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/core/l10n/app_localizations.dart';
 import 'package:wanderlog/core/providers/locale_provider.dart';
@@ -92,6 +93,28 @@ class SpotsTab extends ConsumerStatefulWidget {
 }
 
 class _SpotsTabState extends ConsumerState<SpotsTab> {
+  // 需要过滤的无效标签（旧的 Google 分类等）
+  static const Set<String> _invalidTags = {
+    'point_of_interest',
+    'Point_of_interest',
+    'Point_Of_Interest',
+    'place_of_interest',
+    'tourist_attraction',
+    'establishment',
+    'premise',
+    'subpremise',
+    'route',
+    'street_address',
+    'political',
+    'locality',
+    'sublocality',
+    'neighborhood',
+    'administrative_area_level_1',
+    'administrative_area_level_2',
+    'country',
+    'postal_code',
+  };
+  
   static const List<String> _tagPalette = [
     'architecture',
     'museum',
@@ -131,7 +154,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       _entriesForCity.where((entry) => entry.isVisited).length;
 
   List<String> get _tagOptions {
-    final tagSet = <String>{};
+    // 统计标签出现次数（使用 displayTagsEn，回退到 category + tags + aiTags）
+    final tagCounts = <String, int>{};
+    
     // Get entries filtered by current tab
     Iterable<_SpotEntry> relevantEntries = _entriesForCity;
     switch (_selectedSubTab) {
@@ -147,21 +172,88 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       default: // All - use all entries
         break;
     }
+    
     for (final entry in relevantEntries) {
-      tagSet.addAll(entry.spot.tags.map((tag) => tag.toLowerCase()));
-    }
-    final ordered = <String>[];
-    for (final tag in _tagPalette) {
-      if (tagSet.contains(tag)) {
-        ordered.add(tag);
+      final spot = entry.spot;
+      
+      // 优先使用 displayTagsEn（后端已处理好的展示标签，包含 category）
+      final displayTags = spot.displayTagsEn;
+      if (displayTags != null && displayTags.isNotEmpty) {
+        for (final tag in displayTags) {
+          final normalizedTag = tag.trim();
+          if (normalizedTag.isNotEmpty && !_isInvalidTag(normalizedTag)) {
+            final capitalizedTag = _capitalizeTag(normalizedTag);
+            tagCounts[capitalizedTag] = (tagCounts[capitalizedTag] ?? 0) + 1;
+          }
+        }
+      } else {
+        // 回退：统计 category
+        final category = spot.category?.trim() ?? '';
+        if (category.isNotEmpty && !_isInvalidTag(category)) {
+          final normalizedCategory = _capitalizeTag(category);
+          tagCounts[normalizedCategory] = (tagCounts[normalizedCategory] ?? 0) + 1;
+        }
+        
+        // 回退：统计 tags
+        for (final tag in spot.tags) {
+          final normalizedTag = tag.trim();
+          if (normalizedTag.isNotEmpty && !_isInvalidTag(normalizedTag)) {
+            final capitalizedTag = _capitalizeTag(normalizedTag);
+            tagCounts[capitalizedTag] = (tagCounts[capitalizedTag] ?? 0) + 1;
+          }
+        }
+        
+        // 回退：统计 aiTags
+        final aiTags = spot.aiTags;
+        if (aiTags != null) {
+          for (final aiTag in aiTags) {
+            final tagStr = _extractTagString(aiTag);
+            if (tagStr.isNotEmpty && !_isInvalidTag(tagStr)) {
+              final normalizedAiTag = _capitalizeTag(tagStr);
+              tagCounts[normalizedAiTag] = (tagCounts[normalizedAiTag] ?? 0) + 1;
+            }
+          }
+        }
       }
     }
-    for (final tag in tagSet) {
-      if (!ordered.contains(tag)) {
-        ordered.add(tag);
+    
+    // 按出现次数从多到少排序，最多取 8 个
+    final sortedTags = tagCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    return sortedTags.take(8).map((e) => e.key).toList();
+  }
+  
+  /// 从 aiTag 元素中提取标签字符串
+  /// aiTag 可能是字符串或对象 {en: "xxx", zh: "xxx"}
+  String _extractTagString(dynamic aiTag) {
+    if (aiTag == null) return '';
+    if (aiTag is String) return aiTag.trim();
+    if (aiTag is Map) {
+      // 优先使用 en 字段
+      final en = aiTag['en'];
+      if (en != null && en is String && en.trim().isNotEmpty) {
+        return en.trim();
+      }
+      // 回退到 zh 字段
+      final zh = aiTag['zh'];
+      if (zh != null && zh is String && zh.trim().isNotEmpty) {
+        return zh.trim();
       }
     }
-    return ordered;
+    return '';
+  }
+  
+  /// 检查是否为无效标签
+  bool _isInvalidTag(String tag) {
+    final lowerTag = tag.toLowerCase().replaceAll(' ', '_');
+    return _invalidTags.any((invalid) => invalid.toLowerCase() == lowerTag);
+  }
+  
+  /// 首字母大写
+  String _capitalizeTag(String tag) {
+    if (tag.isEmpty) return tag;
+    return tag[0].toUpperCase() + tag.substring(1).toLowerCase();
   }
 
   String get _selectedCityName {
@@ -549,6 +641,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             tabLabel: tabLabel,
             allCities: allCities,
             allSpotsByCity: allSpotsByCity,
+            spotsByCountryCity: _getSpotsByCountryCityForCurrentTab(),
             visitedSpots: visitedSpots,
             onCityChanged: (newCity) {
               _selectCity(newCity);
@@ -605,6 +698,32 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         final city = entry.city.trim();
         if (city.isNotEmpty) {
           result.putIfAbsent(city, () => []).add(entry.spot);
+        }
+      }
+    }
+    return result;
+  }
+
+  /// 获取当前 tab 下按国家->城市分组的所有地点
+  Map<String, Map<String, List<Spot>>> _getSpotsByCountryCityForCurrentTab() {
+    final Map<String, Map<String, List<Spot>>> result = {};
+    for (final entry in _entries) {
+      // MustGo tab
+      if (_selectedSubTab == 1 && entry.isMustGo) {
+        final city = entry.city.trim();
+        final country = entry.spot.country?.trim() ?? 'Unknown';
+        if (city.isNotEmpty) {
+          result.putIfAbsent(country, () => {});
+          result[country]!.putIfAbsent(city, () => []).add(entry.spot);
+        }
+      }
+      // Today's Plan tab
+      if (_selectedSubTab == 2 && entry.isTodaysPlan) {
+        final city = entry.city.trim();
+        final country = entry.spot.country?.trim() ?? 'Unknown';
+        if (city.isNotEmpty) {
+          result.putIfAbsent(country, () => {});
+          result[country]!.putIfAbsent(city, () => []).add(entry.spot);
         }
       }
     }
@@ -861,9 +980,49 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     } else {
       result = base
           .where(
-            (entry) => entry.spot.tags
-                .map((tag) => tag.toLowerCase())
-                .any(_activeTags.contains),
+            (entry) {
+              final spot = entry.spot;
+              // 收集该 spot 的所有标签（category + displayTagsEn/tags + aiTags）
+              final allTags = <String>{};
+              
+              // category
+              final category = spot.category?.trim() ?? '';
+              if (category.isNotEmpty) {
+                allTags.add(_capitalizeTag(category));
+              }
+              
+              // 优先使用 displayTagsEn
+              final displayTags = spot.displayTagsEn;
+              if (displayTags != null && displayTags.isNotEmpty) {
+                for (final tag in displayTags) {
+                  final normalizedTag = _capitalizeTag(tag.trim());
+                  if (normalizedTag.isNotEmpty) {
+                    allTags.add(normalizedTag);
+                  }
+                }
+              } else {
+                // 回退：tags
+                for (final tag in spot.tags) {
+                  final normalizedTag = _capitalizeTag(tag.trim());
+                  if (normalizedTag.isNotEmpty) {
+                    allTags.add(normalizedTag);
+                  }
+                }
+                
+                // 回退：aiTags
+                final aiTags = spot.aiTags;
+                if (aiTags != null) {
+                  for (final aiTag in aiTags) {
+                    final tagStr = _extractTagString(aiTag);
+                    if (tagStr.isNotEmpty) {
+                      allTags.add(_capitalizeTag(tagStr));
+                    }
+                  }
+                }
+              }
+              
+              return allTags.any(_activeTags.contains);
+            },
           )
           .toList();
     }
@@ -1006,78 +1165,86 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           ),
           onChanged: _onSubTabChanged,
         ),
-        Container(
-          width: double.infinity,
-          color: AppTheme.white,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: _tagOptions.isEmpty
-              ? const SizedBox.shrink()
-              : SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: _tagOptions
-                        .map(
-                          (tag) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: _TagChip(
-                              label: tag,
-                              active: _activeTags.contains(tag),
-                              onTap: () => _toggleTag(tag),
-                            ),
+        if (_tagOptions.isNotEmpty && _selectedSubTab == 0)
+          Container(
+            width: double.infinity,
+            color: AppTheme.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            clipBehavior: Clip.none,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: _tagOptions
+                      .map(
+                        (tag) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _TagChip(
+                            label: tag,
+                            active: _activeTags.contains(tag),
+                            onTap: () => _toggleTag(tag),
                           ),
-                        )
-                        .toList(),
-                  ),
+                        ),
+                      )
+                      .toList(),
                 ),
-        ),
+              ),
+            ),
+          ),
         Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
-            switchInCurve: Curves.easeInOut,
-            switchOutCurve: Curves.easeInOut,
-            child: filteredEntries.isEmpty
-                ? _EmptyState(
-                    onOpenMap: _openFullMap,
-                    isMapView: _isMapView,
-                  )
-                : _isMapView
-                    // MustGo (1) 和 Today's Plan (2) 使用紧凑地图预览
-                    ? (_selectedSubTab == 1 || _selectedSubTab == 2)
-                        ? _CompactMapPreview(
-                            key: ValueKey('compact-map-view-$_selectedSubTab-$_selectedCitySlug'),
-                            entries: filteredEntries,
-                            cityName: _selectedCityName,
-                            spotsCount: filteredEntries.length,
-                            onOpenFullMap: _openFullMap,
-                            availableCities: _getAvailableCitiesForCurrentTab(),
-                            onCityChanged: _selectCity,
-                          )
-                        : _MapPreview(
-                            key: const ValueKey('map-view'),
-                            entries: filteredEntries,
-                            cityName: _selectedCityName,
-                            tagOptions: _tagOptions,
-                            activeTags: _activeTags,
-                            onToggleTag: _toggleTag,
-                            onOpenFullMap: _openFullMap,
-                            controller: _carouselController,
-                            onCardTap: (spot) {
-                              final entry = _entries.firstWhere(
-                                (e) => e.spot.id == spot.id,
-                                orElse: () => _entries.first,
-                              );
-                              _handleSpotTap(entry);
-                            },
-                          )
-                    : _ListView(
-                        key: const ValueKey('list-view'),
-                        entries: filteredEntries,
-                        onToggleMustGo: _handleToggleMustGo,
-                        onQuickAddMustGo: _handleQuickAddMustGo,
-                        onSpotTap: _handleSpotTap,
-                        isVisitedTab: _selectedSubTab == 3,
-                      ),
+          child: Container(
+            color: AppTheme.white,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeInOut,
+              switchOutCurve: Curves.easeInOut,
+              child: filteredEntries.isEmpty
+                  ? _EmptyState(
+                      onOpenMap: _openFullMap,
+                      isMapView: _isMapView,
+                    )
+                  : _isMapView
+                      // MustGo (1) 和 Today's Plan (2) 使用紧凑地图预览
+                      ? (_selectedSubTab == 1 || _selectedSubTab == 2)
+                          ? _CompactMapPreview(
+                              key: ValueKey('compact-map-view-$_selectedSubTab-$_selectedCitySlug'),
+                              entries: filteredEntries,
+                              cityName: _selectedCityName,
+                              spotsCount: filteredEntries.length,
+                              onOpenFullMap: _openFullMap,
+                              availableCities: _getAvailableCitiesForCurrentTab(),
+                              spotsByCountryCity: _getSpotsByCountryCityForCurrentTab(),
+                              onCityChanged: _selectCity,
+                            )
+                          : _MapPreview(
+                              key: const ValueKey('map-view'),
+                              entries: filteredEntries,
+                              cityName: _selectedCityName,
+                              tagOptions: _tagOptions,
+                              activeTags: _activeTags,
+                              onToggleTag: _toggleTag,
+                              onOpenFullMap: _openFullMap,
+                              controller: _carouselController,
+                              onCardTap: (spot) {
+                                final entry = _entries.firstWhere(
+                                  (e) => e.spot.id == spot.id,
+                                  orElse: () => _entries.first,
+                                );
+                                _handleSpotTap(entry);
+                              },
+                            )
+                      : _ListView(
+                          key: const ValueKey('list-view'),
+                          entries: filteredEntries,
+                          onToggleMustGo: _handleToggleMustGo,
+                          onQuickAddMustGo: _handleQuickAddMustGo,
+                          onSpotTap: _handleSpotTap,
+                          isVisitedTab: _selectedSubTab == 3,
+                        ),
+            ),
           ),
         ),
       ],
@@ -1129,25 +1296,29 @@ class _TagChip extends StatelessWidget {
     final displayLabel = label.isEmpty
         ? ''
         : '${label[0].toUpperCase()}${label.length > 1 ? label.substring(1) : ''}';
+    final emoji = getCategoryEmoji(label);
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? AppTheme.primaryYellow : AppTheme.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderThin,
-          ),
-          boxShadow: active ? AppTheme.cardShadow : null,
+          color: active ? AppTheme.primaryYellow : Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(color: AppTheme.black, width: 1),
+          boxShadow: AppTheme.searchBoxShadow,
         ),
-        child: Text(
-          displayLabel,
-          style: AppTheme.labelMedium(context).copyWith(
-            color: AppTheme.black,
-            fontWeight: FontWeight.w600,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 13)),
+            const SizedBox(width: 4),
+            Text(
+              displayLabel,
+              style: AppTheme.labelSmall(context).copyWith(
+                color: AppTheme.black,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1223,57 +1394,38 @@ class _SubTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: AppTheme.bodyLarge(context).copyWith(
-                    color: isActive
-                        ? AppTheme.black
-                        : AppTheme.black.withOpacity(0.45),
-                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryYellow
-                        .withOpacity(isActive ? 0.9 : 0.35),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: AppTheme.black,
-                      width: AppTheme.borderThin,
-                    ),
-                  ),
-                  child: Text(
-                    count.toString(),
-                    style: AppTheme.labelSmall(context).copyWith(
-                      color: AppTheme.black,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              label,
+              style: AppTheme.bodyLarge(context).copyWith(
+                color: isActive
+                    ? AppTheme.black
+                    : AppTheme.black.withOpacity(0.45),
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              ),
             ),
-            const SizedBox(height: 8),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              height: 4,
-              width: isActive ? 56 : 36,
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 4,
+              ),
               decoration: BoxDecoration(
-                color: isActive ? AppTheme.primaryYellow : Colors.transparent,
-                borderRadius: BorderRadius.circular(2),
+                color: AppTheme.primaryYellow
+                    .withOpacity(isActive ? 0.9 : 0.35),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isActive ? AppTheme.black : Colors.transparent,
+                  color: AppTheme.black,
                   width: AppTheme.borderThin,
+                ),
+              ),
+              child: Text(
+                count.toString(),
+                style: AppTheme.labelSmall(context).copyWith(
+                  color: AppTheme.black,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -1383,35 +1535,38 @@ class _ListView extends StatelessWidget {
   final bool isVisitedTab;
 
   @override
-  Widget build(BuildContext context) => ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-        itemCount: entries.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 16),
-        itemBuilder: (context, index) {
-          final entry = entries[index];
-          if (isVisitedTab && entry.isVisited) {
-            return _VisitedSpotCard(
-              entry: entry,
-              onTap: () => onSpotTap(entry),
-              onToggleMustGo: onToggleMustGo,
+  Widget build(BuildContext context) => Container(
+        color: AppTheme.white,
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          itemCount: entries.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          itemBuilder: (context, index) {
+            final entry = entries[index];
+            if (isVisitedTab && entry.isVisited) {
+              return _VisitedSpotCard(
+                entry: entry,
+                onTap: () => onSpotTap(entry),
+                onToggleMustGo: onToggleMustGo,
+              );
+            }
+            return Dismissible(
+              key: ValueKey('spot-${entry.spot.id}'),
+              direction: DismissDirection.startToEnd,
+              confirmDismiss: (direction) async {
+                onQuickAddMustGo(entry.spot);
+                return false;
+              },
+              background: _SwipeBackground(isMustGo: entry.isMustGo),
+              child: SpotCard(
+                spot: entry.spot,
+                isMustGo: entry.isMustGo,
+                onToggleMustGo: () => onToggleMustGo(entry.spot),
+                onTap: () => onSpotTap(entry),
+              ),
             );
-          }
-          return Dismissible(
-            key: ValueKey('spot-${entry.spot.id}'),
-            direction: DismissDirection.startToEnd,
-            confirmDismiss: (direction) async {
-              onQuickAddMustGo(entry.spot);
-              return false;
-            },
-            background: _SwipeBackground(isMustGo: entry.isMustGo),
-            child: SpotCard(
-              spot: entry.spot,
-              isMustGo: entry.isMustGo,
-              onToggleMustGo: () => onToggleMustGo(entry.spot),
-              onTap: () => onSpotTap(entry),
-            ),
-          );
-        },
+          },
+        ),
       );
 }
 
@@ -1633,6 +1788,7 @@ class _CompactMapPreview extends StatefulWidget {
   const _CompactMapPreview({
     required this.entries, required this.cityName, required this.spotsCount, required this.onOpenFullMap, super.key,
     this.availableCities = const [],
+    this.spotsByCountryCity = const {},
     this.onCityChanged,
   });
 
@@ -1641,6 +1797,7 @@ class _CompactMapPreview extends StatefulWidget {
   final int spotsCount;
   final VoidCallback onOpenFullMap;
   final List<String> availableCities;
+  final Map<String, Map<String, List<Spot>>> spotsByCountryCity;
   final ValueChanged<String>? onCityChanged;
 
   @override
@@ -1650,10 +1807,13 @@ class _CompactMapPreview extends StatefulWidget {
 class _CompactMapPreviewState extends State<_CompactMapPreview> {
   final GlobalKey<MapboxSpotMapState> _mapKey = GlobalKey<MapboxSpotMapState>();
   map_page.Spot? _selectedSpot;
+  String? _selectedCountry;
 
   @override
   void initState() {
     super.initState();
+    // 初始化选中的国家
+    _initSelectedCountry();
     // 默认选中第一个地点（最新的）
     final mapSpots = _convertToMapSpots();
     if (mapSpots.isNotEmpty) {
@@ -1670,25 +1830,94 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
     }
   }
 
+  /// 初始化选中的国家（根据当前城市）
+  void _initSelectedCountry() {
+    if (widget.spotsByCountryCity.isEmpty) return;
+    
+    // 如果当前城市是 "All"，选择第一个国家
+    if (widget.cityName == 'All') {
+      _selectedCountry = widget.spotsByCountryCity.keys.first;
+      return;
+    }
+    
+    // 根据当前城市找到对应的国家
+    for (final country in widget.spotsByCountryCity.keys) {
+      if (widget.spotsByCountryCity[country]!.containsKey(widget.cityName)) {
+        _selectedCountry = country;
+        return;
+      }
+    }
+    
+    // 默认选择第一个国家
+    _selectedCountry = widget.spotsByCountryCity.keys.first;
+  }
+
+  // 需要过滤的无效标签（旧的 Google 分类等）
+  static const Set<String> _invalidTags = {
+    'point_of_interest',
+    'Point_of_interest',
+    'Point_Of_Interest',
+    'place_of_interest',
+    'tourist_attraction',
+    'establishment',
+    'premise',
+    'subpremise',
+    'route',
+    'street_address',
+    'political',
+    'locality',
+    'sublocality',
+    'neighborhood',
+    'administrative_area_level_1',
+    'administrative_area_level_2',
+    'country',
+    'postal_code',
+  };
+
+  /// 检查是否为无效标签
+  static bool _isInvalidTag(String tag) {
+    final lowerTag = tag.toLowerCase().replaceAll(' ', '_');
+    return _invalidTags.any((invalid) => invalid.toLowerCase() == lowerTag);
+  }
+
   /// 将 _SpotEntry 转换为 map_page.Spot
   List<map_page.Spot> _convertToMapSpots() => widget.entries.map((entry) {
       final spot = entry.spot;
       final List<String> imageList = spot.images;
       final String coverImg = imageList.isNotEmpty ? imageList.first : '';
-      final List<String> tagList = spot.tags
-          .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-      final String category = (spot.category ?? 'place').trim();
-      if (category.isNotEmpty && !tagList.contains(category)) {
-        tagList.add(category);
+      
+      // 优先使用 displayTagsEn，过滤无效标签
+      final List<String> tagList = [];
+      final displayTags = spot.displayTagsEn;
+      if (displayTags != null && displayTags.isNotEmpty) {
+        for (final tag in displayTags) {
+          final normalized = tag.trim();
+          if (normalized.isNotEmpty && !_isInvalidTag(normalized)) {
+            tagList.add(normalized);
+          }
+        }
+      } else {
+        // 回退：使用 tags
+        for (final tag in spot.tags) {
+          final normalized = tag.trim();
+          if (normalized.isNotEmpty && !_isInvalidTag(normalized)) {
+            tagList.add(normalized);
+          }
+        }
+        // 回退：添加 category
+        final String category = (spot.category ?? '').trim();
+        if (category.isNotEmpty && !_isInvalidTag(category) && !tagList.contains(category)) {
+          tagList.add(category);
+        }
       }
+      
+      final String category = (spot.category ?? 'place').trim();
 
       return map_page.Spot(
         id: spot.id,
         name: spot.name,
         city: spot.city ?? 'Unknown',
-        category: category.isNotEmpty ? category : 'place',
+        category: category.isNotEmpty && !_isInvalidTag(category) ? category : 'place',
         latitude: spot.latitude,
         longitude: spot.longitude,
         rating: spot.rating ?? 0.0,
@@ -1715,8 +1944,15 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
   }
 
   void _showCityPicker() {
-    if (widget.availableCities.isEmpty) return;
+    if (widget.spotsByCountryCity.isEmpty && widget.availableCities.isEmpty) return;
     
+    // 如果有国家城市数据，使用两列选择器
+    if (widget.spotsByCountryCity.isNotEmpty) {
+      _showCountryCityPicker();
+      return;
+    }
+    
+    // 否则使用简单城市列表
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -1764,6 +2000,165 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
     );
   }
 
+  /// 显示国家城市两列选择器
+  void _showCountryCityPicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final countries = widget.spotsByCountryCity.keys.toList();
+          final citiesForCountry = _selectedCountry != null 
+              ? widget.spotsByCountryCity[_selectedCountry]?.keys.toList() ?? <String>[]
+              : <String>[];
+          
+          return DraggableScrollableSheet(
+            initialChildSize: 0.5,
+            minChildSize: 0.3,
+            maxChildSize: 0.8,
+            expand: false,
+            builder: (context, scrollController) => Container(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Select City', style: AppTheme.headlineMedium(context)),
+                  const SizedBox(height: 16),
+                  // "All" 选项
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (widget.cityName != 'All') {
+                        widget.onCityChanged?.call('All');
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      color: widget.cityName == 'All' ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'All',
+                              style: AppTheme.bodyMedium(context).copyWith(
+                                fontWeight: widget.cityName == 'All' ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                          if (widget.cityName == 'All')
+                            const Icon(Icons.check, size: 18, color: AppTheme.primaryYellow),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        // 左侧国家列表
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border(
+                                right: BorderSide(color: AppTheme.border, width: 1),
+                              ),
+                            ),
+                            child: ListView.builder(
+                              itemCount: countries.length,
+                              itemBuilder: (context, index) {
+                                final country = countries[index];
+                                // 当选择 "All" 时，不高亮任何国家；否则高亮当前选中的国家
+                                final isSelected = widget.cityName != 'All' && country == _selectedCountry;
+                                return GestureDetector(
+                                  onTap: () {
+                                    setSheetState(() {
+                                      _selectedCountry = country;
+                                    });
+                                    setState(() {
+                                      _selectedCountry = country;
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                    color: isSelected ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            country,
+                                            style: AppTheme.bodyMedium(context).copyWith(
+                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (isSelected)
+                                          const Icon(Icons.chevron_right, size: 18, color: AppTheme.mediumGray),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        // 右侧城市列表
+                        Expanded(
+                          flex: 3,
+                          child: ListView.builder(
+                            controller: scrollController,
+                            itemCount: citiesForCountry.length,
+                            itemBuilder: (context, index) {
+                              final city = citiesForCountry[index];
+                              final isSelected = city == widget.cityName;
+                              return GestureDetector(
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  if (city != widget.cityName) {
+                                    widget.onCityChanged?.call(city);
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                  color: isSelected ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          city,
+                                          style: AppTheme.bodyMedium(context).copyWith(
+                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        const Icon(Icons.check, size: 18, color: AppTheme.primaryYellow),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final mapSpots = _convertToMapSpots();
@@ -1781,7 +2176,7 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.background,
+          color: AppTheme.white,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           border: Border.all(
             color: AppTheme.black,
@@ -1813,36 +2208,35 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
                 right: 12,
                 child: Row(
                   children: [
-                    // 城市标签（可点击切换城市）
+                    // 城市标签（可点击切换城市）- 与 map 页面样式一致
                     GestureDetector(
                       onTap: widget.availableCities.isNotEmpty ? _showCityPicker : null,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: AppTheme.white,
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                           border: Border.all(
                             color: AppTheme.black,
-                            width: AppTheme.borderMedium,
+                            width: 1,
                           ),
+                          boxShadow: AppTheme.searchBoxShadow,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               widget.cityName,
-                              style: AppTheme.labelLarge(context).copyWith(
+                              style: AppTheme.bodySmall(context).copyWith(
                                 color: AppTheme.black,
                               ),
                             ),
                             if (widget.availableCities.isNotEmpty) ...[
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 2),
                               const Icon(
                                 Icons.keyboard_arrow_down,
-                                size: 20,
+                                size: 16,
                                 color: AppTheme.black,
                               ),
                             ],
@@ -1851,23 +2245,24 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
                       ),
                     ),
                     const Spacer(),
-                    // 放大按钮
+                    // 放大按钮 - 与 map 页面样式一致
                     GestureDetector(
                       onTap: widget.onOpenFullMap,
                       child: Container(
-                        width: 48,
-                        height: 48,
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
-                          color: AppTheme.white,
+                          color: Colors.white,
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: AppTheme.black,
-                            width: AppTheme.borderMedium,
+                            width: 1,
                           ),
+                          boxShadow: AppTheme.searchBoxShadow,
                         ),
                         child: const Icon(
                           Icons.fullscreen,
-                          size: 24,
+                          size: 18,
                           color: AppTheme.black,
                         ),
                       ),
@@ -2334,18 +2729,22 @@ class _VisitedSpotCard extends StatelessWidget {
 
     if (isOpen && closingTime != null) {
       final diff = closingTime.difference(now);
-      if (diff > Duration.zero && diff <= const Duration(hours: 2)) {
-        return 'Open, Closes ${_formatClosingCountdown(diff)}, ${_formatTime(closingTime)}';
+      if (diff > Duration.zero && diff < const Duration(hours: 1)) {
+        // 不足 1 小时
+        final mins = diff.inMinutes.clamp(1, 59);
+        return 'Open, ${mins}mins left, Closes ${_formatTime(closingTime)}';
+      }
+      if (diff >= const Duration(hours: 1) && diff <= const Duration(hours: 2)) {
+        return 'Open, Closes within 2h, ${_formatTime(closingTime)}';
       }
       return 'Open, Closes ${_formatTime(closingTime)}';
     }
 
     if (nextOpening != null) {
       final timeText = _formatTime(nextOpening);
-      if (_isSameDay(nextOpening, now) || _isTomorrow(nextOpening, now)) {
-        return 'Closed, Open $timeText';
-      }
-      return 'Closed, Open ${_weekdayLabel(nextOpening.weekday)} $timeText';
+      final dayLabel = _weekdayLabel(nextOpening.weekday);
+      // 始终显示星期几
+      return 'Closed, Opens $timeText $dayLabel';
     }
 
     return 'Hours unavailable';
@@ -2359,10 +2758,26 @@ class _VisitedSpotCard extends StatelessWidget {
     return '\$${price * 10}';
   }
 
-  String? _tagsLine() {
+  List<String> _tagsList() {
     final List<String> allTags = [];
     final Set<String> seen = {};
     
+    // 优先使用 displayTagsEn
+    final displayTags = entry.spot.displayTagsEn;
+    if (displayTags != null && displayTags.isNotEmpty) {
+      for (final tag in displayTags) {
+        if (allTags.length >= 3) break;
+        final key = tag.toLowerCase();
+        if (seen.add(key)) {
+          allTags.add(tag);
+        }
+      }
+      if (allTags.isNotEmpty) {
+        return allTags;
+      }
+    }
+    
+    // 回退：使用 category + tags
     final category = entry.spot.category?.trim() ?? '';
     if (category.isNotEmpty) {
       allTags.add(category);
@@ -2370,6 +2785,7 @@ class _VisitedSpotCard extends StatelessWidget {
     }
     
     for (final rawTag in entry.spot.tags) {
+      if (allTags.length >= 3) break;
       final tag = rawTag.trim();
       if (tag.isEmpty) continue;
       final key = tag.toLowerCase();
@@ -2378,26 +2794,123 @@ class _VisitedSpotCard extends StatelessWidget {
       }
     }
     
-    if (allTags.isEmpty) {
-      return null;
+    return allTags.take(3).toList();
+  }
+
+  Widget _buildTagChips(BuildContext context) {
+    final tags = _tagsList();
+    if (tags.isEmpty) return const SizedBox.shrink();
+    
+    // Left padding = image width (110) + gap (12) = 122 to align with text content
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(122, 0, 12, 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: tags.map((tag) => Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F2F2),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
+              ),
+              child: Text(
+                tag,
+                style: AppTheme.labelSmall(context).copyWith(
+                  color: AppTheme.black.withOpacity(0.48),
+                ),
+              ),
+            ),
+          )).toList(),
+        ),
+      ),
+    );
+  }
+
+  /// Build tags that fit within available width, no scrolling
+  Widget _buildFittingTags(BuildContext context, List<String> tags, double maxWidth) {
+    final List<Widget> fittingTags = [];
+    double usedWidth = 0;
+    const double spacing = 6;
+    const double horizontalPadding = 8 * 2; // padding inside each tag
+    const double borderWidth = 2; // border on both sides
+    
+    // Measure and add tags that fit
+    for (int i = 0; i < tags.length && fittingTags.length < 3; i++) {
+      final tag = tags[i];
+      // Estimate tag width: text width + padding + border
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: tag,
+          style: AppTheme.labelSmall(context).copyWith(
+            color: AppTheme.black.withOpacity(0.48),
+          ),
+        ),
+        maxLines: 1,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      
+      final tagWidth = textPainter.width + horizontalPadding + borderWidth;
+      final neededWidth = usedWidth + tagWidth + (fittingTags.isNotEmpty ? spacing : 0);
+      
+      if (neededWidth <= maxWidth) {
+        fittingTags.add(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2F2F2),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
+            ),
+            child: Text(
+              tag,
+              style: AppTheme.labelSmall(context).copyWith(
+                color: AppTheme.black.withOpacity(0.48),
+              ),
+            ),
+          ),
+        );
+        usedWidth = neededWidth;
+      }
     }
     
-    final formatted = allTags
-        .take(3)
-        .map((tag) => '#${tag.replaceAll(RegExp(r'\s+'), '')}')
-        .toList();
+    if (fittingTags.isEmpty) return const SizedBox.shrink();
     
-    return formatted.join('   ');
+    return Row(
+      children: fittingTags.map((widget) => Padding(
+        padding: EdgeInsets.only(right: widget == fittingTags.last ? 0 : spacing),
+        child: widget,
+      )).toList(),
+    );
+  }
+
+  List<Widget> _buildStarRating(double rating) {
+    final List<Widget> stars = [];
+    final int fullStars = rating.floor();
+    final bool hasHalfStar = (rating - fullStars) >= 0.5;
+    
+    for (int i = 0; i < 5; i++) {
+      if (i < fullStars) {
+        stars.add(const Icon(Icons.star, size: 14, color: AppTheme.primaryYellow));
+      } else if (i == fullStars && hasHalfStar) {
+        stars.add(const Icon(Icons.star_half, size: 14, color: AppTheme.primaryYellow));
+      } else {
+        stars.add(Icon(Icons.star_outline, size: 14, color: AppTheme.primaryYellow.withOpacity(0.5)));
+      }
+    }
+    return stars;
   }
 
   Widget _buildCoverImage() => SizedBox(
-      width: 130,
+      width: 110,
       child: ClipRRect(
         borderRadius: const BorderRadius.horizontal(
           left: Radius.circular(AppTheme.radiusMedium - 2),
         ),
         child: AspectRatio(
-          aspectRatio: 3 / 4,
+          aspectRatio: 4 / 5,
           child: entry.spot.images.isNotEmpty
               ? _buildImageWidget(entry.spot.images.first)
               : _buildPlaceholder(),
@@ -2587,12 +3100,14 @@ class _VisitedSpotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? openingText =
-        OpeningHoursUtils.evaluate(entry.spot.openingHours)?.summaryText;
-    final String? priceText = _priceInfoText();
-    final String? tagsLine = _tagsLine();
+    final String? openingText = OpeningHoursUtils.evaluate(
+      entry.spot.openingHours,
+      country: entry.spot.country,
+      longitude: entry.spot.longitude,
+    )?.summaryText;
 
     final hasCheckInData = entry.visitDate != null || entry.userRating != null || (entry.userNotes != null && entry.userNotes!.isNotEmpty) || entry.userPhotos.isNotEmpty;
+    final tags = _tagsList();
     
     return GestureDetector(
       onTap: onTap,
@@ -2609,106 +3124,102 @@ class _VisitedSpotCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Upper section: Basic info (image + info)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildCoverImage(),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Basic info section (like SpotCard)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    entry.spot.name,
-                                    style: AppTheme.bodyLarge(context).copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (entry.spot.rating != null) ...[
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.star,
-                                          size: 16,
-                                          color: AppTheme.primaryYellow,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          entry.spot.rating!.toStringAsFixed(1),
-                                          style: AppTheme.labelMedium(context).copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          entry.spot.ratingCount != null ? '(${entry.spot.ratingCount})' : '(0)',
-                                          style: AppTheme.labelSmall(context).copyWith(
-                                            color: AppTheme.black.withOpacity(0.6),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            _buildFavoriteButton(),
-                          ],
-                        ),
-                        if (openingText != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              '🕒 $openingText',
-                              style: AppTheme.labelSmall(context).copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.black,
-                              ),
-                            ),
-                          ),
-                        if (priceText != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              '🎫 $priceText',
-                              style: AppTheme.labelSmall(context).copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.black,
-                              ),
-                            ),
-                          ),
-                        if (tagsLine != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              tagsLine,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTheme.labelSmall(context).copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                      ],
+            // Upper section: Basic info (image + info) - fixed height 180
+            SizedBox(
+              height: 180,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Image fills full height
+                  ClipRRect(
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(AppTheme.radiusMedium - 2),
+                    ),
+                    child: SizedBox(
+                      width: 110,
+                      child: entry.spot.images.isNotEmpty
+                          ? _buildImageWidget(entry.spot.images.first)
+                          : _buildPlaceholder(),
                     ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Top section: name, rating, opening hours
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Name and favorite button row
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      entry.spot.name,
+                                      style: AppTheme.bodyLarge(context).copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildFavoriteButton(),
+                                ],
+                              ),
+                              // Rating: number + stars + count
+                              if (entry.spot.rating != null) ...[
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Text(
+                                      entry.spot.rating!.toStringAsFixed(1),
+                                      style: AppTheme.labelLarge(context).copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    ..._buildStarRating(entry.spot.rating!),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      entry.spot.ratingCount != null ? '(${entry.spot.ratingCount})' : '',
+                                      style: AppTheme.labelSmall(context).copyWith(
+                                        color: AppTheme.black.withOpacity(0.6),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              if (openingText != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    '🕒 $openingText',
+                                    style: AppTheme.labelSmall(context).copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.black,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          // Bottom section: Tags (no scroll, show what fits)
+                          if (tags.isNotEmpty)
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                return _buildFittingTags(context, tags, constraints.maxWidth);
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             // Divider that spans the entire card width
             if (hasCheckInData)

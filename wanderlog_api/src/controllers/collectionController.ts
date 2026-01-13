@@ -29,6 +29,12 @@ const normalizePlace = (place: any) => {
   const images = safeParseJson(place.images, []);
   const category = place.categoryEn || place.category_en || place.category || '';
   
+  console.log(`🏷️ [normalizePlace] Processing place: ${place.name}`);
+  console.log(`🏷️ [normalizePlace] category: ${category}`);
+  console.log(`🏷️ [normalizePlace] raw place.tags:`, place.tags, typeof place.tags);
+  console.log(`🏷️ [normalizePlace] parsed tags:`, tags, typeof tags, Array.isArray(tags));
+  console.log(`🏷️ [normalizePlace] aiTags:`, aiTags);
+  
   // 构建 displayTagsEn: category + tags 的值 + aiTags，最多4个
   const displayTagsEn: string[] = [];
   const seen = new Set<string>();
@@ -42,15 +48,18 @@ const normalizePlace = (place: any) => {
     }
   }
   
-  // 2. 添加 tags 对象的值（如 style, theme 等）
+  // 2. 添加 tags 对象的值（如 style, theme, architect 等）
   if (tags && typeof tags === 'object' && !Array.isArray(tags)) {
+    console.log(`🏷️ [normalizePlace] tags is object, entries:`, Object.entries(tags));
     for (const [key, value] of Object.entries(tags)) {
       if (displayTagsEn.length >= 4) break;
+      console.log(`🏷️ [normalizePlace] processing tag entry: ${key} = ${value} (${typeof value})`);
       if (typeof value === 'string' && value.trim()) {
         const tag = value.trim();
         if (!seen.has(tag.toLowerCase())) {
           displayTagsEn.push(tag);
           seen.add(tag.toLowerCase());
+          console.log(`🏷️ [normalizePlace] added tag from object: ${tag}`);
         }
       } else if (Array.isArray(value)) {
         for (const v of value) {
@@ -60,12 +69,14 @@ const normalizePlace = (place: any) => {
             if (!seen.has(tag.toLowerCase())) {
               displayTagsEn.push(tag);
               seen.add(tag.toLowerCase());
+              console.log(`🏷️ [normalizePlace] added tag from array: ${tag}`);
             }
           }
         }
       }
     }
   } else if (Array.isArray(tags)) {
+    console.log(`🏷️ [normalizePlace] tags is array`);
     for (const tag of tags) {
       if (displayTagsEn.length >= 4) break;
       if (typeof tag === 'string' && tag.trim()) {
@@ -76,6 +87,8 @@ const normalizePlace = (place: any) => {
         }
       }
     }
+  } else {
+    console.log(`🏷️ [normalizePlace] tags is neither object nor array`);
   }
   
   // 3. 添加 aiTags
@@ -98,8 +111,13 @@ const normalizePlace = (place: any) => {
     }
   }
   
+  console.log(`🏷️ [normalizePlace] displayTagsEn result:`, displayTagsEn);
+  
+  // 删除原始的 snake_case 字段，避免混淆
+  const { display_tags_en, display_tags_zh, ...restPlace } = place;
+  
   return {
-    ...place,
+    ...restPlace,
     tags,
     aiTags,
     images,
@@ -319,7 +337,17 @@ class CollectionController {
                 longitude: true,
                 coverImage: true,
                 rating: true,
+                ratingCount: true,
                 category: true,
+                categoryEn: true,
+                tags: true,
+                aiTags: true,
+                images: true,
+                address: true,
+                phoneNumber: true,
+                website: true,
+                openingHours: true,
+                aiSummary: true,
               }
             }
           },

@@ -296,7 +296,7 @@ class _CollectionCard extends StatefulWidget {
 
 class _CollectionCardState extends State<_CollectionCard> {
   Color _dominantColor = Colors.black;
-  bool _colorExtracted = false;
+  bool _imageLoaded = false; // 图片是否成功加载
 
   // 解码 base64 图片
   static Uint8List _decodeBase64Image(String dataUrl) {
@@ -318,6 +318,9 @@ class _CollectionCardState extends State<_CollectionCard> {
   void didUpdateWidget(_CollectionCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.image != widget.image) {
+      setState(() {
+        _imageLoaded = false;
+      });
       _extractDominantColor();
     }
   }
@@ -344,15 +347,15 @@ class _CollectionCardState extends State<_CollectionCard> {
           _dominantColor = paletteGenerator.dominantColor?.color ??
               paletteGenerator.darkMutedColor?.color ??
               paletteGenerator.darkVibrantColor?.color ??
-              Colors.black;
-          _colorExtracted = true;
+              Colors.grey;
+          _imageLoaded = true; // 只有成功提取颜色才标记为加载成功
         });
       }
     } catch (e) {
+      // 图片加载失败，保持 _imageLoaded = false，不显示渐变蒙层
       if (mounted) {
         setState(() {
-          _dominantColor = Colors.black;
-          _colorExtracted = true;
+          _imageLoaded = false;
         });
       }
     }
@@ -361,14 +364,27 @@ class _CollectionCardState extends State<_CollectionCard> {
   @override
   Widget build(BuildContext context) {
     const double cardRadius = AppTheme.radiusLarge;
-    const double innerRadius = cardRadius - AppTheme.borderThick;
+    // 使用稍小的内圆角确保完全覆盖边框内侧，避免缺口
+    const double innerRadius = cardRadius - AppTheme.borderThick - 0.5;
+
+    // 占位图组件
+    const placeholder = ColoredBox(
+      color: AppTheme.lightGray,
+      child: Center(
+        child: Icon(
+          Icons.collections_outlined,
+          size: 48,
+          color: AppTheme.mediumGray,
+        ),
+      ),
+    );
 
     return RepaintBoundary(
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: _dominantColor, // 添加背景色，防止加载时出现间隙
+            color: AppTheme.lightGray, // 使用浅灰色作为底色
             borderRadius: BorderRadius.circular(cardRadius),
             border: Border.all(
               color: AppTheme.black,
@@ -378,63 +394,60 @@ class _CollectionCardState extends State<_CollectionCard> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(innerRadius),
-            clipBehavior: Clip.antiAlias,
+            clipBehavior: Clip.hardEdge,
             child: Stack(
               fit: StackFit.expand,
               children: [
+                // 占位图层 - 始终显示在底层
+                placeholder,
                 // 背景图片 - 支持 DataURL (base64) 和网络图片
-                if (widget.image.startsWith('data:image/')) Image.memory(
-                        _decodeBase64Image(widget.image),
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                        filterQuality: FilterQuality.low,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const ColoredBox(
-                          color: AppTheme.lightGray,
-                          child: Icon(
-                            Icons.image,
-                            size: 50,
-                            color: AppTheme.mediumGray,
-                          ),
-                        ),
-                      ) else Image.network(
-                        widget.image,
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                        filterQuality: FilterQuality.low,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const ColoredBox(
-                          color: AppTheme.lightGray,
-                          child: Icon(
-                            Icons.image,
-                            size: 50,
-                            color: AppTheme.mediumGray,
-                          ),
-                        ),
-                      ),
+                if (widget.image.isNotEmpty)
+                  if (widget.image.startsWith('data:image/'))
+                    Image.memory(
+                      _decodeBase64Image(widget.image),
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      filterQuality: FilterQuality.low,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const SizedBox.shrink(),
+                    )
+                  else
+                    Image.network(
+                      widget.image,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      filterQuality: FilterQuality.low,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const SizedBox.shrink(); // 加载中显示占位图
+                      },
+                      errorBuilder: (context, error, stackTrace) =>
+                          const SizedBox.shrink(),
+                    ),
 
-                // 底部渐变蒙层 - 使用提取的主色
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    height: 150,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          _dominantColor.withOpacity(0.3),
-                          _dominantColor.withOpacity(0.6),
-                          _dominantColor.withOpacity(0.85),
-                        ],
-                        stops: const [0.0, 0.3, 0.6, 1.0],
+                // 底部渐变蒙层 - 只在图片加载成功后显示
+                if (_imageLoaded)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      height: 150,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            _dominantColor.withOpacity(0.3),
+                            _dominantColor.withOpacity(0.6),
+                            _dominantColor.withOpacity(0.85),
+                          ],
+                          stops: const [0.0, 0.3, 0.6, 1.0],
+                        ),
                       ),
                     ),
                   ),
-                ),
 
                 // 顶部标签层 - 固定在顶部
                 Positioned(

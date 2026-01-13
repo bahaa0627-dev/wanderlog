@@ -21,6 +21,23 @@ const toCamelCase = (row: any) => {
 
 const tripSpotToCamelCase = (row: any) => {
   if (!row) return null;
+  
+  // Ensure userPhotos is always an array
+  let userPhotos: string[] = [];
+  if (row.user_photos) {
+    if (Array.isArray(row.user_photos)) {
+      userPhotos = row.user_photos;
+    } else if (typeof row.user_photos === 'string') {
+      try {
+        const parsed = JSON.parse(row.user_photos);
+        userPhotos = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        userPhotos = [];
+      }
+    }
+    // If it's an object (Map), ignore it and use empty array
+  }
+  
   return {
     id: row.id,
     tripId: row.trip_id,
@@ -31,7 +48,7 @@ const tripSpotToCamelCase = (row: any) => {
     visitDate: row.visit_date ? new Date(row.visit_date).toISOString() : null,
     userRating: row.user_rating,
     userNotes: row.user_notes,
-    userPhotos: row.user_photos || [],
+    userPhotos,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
     updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
   };
@@ -347,10 +364,27 @@ export const manageTripSpot = async (req: Request, res: Response) => {
 
 // Helper to normalize place data
 const normalizePlace = (dbPlace: any) => {
+  // 解析 tags（结构化对象格式）
   const parsedTags: string[] = (() => {
     if (dbPlace.tags) {
       try {
         const value = typeof dbPlace.tags === 'string' ? JSON.parse(dbPlace.tags) : dbPlace.tags;
+        // 如果是对象格式（新格式），提取所有值
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          const result: string[] = [];
+          for (const [key, val] of Object.entries(value)) {
+            if (typeof val === 'string' && val.trim()) {
+              result.push(val.trim());
+            } else if (Array.isArray(val)) {
+              for (const v of val) {
+                if (typeof v === 'string' && v.trim()) {
+                  result.push(v.trim());
+                }
+              }
+            }
+          }
+          return result;
+        }
         return Array.isArray(value) ? value : [];
       } catch (_) {
         return [];
@@ -359,10 +393,12 @@ const normalizePlace = (dbPlace: any) => {
     return [];
   })();
 
-  const parsedAiTags: string[] = (() => {
-    if (dbPlace.aiTags) {
+  // 解析 aiTags（对象数组格式 [{en, zh, kind, ...}]）
+  const parsedAiTags: any[] = (() => {
+    if (dbPlace.ai_tags || dbPlace.aiTags) {
       try {
-        const value = typeof dbPlace.aiTags === 'string' ? JSON.parse(dbPlace.aiTags) : dbPlace.aiTags;
+        const raw = dbPlace.ai_tags || dbPlace.aiTags;
+        const value = typeof raw === 'string' ? JSON.parse(raw) : raw;
         return Array.isArray(value) ? value : [];
       } catch (_) {
         return [];
@@ -371,16 +407,109 @@ const normalizePlace = (dbPlace: any) => {
     return [];
   })();
 
-  const mergedTags = parsedTags.length > 0 ? parsedTags : parsedAiTags;
+  // 计算 display_tags_en：category + tags 值 + aiTags.en，最多 4 个
+  const displayTagsEn: string[] = [];
+  const seen = new Set<string>();
+  
+  // 1. 先添加 category
+  const category = dbPlace.category_en || dbPlace.categoryEn || dbPlace.category;
+  if (category && typeof category === 'string' && category.trim()) {
+    const cat = category.trim();
+    if (!seen.has(cat.toLowerCase())) {
+      displayTagsEn.push(cat);
+      seen.add(cat.toLowerCase());
+    }
+  }
+  
+  // 2. 添加 tags 的值
+  for (const tag of parsedTags) {
+    if (displayTagsEn.length >= 4) break;
+    if (typeof tag === 'string' && tag.trim() && !seen.has(tag.toLowerCase())) {
+      displayTagsEn.push(tag.trim());
+      seen.add(tag.toLowerCase());
+    }
+  }
+  
+  // 3. 添加 aiTags 的 en 值
+  for (const tag of parsedAiTags) {
+    if (displayTagsEn.length >= 4) break;
+    const tagEn = typeof tag === 'object' && tag.en ? String(tag.en).trim() : (typeof tag === 'string' ? tag.trim() : '');
+    if (tagEn && !seen.has(tagEn.toLowerCase())) {
+      displayTagsEn.push(tagEn);
+      seen.add(tagEn.toLowerCase());
+    }
+  }
+
+  // 解析 openingHours，处理特殊字符串格式
+  const parsedOpeningHours = (() => {
+    const raw = dbPlace.openingHours || dbPlace.opening_hours;
+    if (!raw) return null;
+    
+    // 如果已经是对象格式，直接返回
+    if (typeof raw === 'object') return raw;
+    
+    // 如果是字符串，尝试解析
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      
+      // 尝试 JSON 解析
+      try {
+        return JSON.parse(trimmed);
+      } catch (_) {
+        // JSON 解析失败，尝试解析特殊格式
+      }
+      
+      // 处理 "Day, hours: X AM to Y PM}" 格式
+      const cleaned = trimmed.endsWith('}') ? trimmed.substring(0, trimmed.length - 1).trim() : trimmed;
+      const hoursMatch = /(\w+),?\s*hours?:\s*(\d{1,2})\s*(AM|PM)\s*to\s*(\d{1,2})\s*(AM|PM)/i.exec(cleaned);
+      
+      if (hoursMatch) {
+        const openHour = hoursMatch[2];
+        const openPeriod = hoursMatch[3].toUpperCase();
+        const closeHour = hoursMatch[4];
+        const closePeriod = hoursMatch[5].toUpperCase();
+        
+        const hoursText = `${openHour}:00 ${openPeriod} – ${closeHour}:00 ${closePeriod}`;
+        
+        return {
+          weekday_text: [
+            `Monday: ${hoursText}`,
+            `Tuesday: ${hoursText}`,
+            `Wednesday: ${hoursText}`,
+            `Thursday: ${hoursText}`,
+            `Friday: ${hoursText}`,
+            `Saturday: ${hoursText}`,
+            `Sunday: ${hoursText}`,
+          ]
+        };
+      }
+      
+      // 无法解析，返回 null
+      return null;
+    }
+    
+    return null;
+  })();
 
   const parsedImages = (() => {
+    // 首先尝试解析 images 字段
     if (dbPlace.images) {
       try {
-        return typeof dbPlace.images === 'string' ? JSON.parse(dbPlace.images) : dbPlace.images;
+        const value = typeof dbPlace.images === 'string' ? JSON.parse(dbPlace.images) : dbPlace.images;
+        if (Array.isArray(value) && value.length > 0) {
+          return value;
+        }
       } catch (_) {
-        return [];
+        // 忽略解析错误
       }
     }
+    
+    // 如果 images 为空，尝试使用 cover_image
+    const coverImage = dbPlace.coverImage || dbPlace.cover_image;
+    if (coverImage && typeof coverImage === 'string' && coverImage.trim()) {
+      return [coverImage.trim()];
+    }
+    
     return [];
   })();
 
@@ -393,14 +522,16 @@ const normalizePlace = (dbPlace: any) => {
     longitude: dbPlace.longitude != null ? Number(dbPlace.longitude) : null,
     address: dbPlace.address,
     description: dbPlace.description,
-    openingHours: dbPlace.openingHours || dbPlace.opening_hours,
+    openingHours: parsedOpeningHours,
     rating: dbPlace.rating != null ? Number(dbPlace.rating) : null,
     ratingCount: dbPlace.ratingCount != null ? Number(dbPlace.ratingCount) : (dbPlace.rating_count != null ? Number(dbPlace.rating_count) : null),
     category: dbPlace.category,
+    categoryEn: dbPlace.category_en || dbPlace.categoryEn,
     aiSummary: dbPlace.aiSummary || dbPlace.ai_summary,
     aiDescription: dbPlace.aiDescription || dbPlace.ai_description,
-    tags: mergedTags,
+    tags: parsedTags,
     aiTags: parsedAiTags,
+    display_tags_en: displayTagsEn,
     coverImage: dbPlace.coverImage || dbPlace.cover_image,
     images: parsedImages,
     priceLevel: dbPlace.priceLevel != null ? Number(dbPlace.priceLevel) : (dbPlace.price_level != null ? Number(dbPlace.price_level) : null),

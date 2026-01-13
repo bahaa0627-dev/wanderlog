@@ -208,9 +208,17 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
 
   /// 获取后端计算好的展示标签（优先使用）
   List<String> get _spotDisplayTags {
+    // 优先使用 Spot model 的 displayTagsEn 字段
+    if (widget.spot is Spot) {
+      final spot = widget.spot as Spot;
+      if (spot.displayTagsEn != null && spot.displayTagsEn!.isNotEmpty) {
+        return spot.displayTagsEn!;
+      }
+    }
+    
+    // 回退：尝试动态获取
     try {
       final dynamic rawTags = (widget.spot as dynamic).displayTagsEn;
-      print('🏷️ [_spotDisplayTags] rawTags: $rawTags (${rawTags.runtimeType})');
       if (rawTags == null) return <String>[];
       
       if (rawTags is List<String>) {
@@ -219,11 +227,9 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       if (rawTags is List) {
         // Handle List<dynamic> case
         final result = rawTags.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
-        print('🏷️ [_spotDisplayTags] converted result: $result');
         return result;
       }
     } catch (e) {
-      print('🏷️ [_spotDisplayTags] error: $e');
       // 忽略错误，回退到 tags
     }
     return <String>[];
@@ -343,6 +349,17 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     }
   }
 
+  String? _getCountry() {
+    if (widget.spot is Spot) {
+      return (widget.spot as Spot).country;
+    }
+    try {
+      return (widget.spot as dynamic).country as String?;
+    } catch (e) {
+      return null;
+    }
+  }
+
   String? _getCategory() {
     if (widget.spot is Spot) {
       return (widget.spot as Spot).category;
@@ -443,11 +460,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     final List<String> result = [];
     final Set<String> seen = {};
     
-    // Debug logging
-    print('🏷️ [_effectiveTags] _spotDisplayTags: $_spotDisplayTags');
-    print('🏷️ [_effectiveTags] _spotTags: $_spotTags');
-    print('🏷️ [_effectiveTags] category: ${_getCategory()}');
-    
     // 1. 优先使用后端计算好的 displayTagsEn
     final displayTags = _spotDisplayTags;
     if (displayTags.isNotEmpty) {
@@ -459,7 +471,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         }
       }
       if (result.isNotEmpty) {
-        print('🏷️ [_effectiveTags] using displayTags, result: $result');
         return result;
       }
     }
@@ -515,7 +526,6 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       }
     } catch (_) {}
     
-    print('🏷️ [_effectiveTags] final result: $result');
     return result;
   }
 
@@ -972,7 +982,11 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     if (_destinationId == null) return false;
     
     // Optimistic update - change state immediately
-    setState(() => _isWishlist = false);
+    setState(() {
+      _isWishlist = false;
+      _isMustGo = false;
+      _isTodaysPlan = false;
+    });
     CustomToast.showSuccess(context, 'Removed from Wishlist');
     widget.onStatusChanged?.call(_spotId, isRemoved: true);
     
@@ -984,6 +998,8 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       );
       // 立即更新同步缓存，避免下次打开时闪烁
       WishlistStatusCache.update(_spotId, null);
+      // 清空 destinationId，下次收藏时重新获取
+      _destinationId = null;
       ref.invalidate(tripsProvider);
       ref.invalidate(wishlistStatusProvider);
       if (mounted) {
@@ -1000,9 +1016,18 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   }
 
   Future<bool> _handleToggleMustGo(bool isChecked) async {
+    // 如果还没收藏，先收藏
+    if (!_isWishlist) {
+      final saved = await _handleAddWishlist();
+      if (!saved) return false;
+    }
+    
     if (_destinationId == null) {
       final destId = await ensureDestinationForCity(ref, _spotCity ?? '');
-      if (destId == null) return false;
+      if (destId == null) {
+        _showError('Failed to create destination');
+        return false;
+      }
       _destinationId = destId;
     }
     
@@ -1017,6 +1042,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         spotId: _spotId,
         status: TripSpotStatus.wishlist,
         priority: isChecked ? SpotPriority.mustGo : SpotPriority.optional,
+        spotPayload: _spotPayload(),
       );
       // 立即更新同步缓存，避免下次打开时闪烁
       WishlistStatusCache.updateFullStatus(
@@ -1040,9 +1066,18 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   }
 
   Future<bool> _handleToggleTodaysPlan(bool isChecked) async {
+    // 如果还没收藏，先收藏
+    if (!_isWishlist) {
+      final saved = await _handleAddWishlist();
+      if (!saved) return false;
+    }
+    
     if (_destinationId == null) {
       final destId = await ensureDestinationForCity(ref, _spotCity ?? '');
-      if (destId == null) return false;
+      if (destId == null) {
+        _showError('Failed to create destination');
+        return false;
+      }
       _destinationId = destId;
     }
     
@@ -1056,6 +1091,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         tripId: _destinationId!,
         spotId: _spotId,
         status: isChecked ? TripSpotStatus.todaysPlan : TripSpotStatus.wishlist,
+        spotPayload: _spotPayload(),
       );
       // 立即更新同步缓存，避免下次打开时闪烁
       WishlistStatusCache.updateFullStatus(
@@ -1116,13 +1152,50 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     return time == '0000' && !hasClose;
   }
 
+  // Check if all 7 days are 24 hours based on weekday_text
+  bool _isAll24HoursFromWeekdayText() {
+    final weekdayText = _getWeekdayText();
+    if (weekdayText == null || weekdayText.isEmpty) return false;
+    
+    // Check if all days contain "Open 24 hours" or similar
+    for (final dayText in weekdayText) {
+      final lower = dayText.toLowerCase();
+      if (!lower.contains('open 24') && 
+          !lower.contains('24 hours') && 
+          lower != '7x24' &&
+          lower != '24/7') {
+        return false;
+      }
+    }
+    return true;
+  }
+
   // Get weekday text for 7 days display
   List<String>? _getWeekdayText() {
     final raw = _spotOpeningHours;
     if (raw == null) return null;
     final weekdayText = raw['weekday_text'];
     if (weekdayText is List && weekdayText.isNotEmpty) {
-      return weekdayText.map((e) => e?.toString() ?? '').toList();
+      return weekdayText.map((e) {
+        final text = e?.toString() ?? '';
+        // 处理 "{day: Monday, hours: 9 AM to 10:30 PM}" 格式
+        if (text.startsWith('{') && text.contains('day:') && text.contains('hours:')) {
+          final dayMatch = RegExp(r'day:\s*(\w+)', caseSensitive: false).firstMatch(text);
+          final hoursMatch = RegExp(r'hours:\s*(.+?)(?:\}|$)', caseSensitive: false).firstMatch(text);
+          if (dayMatch != null && hoursMatch != null) {
+            final day = dayMatch.group(1)!;
+            var hours = hoursMatch.group(1)!.trim();
+            // 移除末尾的 } 如果存在
+            if (hours.endsWith('}')) {
+              hours = hours.substring(0, hours.length - 1).trim();
+            }
+            // 将 "to" 替换为 "–"
+            hours = hours.replaceAll(' to ', ' – ');
+            return '$day: $hours';
+          }
+        }
+        return text;
+      }).toList();
     }
     return null;
   }
@@ -1131,10 +1204,14 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     final raw = _spotOpeningHours;
     if (raw == null) return const SizedBox.shrink();
 
-    final eval = OpeningHoursUtils.evaluate(raw);
+    final eval = OpeningHoursUtils.evaluate(
+      raw,
+      country: _getCountry(),
+      longitude: _getLongitude(),
+    );
     if (eval == null) return const SizedBox.shrink();
 
-    final is24h = _is24Hours();
+    final is24h = _is24Hours() || _isAll24HoursFromWeekdayText();
     final weekdayText = _getWeekdayText();
     final canExpand = !is24h && weekdayText != null && weekdayText.isNotEmpty;
     
@@ -1191,9 +1268,12 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     required String text,
     VoidCallback? onCopy,
   }) => Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: AppTheme.black),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(icon, size: 18, color: AppTheme.black),
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -1207,7 +1287,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
           GestureDetector(
             onTap: onCopy,
             child: Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: 8, top: 2),
               child: const Icon(Icons.copy, size: 18, color: AppTheme.black),
             ),
           ),
@@ -1580,23 +1660,21 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
             top: false,
             child: _isWishlist
                 ? SaveSpotButton(
+                    key: ValueKey('save-button-saved-$_isWishlist-$_isMustGo-$_isTodaysPlan'),
                     isSaved: true,
                     isMustGo: _isMustGo,
                     isTodaysPlan: _isTodaysPlan,
                     onSave: () async => true,
                     onUnsave: () async {
                       final ok = await _handleRemoveWishlist();
-                      if (ok && context.mounted) {
-                        if (!widget.keepOpenOnAction) {
-                          Navigator.pop(context);
-                        }
-                      }
+                      // 取消收藏后不关闭页面，只更新按钮状态
                       return ok;
                     },
                     onToggleMustGo: (isChecked) async => await _handleToggleMustGo(isChecked),
                     onToggleTodaysPlan: (isChecked) async => await _handleToggleTodaysPlan(isChecked),
                   )
                 : GestureDetector(
+                    key: const ValueKey('save-button-unsaved'),
                     onTap: () async {
                       await _handleAddWishlist();
                     },
@@ -1629,9 +1707,12 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   }
 
   Widget _buildAddressRowWithNavigation() => Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.location_on_outlined, size: 18, color: AppTheme.black),
+        const Padding(
+          padding: EdgeInsets.only(top: 2),
+          child: Icon(Icons.location_on_outlined, size: 18, color: AppTheme.black),
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -1643,9 +1724,9 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         ),
         GestureDetector(
           onTap: _showNavigationOptions,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: const Icon(Icons.navigation_outlined, size: 18, color: AppTheme.black),
+          child: const Padding(
+            padding: EdgeInsets.only(left: 8, top: 2),
+            child: Icon(Icons.navigation_outlined, size: 18, color: AppTheme.black),
           ),
         ),
       ],

@@ -701,7 +701,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                   const SizedBox(width: 4),
                   Text(
                     displayName, 
-                    style: AppTheme.labelSmall(context).copyWith(
+                    style: AppTheme.bodySmall(context).copyWith(
                       color: AppTheme.black,
                     ),
                   ),

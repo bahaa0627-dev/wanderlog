@@ -56,8 +56,7 @@ class CollectionSpotsMapPage extends ConsumerStatefulWidget {
 
 class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage> {
   final GlobalKey<MapboxSpotMapState> _mapKey = GlobalKey<MapboxSpotMapState>();
-  final PageController _cardPageController =
-      PageController(viewportFraction: 0.55);
+  PageController _cardPageController = PageController(viewportFraction: 0.55);
   int _currentCardIndex = 0;
   List<map_page.Spot> _citySpots = [];
   map_page.Spot? _selectedSpot;
@@ -65,6 +64,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   bool _isFavLoading = false;
   bool _shouldRefreshCollections = false;
   bool _skipNextRecenter = false;
+  bool _isExiting = false; // 标记是否正在退出页面
 
   bool? _extractIsFavorited(dynamic collection) {
     if (collection is Map<String, dynamic>) {
@@ -229,7 +229,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   }
 
   void _onCardPageChanged() {
-    if (!_cardPageController.hasClients) return;
+    if (!_cardPageController.hasClients || _isExiting) return;
 
     final page = _cardPageController.page?.round();
     if (page != null && page != _currentCardIndex && page < _citySpots.length) {
@@ -301,6 +301,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
             website: spotData['website']?.toString(),
             openingHours: openingHours,
           );
+          print('✅ 创建 Spot: ${spot.name}, displayTagsEn: ${spot.displayTagsEn}, category: ${spot.category}');
           spots.add(spot);
         } catch (e) {
           print('⚠️ 解析预加载地点失败: $e');
@@ -355,6 +356,9 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
             print('⚠️ 第 ${index + 1} 个地点缺少 spot/place 数据');
             continue;
           }
+          
+          // 打印完整的 spotData 用于调试
+          print('🔍 spotData for ${spotData['name']}: displayTagsEn=${spotData['displayTagsEn']}, tags=${spotData['tags']}, aiTags=${spotData['aiTags']}');
 
           try {
             // 直接从合集返回的数据创建 Spot
@@ -397,8 +401,8 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
               website: spotData['website']?.toString(),
               openingHours: openingHours,
             );
+            print('✅ 成功解析地点: ${spot.name}, displayTagsEn: ${spot.displayTagsEn}, category: ${spot.category}');
             spots.add(spot);
-            print('✅ 成功解析地点: ${spot.name}, lat: ${spot.latitude}, lng: ${spot.longitude}');
           } catch (e, stackTrace) {
             print('⚠️ 解析地点失败: $e');
             print('📋 Stack trace: $stackTrace');
@@ -718,7 +722,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
             ),
 
             // 底部地点卡片滑动列表
-            if (_citySpots.isNotEmpty)
+            if (_citySpots.isNotEmpty && !_isExiting)
               Positioned(
                 key: const ValueKey('bottom-cards'),
                 bottom: 40,
@@ -758,6 +762,8 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   }
 
   void _handleBack() {
+    // 标记正在退出，防止卡片滑动
+    setState(() => _isExiting = true);
     Navigator.of(context).pop({
       'shouldRefresh': _shouldRefreshCollections,
       'isFavorited': _isFavorite,

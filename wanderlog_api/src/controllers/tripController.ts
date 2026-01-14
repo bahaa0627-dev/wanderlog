@@ -82,6 +82,7 @@ export const getMyTrips = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
     
+    // Step 1: Get all trips with spot count in a single query
     const trips = await prismaAny.$queryRaw`
       SELECT t.*, 
              COALESCE((SELECT COUNT(*) FROM trip_spots ts WHERE ts.trip_id = t.id), 0) as spot_count
@@ -90,44 +91,104 @@ export const getMyTrips = async (req: Request, res: Response) => {
       ORDER BY t.updated_at DESC
     `;
 
-    // Load tripSpots with spot data for each trip (needed for wishlist status)
-    const result = await Promise.all(trips.map(async (t: any) => {
-      const tripSpots = await prismaAny.$queryRaw`
-        SELECT * FROM trip_spots 
-        WHERE trip_id = ${t.id}::uuid
-        ORDER BY created_at DESC
-      `;
-      
-      // Load place data for each trip spot
-      const normalizedTripSpots = await Promise.all(
-        (tripSpots as any[]).map(async (ts: any) => {
-          const placeId = ts.place_id;
-          let normalizedPlace = null;
-          
-          if (placeId) {
-            const places = await prismaAny.$queryRaw`
-              SELECT * FROM places WHERE id = ${placeId}::uuid LIMIT 1
-            `;
-            if (places && places.length > 0) {
-              normalizedPlace = normalizePlace(places[0]);
-            }
-          }
-          
-          const tripSpotData = tripSpotToCamelCase(ts);
+    if (!trips || trips.length === 0) {
+      return res.json([]);
+    }
 
-          return {
-            ...tripSpotData,
-            place: normalizedPlace,
-            spot: normalizedPlace,
-          };
-        }),
-      );
+    // Step 2: Get all trip IDs
+    const tripIds = trips.map((t: any) => t.id);
+    
+    // Step 3: Get all trip_spots for all trips in a single query
+    const allTripSpots = await prismaAny.$queryRaw`
+      SELECT ts.*, p.*,
+             ts.id as trip_spot_id,
+             ts.trip_id as ts_trip_id,
+             ts.place_id as ts_place_id,
+             ts.status as ts_status,
+             ts.priority as ts_priority,
+             ts.visit_date as ts_visit_date,
+             ts.user_rating as ts_user_rating,
+             ts.user_notes as ts_user_notes,
+             ts.user_photos as ts_user_photos,
+             ts.created_at as ts_created_at,
+             ts.updated_at as ts_updated_at,
+             p.id as place_id,
+             p.name as place_name
+      FROM trip_spots ts
+      LEFT JOIN places p ON ts.place_id = p.id
+      WHERE ts.trip_id = ANY(${tripIds}::uuid[])
+      ORDER BY ts.created_at DESC
+    `;
+
+    // Step 4: Group trip_spots by trip_id
+    const tripSpotsMap = new Map<string, any[]>();
+    for (const ts of allTripSpots as any[]) {
+      const tripId = ts.ts_trip_id;
+      if (!tripSpotsMap.has(tripId)) {
+        tripSpotsMap.set(tripId, []);
+      }
       
-      return {
-        ...toCamelCase(t),
-        _count: { tripSpots: Number(t.spot_count) || 0 },
-        tripSpots: normalizedTripSpots,
-      };
+      // Extract place data
+      let normalizedPlace = null;
+      if (ts.place_id) {
+        normalizedPlace = normalizePlace({
+          id: ts.place_id,
+          name: ts.place_name || ts.name,
+          city: ts.city,
+          country: ts.country,
+          latitude: ts.latitude,
+          longitude: ts.longitude,
+          address: ts.address,
+          description: ts.description,
+          opening_hours: ts.opening_hours,
+          rating: ts.rating,
+          rating_count: ts.rating_count,
+          category: ts.category,
+          category_slug: ts.category_slug,
+          category_en: ts.category_en,
+          category_zh: ts.category_zh,
+          ai_summary: ts.ai_summary,
+          ai_description: ts.ai_description,
+          tags: ts.tags,
+          ai_tags: ts.ai_tags,
+          cover_image: ts.cover_image,
+          images: ts.images,
+          price: ts.price,
+          price_level: ts.price_level,
+          website: ts.website,
+          phone_number: ts.phone_number,
+          google_place_id: ts.google_place_id,
+          source: ts.source,
+        });
+      }
+      
+      // Extract trip_spot data
+      const tripSpotData = tripSpotToCamelCase({
+        id: ts.trip_spot_id,
+        trip_id: ts.ts_trip_id,
+        place_id: ts.ts_place_id,
+        status: ts.ts_status,
+        priority: ts.ts_priority,
+        visit_date: ts.ts_visit_date,
+        user_rating: ts.ts_user_rating,
+        user_notes: ts.ts_user_notes,
+        user_photos: ts.ts_user_photos,
+        created_at: ts.ts_created_at,
+        updated_at: ts.ts_updated_at,
+      });
+      
+      tripSpotsMap.get(tripId)!.push({
+        ...tripSpotData,
+        place: normalizedPlace,
+        spot: normalizedPlace,
+      });
+    }
+
+    // Step 5: Build result
+    const result = trips.map((t: any) => ({
+      ...toCamelCase(t),
+      _count: { tripSpots: Number(t.spot_count) || 0 },
+      tripSpots: tripSpotsMap.get(t.id) || [],
     }));
 
     return res.json(JSON.parse(JSON.stringify(result, (_, v) => typeof v === 'bigint' ? Number(v) : v)));
@@ -163,39 +224,85 @@ export const getTripById = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    // Get trip spots
-    const tripSpots = await prismaAny.$queryRaw`
-      SELECT * FROM trip_spots 
-      WHERE trip_id = ${id}::uuid
-      ORDER BY created_at DESC
+    // Get trip spots with places in a single JOIN query
+    const tripSpotsWithPlaces = await prismaAny.$queryRaw`
+      SELECT ts.*, p.*,
+             ts.id as trip_spot_id,
+             ts.trip_id as ts_trip_id,
+             ts.place_id as ts_place_id,
+             ts.status as ts_status,
+             ts.priority as ts_priority,
+             ts.visit_date as ts_visit_date,
+             ts.user_rating as ts_user_rating,
+             ts.user_notes as ts_user_notes,
+             ts.user_photos as ts_user_photos,
+             ts.created_at as ts_created_at,
+             ts.updated_at as ts_updated_at,
+             p.id as place_id,
+             p.name as place_name
+      FROM trip_spots ts
+      LEFT JOIN places p ON ts.place_id = p.id
+      WHERE ts.trip_id = ${id}::uuid
+      ORDER BY ts.created_at DESC
     `;
     
-    logger.info(`getTripById: found ${tripSpots?.length || 0} trip_spots`);
+    logger.info(`getTripById: found ${tripSpotsWithPlaces?.length || 0} trip_spots`);
 
-    // Load places for each trip spot (use raw SQL to avoid DateTime issues)
-    const normalizedTripSpots = await Promise.all(
-      (tripSpots as any[]).map(async (ts: any) => {
-        const placeId = ts.place_id;
-        let normalizedPlace = null;
-        
-        if (placeId) {
-          const places = await prismaAny.$queryRaw`
-            SELECT * FROM places WHERE id = ${placeId}::uuid LIMIT 1
-          `;
-          if (places && places.length > 0) {
-            normalizedPlace = normalizePlace(places[0]);
-          }
-        }
-        
-        const tripSpotData = tripSpotToCamelCase(ts);
+    // Process trip spots
+    const normalizedTripSpots = (tripSpotsWithPlaces as any[]).map((ts: any) => {
+      let normalizedPlace = null;
+      if (ts.place_id) {
+        normalizedPlace = normalizePlace({
+          id: ts.place_id,
+          name: ts.place_name || ts.name,
+          city: ts.city,
+          country: ts.country,
+          latitude: ts.latitude,
+          longitude: ts.longitude,
+          address: ts.address,
+          description: ts.description,
+          opening_hours: ts.opening_hours,
+          rating: ts.rating,
+          rating_count: ts.rating_count,
+          category: ts.category,
+          category_slug: ts.category_slug,
+          category_en: ts.category_en,
+          category_zh: ts.category_zh,
+          ai_summary: ts.ai_summary,
+          ai_description: ts.ai_description,
+          tags: ts.tags,
+          ai_tags: ts.ai_tags,
+          cover_image: ts.cover_image,
+          images: ts.images,
+          price: ts.price,
+          price_level: ts.price_level,
+          website: ts.website,
+          phone_number: ts.phone_number,
+          google_place_id: ts.google_place_id,
+          source: ts.source,
+        });
+      }
+      
+      const tripSpotData = tripSpotToCamelCase({
+        id: ts.trip_spot_id,
+        trip_id: ts.ts_trip_id,
+        place_id: ts.ts_place_id,
+        status: ts.ts_status,
+        priority: ts.ts_priority,
+        visit_date: ts.ts_visit_date,
+        user_rating: ts.ts_user_rating,
+        user_notes: ts.ts_user_notes,
+        user_photos: ts.ts_user_photos,
+        created_at: ts.ts_created_at,
+        updated_at: ts.ts_updated_at,
+      });
 
-        return {
-          ...tripSpotData,
-          place: normalizedPlace,
-          spot: normalizedPlace,
-        };
-      }),
-    );
+      return {
+        ...tripSpotData,
+        place: normalizedPlace,
+        spot: normalizedPlace,
+      };
+    });
 
     return res.json({
       ...toCamelCase(trip),
@@ -217,7 +324,7 @@ export const manageTripSpot = async (req: Request, res: Response) => {
   const prismaAny = prisma as any;
   try {
     const { id } = req.params; // Trip ID
-    const { spotId, placeId, status, priority, visitDate, userRating, userNotes, spot, remove } =
+    const { spotId, placeId, status, priority, visitDate, userRating, userNotes, userPhotos, spot, remove } =
       req.body;
     const userId = req.user.id;
     let targetPlaceId: string | undefined = placeId || spotId;
@@ -317,19 +424,34 @@ export const manageTripSpot = async (req: Request, res: Response) => {
 
     let tripSpot;
     const visitDateStr = visitDate ? new Date(visitDate).toISOString() : null;
+    const userPhotosJson = userPhotos ? JSON.stringify(userPhotos) : null;
 
     if (existing && existing.length > 0) {
       // Update existing
-      await prismaAny.$executeRaw`
-        UPDATE trip_spots SET 
-          status = COALESCE(${status}, status),
-          priority = COALESCE(${normalizedPriority}, priority),
-          visit_date = ${visitDateStr}::timestamp,
-          user_rating = COALESCE(${userRating}::int, user_rating),
-          user_notes = COALESCE(${userNotes}, user_notes),
-          updated_at = NOW()
-        WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid
-      `;
+      if (userPhotosJson) {
+        await prismaAny.$executeRaw`
+          UPDATE trip_spots SET 
+            status = COALESCE(${status}, status),
+            priority = COALESCE(${normalizedPriority}, priority),
+            visit_date = ${visitDateStr}::timestamp,
+            user_rating = COALESCE(${userRating}::int, user_rating),
+            user_notes = COALESCE(${userNotes}, user_notes),
+            user_photos = ${userPhotosJson}::jsonb,
+            updated_at = NOW()
+          WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid
+        `;
+      } else {
+        await prismaAny.$executeRaw`
+          UPDATE trip_spots SET 
+            status = COALESCE(${status}, status),
+            priority = COALESCE(${normalizedPriority}, priority),
+            visit_date = ${visitDateStr}::timestamp,
+            user_rating = COALESCE(${userRating}::int, user_rating),
+            user_notes = COALESCE(${userNotes}, user_notes),
+            updated_at = NOW()
+          WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid
+        `;
+      }
       const results = await prismaAny.$queryRaw`
         SELECT * FROM trip_spots WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid LIMIT 1
       `;
@@ -337,8 +459,8 @@ export const manageTripSpot = async (req: Request, res: Response) => {
     } else {
       // Create new
       const results = await prismaAny.$queryRaw`
-        INSERT INTO trip_spots (trip_id, place_id, status, priority, visit_date, user_rating, user_notes)
-        VALUES (${id}::uuid, ${targetPlaceId}::uuid, ${status || 'WISHLIST'}, ${normalizedPriority || 'OPTIONAL'}, ${visitDateStr}::timestamp, ${userRating || null}::int, ${userNotes || null})
+        INSERT INTO trip_spots (trip_id, place_id, status, priority, visit_date, user_rating, user_notes, user_photos)
+        VALUES (${id}::uuid, ${targetPlaceId}::uuid, ${status || 'WISHLIST'}, ${normalizedPriority || 'OPTIONAL'}, ${visitDateStr}::timestamp, ${userRating || null}::int, ${userNotes || null}, ${userPhotosJson}::jsonb)
         RETURNING *
       `;
       tripSpot = results[0];

@@ -56,6 +56,7 @@ class TripRepository {
     DateTime? visitDate,
     int? userRating,
     String? userNotes,
+    List<String>? userPhotos,
     Map<String, dynamic>? spotPayload,
     bool remove = false,
   }) async {
@@ -72,6 +73,7 @@ class TripRepository {
       if (visitDate != null) data['visitDate'] = visitDate.toIso8601String();
       if (userRating != null) data['userRating'] = userRating;
       if (userNotes != null) data['userNotes'] = userNotes;
+      if (userPhotos != null) data['userPhotos'] = userPhotos;
       if (spotPayload != null) data['spot'] = spotPayload;
 
       final response = await _dio.put<Map<String, dynamic>>(

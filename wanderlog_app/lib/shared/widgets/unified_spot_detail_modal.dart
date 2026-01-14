@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -14,8 +15,10 @@ import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/widgets/save_spot_button.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/features/trips/providers/image_upload_provider.dart';
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpotStatus, SpotPriority;
+import 'package:wanderlog/shared/models/trip_model.dart' show Trip;
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
@@ -31,6 +34,12 @@ class UnifiedSpotDetailModal extends ConsumerStatefulWidget {
     this.initialIsSaved,
     this.initialIsMustGo,
     this.initialIsTodaysPlan,
+    this.initialIsVisited,
+    this.initialVisitDate,
+    this.initialUserRating,
+    this.initialUserNotes,
+    this.initialUserPhotos,
+    this.initialDestinationId,
     this.onStatusChanged,
     this.keepOpenOnAction = false,
     this.hideCollectionEntry = false,
@@ -43,6 +52,12 @@ class UnifiedSpotDetailModal extends ConsumerStatefulWidget {
   final bool? initialIsSaved;
   final bool? initialIsMustGo;
   final bool? initialIsTodaysPlan;
+  final bool? initialIsVisited;
+  final DateTime? initialVisitDate;
+  final int? initialUserRating;
+  final String? initialUserNotes;
+  final List<String>? initialUserPhotos;
+  final String? initialDestinationId;
   final void Function(String spotId, {bool? isMustGo, bool? isTodaysPlan, bool? isVisited, bool? isRemoved, bool? needsReload})? onStatusChanged;
   final bool keepOpenOnAction; // If true, don't close modal after actions
   final bool hideCollectionEntry; // If true, don't show collection entry card (e.g. when opened from collection page)
@@ -66,6 +81,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   String? _userNotes;
   List<String> _userPhotos = [];
   bool _isOpeningHoursExpanded = false;
+  bool _isLoadingCheckInData = false; // 新增：check-in 数据加载状态
   
   // 关联的合集（随机选择一个展示）
   Map<String, dynamic>? _linkedCollection;
@@ -305,6 +321,21 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     }
   }
 
+  /// 检查地点当前是否关门
+  bool get _isSpotClosed {
+    final raw = _spotOpeningHours;
+    if (raw == null) return false;
+    
+    final eval = OpeningHoursUtils.evaluate(
+      raw,
+      country: _getCountry(),
+      longitude: _getLongitude(),
+    );
+    if (eval == null) return false;
+    
+    return !eval.isOpen;
+  }
+
   String? get _spotPhoneNumber {
     if (widget.spot is Spot) {
       return (widget.spot as Spot).phoneNumber;
@@ -378,12 +409,33 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       _isWishlist = widget.initialIsSaved!;
       _isMustGo = widget.initialIsMustGo ?? false;
       _isTodaysPlan = widget.initialIsTodaysPlan ?? false;
+      _isVisited = widget.initialIsVisited ?? false;
+      _visitDate = widget.initialVisitDate;
+      _userRating = widget.initialUserRating;
+      _userNotes = widget.initialUserNotes;
+      _userPhotos = widget.initialUserPhotos ?? [];
+      _destinationId = widget.initialDestinationId;
+      
+      // 判断是否有完整的 check-in 数据
+      final hasCompleteCheckInData = _isVisited && _visitDate != null;
+      
+      if (hasCompleteCheckInData) {
+        // 有完整数据，不需要加载，也不显示加载状态
+        _isLoadingCheckInData = false;
+      } else if (_isVisited && _visitDate == null) {
+        // visited 但缺少数据，显示加载状态并异步加载
+        _isLoadingCheckInData = true;
+        _loadWishlistStatus();
+      } else {
+        // 不是 visited 状态，或者没有初始数据，异步加载
+        _loadWishlistStatus();
+      }
     } else {
       // 先从缓存同步读取收藏状态，避免闪烁
       _loadWishlistStatusFromCache();
+      // 异步加载详细状态
+      _loadWishlistStatus();
     }
-    // 异步加载详细状态
-    _loadWishlistStatus();
     
     // 处理合集入口数据
     if (widget.hideCollectionEntry) {
@@ -444,6 +496,45 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     } catch (e) {
       return null;
     }
+  }
+
+  void _viewUserPhotoFullScreen(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                color: Colors.black87,
+                child: Center(
+                  child: InteractiveViewer(
+                    child: imageUrl.startsWith('data:')
+                        ? Image.memory(_decodeBase64Image(imageUrl)!)
+                        : Image.network(imageUrl, fit: BoxFit.contain),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 32,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildPlaceholder() => Container(
@@ -534,7 +625,20 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     if (!auth.isAuthenticated) return;
     try {
       final repo = ref.read(tripRepositoryProvider);
-      final trips = await repo.getMyTrips();
+      // 使用 tripsProvider 的缓存数据，避免重复请求
+      final tripsAsync = ref.read(tripsProvider);
+      List<Trip>? trips;
+      
+      // 如果有缓存数据，直接使用
+      if (tripsAsync.hasValue) {
+        trips = tripsAsync.value;
+      } else {
+        // 否则请求数据
+        trips = await repo.getMyTrips();
+      }
+      
+      if (trips == null) return;
+      
       for (final t in trips) {
         try {
           final detail = await repo.getTripById(t.id);
@@ -554,13 +658,27 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                 _userRating = tripSpot.userRating;
                 _userNotes = tripSpot.userNotes;
                 _userPhotos = tripSpot.userPhotos ?? [];
+                _isLoadingCheckInData = false; // 加载完成
               });
             }
             return;
           }
         } catch (_) {}
       }
-    } catch (_) {}
+      
+      // 如果没有找到数据，也要清除加载状态
+      if (mounted) {
+        setState(() {
+          _isLoadingCheckInData = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingCheckInData = false;
+        });
+      }
+    }
   }
 
   /// 加载地点关联的合集（随机选择一个展示）
@@ -656,7 +774,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       context: context,
       builder: (context) => CheckInDialog(
         spot: spotModel,
-        onCheckIn: (visitDate, rating, notes) async {
+        onCheckIn: (visitDate, rating, notes, {List<File>? newImages, List<String>? existingPhotos}) async {
           try {
             final city = _spotCity ?? '';
             final destId = _destinationId ?? await ensureDestinationForCity(ref, city);
@@ -665,6 +783,15 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
               return;
             }
             _destinationId = destId;
+            
+            // Upload new images if any
+            List<String> allPhotoUrls = [...?existingPhotos];
+            if (newImages != null && newImages.isNotEmpty) {
+              final uploadService = ref.read(imageUploadServiceProvider);
+              final uploadedUrls = await uploadService.uploadImages(newImages);
+              allPhotoUrls.addAll(uploadedUrls);
+            }
+            
             await ref.read(tripRepositoryProvider).manageTripSpot(
               tripId: destId,
               spotId: _spotId,
@@ -672,6 +799,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
               visitDate: visitDate,
               userRating: rating.toInt(),
               userNotes: notes,
+              userPhotos: allPhotoUrls.isNotEmpty ? allPhotoUrls : null,
               spotPayload: _spotPayload(),
             );
             // 立即更新同步缓存，避免下次打开时闪烁
@@ -691,13 +819,13 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                 _visitDate = visitDate;
                 _userRating = rating.toInt();
                 _userNotes = notes;
+                _userPhotos = allPhotoUrls;
                 _isTodaysPlan = false;
               });
               CustomToast.showSuccess(context, 'Checked in to $_spotName');
-              widget.onStatusChanged?.call(_spotId, isVisited: true, isTodaysPlan: false);
-              if (!widget.keepOpenOnAction) {
-                Navigator.of(context).pop({'success': true});
-              }
+              // 通知父组件重新加载数据，以确保 visited 列表更新
+              widget.onStatusChanged?.call(_spotId, isVisited: true, isTodaysPlan: false, needsReload: true);
+              // 不再关闭详情页，让用户看到更新后的 check-in 信息
             }
           } catch (e) {
             CustomToast.showError(context, 'Error: $e');
@@ -735,12 +863,41 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         initialVisitDate: _visitDate,
         initialRating: _userRating?.toDouble(),
         initialNotes: _userNotes,
-        onCheckIn: (visitDate, rating, notes) async {
+        initialPhotos: _userPhotos.isNotEmpty ? _userPhotos : null,
+        onCheckIn: (visitDate, rating, notes, {List<File>? newImages, List<String>? existingPhotos}) async {
           try {
             if (_destinationId == null) {
               CustomToast.showError(context, 'Destination not found');
               return;
             }
+            
+            // 1. 立即更新本地状态（乐观更新）- 用户立即看到变化
+            List<String> allPhotoUrls = [...?existingPhotos];
+            if (mounted) {
+              setState(() {
+                _visitDate = visitDate;
+                _userRating = rating.toInt();
+                _userNotes = notes;
+                _userPhotos = allPhotoUrls;
+              });
+              CustomToast.showSuccess(context, 'Check-in updated');
+            }
+            
+            // 2. 在后台上传新图片（如果有）
+            if (newImages != null && newImages.isNotEmpty) {
+              final uploadService = ref.read(imageUploadServiceProvider);
+              final uploadedUrls = await uploadService.uploadImages(newImages);
+              allPhotoUrls.addAll(uploadedUrls);
+              
+              // 更新照片列表
+              if (mounted) {
+                setState(() {
+                  _userPhotos = allPhotoUrls;
+                });
+              }
+            }
+            
+            // 3. 在后台同步到服务器
             await ref.read(tripRepositoryProvider).manageTripSpot(
               tripId: _destinationId!,
               spotId: _spotId,
@@ -748,14 +905,24 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
               visitDate: visitDate,
               userRating: rating.toInt(),
               userNotes: notes,
+              userPhotos: allPhotoUrls.isNotEmpty ? allPhotoUrls : null,
             );
+            
+            // 4. 刷新缓存，确保其他页面也能看到最新数据
             ref.invalidate(tripsProvider);
-            await _loadWishlistStatus();
-            if (mounted) {
-              CustomToast.showSuccess(context, 'Check-in updated');
-              widget.onStatusChanged?.call(_spotId, isVisited: true, needsReload: true);
-            }
+            
+            // 5. 通知父组件更新（但不需要重新加载整个列表）
+            widget.onStatusChanged?.call(_spotId, isVisited: true, needsReload: false);
           } catch (e) {
+            // 如果服务器同步失败，回滚本地状态
+            if (mounted) {
+              setState(() {
+                _visitDate = widget.initialVisitDate;
+                _userRating = widget.initialUserRating;
+                _userNotes = widget.initialUserNotes;
+                _userPhotos = widget.initialUserPhotos ?? [];
+              });
+            }
             CustomToast.showError(context, 'Error: $e');
           }
         },
@@ -844,6 +1011,77 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     }
   }
 
+  /// 构建 check-in 数据加载骨架屏
+  Widget _buildCheckInLoadingSkeleton() => Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+        border: Border.all(color: AppTheme.black, width: AppTheme.borderThin),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('✓', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Your Visit',
+                  style: AppTheme.headlineMedium(context).copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // 骨架屏：模拟加载中的内容
+          Container(
+            height: 16,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: AppTheme.mediumGray.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 16,
+            width: 200,
+            decoration: BoxDecoration(
+              color: AppTheme.mediumGray.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                height: 14,
+                width: 80,
+                decoration: BoxDecoration(
+                  color: AppTheme.mediumGray.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 12),
+              ...List.generate(
+                5,
+                (index) => Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Icon(
+                    Icons.star_border,
+                    size: 16,
+                    color: AppTheme.mediumGray.withOpacity(0.3),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
   Widget _buildUserCheckInInfo() => Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -907,19 +1145,22 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: _userPhotos.length,
-                itemBuilder: (context, index) => Container(
-                  width: 80,
-                  height: 80,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                    border: Border.all(color: AppTheme.black, width: AppTheme.borderThin),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall - 1),
-                    child: _userPhotos[index].startsWith('data:')
-                        ? Image.memory(_decodeBase64Image(_userPhotos[index])!, fit: BoxFit.cover)
-                        : Image.network(_userPhotos[index], fit: BoxFit.cover),
+                itemBuilder: (context, index) => GestureDetector(
+                  onTap: () => _viewUserPhotoFullScreen(_userPhotos[index]),
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                      border: Border.all(color: AppTheme.black, width: AppTheme.borderThin),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall - 1),
+                      child: _userPhotos[index].startsWith('data:')
+                          ? Image.memory(_decodeBase64Image(_userPhotos[index])!, fit: BoxFit.cover)
+                          : Image.network(_userPhotos[index], fit: BoxFit.cover),
+                    ),
                   ),
                 ),
               ),
@@ -981,6 +1222,9 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   Future<bool> _handleRemoveWishlist() async {
     if (_destinationId == null) return false;
     
+    // 如果地点已经 visited，不应该完全删除，只是取消收藏状态
+    final shouldKeepVisited = _isVisited;
+    
     // Optimistic update - change state immediately
     setState(() {
       _isWishlist = false;
@@ -988,18 +1232,39 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       _isTodaysPlan = false;
     });
     CustomToast.showSuccess(context, 'Removed from Wishlist');
-    widget.onStatusChanged?.call(_spotId, isRemoved: true);
+    
+    // 如果已经 visited，不要从列表中移除，只是更新状态
+    if (shouldKeepVisited) {
+      widget.onStatusChanged?.call(_spotId, isRemoved: false, needsReload: true);
+    } else {
+      widget.onStatusChanged?.call(_spotId, isRemoved: true);
+    }
     
     try {
-      await ref.read(tripRepositoryProvider).manageTripSpot(
-        tripId: _destinationId!,
-        spotId: _spotId,
-        remove: true,
-      );
-      // 立即更新同步缓存，避免下次打开时闪烁
-      WishlistStatusCache.update(_spotId, null);
-      // 清空 destinationId，下次收藏时重新获取
-      _destinationId = null;
+      if (shouldKeepVisited) {
+        // 保留 visited 数据，只是取消 wishlist/mustGo/todaysPlan 状态
+        // 不传递 remove: true，而是保持 visited 状态
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: _destinationId!,
+          spotId: _spotId,
+          status: TripSpotStatus.visited,
+          spotPayload: _spotPayload(), // 添加 spotPayload 以确保后端能正确识别 spot
+          // 保留现有的 visitDate, userRating, userNotes, userPhotos
+          // 这些数据会被保留，因为我们没有传递新值
+        );
+      } else {
+        // 如果没有 visited 数据，可以完全删除
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: _destinationId!,
+          spotId: _spotId,
+          remove: true,
+        );
+        // 立即更新同步缓存，避免下次打开时闪烁
+        WishlistStatusCache.update(_spotId, null);
+        // 清空 destinationId，下次收藏时重新获取
+        _destinationId = null;
+      }
+      
       ref.invalidate(tripsProvider);
       ref.invalidate(wishlistStatusProvider);
       if (mounted) {
@@ -1215,9 +1480,50 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     final weekdayText = _getWeekdayText();
     final canExpand = !is24h && weekdayText != null && weekdayText.isNotEmpty;
     
-    // Only show red if closing within 2 hours
     final isClosingSoon = eval.isClosingSoon;
-    final textColor = isClosingSoon ? AppTheme.error : AppTheme.black;
+    final isClosed = !eval.isOpen;
+    final summaryText = eval.summaryText;
+    
+    // Build text widget - only "Closed," in red
+    Widget textWidget;
+    if (isClosed && summaryText.startsWith('Closed')) {
+      // Check if there's a comma after "Closed"
+      final hasComma = summaryText.startsWith('Closed,');
+      final redPart = hasComma ? 'Closed,' : 'Closed';
+      final restText = summaryText.substring(redPart.length);
+      
+      textWidget = RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: redPart,
+              style: AppTheme.bodyMedium(context).copyWith(
+                color: AppTheme.error,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (restText.isNotEmpty)
+              TextSpan(
+                text: restText,
+                style: AppTheme.bodyMedium(context).copyWith(
+                  color: AppTheme.black,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
+        ),
+      );
+    } else {
+      // Normal text (open or closing soon)
+      final textColor = isClosingSoon ? AppTheme.error : AppTheme.black;
+      textWidget = Text(
+        summaryText,
+        style: AppTheme.bodyMedium(context).copyWith(
+          color: textColor,
+          fontWeight: FontWeight.w500,
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1229,15 +1535,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
             children: [
               const Icon(Icons.access_time, size: 18, color: AppTheme.black),
               const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  eval.summaryText,
-                  style: AppTheme.bodyMedium(context).copyWith(
-                    color: textColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
+              Expanded(child: textWidget),
               if (canExpand)
                 Icon(
                   _isOpeningHoursExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
@@ -1638,6 +1936,10 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                 if (_isVisited && _visitDate != null) ...[
                   const SizedBox(height: 8),
                   _buildUserCheckInInfo(),
+                ] else if (_isVisited && _isLoadingCheckInData) ...[
+                  // 显示加载状态
+                  const SizedBox(height: 8),
+                  _buildCheckInLoadingSkeleton(),
                 ],
               ],
             ),

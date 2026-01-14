@@ -63,7 +63,7 @@ class SpotCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 180, // Fixed card height
+        height: 160, // Fixed card height (changed from 180 to 160)
         decoration: BoxDecoration(
           color: AppTheme.white,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -142,15 +142,7 @@ class SpotCard extends StatelessWidget {
                         if (openingText != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              '🕒 $openingText',
-                              style: AppTheme.labelSmall(context).copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: isClosingSoon 
-                                    ? const Color(0xFFE53E3E)
-                                    : AppTheme.black,
-                              ),
-                            ),
+                            child: _buildOpeningHoursText(context, openingText, openingEval),
                           ),
                       ],
                     ),
@@ -186,6 +178,44 @@ class SpotCard extends StatelessWidget {
       }
     }
     return stars;
+  }
+
+  /// 构建营业时间文本，支持 "Closed," 红色显示
+  Widget _buildOpeningHoursText(BuildContext context, String openingText, OpeningHoursEvaluation? eval) {
+    final bool isClosingSoon = eval?.isClosingSoon ?? false;
+    final bool isClosed = eval != null && !eval.isOpen;
+    
+    // 如果是关门状态，"Closed," 显示红色
+    if (isClosed && openingText.startsWith('Closed,')) {
+      final restText = openingText.substring(7); // 去掉 "Closed,"
+      return RichText(
+        text: TextSpan(
+          style: AppTheme.labelSmall(context).copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+          children: [
+            const TextSpan(text: '🕒 '),
+            TextSpan(
+              text: 'Closed,',
+              style: TextStyle(color: const Color(0xFFE53E3E)),
+            ),
+            TextSpan(
+              text: restText,
+              style: TextStyle(color: AppTheme.black),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // 其他情况：即将关门显示红色，否则黑色
+    return Text(
+      '🕒 $openingText',
+      style: AppTheme.labelSmall(context).copyWith(
+        fontWeight: FontWeight.w600,
+        color: isClosingSoon ? const Color(0xFFE53E3E) : AppTheme.black,
+      ),
+    );
   }
 
   Widget _buildCoverImage() => SizedBox(
@@ -688,7 +718,7 @@ class SpotCard extends StatelessWidget {
     );
   }
 
-  /// Build tags that fit within available width, no scrolling
+  /// Build tags that fit within available width, max 2 tags
   Widget _buildFittingTags(BuildContext context, List<String> tags, double maxWidth) {
     final List<Widget> fittingTags = [];
     double usedWidth = 0;
@@ -696,8 +726,8 @@ class SpotCard extends StatelessWidget {
     const double horizontalPadding = 8 * 2; // padding inside each tag
     const double borderWidth = 2; // border on both sides
     
-    // Measure and add tags that fit
-    for (int i = 0; i < tags.length && fittingTags.length < 3; i++) {
+    // Measure and add tags that fit (max 2)
+    for (int i = 0; i < tags.length && fittingTags.length < 2; i++) {
       final tag = tags[i];
       // Estimate tag width: text width + padding + border
       final textPainter = TextPainter(
@@ -754,7 +784,7 @@ class SpotCard extends StatelessWidget {
     final displayTags = spot.displayTagsEn;
     if (displayTags != null && displayTags.isNotEmpty) {
       for (final tag in displayTags) {
-        if (allTags.length >= 3) break;
+        if (allTags.length >= 2) break;
         final trimmedTag = tag.trim();
         if (trimmedTag.isEmpty || _isInvalidTag(trimmedTag)) continue;
         final key = trimmedTag.toLowerCase();
@@ -788,6 +818,6 @@ class SpotCard extends StatelessWidget {
       return null;
     }
     
-    return allTags.take(3).toList();
+    return allTags.take(2).toList();
   }
 }

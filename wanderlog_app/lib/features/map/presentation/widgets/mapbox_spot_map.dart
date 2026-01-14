@@ -9,6 +9,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/category_emoji.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
+import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 
 /// 共享的 Mapbox 地图组件 - 使用原生标记渲染
 ///
@@ -394,14 +395,30 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     }
   }
 
+  /// 检查地点是否关门
+  bool _isSpotClosed(Spot spot) {
+    final raw = spot.openingHours;
+    if (raw == null) return false;
+    
+    final eval = OpeningHoursUtils.evaluate(
+      raw,
+      country: null,
+      longitude: spot.longitude,
+    );
+    if (eval == null) return false;
+    
+    return !eval.isOpen;
+  }
+
   Future<Uint8List> _getMarkerBitmap(
     Spot spot, {
     required bool isSelected,
   }) async {
     final isVisited = widget.visitedSpots?[spot.id] ?? false;
+    final isClosed = _isSpotClosed(spot);
     // 使用名称和类别作为缓存 key，因为相同内容的 marker 可以共享 bitmap
     final truncatedName = spot.name.length > 10 ? '${spot.name.substring(0, 10)}...' : spot.name;
-    final cacheKey = '${truncatedName}_${spot.category}_${isSelected ? 'selected' : 'default'}_${isVisited ? 'visited' : 'normal'}';
+    final cacheKey = '${truncatedName}_${spot.category}_${isSelected ? 'selected' : 'default'}_${isVisited ? 'visited' : 'normal'}_${isClosed ? 'closed' : 'open'}';
     final cached = _markerBitmapCache[cacheKey];
     if (cached != null) {
       return cached;
@@ -411,16 +428,29 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     // - visited/check-in marker background: #CCCCCC
     // - visited/check-in border + text: #8D8D8D
     // - selected non-visited highlight: yellow
-    final Color markerColor = isVisited
-        ? AppTheme.markerGray
-        : (isSelected ? AppTheme.primaryYellow : Colors.white);
-    final Color labelColor = isVisited ? AppTheme.markerLabelGray : AppTheme.black;
+    // - closed marker: gray background and text
+    final Color markerColor;
+    final Color labelColor;
+    
+    if (isClosed) {
+      // 关门状态：灰色背景和文字
+      markerColor = Colors.grey.shade300;
+      labelColor = Colors.grey.shade500;
+    } else if (isVisited) {
+      markerColor = AppTheme.markerGray;
+      labelColor = AppTheme.markerLabelGray;
+    } else {
+      markerColor = isSelected ? AppTheme.primaryYellow : Colors.white;
+      labelColor = AppTheme.black;
+    }
+    
     final bitmap = await _createCustomMarkerBitmap(
       spot.name,
       spot.category,
       markerColor,
       isSelected,
       isVisited: isVisited,
+      isClosed: isClosed,
       labelColor: labelColor,
     );
     _markerBitmapCache[cacheKey] = bitmap;
@@ -434,6 +464,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     Color backgroundColor,
     bool isSelected, {
     bool isVisited = false,
+    bool isClosed = false,
     Color labelColor = AppTheme.black,
   }) async {
     // 使用 2x 分辨率让图像更清晰
@@ -456,7 +487,9 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     const double horizontalPadding = 14.0;
     const double iconTextGap = 6.0;
     const double offsetX = 30.0;
-    const double offsetY = 5.0;
+    // 如果关门，增加顶部偏移给 Closed 气泡留空间
+    final double extraTopOffset = isClosed ? 12.0 : 0.0;
+    final double offsetY = 5.0 + extraTopOffset;
 
     // 获取图标 Emoji
     final iconEmoji = isVisited ? '✓' : getCategoryEmoji(category);
@@ -539,7 +572,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()
-      ..color = isVisited ? AppTheme.markerLabelGray : AppTheme.black
+      ..color = isClosed ? Colors.grey.shade400 : (isVisited ? AppTheme.markerLabelGray : AppTheme.black)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5; // 稍微加粗边框让它更清晰
 
@@ -599,8 +632,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     canvas.drawPath(bubblePath, borderPaint);
 
     // 计算垂直居中位置
-    const contentAreaTop = offsetY;
-    const contentAreaHeight = markerHeight;
+    final contentAreaTop = offsetY;
+    final contentAreaHeight = markerHeight;
     final iconY = contentAreaTop + (contentAreaHeight - iconPainter.height) / 2;
 
     // 绘制 emoji
@@ -630,10 +663,66 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       Offset(offsetX + horizontalPadding + iconPainter.width + iconTextGap, textY),
     );
 
+    // 如果关门，绘制右上角的 "Closed" 红色气泡
+    double extraRightWidth = 0.0;
+    if (isClosed) {
+      const closedText = 'Closed';
+      const closedFontSize = 11.0;
+      const closedPaddingH = 6.0;
+      const closedPaddingV = 3.0;
+      const closedRadius = 8.0;
+      
+      final closedPainter = TextPainter(
+        text: TextSpan(
+          text: closedText,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: closedFontSize,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'ReemKufi',
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      closedPainter.layout();
+      
+      final closedBubbleWidth = closedPainter.width + closedPaddingH * 2;
+      final closedBubbleHeight = closedPainter.height + closedPaddingV * 2;
+      
+      // 位置：主气泡右上角偏移
+      final closedLeft = right - closedBubbleWidth / 2 + 5;
+      final closedTop = top - closedBubbleHeight / 2 - 2;
+      
+      // 计算气泡超出右边界的宽度
+      final closedRight = closedLeft + closedBubbleWidth;
+      if (closedRight > right + offsetX) {
+        extraRightWidth = closedRight - (right + offsetX) + 5; // 额外留 5px 边距
+      }
+      
+      final closedRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(closedLeft, closedTop, closedBubbleWidth, closedBubbleHeight),
+        const Radius.circular(closedRadius),
+      );
+      
+      // 红色背景
+      final closedBgPaint = Paint()
+        ..color = const Color(0xFFE53935) // 红色
+        ..style = PaintingStyle.fill;
+      
+      canvas.drawRRect(closedRect, closedBgPaint);
+      
+      // 绘制文字
+      closedPainter.paint(
+        canvas,
+        Offset(closedLeft + closedPaddingH, closedTop + closedPaddingV),
+      );
+    }
+
     // 转换为图片（使用 2x 分辨率）
     final picture = pictureRecorder.endRecording();
-    final imageWidth = ((markerWidth + offsetX * 2) * scale).toInt();
-    final imageHeight = ((markerHeight + triangleHeight + offsetY * 2) * scale).toInt();
+    // 如果有 Closed 气泡，需要增加图片尺寸（extraTopOffset 已经包含在 offsetY 中）
+    final imageWidth = ((markerWidth + offsetX * 2 + extraRightWidth) * scale).toInt();
+    final imageHeight = ((markerHeight + triangleHeight + offsetY + 5.0 + extraTopOffset) * scale).toInt();
     final image = await picture.toImage(imageWidth, imageHeight);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 

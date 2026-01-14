@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -7,8 +8,10 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/widgets/save_spot_button.dart';
+import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/features/trips/providers/image_upload_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
@@ -51,6 +54,21 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
   int? _userRating;
   String? _userNotes;
   List<String> _userPhotos = [];
+
+  /// 检查地点当前是否关门
+  bool get _isSpotClosed {
+    final raw = widget.spot.openingHours;
+    if (raw == null) return false;
+    
+    final eval = OpeningHoursUtils.evaluate(
+      raw,
+      country: widget.spot.country,
+      longitude: widget.spot.longitude,
+    );
+    if (eval == null) return false;
+    
+    return !eval.isOpen;
+  }
 
   @override
   void initState() {
@@ -497,6 +515,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                   isSaved: _isWishlist,
                   isMustGo: _isMustGo,
                   isTodaysPlan: _isTodaysPlan,
+                  isClosed: _isSpotClosed,
                   onSave: () async => true,
                   onUnsave: () async {
                     final ok = await _handleRemoveWishlist();
@@ -521,18 +540,30 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
     try {
       final repo = ref.read(tripRepositoryProvider);
       final trips = await repo.getMyTrips();
+      debugPrint('🔍 [spot_detail_modal] Loading status for spot: ${widget.spot.id}');
+      debugPrint('🔍 [spot_detail_modal] Found ${trips.length} trips');
       for (final t in trips) {
         try {
           final detail = await repo.getTripById(t.id);
+          debugPrint('🔍 [spot_detail_modal] Checking trip: ${t.id}, tripSpots: ${detail.tripSpots?.length}');
           final tripSpot = detail.tripSpots?.firstWhere(
             (ts) => ts.spotId == widget.spot.id,
             orElse: () => throw StateError('not found'),
           );
           if (tripSpot != null) {
+            debugPrint('✅ [spot_detail_modal] Found tripSpot for ${widget.spot.id}');
+            debugPrint('   - status: ${tripSpot.status}');
+            debugPrint('   - visitDate: ${tripSpot.visitDate}');
+            debugPrint('   - userRating: ${tripSpot.userRating}');
+            debugPrint('   - userNotes: ${tripSpot.userNotes}');
+            debugPrint('   - userPhotos: ${tripSpot.userPhotos?.length ?? 0} photos');
             _destinationId = detail.id;
             if (mounted) {
               setState(() {
-                _isWishlist = true;
+                // 只有 WISHLIST 或 TODAYS_PLAN 状态才算在 wishlist 中
+                // VISITED 状态的地点不在 wishlist 中（除非同时是 WISHLIST）
+                _isWishlist = tripSpot.status == TripSpotStatus.wishlist || 
+                              tripSpot.status == TripSpotStatus.todaysPlan;
                 _isMustGo = tripSpot.priority == SpotPriority.mustGo;
                 _isTodaysPlan = tripSpot.status == TripSpotStatus.todaysPlan;
                 _isVisited = tripSpot.status == TripSpotStatus.visited;
@@ -544,11 +575,14 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
             }
             return;
           }
-        } catch (_) {
+        } catch (e) {
+          debugPrint('⚠️ [spot_detail_modal] Error checking trip: $e');
           // ignore this trip
         }
       }
-    } catch (_) {
+      debugPrint('❌ [spot_detail_modal] No tripSpot found for ${widget.spot.id}');
+    } catch (e) {
+      debugPrint('❌ [spot_detail_modal] Error loading status: $e');
       // ignore preload errors
     }
   }
@@ -566,20 +600,43 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
         return false;
       }
 
-      await ref.read(tripRepositoryProvider).manageTripSpot(
-            tripId: destId,
-            spotId: widget.spot.id,
-            remove: true,
-          );
+      // 如果地点已经 visited，保留 visited 状态和 check-in 数据
+      // 只是将状态从 wishlist 改为纯 visited
+      if (_isVisited) {
+        // 保留 visited 数据，只是取消 wishlist/mustGo/todaysPlan 状态
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: destId,
+          spotId: widget.spot.id,
+          status: TripSpotStatus.visited,
+          priority: SpotPriority.optional, // 取消 MustGo
+          // 不传递 visitDate, userRating, userNotes, userPhotos
+          // 后端会保留现有值
+        );
+      } else {
+        // 如果没有 visited 数据，完全删除
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: destId,
+          spotId: widget.spot.id,
+          remove: true,
+        );
+      }
+      
       ref.invalidate(tripsProvider);
       if (mounted) {
         setState(() {
           _isWishlist = false;
           _isMustGo = false;
           _isTodaysPlan = false;
+          // 保留 _isVisited, _visitDate, _userRating, _userNotes, _userPhotos
         });
-        // Notify parent about removal
-        widget.onStatusChanged?.call(widget.spot.id, isRemoved: true);
+        // Notify parent about removal from wishlist
+        // 如果是 visited，不从列表中移除，只是更新状态
+        widget.onStatusChanged?.call(
+          widget.spot.id, 
+          isRemoved: !_isVisited, // visited 的不移除
+          isMustGo: false,
+          isTodaysPlan: false,
+        );
       }
       return true;
     } catch (e) {
@@ -686,9 +743,9 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
       context: context,
       builder: (context) => CheckInDialog(
         spot: widget.spot,
-        onCheckIn: (visitDate, rating, notes) async {
+        initialPhotos: _userPhotos.isNotEmpty ? _userPhotos : null,
+        onCheckIn: (visitDate, rating, notes, {List<File>? newImages, List<String>? existingPhotos}) async {
           try {
-
             final city = widget.spot.city ?? '';
             final destId = _destinationId ?? await ensureDestinationForCity(ref, city);
             if (destId == null) {
@@ -697,6 +754,19 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
             }
             _destinationId = destId;
 
+            // Upload new images if any
+            List<String> uploadedUrls = [];
+            if (newImages != null && newImages.isNotEmpty) {
+              final uploadService = ref.read(imageUploadServiceProvider);
+              uploadedUrls = await uploadService.uploadImages(newImages);
+            }
+
+            // Combine existing photos with newly uploaded ones
+            final allPhotos = [
+              ...?existingPhotos,
+              ...uploadedUrls,
+            ];
+
             await ref.read(tripRepositoryProvider).manageTripSpot(
                   tripId: destId,
                   spotId: widget.spot.id,
@@ -704,6 +774,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                   visitDate: visitDate,
                   userRating: rating.toInt(),
                   userNotes: notes,
+                  userPhotos: allPhotos.isNotEmpty ? allPhotos : null,
                 );
 
             ref.invalidate(tripsProvider);
@@ -713,6 +784,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                 _visitDate = visitDate;
                 _userRating = rating.toInt();
                 _userNotes = notes;
+                _userPhotos = allPhotos;
                 _isTodaysPlan = false; // Remove from Today's Plan when checked in
               });
               CustomToast.showSuccess(context, 'Checked in to ${widget.spot.name}');

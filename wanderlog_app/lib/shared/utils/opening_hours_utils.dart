@@ -317,10 +317,13 @@ class OpeningHoursUtils {
       // Closed: if we haven't reached opening time yet today, show today's opening.
       if (currentMinutes < openMinutes) {
         final opening = _format12hMinutes(openMinutes);
+        // 获取今天的星期几
+        const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        final todayLabel = weekdayLabels[index];
         return OpeningHoursEvaluation(
           now: now,
           isOpen: false,
-          summaryText: 'Closed, Opens $opening',
+          summaryText: 'Closed, Opens $opening $todayLabel',
           closingTime: null,
           nextOpeningTime: null,
           isClosingSoon: false,

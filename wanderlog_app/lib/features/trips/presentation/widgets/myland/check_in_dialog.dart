@@ -1,4 +1,10 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/core/l10n/app_localizations.dart';
@@ -12,15 +18,24 @@ class CheckInDialog extends StatefulWidget {
     this.initialVisitDate,
     this.initialRating,
     this.initialNotes,
+    this.initialPhotos,
     this.isEditMode = false,
     super.key,
   });
 
   final Spot spot;
-  final Future<void> Function(DateTime visitDate, double rating, String? notes) onCheckIn;
+  /// Callback with visitDate, rating, notes, newImages (local files), existingPhotos (URLs to keep)
+  final Future<void> Function(
+    DateTime visitDate, 
+    double rating, 
+    String? notes,
+    {List<File>? newImages,
+    List<String>? existingPhotos}
+  ) onCheckIn;
   final DateTime? initialVisitDate;
   final double? initialRating;
   final String? initialNotes;
+  final List<String>? initialPhotos; // 已有的图片 URL
   final bool isEditMode;
 
   @override
@@ -32,6 +47,13 @@ class _CheckInDialogState extends State<CheckInDialog> {
   late TimeOfDay _selectedTime;
   late double _rating;
   late final TextEditingController _notesController;
+  final List<File> _newImages = []; // 新选择的本地图片
+  final List<String> _existingPhotos = []; // 已有的网络图片 URL
+  final ImagePicker _imagePicker = ImagePicker();
+  static const int _maxImages = 3;
+  static const int _maxImageSizeKB = 2048; // 2MB per image
+
+  int get _totalImageCount => _existingPhotos.length + _newImages.length;
 
   @override
   void initState() {
@@ -45,6 +67,10 @@ class _CheckInDialogState extends State<CheckInDialog> {
     }
     _rating = widget.initialRating ?? 3.0;
     _notesController = TextEditingController(text: widget.initialNotes ?? '');
+    // 加载已有图片
+    if (widget.initialPhotos != null) {
+      _existingPhotos.addAll(widget.initialPhotos!);
+    }
   }
 
   @override
@@ -97,6 +123,175 @@ class _CheckInDialogState extends State<CheckInDialog> {
     }
   }
 
+  Future<void> _pickImages() async {
+    if (_totalImageCount >= _maxImages) {
+      if (mounted) {
+        DialogUtils.showInfoSnackBar(
+          context,
+          'Maximum $_maxImages photos allowed',
+        );
+      }
+      return;
+    }
+
+    try {
+      final remainingSlots = _maxImages - _totalImageCount;
+      final List<XFile> images = await _imagePicker.pickMultiImage(
+        imageQuality: 85,
+        limit: remainingSlots,
+      );
+
+      if (images.isEmpty) return;
+
+      final imagesToAdd = images.take(remainingSlots).toList();
+
+      for (final image in imagesToAdd) {
+        final compressedFile = await _compressImage(File(image.path));
+        if (compressedFile != null) {
+          setState(() {
+            _newImages.add(compressedFile);
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        DialogUtils.showInfoSnackBar(
+          context,
+          'Failed to pick images: $e',
+        );
+      }
+    }
+  }
+
+  Future<File?> _compressImage(File file) async {
+    try {
+      final fileSizeKB = await file.length() ~/ 1024;
+      
+      if (fileSizeKB <= _maxImageSizeKB) {
+        return file;
+      }
+
+      final compressedBytes = await FlutterImageCompress.compressWithFile(
+        file.absolute.path,
+        minWidth: 1920,
+        minHeight: 1920,
+        quality: 85,
+      );
+
+      if (compressedBytes == null) return file;
+
+      final compressedFile = File('${file.path}_compressed.jpg');
+      await compressedFile.writeAsBytes(compressedBytes);
+
+      return compressedFile;
+    } catch (e) {
+      debugPrint('Image compression failed: $e');
+      return file;
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _newImages.removeAt(index);
+    });
+  }
+
+  void _removeExistingPhoto(int index) {
+    setState(() {
+      _existingPhotos.removeAt(index);
+    });
+  }
+
+  void _viewImageFullScreen(File image) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                color: Colors.black87,
+                child: Center(
+                  child: InteractiveViewer(
+                    child: Image.file(image),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 32,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _viewNetworkImageFullScreen(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                color: Colors.black87,
+                child: Center(
+                  child: InteractiveViewer(
+                    child: imageUrl.startsWith('data:')
+                        ? Image.memory(_decodeBase64Image(imageUrl)!)
+                        : CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => const CircularProgressIndicator(),
+                            errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 32,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Uint8List? _decodeBase64Image(String dataUrl) {
+    try {
+      final base64String = dataUrl.split(',').last;
+      return base64Decode(base64String);
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<void> _submitCheckIn() async {
     final visitDateTime = DateTime(
       _selectedDate.year,
@@ -107,14 +302,20 @@ class _CheckInDialogState extends State<CheckInDialog> {
     );
 
     final notes = _notesController.text.trim();
+    
+    // 先关闭对话框，让用户立即看到详情页更新
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+    
+    // 然后执行 check-in 操作（详情页会通过 setState 更新）
     await widget.onCheckIn(
       visitDateTime,
       _rating,
       notes.isEmpty ? null : notes,
+      newImages: _newImages.isNotEmpty ? _newImages : null,
+      existingPhotos: _existingPhotos.isNotEmpty ? _existingPhotos : null,
     );
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
   }
 
   @override
@@ -127,6 +328,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
           width: AppTheme.borderMedium,
         ),
       ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
       child: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -307,21 +509,16 @@ class _CheckInDialogState extends State<CheckInDialog> {
               ),
               const SizedBox(height: 8),
               
-              // 上传照片按钮
+              // 上传照片按钮和预览
               GestureDetector(
-                onTap: () {
-                  // TODO: 实现照片上传
-                  final languageCode = Localizations.localeOf(context).languageCode;
-                  final l10n = AppLocalizations(languageCode);
-                  DialogUtils.showInfoSnackBar(context, l10n.photoUploadComingSoon);
-                },
+                onTap: _totalImageCount >= _maxImages ? null : _pickImages,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryYellow.withOpacity(0.3),
+                    color: AppTheme.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: AppTheme.black,
@@ -338,7 +535,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Upload photos',
+                        'Upload photos (≤3)',
                         style: AppTheme.labelSmall(context).copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -354,7 +551,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          'PREMIUM',
+                          'TEST',
                           style: AppTheme.labelSmall(context).copyWith(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -365,6 +562,33 @@ class _CheckInDialogState extends State<CheckInDialog> {
                   ),
                 ),
               ),
+              
+              // 图片预览网格（已有图片 + 新图片）
+              if (_existingPhotos.isNotEmpty || _newImages.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    // 已有的网络图片
+                    ..._existingPhotos.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final url = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _buildExistingPhotoPreview(url, index),
+                      );
+                    }),
+                    // 新选择的本地图片
+                    ..._newImages.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final image = entry.value;
+                      return Padding(
+                        padding: EdgeInsets.only(right: index < _newImages.length - 1 ? 8 : 0),
+                        child: _buildImagePreview(image, index),
+                      );
+                    }),
+                  ],
+                ),
+              ],
               const SizedBox(height: 24),
 
               // 按钮
@@ -467,4 +691,101 @@ class _CheckInDialogState extends State<CheckInDialog> {
     if (rating >= 2.0) return 'Ok';
     return 'Not good';
   }
+
+  Widget _buildImagePreview(File image, int index) => Stack(
+      children: [
+        GestureDetector(
+          onTap: () => _viewImageFullScreen(image),
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppTheme.black,
+                width: AppTheme.borderMedium,
+              ),
+              image: DecorationImage(
+                image: FileImage(image),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: GestureDetector(
+            onTap: () => _removeImage(index),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppTheme.black.withOpacity(0.7),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                size: 14,
+                color: AppTheme.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+
+  Widget _buildExistingPhotoPreview(String imageUrl, int index) => Stack(
+      children: [
+        GestureDetector(
+          onTap: () => _viewNetworkImageFullScreen(imageUrl),
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppTheme.black,
+                width: AppTheme.borderMedium,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: imageUrl.startsWith('data:')
+                  ? Image.memory(_decodeBase64Image(imageUrl)!, fit: BoxFit.cover)
+                  : CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => const Icon(Icons.error),
+                    ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: GestureDetector(
+            onTap: () => _removeExistingPhoto(index),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppTheme.black.withOpacity(0.7),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                size: 14,
+                color: AppTheme.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
 }

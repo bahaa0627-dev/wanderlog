@@ -7,10 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/dialog_utils.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_chat_page.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' hide Spot;
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
+import 'package:wanderlog/features/map/data/supabase_place_repository.dart';
+import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
+import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
@@ -50,15 +55,18 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
   final PageController _cardPageController =
       PageController(viewportFraction: 0.55);
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   int _currentCardIndex = 0;
   List<map_page.Spot> _mapSpots = [];
+  List<map_page.Spot> _searchResultSpots = []; // 搜索结果
   map_page.Spot? _selectedSpot;
   bool _skipNextRecenter = false;
   final Set<String> _selectedTags = {};
   late String _currentCity;
   String? _currentCountry;
   late List<Spot> _currentSpots;
-  String _searchQuery = '';
+  bool _isSearching = false; // 搜索加载状态
+  bool _hasSearchResults = false; // 是否有搜索结果
 
   // 需要过滤的无效标签（旧的 Google 分类等）
   static const Set<String> _invalidTags = {
@@ -132,6 +140,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     _cardPageController.removeListener(_onCardPageChanged);
     _cardPageController.dispose();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -222,6 +231,11 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
 
   /// 根据选中的标签和搜索词筛选地点
   List<map_page.Spot> get _filteredSpots {
+    // 如果有搜索结果，优先使用搜索结果
+    if (_hasSearchResults) {
+      return _searchResultSpots;
+    }
+    
     var spots = _mapSpots.toList();
     
     // 按标签筛选 - 检查 tags 列表（大小写不敏感）
@@ -229,17 +243,6 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
       spots = spots.where((spot) {
         final spotTags = spot.tags.map((t) => t.toLowerCase()).toSet();
         return _selectedTags.any((tag) => spotTags.contains(tag.toLowerCase()));
-      }).toList();
-    }
-    
-    // 按搜索词筛选
-    if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
-      spots = spots.where((spot) {
-        return spot.name.toLowerCase().contains(query) ||
-            spot.city.toLowerCase().contains(query) ||
-            spot.category.toLowerCase().contains(query) ||
-            spot.tags.any((t) => t.toLowerCase().contains(query));
       }).toList();
     }
     
@@ -284,6 +287,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
       id: spot.id,
       name: spot.name,
       city: spot.city ?? 'Unknown',
+      country: spot.country,
       category: category.isNotEmpty && !_isInvalidTag(category) ? category : 'place',
       latitude: spot.latitude,
       longitude: spot.longitude,
@@ -788,24 +792,31 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         child: Row(
           children: [
             const SizedBox(width: 12),
-            const Icon(
-              Icons.search,
-              size: 18,
-              color: AppTheme.mediumGray,
-            ),
+            if (_isSearching)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
+                ),
+              )
+            else
+              const Icon(
+                Icons.search,
+                size: 18,
+                color: AppTheme.mediumGray,
+              ),
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
                 controller: _searchController,
+                focusNode: _searchFocusNode,
                 style: AppTheme.bodySmall(context).copyWith(
                   color: AppTheme.black,
                 ),
                 textInputAction: TextInputAction.search,
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value.trim();
-                  });
-                },
+                onSubmitted: (_) => _performSearch(),
                 decoration: InputDecoration(
                   hintText: 'Search spots',
                   hintStyle: AppTheme.bodySmall(context).copyWith(
@@ -819,12 +830,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
             ),
             if (_searchController.text.isNotEmpty)
               GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _searchController.clear();
-                    _searchQuery = '';
-                  });
-                },
+                onTap: _clearSearch,
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
                   child: Icon(
@@ -834,11 +840,241 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
                   ),
                 ),
               )
-            else
+            else ...[
+              // Ask AI 入口
+              GestureDetector(
+                onTap: _navigateToAIChat,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('✨', style: TextStyle(fontSize: 14)),
+                    const SizedBox(width: 4),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'ask AI',
+                          style: AppTheme.bodySmall(context).copyWith(
+                            color: AppTheme.black,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Container(
+                          width: 38,
+                          height: 2,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryYellow,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(width: 12),
+            ],
           ],
         ),
       );
+
+  /// 跳转到 AI 对话页
+  void _navigateToAIChat() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => const AIChatPage(),
+      ),
+    );
+  }
+
+  /// 搜索同义词映射 - 支持语义搜索
+  static const Map<String, List<String>> _searchSynonyms = {
+    'bread': ['bakery', 'boulangerie', 'pastry', 'croissant', 'baguette'],
+    'bakery': ['bread', 'pastry', 'croissant', 'boulangerie'],
+    'coffee': ['cafe', 'café', 'espresso', 'latte', 'cappuccino'],
+    'cafe': ['coffee', 'café', 'espresso'],
+    'food': ['restaurant', 'dining', 'eatery', 'bistro'],
+    'restaurant': ['food', 'dining', 'eatery', 'bistro'],
+    'art': ['museum', 'gallery', 'exhibition'],
+    'museum': ['art', 'gallery', 'exhibition', 'history'],
+    'shop': ['store', 'shopping', 'boutique', 'retail'],
+    'shopping': ['shop', 'store', 'boutique', 'mall'],
+    'bar': ['pub', 'cocktail', 'wine', 'beer'],
+    'pub': ['bar', 'beer', 'ale'],
+    'hotel': ['accommodation', 'lodging', 'inn', 'hostel'],
+    'park': ['garden', 'nature', 'green', 'outdoor'],
+    'garden': ['park', 'botanical', 'nature'],
+    'temple': ['shrine', 'church', 'mosque', 'religious'],
+    'church': ['temple', 'cathedral', 'chapel', 'religious'],
+  };
+
+  /// 获取搜索词的扩展词列表（包含同义词）
+  List<String> _getExpandedSearchTerms(String query) {
+    final lowerQuery = query.toLowerCase();
+    final terms = <String>{lowerQuery};
+    
+    // 添加同义词
+    for (final entry in _searchSynonyms.entries) {
+      if (entry.key == lowerQuery || entry.value.contains(lowerQuery)) {
+        terms.add(entry.key);
+        terms.addAll(entry.value);
+      }
+    }
+    
+    return terms.toList();
+  }
+
+  /// 执行搜索 - 在已收藏的地点中搜索（支持同义词）
+  Future<void> _performSearch() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+    
+    // 收起键盘
+    _searchFocusNode.unfocus();
+    
+    setState(() {
+      _isSearching = true;
+      _selectedTags.clear(); // 清除标签筛选
+    });
+    
+    try {
+      print('🔍 [MyLandSpotsMapPage] 搜索: "$query" in $_currentCity');
+      
+      // 获取扩展搜索词（包含同义词）
+      final searchTerms = _getExpandedSearchTerms(query);
+      print('🔍 [MyLandSpotsMapPage] 扩展搜索词: $searchTerms');
+      
+      // 在已收藏的地点中搜索
+      final matchedSpots = _mapSpots.where((spot) {
+        final name = spot.name.toLowerCase();
+        final category = spot.category.toLowerCase();
+        final tags = spot.tags.map((t) => t.toLowerCase()).toList();
+        final city = spot.city.toLowerCase();
+        
+        // 检查是否匹配任何搜索词
+        for (final term in searchTerms) {
+          if (name.contains(term) ||
+              category.contains(term) ||
+              tags.any((t) => t.contains(term)) ||
+              city.contains(term)) {
+            return true;
+          }
+        }
+        return false;
+      }).toList();
+      
+      print('🔍 [MyLandSpotsMapPage] 搜索结果: ${matchedSpots.length} 个地点');
+      
+      if (matchedSpots.isEmpty) {
+        // 没有结果，显示 toast
+        if (mounted) {
+          DialogUtils.showToast(context, 'Sorry no related places, please try again');
+          setState(() {
+            _isSearching = false;
+          });
+        }
+        return;
+      }
+      
+      // 计算中心点和缩放
+      final (:center, :zoom) = _calculateCenterAndZoomForSpots(matchedSpots);
+      
+      setState(() {
+        _searchResultSpots = matchedSpots;
+        _hasSearchResults = true;
+        _isSearching = false;
+        _selectedSpot = matchedSpots.first;
+        _currentCardIndex = 0;
+      });
+      
+      // 跳转到第一个卡片
+      if (_cardPageController.hasClients) {
+        _cardPageController.jumpToPage(0);
+      }
+      
+      // 移动相机
+      _mapKey.currentState?.animateCamera(center, zoom: zoom);
+      
+    } catch (e) {
+      print('❌ [MyLandSpotsMapPage] 搜索失败: $e');
+      if (mounted) {
+        DialogUtils.showToast(context, 'Sorry no related places, please try again');
+        setState(() {
+          _isSearching = false;
+        });
+      }
+    }
+  }
+
+  /// 清除搜索
+  void _clearSearch() {
+    _searchController.clear();
+    
+    setState(() {
+      _searchResultSpots = [];
+      _hasSearchResults = false;
+      _selectedSpot = _mapSpots.isNotEmpty ? _mapSpots.first : null;
+      _currentCardIndex = 0;
+    });
+    
+    // 跳转到第一个卡片
+    if (_cardPageController.hasClients) {
+      _cardPageController.jumpToPage(0);
+    }
+    
+    // 移动相机到第一个地点
+    if (_mapSpots.isNotEmpty) {
+      final first = _mapSpots.first;
+      _mapKey.currentState?.animateCamera(
+        Position(first.longitude, first.latitude),
+        zoom: 14.0,
+      );
+    }
+  }
+
+  /// 计算地点的中心点和缩放级别
+  ({Position center, double zoom}) _calculateCenterAndZoomForSpots(List<map_page.Spot> spots) {
+    if (spots.isEmpty) {
+      return (center: Position(139.6503, 35.6762), zoom: 14.0);
+    }
+    
+    if (spots.length == 1) {
+      return (center: Position(spots.first.longitude, spots.first.latitude), zoom: 14.0);
+    }
+    
+    double minLat = spots.first.latitude;
+    double maxLat = spots.first.latitude;
+    double minLng = spots.first.longitude;
+    double maxLng = spots.first.longitude;
+    
+    for (final spot in spots) {
+      if (spot.latitude < minLat) minLat = spot.latitude;
+      if (spot.latitude > maxLat) maxLat = spot.latitude;
+      if (spot.longitude < minLng) minLng = spot.longitude;
+      if (spot.longitude > maxLng) maxLng = spot.longitude;
+    }
+    
+    final centerLat = (minLat + maxLat) / 2;
+    final centerLng = (minLng + maxLng) / 2;
+    
+    // 计算缩放级别
+    final latDiff = maxLat - minLat;
+    final lngDiff = maxLng - minLng;
+    final maxDiff = math.max(latDiff, lngDiff);
+    
+    double zoom = 14.0;
+    if (maxDiff > 0.5) {
+      zoom = 10.0;
+    } else if (maxDiff > 0.2) {
+      zoom = 11.0;
+    } else if (maxDiff > 0.1) {
+      zoom = 12.0;
+    } else if (maxDiff > 0.05) {
+      zoom = 13.0;
+    }
+    
+    return (center: Position(centerLng, centerLat), zoom: zoom);
+  }
 
   Widget _buildTagBar(List<String> tags) {
     if (tags.isEmpty) {
@@ -1006,76 +1242,80 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
   }
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border:
-                Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-            boxShadow: AppTheme.cardShadow,
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(
+            color: AppTheme.black,
+            width: AppTheme.borderMedium,
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildCover(),
-                // 底部渐变蒙层 - 使用提取的主色
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    height: 140, // 卡片高度 280 的一半
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          _dominantColor.withOpacity(0.3),
-                          _dominantColor.withOpacity(0.6),
-                          _dominantColor.withOpacity(0.85),
-                        ],
-                        stops: const [0.0, 0.3, 0.6, 1.0],
-                      ),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildCover(),
+              // 底部渐变蒙层 - 使用提取的主色
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  height: 140, // 卡片高度 280 的一半
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        _dominantColor.withOpacity(0.3),
+                        _dominantColor.withOpacity(0.6),
+                        _dominantColor.withOpacity(0.85),
+                      ],
+                      stops: const [0.0, 0.3, 0.6, 1.0],
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Spacer(),
-                      // 地点名称
-                      Text(
-                        widget.spot.name,
-                        style: AppTheme.bodyLarge(context).copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          height: 1.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+              ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Spacer(),
+                    // 地点名称
+                    Text(
+                      widget.spot.name,
+                      style: AppTheme.bodyLarge(context).copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        height: 1.2,
                       ),
-                      const SizedBox(height: 8),
-                      // 评分
-                      _RatingRow(
-                        rating: widget.spot.rating,
-                        ratingCount: widget.spot.ratingCount,
-                      ),
-                    ],
-                  ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    // 评分
+                    _RatingRow(
+                      rating: widget.spot.rating,
+                      ratingCount: widget.spot.ratingCount,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      );
+      ),
+    );
+  }
 
   Widget _buildCover() {
     const placeholder = ColoredBox(

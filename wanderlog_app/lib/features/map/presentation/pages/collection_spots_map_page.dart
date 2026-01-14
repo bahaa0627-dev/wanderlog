@@ -154,6 +154,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
       id: spot.id,
       name: spot.name,
       city: spot.city ?? 'Unknown',
+      country: spot.country,
       category: category.isNotEmpty ? category : 'place',
       latitude: spot.latitude,
       longitude: spot.longitude,
@@ -164,6 +165,10 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
       tags: tagList,
       displayTagsEn: displayTags,
       aiSummary: null,
+      address: spot.address,
+      phoneNumber: spot.phoneNumber,
+      website: spot.website,
+      openingHours: spot.openingHours,
     );
   }
 
@@ -287,6 +292,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
             latitude: (spotData['latitude'] as num?)?.toDouble() ?? 0.0,
             longitude: (spotData['longitude'] as num?)?.toDouble() ?? 0.0,
             city: spotData['city']?.toString() ?? '',
+            country: spotData['country']?.toString(),
             coverImage: coverImg,
             rating: (spotData['rating'] as num?)?.toDouble() ?? 0.0,
             ratingCount: (spotData['ratingCount'] as num?)?.toInt() ?? (spotData['rating_count'] as num?)?.toInt() ?? 0,
@@ -387,6 +393,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
               latitude: (spotData['latitude'] as num?)?.toDouble() ?? 0.0,
               longitude: (spotData['longitude'] as num?)?.toDouble() ?? 0.0,
               city: spotData['city']?.toString() ?? '',
+              country: spotData['country']?.toString(),
               coverImage: coverImg,
               rating: (spotData['rating'] as num?)?.toDouble() ?? 0.0,
               ratingCount: (spotData['ratingCount'] as num?)?.toInt() ?? (spotData['rating_count'] as num?)?.toInt() ?? 0,

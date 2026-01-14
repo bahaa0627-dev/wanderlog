@@ -26,6 +26,7 @@ import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
+import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/shared/widgets/save_spot_button.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
@@ -64,11 +65,13 @@ class Spot {
     this.phoneNumber,
     this.website,
     this.openingHours,
+    this.country,
   });
 
   final String id;
   final String name;
   final String city;
+  final String? country;
   final String category;
   final double latitude;
   final double longitude;
@@ -120,6 +123,7 @@ class Spot {
     String? id,
     String? name,
     String? city,
+    String? country,
     String? category,
     double? latitude,
     double? longitude,
@@ -142,6 +146,7 @@ class Spot {
       id: id ?? this.id,
       name: name ?? this.name,
       city: city ?? this.city,
+      country: country ?? this.country,
       category: category ?? this.category,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
@@ -2968,6 +2973,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                         isSaved: true,
                         isMustGo: _isMustGo,
                         isTodaysPlan: _isTodaysPlan,
+                        isClosed: _isSpotClosed,
                         onSave: () async => true,
                         onUnsave: () async {
                           // Optimistic UI: update state immediately
@@ -3201,6 +3207,21 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
     return false;
   }
 
+  /// 检查地点当前是否关门
+  bool get _isSpotClosed {
+    final raw = widget.spot.openingHours;
+    if (raw == null) return false;
+    
+    final eval = OpeningHoursUtils.evaluate(
+      raw,
+      country: null,
+      longitude: widget.spot.longitude,
+    );
+    if (eval == null) return false;
+    
+    return !eval.isOpen;
+  }
+
   Future<void> _loadWishlistStatus() async {
     final auth = ref.read(authProvider);
     if (!auth.isAuthenticated) return;
@@ -3211,6 +3232,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
           _isWishlist = true;
           _isMustGo = ts.priority == SpotPriority.mustGo;
           _isTodaysPlan = ts.status == TripSpotStatus.todaysPlan;
+          _isVisited = ts.status == TripSpotStatus.visited;
         });
       }
 
@@ -3329,8 +3351,8 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       context: context,
       builder: (context) => CheckInDialog(
         spot: spotModel,
-        onCheckIn: (visitDate, rating, notes) async {
-          // TODO: Implement check-in API call
+        onCheckIn: (visitDate, rating, notes, {List<File>? newImages, List<String>? existingPhotos}) async {
+          // TODO: Implement check-in API call with image upload
           if (mounted) {
             setState(() {
               _isVisited = true;

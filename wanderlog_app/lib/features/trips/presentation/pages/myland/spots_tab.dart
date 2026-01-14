@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ import 'package:wanderlog/features/trips/presentation/widgets/myland/spot_card.d
 import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/add_city_dialog.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/features/trips/providers/image_upload_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/spot_detail_modal.dart';
@@ -369,10 +371,65 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       context: context,
       builder: (context) => CheckInDialog(
         spot: spot,
-        onCheckIn: (visitDate, rating, notes) async {
-          setState(() => _selectedSubTab = 3);
-          final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
-          DialogUtils.showSuccessSnackBar(context, l10n.checkedIn(spot.name));
+        onCheckIn: (visitDate, rating, notes, {List<File>? newImages, List<String>? existingPhotos}) async {
+          try {
+            final city = spot.city ?? '';
+            final destId = await ensureDestinationForCity(ref, city);
+            if (destId == null) {
+              if (context.mounted) {
+                CustomToast.showError(context, 'Failed to create destination');
+              }
+              return;
+            }
+            
+            // Upload new images if any
+            List<String> allPhotoUrls = [...?existingPhotos];
+            if (newImages != null && newImages.isNotEmpty) {
+              final uploadService = ref.read(imageUploadServiceProvider);
+              final uploadedUrls = await uploadService.uploadImages(newImages);
+              allPhotoUrls.addAll(uploadedUrls);
+            }
+            
+            // Build spot payload for backend
+            final spotPayload = {
+              'name': spot.name,
+              'city': spot.city,
+              'country': spot.country,
+              'latitude': spot.latitude,
+              'longitude': spot.longitude,
+              'address': spot.address,
+              'category': spot.category,
+              'tags': spot.tags,
+              'images': spot.images,
+              'rating': spot.rating,
+              'ratingCount': spot.ratingCount,
+            };
+            
+            await ref.read(tripRepositoryProvider).manageTripSpot(
+              tripId: destId,
+              spotId: spot.id,
+              status: TripSpotStatus.visited,
+              visitDate: visitDate,
+              userRating: rating.toInt(),
+              userNotes: notes,
+              userPhotos: allPhotoUrls.isNotEmpty ? allPhotoUrls : null,
+              spotPayload: spotPayload,
+            );
+            
+            ref.invalidate(tripsProvider);
+            
+            if (context.mounted) {
+              setState(() => _selectedSubTab = 3);
+              final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
+              DialogUtils.showSuccessSnackBar(context, l10n.checkedIn(spot.name));
+              // Reload data to show the new check-in
+              unawaited(_loadDestinationsFromServer());
+            }
+          } catch (e) {
+            if (context.mounted) {
+              CustomToast.showError(context, 'Error: $e');
+            }
+          }
         },
       ),
     );
@@ -403,6 +460,12 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         initialIsSaved: true,
         initialIsMustGo: entry.isMustGo,
         initialIsTodaysPlan: entry.isTodaysPlan,
+        initialIsVisited: entry.isVisited,
+        initialVisitDate: entry.visitDate,
+        initialUserRating: entry.userRating,
+        initialUserNotes: entry.userNotes,
+        initialUserPhotos: entry.userPhotos.isNotEmpty ? entry.userPhotos : null,
+        initialDestinationId: entry.destinationId,
         linkedCollection: linkedCollection,
         onStatusChanged: (spotId, {isMustGo, isTodaysPlan, isVisited, isRemoved, needsReload}) {
           if (needsReload ?? false) {
@@ -904,6 +967,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             userRating: ts.userRating,
             userNotes: ts.userNotes,
             userPhotos: ts.userPhotos ?? [],
+            destinationId: detail.id,
           );
           entries.add(entry);
         }
@@ -1917,6 +1981,7 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
         id: spot.id,
         name: spot.name,
         city: spot.city ?? 'Unknown',
+        country: spot.country,
         category: category.isNotEmpty && !_isInvalidTag(category) ? category : 'place',
         latitude: spot.latitude,
         longitude: spot.longitude,
@@ -1926,6 +1991,10 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
         images: imageList,
         tags: tagList,
         aiSummary: null,
+        address: spot.address,
+        phoneNumber: spot.phoneNumber,
+        website: spot.website,
+        openingHours: spot.openingHours,
       );
     }).toList();
 
@@ -2594,6 +2663,7 @@ class _SpotEntry {
     this.userRating,
     this.userNotes,
     this.userPhotos = const [],
+    this.destinationId,
   })  : mustGoCheckedAt = mustGoCheckedAt ?? (isMustGo ? DateTime.now() : null),
         todaysPlanCheckedAt = todaysPlanCheckedAt ?? (isTodaysPlan ? DateTime.now() : null);
 
@@ -2610,6 +2680,7 @@ class _SpotEntry {
   final int? userRating;
   final String? userNotes;
   final List<String> userPhotos;
+  final String? destinationId;
 
   _SpotEntry copyWith({
     bool? isMustGo,
@@ -2646,6 +2717,7 @@ class _SpotEntry {
       userRating: userRating ?? this.userRating,
       userNotes: userNotes ?? this.userNotes,
       userPhotos: userPhotos ?? this.userPhotos,
+      destinationId: destinationId,
     );
   }
 }
@@ -2829,7 +2901,7 @@ class _VisitedSpotCard extends StatelessWidget {
     );
   }
 
-  /// Build tags that fit within available width, no scrolling
+  /// Build tags that fit within available width, max 2 tags
   Widget _buildFittingTags(BuildContext context, List<String> tags, double maxWidth) {
     final List<Widget> fittingTags = [];
     double usedWidth = 0;
@@ -2837,8 +2909,8 @@ class _VisitedSpotCard extends StatelessWidget {
     const double horizontalPadding = 8 * 2; // padding inside each tag
     const double borderWidth = 2; // border on both sides
     
-    // Measure and add tags that fit
-    for (int i = 0; i < tags.length && fittingTags.length < 3; i++) {
+    // Measure and add tags that fit (max 2)
+    for (int i = 0; i < tags.length && fittingTags.length < 2; i++) {
       final tag = tags[i];
       // Estimate tag width: text width + padding + border
       final textPainter = TextPainter(
@@ -3124,16 +3196,17 @@ class _VisitedSpotCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Upper section: Basic info (image + info) - fixed height 180
+            // Upper section: Basic info (image + info) - fixed height 160
             SizedBox(
-              height: 180,
+              height: 160,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Image fills full height
+                  // Image fills full height with bottom-left corner sharp
                   ClipRRect(
-                    borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(AppTheme.radiusMedium - 2),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(AppTheme.radiusMedium - 2),
+                      bottomLeft: Radius.zero, // Sharp corner at bottom-left
                     ),
                     child: SizedBox(
                       width: 110,
@@ -3228,7 +3301,7 @@ class _VisitedSpotCard extends StatelessWidget {
                 thickness: AppTheme.borderThin,
                 height: 1,
               ),
-            // Lower section: Check-in content
+            // Lower section: Check-in content (without images)
             if (hasCheckInData)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -3286,44 +3359,6 @@ class _VisitedSpotCard extends StatelessWidget {
                             ),
                         ],
                       ),
-                    ),
-                    // Right: 4:3 vertical image placeholder
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 60, // 4:3 ratio: 60 * 3/4 = 45
-                      height: 80, // Fixed height for vertical image
-                      child: entry.userPhotos.isNotEmpty
-                          ? Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                                border: Border.all(
-                                  color: AppTheme.black,
-                                  width: AppTheme.borderThin,
-                                ),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall - 1),
-                                child: entry.userPhotos.first.startsWith('data:')
-                                    ? Image.memory(
-                                        base64Decode(entry.userPhotos.first.split(',').last),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Image.network(
-                                        entry.userPhotos.first,
-                                        fit: BoxFit.cover,
-                                      ),
-                              ),
-                            )
-                          : Container(
-                              decoration: BoxDecoration(
-                                color: AppTheme.background,
-                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                                border: Border.all(
-                                  color: AppTheme.black,
-                                  width: AppTheme.borderThin,
-                                ),
-                              ),
-                            ),
                     ),
                   ],
                 ),

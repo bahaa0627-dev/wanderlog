@@ -12,7 +12,7 @@ typedef ToggleOptionCallback = Future<bool> Function(bool isChecked);
 /// - Right: MustGo and Today's Plan checkboxes
 class SaveSpotButton extends StatefulWidget {
   const SaveSpotButton({
-    required this.isSaved, required this.isMustGo, required this.isTodaysPlan, required this.onSave, required this.onUnsave, required this.onToggleMustGo, required this.onToggleTodaysPlan, super.key,
+    required this.isSaved, required this.isMustGo, required this.isTodaysPlan, required this.onSave, required this.onUnsave, required this.onToggleMustGo, required this.onToggleTodaysPlan, this.isClosed = false, super.key,
   });
 
   final bool isSaved;
@@ -22,6 +22,8 @@ class SaveSpotButton extends StatefulWidget {
   final SaveSpotCallback onUnsave;
   final ToggleOptionCallback onToggleMustGo;
   final ToggleOptionCallback onToggleTodaysPlan;
+  /// 地点是否关门 - 关门时 MustGo/Today's Plan 显示置灰样式
+  final bool isClosed;
 
   @override
   State<SaveSpotButton> createState() => _SaveSpotButtonState();
@@ -97,6 +99,7 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
               icon: Icons.star,
               isChecked: widget.isMustGo,
               isEnabled: widget.isSaved,
+              isClosed: widget.isClosed,
               activeColor: AppTheme.primaryYellow,
               onTap: widget.isSaved ? _handleMustGoToggle : null,
             ),
@@ -114,6 +117,7 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
               icon: Icons.today,
               isChecked: widget.isTodaysPlan,
               isEnabled: widget.isSaved,
+              isClosed: widget.isClosed,
               activeColor: AppTheme.accentBlue,
               onTap: widget.isSaved ? _handleTodaysPlanToggle : null,
             ),
@@ -131,6 +135,7 @@ class _OptionCheckbox extends StatelessWidget {
     required this.isEnabled,
     required this.activeColor,
     required this.onTap,
+    this.isClosed = false,
   });
 
   final String label;
@@ -139,10 +144,33 @@ class _OptionCheckbox extends StatelessWidget {
   final bool isEnabled;
   final Color activeColor;
   final VoidCallback? onTap;
+  /// 地点是否关门 - 关门时显示置灰样式
+  final bool isClosed;
 
   @override
   Widget build(BuildContext context) {
     final effectiveOpacity = isEnabled ? 1.0 : 0.4;
+    
+    // 关门时的颜色：未选中浅灰，选中深灰
+    final Color closedUncheckedColor = Colors.grey.shade300;
+    final Color closedCheckedColor = Colors.grey.shade400;
+    
+    // 确定 checkbox 的背景色
+    Color checkboxColor;
+    if (isClosed) {
+      checkboxColor = isChecked ? closedCheckedColor : closedUncheckedColor;
+    } else {
+      checkboxColor = isChecked ? activeColor : Colors.transparent;
+    }
+    
+    // 确定边框颜色
+    final Color borderColor = isClosed ? Colors.grey.shade500 : AppTheme.black;
+    
+    // 确定文字颜色
+    final Color textColor = isClosed ? Colors.grey.shade500 : AppTheme.black;
+    
+    // 确定勾选图标颜色
+    final Color checkColor = isClosed ? Colors.grey.shade600 : AppTheme.black;
     
     return GestureDetector(
       onTap: isEnabled ? onTap : null,
@@ -161,28 +189,28 @@ class _OptionCheckbox extends StatelessWidget {
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: isChecked ? activeColor : Colors.transparent,
+                  color: checkboxColor,
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
-                    color: AppTheme.black,
+                    color: borderColor,
                     width: 2,
                   ),
                 ),
                 child: isChecked
-                    ? const Icon(
+                    ? Icon(
                         Icons.check,
                         size: 14,
-                        color: AppTheme.black,
+                        color: checkColor,
                       )
                     : null,
               ),
               const SizedBox(width: 8),
-              // Label - always black, slightly larger
+              // Label - color depends on closed state
               Flexible(
                 child: Text(
                   label,
                   style: AppTheme.labelMedium(context).copyWith(
-                    color: AppTheme.black,
+                    color: textColor,
                     fontWeight: FontWeight.w500,
                     fontSize: 14,
                   ),

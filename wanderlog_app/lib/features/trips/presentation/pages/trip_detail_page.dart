@@ -52,16 +52,20 @@ class _TripDetailPageState extends ConsumerState<TripDetailPage>
       backgroundColor: const Color(0xFFF7F7F7),
       body: tripAsync.when(
         data: (trip) {
+          // 使用新的布尔字段过滤
+          // 已收藏但未打卡的地点
           final wishlistSpots = trip.tripSpots
-                  ?.where((ts) => ts.status == TripSpotStatus.wishlist)
+                  ?.where((ts) => ts.isSaved && !ts.isVisited)
                   .toList() ??
               [];
+          // 今日计划的地点
           final todaysPlanSpots = trip.tripSpots
-                  ?.where((ts) => ts.status == TripSpotStatus.todaysPlan)
+                  ?.where((ts) => ts.isTodaysPlan)
                   .toList() ??
               [];
+          // 已打卡的地点
           final visitedSpots = trip.tripSpots
-                  ?.where((ts) => ts.status == TripSpotStatus.visited)
+                  ?.where((ts) => ts.isVisited)
                   .toList() ??
               [];
 
@@ -134,11 +138,11 @@ class _WishlistTab extends StatelessWidget {
       );
     }
 
-    // Sort by priority (Must Go first)
+    // Sort by priority (Must Go first) - 使用新的布尔字段
     final sortedSpots = List<TripSpot>.from(spots)
       ..sort((a, b) {
-        if (a.priority == b.priority) return 0;
-        return a.priority == SpotPriority.mustGo ? -1 : 1;
+        if (a.isMustGo == b.isMustGo) return 0;
+        return a.isMustGo ? -1 : 1;
       });
 
     return ListView.builder(

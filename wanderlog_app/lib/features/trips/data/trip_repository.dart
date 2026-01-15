@@ -48,17 +48,27 @@ class TripRepository {
     }
   }
 
+  /// 管理 trip spot - 使用新的布尔字段
   Future<TripSpot?> manageTripSpot({
     required String tripId,
     required String spotId,
-    TripSpotStatus? status,
-    SpotPriority? priority,
+    // 新的布尔字段
+    bool? isSaved,
+    bool? isVisited,
+    bool? isMustGo,
+    bool? isTodaysPlan,
+    // 其他字段
     DateTime? visitDate,
     int? userRating,
     String? userNotes,
     List<String>? userPhotos,
     Map<String, dynamic>? spotPayload,
     bool remove = false,
+    // 旧字段（兼容，将被废弃）
+    @Deprecated('Use isSaved/isVisited/isTodaysPlan instead')
+    TripSpotStatus? status,
+    @Deprecated('Use isMustGo instead')
+    SpotPriority? priority,
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -68,8 +78,19 @@ class TripRepository {
       if (remove) {
         data['remove'] = true;
       }
+      
+      // 新的布尔字段
+      if (isSaved != null) data['isSaved'] = isSaved;
+      if (isVisited != null) data['isVisited'] = isVisited;
+      if (isMustGo != null) data['isMustGo'] = isMustGo;
+      if (isTodaysPlan != null) data['isTodaysPlan'] = isTodaysPlan;
+      
+      // 旧字段（兼容）
+      // ignore: deprecated_member_use_from_same_package
       if (status != null) data['status'] = _statusToServer(status);
+      // ignore: deprecated_member_use_from_same_package
       if (priority != null) data['priority'] = _priorityToServer(priority);
+      
       if (visitDate != null) data['visitDate'] = visitDate.toIso8601String();
       if (userRating != null) data['userRating'] = userRating;
       if (userNotes != null) data['userNotes'] = userNotes;
@@ -115,7 +136,3 @@ class TripRepository {
     return e.message ?? 'An error occurred';
   }
 }
-
-
-
-

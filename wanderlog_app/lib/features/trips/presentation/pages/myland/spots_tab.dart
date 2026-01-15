@@ -147,7 +147,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       ? List<_SpotEntry>.from(_entries)
       : _entries.where((entry) => entry.citySlug == _selectedCitySlug).toList();
 
-  int get _allCount => _entriesForCity.length;
+  // All 列表只显示已收藏的地点
+  int get _allCount => _entriesForCity.where((entry) => entry.isSaved).length;
   int get _mustGoCount =>
       _entriesForCity.where((entry) => entry.isMustGo).length;
   int get _todaysPlanCount =>
@@ -405,10 +406,12 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
               'ratingCount': spot.ratingCount,
             };
             
+            // 使用新的布尔字段
             await ref.read(tripRepositoryProvider).manageTripSpot(
               tripId: destId,
               spotId: spot.id,
-              status: TripSpotStatus.visited,
+              isVisited: true,
+              // 不修改 isTodaysPlan，保留原状态
               visitDate: visitDate,
               userRating: rating.toInt(),
               userNotes: notes,
@@ -457,7 +460,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       backgroundColor: Colors.transparent,
       builder: (_) => UnifiedSpotDetailModal(
         spot: entry.spot,
-        initialIsSaved: true,
+        initialIsSaved: entry.isSaved,
         initialIsMustGo: entry.isMustGo,
         initialIsTodaysPlan: entry.isTodaysPlan,
         initialIsVisited: entry.isVisited,
@@ -521,11 +524,11 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       final city = spot.city ?? '';
       final destId = await _getDestinationIdForCity(city);
       if (destId != null) {
+        // 使用新的布尔字段
         await ref.read(tripRepositoryProvider).manageTripSpot(
           tripId: destId,
           spotId: spot.id,
-          status: TripSpotStatus.wishlist,
-          priority: newChecked ? SpotPriority.mustGo : SpotPriority.optional,
+          isMustGo: newChecked,
         );
       }
     } catch (e) {
@@ -566,10 +569,11 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       final city = spot.city ?? '';
       final destId = await _getDestinationIdForCity(city);
       if (destId != null) {
+        // 使用新的布尔字段
         await ref.read(tripRepositoryProvider).manageTripSpot(
           tripId: destId,
           spotId: spot.id,
-          status: newChecked ? TripSpotStatus.todaysPlan : TripSpotStatus.wishlist,
+          isTodaysPlan: newChecked,
         );
       }
     } catch (e) {
@@ -611,11 +615,11 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       final city = spot.city ?? '';
       final destId = await _getDestinationIdForCity(city);
       if (destId != null) {
+        // 使用新的布尔字段
         await ref.read(tripRepositoryProvider).manageTripSpot(
           tripId: destId,
           spotId: spot.id,
-          status: TripSpotStatus.wishlist,
-          priority: SpotPriority.mustGo,
+          isMustGo: true,
         );
       }
     } catch (e) {
@@ -947,22 +951,27 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         for (final ts in tripSpots) {
           final s = ts.spot;
           if (s == null) continue;
+          
+          // 只显示已收藏或已访问的地点
+          // isSaved: false 且 isVisited: false 的地点不应该出现在列表中
+          if (!ts.isSaved && !ts.isVisited) continue;
+          
           final cityName = (s.city ?? 'Unknown').trim().isEmpty
               ? 'Unknown'
               : s.city!.trim();
           final spotSlug = _ensureCitySlug(cityName);
-          final isMustGo = ts.priority == SpotPriority.mustGo;
-          final isTodaysPlan = ts.status == TripSpotStatus.todaysPlan;
+          // 使用新的布尔字段
           final entry = _SpotEntry(
             city: cityName,
             citySlug: spotSlug,
             spot: s,
             addedAt: ts.createdAt ?? DateTime.now(),
-            isMustGo: isMustGo,
-            isTodaysPlan: isTodaysPlan,
-            isVisited: ts.status == TripSpotStatus.visited,
-            mustGoCheckedAt: isMustGo ? ts.updatedAt : null,
-            todaysPlanCheckedAt: isTodaysPlan ? ts.updatedAt : null,
+            isSaved: ts.isSaved,
+            isMustGo: ts.isMustGo,
+            isTodaysPlan: ts.isTodaysPlan,
+            isVisited: ts.isVisited,
+            mustGoCheckedAt: ts.isMustGo ? ts.updatedAt : null,
+            todaysPlanCheckedAt: ts.isTodaysPlan ? ts.updatedAt : null,
             visitDate: ts.visitDate,
             userRating: ts.userRating,
             userNotes: ts.userNotes,
@@ -1035,6 +1044,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         base = base.where((entry) => entry.isVisited);
         break;
       default:
+        // All 列表只显示已收藏的地点
+        base = base.where((entry) => entry.isSaved);
         break;
     }
 
@@ -2654,6 +2665,7 @@ class _SpotEntry {
     required this.citySlug,
     required this.spot,
     required this.addedAt,
+    this.isSaved = true,
     this.isMustGo = false,
     this.isTodaysPlan = false,
     this.isVisited = false,
@@ -2671,6 +2683,7 @@ class _SpotEntry {
   final String citySlug;
   final Spot spot;
   final DateTime addedAt;
+  final bool isSaved;
   final bool isMustGo;
   final bool isTodaysPlan;
   final bool isVisited;

@@ -140,8 +140,8 @@ class SpotListItem extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  // Priority badge
-                  if (tripSpot.priority == SpotPriority.mustGo)
+                  // Priority badge - 使用新的布尔字段
+                  if (tripSpot.isMustGo)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -302,9 +302,8 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
   }
 
   Future<void> _togglePriority(BuildContext context) async {
-    final newPriority = widget.tripSpot.priority == SpotPriority.mustGo
-        ? SpotPriority.optional
-        : SpotPriority.mustGo;
+    // 使用新的布尔字段
+    final newIsMustGo = !widget.tripSpot.isMustGo;
 
     setState(() => _isLoading = true);
 
@@ -316,7 +315,7 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
       await repository.manageTripSpot(
         tripId: widget.tripId,
         spotId: widget.tripSpot.spotId,
-        priority: newPriority,
+        isMustGo: newIsMustGo,
       );
 
       widget.onRefresh();
@@ -373,19 +372,20 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            if (widget.tripSpot.status != TripSpotStatus.wishlist)
+            // 使用新的布尔字段
+            if (!widget.tripSpot.isSaved)
               ListTile(
                 leading: const Icon(Icons.bookmark_outline),
-                title: const Text('Move to Wishlist'),
+                title: const Text('Add to Wishlist'),
                 onTap: () => _changeStatus(context, TripSpotStatus.wishlist),
               ),
-            if (widget.tripSpot.status != TripSpotStatus.todaysPlan)
+            if (!widget.tripSpot.isTodaysPlan)
               ListTile(
                 leading: const Icon(Icons.today_outlined),
                 title: const Text("Add to Today's Plan"),
                 onTap: () => _changeStatus(context, TripSpotStatus.todaysPlan),
               ),
-            if (widget.tripSpot.status != TripSpotStatus.visited)
+            if (!widget.tripSpot.isVisited)
               ListTile(
                 leading: const Icon(Icons.check_circle_outline),
                 title: const Text('Mark as Visited'),
@@ -393,12 +393,12 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
               ),
             ListTile(
               leading: Icon(
-                widget.tripSpot.priority == SpotPriority.mustGo
+                widget.tripSpot.isMustGo
                     ? Icons.star
                     : Icons.star_outline,
               ),
               title: Text(
-                widget.tripSpot.priority == SpotPriority.mustGo
+                widget.tripSpot.isMustGo
                     ? 'Remove from Must Go'
                     : 'Mark as Must Go',
               ),

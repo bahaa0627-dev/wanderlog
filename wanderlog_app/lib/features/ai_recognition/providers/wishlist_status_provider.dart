@@ -133,22 +133,18 @@ final wishlistStatusProvider = FutureProvider<Map<String, String?>>((ref) async 
   for (final trip in trips) {
     final tripSpots = trip.tripSpots ?? [];
     for (final tripSpot in tripSpots) {
-      final spotId = tripSpot.spotId!;
+      final spotId = tripSpot.spotId;
       final destId = trip.id;
       
       // 基础状态
       statusMap[spotId] = destId;
       
-      // 完整状态
-      final isMustGo = tripSpot.priority == SpotPriority.mustGo;
-      final isTodaysPlan = tripSpot.status == TripSpotStatus.todaysPlan;
-      final isVisited = tripSpot.status == TripSpotStatus.visited;
-      
+      // 使用新的布尔字段
       fullStatusMap[spotId] = SpotStatusData(
         destinationId: destId,
-        isMustGo: isMustGo,
-        isTodaysPlan: isTodaysPlan,
-        isVisited: isVisited,
+        isMustGo: tripSpot.isMustGo,
+        isTodaysPlan: tripSpot.isTodaysPlan,
+        isVisited: tripSpot.isVisited,
       );
       
       // 同时使用 spot.name 作为 key，解决 AI 地点 ID 不匹配问题
@@ -156,9 +152,9 @@ final wishlistStatusProvider = FutureProvider<Map<String, String?>>((ref) async 
         statusMap[tripSpot.spot!.name] = destId;
         fullStatusMap[tripSpot.spot!.name] = SpotStatusData(
           destinationId: destId,
-          isMustGo: isMustGo,
-          isTodaysPlan: isTodaysPlan,
-          isVisited: isVisited,
+          isMustGo: tripSpot.isMustGo,
+          isTodaysPlan: tripSpot.isTodaysPlan,
+          isVisited: tripSpot.isVisited,
         );
       }
     }

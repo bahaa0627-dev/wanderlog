@@ -35,14 +35,25 @@ const tripSpotToCamelCase = (row: any) => {
         userPhotos = [];
       }
     }
-    // If it's an object (Map), ignore it and use empty array
   }
+  
+  // 兼容新旧字段：优先使用新的布尔字段，回退到旧的 status/priority
+  const isSaved = row.is_saved ?? true;
+  const isVisited = row.is_visited ?? (row.status === 'VISITED');
+  const isMustGo = row.is_must_go ?? (row.priority === 'MUST_GO');
+  const isTodaysPlan = row.is_todays_plan ?? (row.status === 'TODAYS_PLAN');
   
   return {
     id: row.id,
     tripId: row.trip_id,
     placeId: row.place_id,
     spotId: row.place_id, // Frontend expects spotId
+    // 新的布尔字段
+    isSaved,
+    isVisited,
+    isMustGo,
+    isTodaysPlan,
+    // 保留旧字段用于兼容（将被废弃）
     status: row.status,
     priority: row.priority,
     visitDate: row.visit_date ? new Date(row.visit_date).toISOString() : null,
@@ -104,6 +115,10 @@ export const getMyTrips = async (req: Request, res: Response) => {
              ts.id as trip_spot_id,
              ts.trip_id as ts_trip_id,
              ts.place_id as ts_place_id,
+             ts.is_saved as is_saved,
+             ts.is_visited as is_visited,
+             ts.is_must_go as is_must_go,
+             ts.is_todays_plan as is_todays_plan,
              ts.status as ts_status,
              ts.priority as ts_priority,
              ts.visit_date as ts_visit_date,
@@ -162,11 +177,17 @@ export const getMyTrips = async (req: Request, res: Response) => {
         });
       }
       
-      // Extract trip_spot data
+      // Extract trip_spot data - 包含新的布尔字段
       const tripSpotData = tripSpotToCamelCase({
         id: ts.trip_spot_id,
         trip_id: ts.ts_trip_id,
         place_id: ts.ts_place_id,
+        // 新的布尔字段
+        is_saved: ts.is_saved,
+        is_visited: ts.is_visited,
+        is_must_go: ts.is_must_go,
+        is_todays_plan: ts.is_todays_plan,
+        // 旧字段（兼容）
         status: ts.ts_status,
         priority: ts.ts_priority,
         visit_date: ts.ts_visit_date,
@@ -230,6 +251,10 @@ export const getTripById = async (req: Request, res: Response) => {
              ts.id as trip_spot_id,
              ts.trip_id as ts_trip_id,
              ts.place_id as ts_place_id,
+             ts.is_saved as is_saved,
+             ts.is_visited as is_visited,
+             ts.is_must_go as is_must_go,
+             ts.is_todays_plan as is_todays_plan,
              ts.status as ts_status,
              ts.priority as ts_priority,
              ts.visit_date as ts_visit_date,
@@ -287,6 +312,12 @@ export const getTripById = async (req: Request, res: Response) => {
         id: ts.trip_spot_id,
         trip_id: ts.ts_trip_id,
         place_id: ts.ts_place_id,
+        // 新的布尔字段
+        is_saved: ts.is_saved,
+        is_visited: ts.is_visited,
+        is_must_go: ts.is_must_go,
+        is_todays_plan: ts.is_todays_plan,
+        // 旧字段（兼容）
         status: ts.ts_status,
         priority: ts.ts_priority,
         visit_date: ts.ts_visit_date,
@@ -324,8 +355,14 @@ export const manageTripSpot = async (req: Request, res: Response) => {
   const prismaAny = prisma as any;
   try {
     const { id } = req.params; // Trip ID
-    const { spotId, placeId, status, priority, visitDate, userRating, userNotes, userPhotos, spot, remove } =
-      req.body;
+    const { 
+      spotId, placeId, 
+      // 新的布尔字段
+      isSaved, isVisited, isMustGo, isTodaysPlan,
+      // 旧字段（兼容）
+      status, priority, 
+      visitDate, userRating, userNotes, userPhotos, spot, remove 
+    } = req.body;
     const userId = req.user.id;
     let targetPlaceId: string | undefined = placeId || spotId;
 
@@ -358,109 +395,123 @@ export const manageTripSpot = async (req: Request, res: Response) => {
       return res.json({ success: true, removed: true, spotId: targetPlaceId });
     }
 
-    // If targetPlaceId is not a UUID (e.g., it's a place name from AI), we need to create a new place
+    // 查找已有的 place - 用户只能对已有的 place 进行操作
     let existingPlace = null;
     
     if (isUUID) {
-      // Try to find existing place by UUID
+      // 通过 UUID 查找
       const existingPlaces = await prismaAny.$queryRaw`
         SELECT * FROM places WHERE id = ${targetPlaceId}::uuid LIMIT 1
       `;
       existingPlace = existingPlaces && existingPlaces.length > 0 ? existingPlaces[0] : null;
     }
     
+    // 如果不是 UUID，尝试通过 google_place_id 查找
     if (!existingPlace) {
-      // Place doesn't exist or targetPlaceId is not a UUID
-      // We need spot data to create a new place
-      if (!spot || !spot.name || spot.latitude === undefined || spot.longitude === undefined) {
-        return res.status(400).json({ message: 'Place not found and insufficient data to create' });
+      const googlePlaceId = spot?.googlePlaceId || targetPlaceId;
+      if (googlePlaceId) {
+        const placesByGoogleId = await prismaAny.$queryRaw`
+          SELECT * FROM places WHERE google_place_id = ${googlePlaceId} LIMIT 1
+        `;
+        if (placesByGoogleId && placesByGoogleId.length > 0) {
+          existingPlace = placesByGoogleId[0];
+          targetPlaceId = existingPlace.id;
+          logger.info(`[manageTripSpot] Found place by google_place_id: ${googlePlaceId}, id=${targetPlaceId}`);
+        }
       }
-      
-      // Generate a new UUID for the place if targetPlaceId is not a valid UUID
-      const { randomUUID } = await import('crypto');
-      const newPlaceId = isUUID ? targetPlaceId : randomUUID();
-      
-      // Create place using raw SQL to avoid DateTime issues
-      const tagsJson = spot.tags ? JSON.stringify(spot.tags) : '[]';
-      const imagesJson = spot.images ? JSON.stringify(spot.images) : '[]';
-      
-      await prismaAny.$executeRaw`
-        INSERT INTO places (id, name, city, country, latitude, longitude, address, description, opening_hours, rating, rating_count, category, ai_summary, tags, cover_image, images, price_level, website, phone_number, source, created_at, updated_at)
-        VALUES (
-          ${newPlaceId}::uuid, 
-          ${spot.name}, 
-          ${spot.city || 'Unknown'}, 
-          ${spot.country ?? 'Unknown'}, 
-          ${spot.latitude}::float, 
-          ${spot.longitude}::float, 
-          ${spot.address || null}, 
-          ${spot.description || null}, 
-          ${spot.openingHours || null}, 
-          ${spot.rating || null}::float, 
-          ${spot.ratingCount || null}::int, 
-          ${spot.category || null}, 
-          ${spot.aiSummary || null}, 
-          ${tagsJson}::jsonb, 
-          ${spot.coverImage || null}, 
-          ${imagesJson}::jsonb, 
-          ${spot.priceLevel || null}::int, 
-          ${spot.website || null}, 
-          ${spot.phoneNumber || null}, 
-          ${spot.source ?? 'ai_search'},
-          NOW(),
-          NOW()
-        )
+    }
+    
+    // 如果还没找到，尝试通过名称+坐标查找（100m 范围内）
+    if (!existingPlace && spot?.name && spot?.latitude !== undefined && spot?.longitude !== undefined) {
+      const placesByNameAndLocation = await prismaAny.$queryRaw`
+        SELECT * FROM places 
+        WHERE name = ${spot.name} 
+          AND ABS(latitude - ${spot.latitude}::float) < 0.001 
+          AND ABS(longitude - ${spot.longitude}::float) < 0.001
+        LIMIT 1
       `;
-      
-      // Update targetPlaceId to the new UUID
-      targetPlaceId = newPlaceId;
-      logger.info(`[manageTripSpot] Created new place with id=${newPlaceId} for "${spot.name}"`);
+      if (placesByNameAndLocation && placesByNameAndLocation.length > 0) {
+        existingPlace = placesByNameAndLocation[0];
+        targetPlaceId = existingPlace.id;
+        logger.info(`[manageTripSpot] Found place by name+location: "${spot.name}", id=${targetPlaceId}`);
+      }
+    }
+    
+    // 如果找不到 place，返回错误 - 不创建新的 place
+    if (!existingPlace) {
+      logger.warn(`[manageTripSpot] Place not found: targetPlaceId=${targetPlaceId}, googlePlaceId=${spot?.googlePlaceId}, name=${spot?.name}`);
+      return res.status(404).json({ message: 'Place not found' });
     }
 
     // Check if trip spot exists
     const existing = await prismaAny.$queryRaw`
       SELECT * FROM trip_spots WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid LIMIT 1
     `;
+    
+    logger.info(`[manageTripSpot] Checking trip_spot: tripId=${id}, placeId=${targetPlaceId}, found=${existing?.length > 0}`);
 
     let tripSpot;
     const visitDateStr = visitDate ? new Date(visitDate).toISOString() : null;
     const userPhotosJson = userPhotos ? JSON.stringify(userPhotos) : null;
+    
+    // 计算新的布尔值（兼容旧的 status/priority 参数）
+    const computeIsSaved = isSaved ?? true;
+    const computeIsVisited = isVisited ?? (status === 'VISITED' ? true : undefined);
+    const computeIsMustGo = isMustGo ?? (priority === 'MUST_GO' ? true : undefined);
+    const computeIsTodaysPlan = isTodaysPlan ?? (status === 'TODAYS_PLAN' ? true : undefined);
+    
+    logger.info(`[manageTripSpot] Input: isSaved=${isSaved}, isTodaysPlan=${isTodaysPlan}, isVisited=${isVisited}, status=${status}`);
+    logger.info(`[manageTripSpot] Computed: computeIsSaved=${computeIsSaved}, computeIsTodaysPlan=${computeIsTodaysPlan}, computeIsVisited=${computeIsVisited}`);
+    
+    // 兼容旧的 status/priority（用于旧版本客户端）
+    const computeStatus = status || (computeIsVisited ? 'VISITED' : (computeIsTodaysPlan ? 'TODAYS_PLAN' : 'WISHLIST'));
+    const computePriority = normalizedPriority || (computeIsMustGo ? 'MUST_GO' : 'OPTIONAL');
 
     if (existing && existing.length > 0) {
-      // Update existing
-      if (userPhotosJson) {
-        await prismaAny.$executeRaw`
-          UPDATE trip_spots SET 
-            status = COALESCE(${status}, status),
-            priority = COALESCE(${normalizedPriority}, priority),
-            visit_date = ${visitDateStr}::timestamp,
-            user_rating = COALESCE(${userRating}::int, user_rating),
-            user_notes = COALESCE(${userNotes}, user_notes),
-            user_photos = ${userPhotosJson}::jsonb,
-            updated_at = NOW()
-          WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid
-        `;
-      } else {
-        await prismaAny.$executeRaw`
-          UPDATE trip_spots SET 
-            status = COALESCE(${status}, status),
-            priority = COALESCE(${normalizedPriority}, priority),
-            visit_date = ${visitDateStr}::timestamp,
-            user_rating = COALESCE(${userRating}::int, user_rating),
-            user_notes = COALESCE(${userNotes}, user_notes),
-            updated_at = NOW()
-          WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid
-        `;
-      }
+      // Update existing - 使用新的布尔字段
+      // 注意：只更新明确传入的字段，undefined 的字段保持原值
+      await prismaAny.$executeRaw`
+        UPDATE trip_spots SET 
+          is_saved = COALESCE(${computeIsSaved !== undefined ? computeIsSaved : null}::boolean, is_saved),
+          is_visited = COALESCE(${computeIsVisited !== undefined ? computeIsVisited : null}::boolean, is_visited),
+          is_must_go = COALESCE(${computeIsMustGo !== undefined ? computeIsMustGo : null}::boolean, is_must_go),
+          is_todays_plan = COALESCE(${computeIsTodaysPlan !== undefined ? computeIsTodaysPlan : null}::boolean, is_todays_plan),
+          status = COALESCE(${computeStatus}, status),
+          priority = COALESCE(${computePriority}, priority),
+          visit_date = COALESCE(${visitDateStr}::timestamp, visit_date),
+          user_rating = COALESCE(${userRating}::int, user_rating),
+          user_notes = COALESCE(${userNotes}, user_notes),
+          user_photos = COALESCE(${userPhotosJson}::jsonb, user_photos),
+          updated_at = NOW()
+        WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid
+      `;
       const results = await prismaAny.$queryRaw`
         SELECT * FROM trip_spots WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid LIMIT 1
       `;
       tripSpot = results[0];
+      logger.info(`[manageTripSpot] After update: is_saved=${tripSpot?.is_saved}, is_todays_plan=${tripSpot?.is_todays_plan}, is_visited=${tripSpot?.is_visited}`);
     } else {
-      // Create new
+      // Create new - 使用新的布尔字段
       const results = await prismaAny.$queryRaw`
-        INSERT INTO trip_spots (trip_id, place_id, status, priority, visit_date, user_rating, user_notes, user_photos)
-        VALUES (${id}::uuid, ${targetPlaceId}::uuid, ${status || 'WISHLIST'}, ${normalizedPriority || 'OPTIONAL'}, ${visitDateStr}::timestamp, ${userRating || null}::int, ${userNotes || null}, ${userPhotosJson}::jsonb)
+        INSERT INTO trip_spots (
+          trip_id, place_id, 
+          is_saved, is_visited, is_must_go, is_todays_plan,
+          status, priority, 
+          visit_date, user_rating, user_notes, user_photos
+        )
+        VALUES (
+          ${id}::uuid, ${targetPlaceId}::uuid, 
+          ${computeIsSaved ?? true}::boolean, 
+          ${computeIsVisited ?? false}::boolean, 
+          ${computeIsMustGo ?? false}::boolean, 
+          ${computeIsTodaysPlan ?? false}::boolean,
+          ${computeStatus}, 
+          ${computePriority}, 
+          ${visitDateStr}::timestamp, 
+          ${userRating || null}::int, 
+          ${userNotes || null}, 
+          ${userPhotosJson}::jsonb
+        )
         RETURNING *
       `;
       tripSpot = results[0];

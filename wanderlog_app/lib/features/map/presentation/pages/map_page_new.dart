@@ -3229,10 +3229,11 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
       void updateFromTripSpot(TripSpot ts) {
         if (!mounted) return;
         setState(() {
-          _isWishlist = true;
-          _isMustGo = ts.priority == SpotPriority.mustGo;
-          _isTodaysPlan = ts.status == TripSpotStatus.todaysPlan;
-          _isVisited = ts.status == TripSpotStatus.visited;
+          // 使用新的布尔字段
+          _isWishlist = ts.isSaved;
+          _isMustGo = ts.isMustGo;
+          _isTodaysPlan = ts.isTodaysPlan;
+          _isVisited = ts.isVisited;
         });
       }
 

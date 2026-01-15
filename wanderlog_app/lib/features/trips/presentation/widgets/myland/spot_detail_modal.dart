@@ -552,7 +552,10 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
           );
           if (tripSpot != null) {
             debugPrint('✅ [spot_detail_modal] Found tripSpot for ${widget.spot.id}');
-            debugPrint('   - status: ${tripSpot.status}');
+            debugPrint('   - isSaved: ${tripSpot.isSaved}');
+            debugPrint('   - isVisited: ${tripSpot.isVisited}');
+            debugPrint('   - isMustGo: ${tripSpot.isMustGo}');
+            debugPrint('   - isTodaysPlan: ${tripSpot.isTodaysPlan}');
             debugPrint('   - visitDate: ${tripSpot.visitDate}');
             debugPrint('   - userRating: ${tripSpot.userRating}');
             debugPrint('   - userNotes: ${tripSpot.userNotes}');
@@ -560,13 +563,11 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
             _destinationId = detail.id;
             if (mounted) {
               setState(() {
-                // 只有 WISHLIST 或 TODAYS_PLAN 状态才算在 wishlist 中
-                // VISITED 状态的地点不在 wishlist 中（除非同时是 WISHLIST）
-                _isWishlist = tripSpot.status == TripSpotStatus.wishlist || 
-                              tripSpot.status == TripSpotStatus.todaysPlan;
-                _isMustGo = tripSpot.priority == SpotPriority.mustGo;
-                _isTodaysPlan = tripSpot.status == TripSpotStatus.todaysPlan;
-                _isVisited = tripSpot.status == TripSpotStatus.visited;
+                // 使用新的布尔字段
+                _isWishlist = tripSpot.isSaved;
+                _isMustGo = tripSpot.isMustGo;
+                _isTodaysPlan = tripSpot.isTodaysPlan;
+                _isVisited = tripSpot.isVisited;
                 _visitDate = tripSpot.visitDate;
                 _userRating = tripSpot.userRating;
                 _userNotes = tripSpot.userNotes;

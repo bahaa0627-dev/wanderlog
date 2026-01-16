@@ -25,6 +25,9 @@ import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
+import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
+import 'package:wanderlog/features/stills/presentation/pages/stills_list_page.dart';
 
 /// Unified Spot Detail Modal - used by all entry points
 /// Supports both spot_model.Spot and map_page.Spot (via adapter)
@@ -151,11 +154,11 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
 
   String? get _spotDescription {
     try {
-      // 尝试获取 aiSummary（AI 地点的描述）
-      final aiSummary = (widget.spot as dynamic).aiSummary as String?;
-      if (aiSummary != null && aiSummary.isNotEmpty) return aiSummary;
-      // 回退到 description
-      return (widget.spot as dynamic).description as String?;
+      // 优先使用 description（后台设置的描述）
+      final description = (widget.spot as dynamic).description as String?;
+      if (description != null && description.isNotEmpty) return description;
+      // 回退到 aiSummary（AI 生成的描述）
+      return (widget.spot as dynamic).aiSummary as String?;
     } catch (e) {
       return null;
     }
@@ -1749,6 +1752,118 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     );
   }
 
+  /// 检查是否有剧照数据
+  bool _hasStillsData() {
+    try {
+      // 尝试从 map_page_new.dart 的 Spot 类型获取
+      final dynamic spot = widget.spot;
+      
+      // 检查是否有 customFields 属性
+      if (spot == null) return false;
+      
+      // 尝试获取 customFields
+      dynamic customFields;
+      try {
+        customFields = spot.customFields;
+      } catch (e) {
+        // 如果没有 customFields 属性，返回 false
+        return false;
+      }
+      
+      if (customFields == null) return false;
+      
+      // 检查是否是 PlaceCustomFields 类型
+      if (customFields is PlaceCustomFields) {
+        return customFields.hasStills;
+      }
+      
+      // 尝试访问 hasStills 属性
+      try {
+        return customFields.hasStills == true;
+      } catch (e) {
+        return false;
+      }
+    } catch (e) {
+      print('⚠️ _hasStillsData error: $e');
+      return false;
+    }
+  }
+
+  /// 获取剧照数据
+  PlaceCustomFields? _getCustomFields() {
+    try {
+      final dynamic spot = widget.spot;
+      if (spot == null) return null;
+      
+      dynamic customFields;
+      try {
+        customFields = spot.customFields;
+      } catch (e) {
+        return null;
+      }
+      
+      if (customFields == null) return null;
+      
+      if (customFields is PlaceCustomFields) {
+        return customFields;
+      }
+      
+      return null;
+    } catch (e) {
+      print('⚠️ _getCustomFields error: $e');
+      return null;
+    }
+  }
+
+  /// 构建剧照入口按钮
+  Widget _buildStillsEntryButton() {
+    return GestureDetector(
+      onTap: _navigateToStillsList,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.movie_outlined, size: 16, color: AppTheme.black),
+            const SizedBox(width: 6),
+            Text(
+              'Stills',
+              style: AppTheme.labelSmall(context).copyWith(
+                fontWeight: FontWeight.w500,
+                color: AppTheme.black,
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(
+              Icons.chevron_right,
+              size: 16,
+              color: AppTheme.black,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 跳转到剧照列表页
+  void _navigateToStillsList() {
+    final customFields = _getCustomFields();
+    if (customFields == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => StillsListPage(
+          placeName: _spotName,
+          customFields: customFields,
+        ),
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -1855,6 +1970,13 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                 top: 16,
                 left: 16,
                 child: _buildCollectionEntryCard(),
+              ),
+            // 剧照入口按钮 - 封面图右下角
+            if (_hasStillsData())
+              Positioned(
+                right: 16,
+                bottom: _spotImages.length > 1 ? 32 : 16,
+                child: _buildStillsEntryButton(),
               ),
             // 关闭按钮 - 封面图右上角
             Positioned(
@@ -1971,7 +2093,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                       if (_spotRatingCount != null) ...[
                         const SizedBox(width: 8),
                         Text(
-                          '($_spotRatingCount)',
+                          formatRatingCount(_spotRatingCount),
                           style: AppTheme.bodySmall(context).copyWith(color: AppTheme.mediumGray),
                         ),
                       ],

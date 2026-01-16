@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// 地点卡片组件 - 用于 MyLand 页面展示地点信息
 class SpotCard extends StatelessWidget {
@@ -131,7 +132,7 @@ class SpotCard extends StatelessWidget {
                               ..._buildStarRating(spot.rating!),
                               const SizedBox(width: 4),
                               Text(
-                                spot.ratingCount != null ? '(${spot.ratingCount})' : '',
+                                formatRatingCount(spot.ratingCount),
                                 style: AppTheme.labelSmall(context).copyWith(
                                   color: AppTheme.black.withOpacity(0.6),
                                 ),

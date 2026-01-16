@@ -14,6 +14,7 @@ import 'package:wanderlog/features/ai_recognition/data/services/chatgpt_service.
 import 'package:wanderlog/features/ai_recognition/presentation/widgets/ai_recognition_sheets_new.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart'
     show Spot;
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// 聊天消息模型
 class ChatMessage {
@@ -1465,7 +1466,7 @@ class _SpotDetailSheet extends StatelessWidget {
                         const Icon(Icons.star, size: 16, color: Colors.amber),
                         const SizedBox(width: 4),
                         Text(
-                          '${spot.rating.toStringAsFixed(1)} (${spot.ratingCount})',
+                          '${spot.rating.toStringAsFixed(1)} ${formatRatingCount(spot.ratingCount)}',
                           style: AppTheme.bodyMedium(context),
                         ),
                       ],

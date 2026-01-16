@@ -1,19 +1,17 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wanderlog/core/providers/dio_provider.dart';
 
 /// 搜索数据仓库
 class SearchRepository {
-  SearchRepository({Dio? dio}) : _dio = dio ?? Dio();
+  SearchRepository(this._dio);
 
   final Dio _dio;
-
-  String get _baseUrl => dotenv.env['API_BASE_URL'] ?? 'http://127.0.0.1:3000/api';
 
   /// 获取国家和城市列表（按国家分组）
   Future<Map<String, List<String>>> getCountriesAndCities() async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>('$_baseUrl/public-places/countries-cities');
+      final response = await _dio.get<Map<String, dynamic>>('public-places/countries-cities');
       
       if (response.statusCode == 200 && response.data?['success'] == true) {
         final data = response.data!['data'] as Map<String, dynamic>;
@@ -39,6 +37,7 @@ class SearchRepository {
     required String city,
     required String country,
     List<String>? tags,
+    List<String>? categories,
     int limit = 50,
   }) async {
     try {
@@ -48,16 +47,21 @@ class SearchRepository {
         'limit': limit,
       };
       
+      // 新的分类过滤参数（匹配 category 字段）
+      if (categories != null && categories.isNotEmpty) {
+        queryParams['categories'] = categories.join(',');
+      }
+      
+      // 标签过滤参数（匹配 tags 或 ai_tags 字段）
       if (tags != null && tags.isNotEmpty) {
         queryParams['tags'] = tags.join(',');
       }
 
-      final url = '$_baseUrl/public-places/search-by-filters';
-      print('🌐 API Request: $url');
+      print('🌐 API Request: public-places/search-by-filters');
       print('🌐 Params: $queryParams');
 
       final response = await _dio.get<Map<String, dynamic>>(
-        url,
+        'public-places/search-by-filters',
         queryParameters: queryParams,
       );
       
@@ -95,7 +99,7 @@ class SearchRepository {
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
-        '$_baseUrl/public-places/ai-generate',
+        'public-places/ai-generate',
         data: {
           'city': city,
           'country': country,
@@ -234,4 +238,7 @@ class SearchPlaceResult {
 }
 
 /// Provider
-final searchRepositoryProvider = Provider<SearchRepository>((ref) => SearchRepository());
+final searchRepositoryProvider = Provider<SearchRepository>((ref) {
+  final dio = ref.watch(dioProvider);
+  return SearchRepository(dio);
+});

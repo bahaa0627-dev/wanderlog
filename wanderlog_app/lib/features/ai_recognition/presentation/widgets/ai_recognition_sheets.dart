@@ -10,6 +10,7 @@ import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_res
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:dio/dio.dart';
 
 /// AI识别引导底部弹窗
@@ -655,7 +656,7 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '(${widget.spot.ratingCount})',
+                        formatRatingCount(widget.spot.ratingCount),
                         style: AppTheme.bodySmall(context).copyWith(
                           color: AppTheme.mediumGray,
                           fontSize: 11,

@@ -84,4 +84,7 @@ router.post('/:placeId/sync', publicPlaceController.syncPlace.bind(publicPlaceCo
 // 生成 AI 标签
 router.post('/:placeId/generate-tags', publicPlaceController.generateTags.bind(publicPlaceController));
 
+// 更新剧照的 canCompare 字段
+router.put('/:placeId/stills', publicPlaceController.updateStillsCompare.bind(publicPlaceController));
+
 export default router;

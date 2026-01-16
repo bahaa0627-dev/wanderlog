@@ -402,7 +402,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     
     final eval = OpeningHoursUtils.evaluate(
       raw,
-      country: null,
+      country: spot.country,
       longitude: spot.longitude,
     );
     if (eval == null) return false;
@@ -429,16 +429,18 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     // - visited/check-in border + text: #8D8D8D
     // - selected non-visited highlight: yellow
     // - closed marker: gray background and text
+    // - visited marker: same gray style as closed (浅灰背景)
     final Color markerColor;
     final Color labelColor;
     
     if (isClosed) {
-      // 关门状态：灰色背景和文字
-      markerColor = Colors.grey.shade300;
-      labelColor = Colors.grey.shade500;
+      // 关门状态：浅灰色背景和深灰文字
+      markerColor = AppTheme.markerGray;  // #CCCCCC
+      labelColor = AppTheme.markerLabelGray;  // #8D8D8D
     } else if (isVisited) {
-      markerColor = AppTheme.markerGray;
-      labelColor = AppTheme.markerLabelGray;
+      // 已访问状态：与关门状态使用相同的灰色样式
+      markerColor = AppTheme.markerGray;  // #CCCCCC
+      labelColor = AppTheme.markerLabelGray;  // #8D8D8D
     } else {
       markerColor = isSelected ? AppTheme.primaryYellow : Colors.white;
       labelColor = AppTheme.black;
@@ -572,7 +574,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()
-      ..color = isClosed ? Colors.grey.shade400 : (isVisited ? AppTheme.markerLabelGray : AppTheme.black)
+      ..color = (isClosed || isVisited) ? AppTheme.markerLabelGray : AppTheme.black
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5; // 稍微加粗边框让它更清晰
 

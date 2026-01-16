@@ -81,6 +81,9 @@ function extractTagsFromStructured(tags: Record<string, string[]> | null): strin
   return result;
 }
 
+// 需要过滤的旧标签（不再使用的通用标签）
+const FILTERED_TAGS = new Set(['place', 'landmark']);
+
 /**
  * 计算 display_tags，合并 aiTags 和 tags 的并集
  * 优先级: aiTags (按 priority) > tags
@@ -115,7 +118,8 @@ function computeDisplayTagsWithUnion(
     const enValue = tag.en?.trim();
     const zhValue = tag.zh?.trim();
     
-    if (enValue && !seenEn.has(enValue.toLowerCase())) {
+    // 过滤掉旧的通用标签（如 "place", "landmark"）
+    if (enValue && !seenEn.has(enValue.toLowerCase()) && !FILTERED_TAGS.has(enValue.toLowerCase())) {
       resultEn.push(enValue);
       seenEn.add(enValue.toLowerCase());
     }
@@ -130,7 +134,8 @@ function computeDisplayTagsWithUnion(
     if (resultEn.length >= MAX_TAGS) break;
     
     const tagLower = tag.toLowerCase();
-    if (!seenEn.has(tagLower)) {
+    // 过滤掉旧的通用标签（如 "place", "landmark"）
+    if (!seenEn.has(tagLower) && !FILTERED_TAGS.has(tagLower)) {
       // 首字母大写
       const formatted = tag.charAt(0).toUpperCase() + tag.slice(1);
       resultEn.push(formatted);
@@ -220,6 +225,7 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
       display_tags_en,
       display_tags_zh,
       tags: parsedTags,
+      customFields: place.customFields || null,
     };
   } else {
     // C 端：移除内部 tags 字段 (Requirements: 8.4)
@@ -237,6 +243,7 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
       aiTags,
       display_tags_en,
       display_tags_zh,
+      customFields: place.customFields || null,
     };
   }
   
@@ -918,7 +925,7 @@ class PublicPlaceController {
    */
   async searchByFilters(req: Request, res: Response): Promise<void> {
     try {
-      const { city, country, tags, limit } = req.query;
+      const { city, country, tags, categories, limit } = req.query;
 
       if (!city || !country) {
         res.status(400).json({
@@ -928,14 +935,21 @@ class PublicPlaceController {
         return;
       }
 
+      // 解析 tags 参数（匹配 tags 或 ai_tags 字段）
       const tagsArray = tags 
         ? (tags as string).split(',').map(t => t.trim()).filter(Boolean)
+        : undefined;
+
+      // 解析 categories 参数（匹配 category 字段）
+      const categoriesArray = categories
+        ? (categories as string).split(',').map(c => c.trim()).filter(Boolean)
         : undefined;
 
       const result = await publicPlaceService.searchByFilters({
         city: city as string,
         country: country as string,
         tags: tagsArray,
+        categories: categoriesArray,
         limit: limit ? parseInt(limit as string) : 50,
       });
 
@@ -1215,6 +1229,99 @@ class PublicPlaceController {
       }
     } catch (error: any) {
       console.error('❌ Error handling Apify webhook:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * 更新剧照的 canCompare 字段
+   * PUT /api/public-places/:placeId/stills
+   * Body: { 
+   *   updates: Array<{ index: number, canCompare: boolean }>
+   * }
+   * 
+   * Example:
+   * {
+   *   "updates": [
+   *     { "index": 0, "canCompare": true },
+   *     { "index": 1, "canCompare": true },
+   *     { "index": 5, "canCompare": false }
+   *   ]
+   * }
+   */
+  async updateStillsCompare(req: Request, res: Response): Promise<void> {
+    try {
+      const { placeId } = req.params;
+      const { updates } = req.body;
+
+      if (!updates || !Array.isArray(updates)) {
+        res.status(400).json({
+          success: false,
+          error: 'updates array is required',
+        });
+        return;
+      }
+
+      // Get the place
+      const place = await publicPlaceService.getPlaceByPlaceId(placeId);
+      if (!place) {
+        res.status(404).json({
+          success: false,
+          error: 'Place not found',
+        });
+        return;
+      }
+
+      const customFields = (place.customFields as any) || {};
+      const stills = customFields.stills || [];
+
+      if (stills.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'No stills found for this place',
+        });
+        return;
+      }
+
+      // Apply updates
+      let updatedCount = 0;
+      for (const update of updates) {
+        const { index, canCompare } = update;
+        if (typeof index === 'number' && index >= 0 && index < stills.length) {
+          stills[index].canCompare = canCompare === true;
+          updatedCount++;
+        }
+      }
+
+      // Save back
+      await publicPlaceService.updatePlace(placeId, {
+        customFields: {
+          ...customFields,
+          stills,
+        },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          placeId,
+          updatedCount,
+          totalStills: stills.length,
+          stills: stills.map((s: any, i: number) => ({
+            index: i,
+            movieNameEn: s.movieNameEn,
+            movieNameCn: s.movieNameCn,
+            canCompare: s.canCompare || false,
+            url: s.url,
+          })),
+        },
+        message: `Updated ${updatedCount} stills`,
+      });
+    } catch (error: any) {
+      console.error('❌ Error updating stills compare:', error);
       res.status(500).json({
         success: false,
         error: error.message,

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:json_annotation/json_annotation.dart';
+import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
 
 part 'spot_model.g.dart';
 
@@ -29,6 +30,7 @@ class Spot {
     this.phoneNumber,
     this.displayTagsEn,
     this.aiTags,
+    this.customFields,
   });
 
   factory Spot.fromJson(Map<String, dynamic> json) => _$SpotFromJson(json);
@@ -56,6 +58,8 @@ class Spot {
   final List<String>? displayTagsEn;
   @JsonKey(name: 'ai_tags', fromJson: _aiTagsFromJson)
   final List<dynamic>? aiTags;
+  @JsonKey(name: 'custom_fields', fromJson: _customFieldsFromJson, toJson: _customFieldsToJson)
+  final PlaceCustomFields? customFields;
   Map<String, dynamic> toJson() => _$SpotToJson(this);
 
   Spot copyWith({
@@ -80,6 +84,7 @@ class Spot {
     DateTime? updatedAt,
     List<String>? displayTagsEn,
     List<dynamic>? aiTags,
+    PlaceCustomFields? customFields,
   }) => Spot(
       id: id ?? this.id,
       googlePlaceId: googlePlaceId ?? this.googlePlaceId,
@@ -102,6 +107,7 @@ class Spot {
       updatedAt: updatedAt ?? this.updatedAt,
       displayTagsEn: displayTagsEn ?? this.displayTagsEn,
       aiTags: aiTags ?? this.aiTags,
+      customFields: customFields ?? this.customFields,
     );
 }
 
@@ -193,5 +199,18 @@ List<dynamic>? _aiTagsFromJson(dynamic value) {
       return null;
     }
   }
+  return null;
+}
+
+PlaceCustomFields? _customFieldsFromJson(dynamic value) {
+  if (value == null) return null;
+  if (value is Map<String, dynamic>) {
+    return PlaceCustomFields.fromJson(value);
+  }
+  return null;
+}
+
+Map<String, dynamic>? _customFieldsToJson(PlaceCustomFields? value) {
+  // 不需要序列化回 JSON，返回 null
   return null;
 }

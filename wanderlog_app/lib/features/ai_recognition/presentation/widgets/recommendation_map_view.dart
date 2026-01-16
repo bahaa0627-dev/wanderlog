@@ -8,6 +8,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// 推荐结果地图组件
 ///
@@ -1128,7 +1129,7 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                               if (widget.place.ratingCount != null) ...[
                                 const SizedBox(width: 4),
                                 Text(
-                                  '(${widget.place.ratingCount})',
+                                  formatRatingCount(widget.place.ratingCount),
                                   style: AppTheme.bodySmall(context).copyWith(
                                     color: Colors.white.withOpacity(0.8),
                                     fontSize: 11,

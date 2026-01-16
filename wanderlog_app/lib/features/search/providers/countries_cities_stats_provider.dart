@@ -1,7 +1,6 @@
-import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
+import 'package:wanderlog/core/providers/dio_provider.dart';
 
 /// 城市数据（带地点数量）
 class CityStats {
@@ -101,9 +100,8 @@ class CountriesCitiesStatsNotifier
 
   final Ref _ref;
 
-  /// 获取 API 基础 URL
-  String get _apiBaseUrl =>
-      dotenv.env['API_BASE_URL'] ?? 'http://127.0.0.1:3000/api';
+  /// 获取 Dio 实例
+  Dio get _dio => _ref.read(dioProvider);
 
   /// 加载数据（从后端 API）
   Future<void> load({bool forceRefresh = false}) async {
@@ -112,17 +110,18 @@ class CountriesCitiesStatsNotifier
 
     state = state.copyWith(isLoading: true, error: null);
     print('📍 [CountriesCitiesStats] 开始从 API 加载国家城市统计数据...');
-    print('📍 [CountriesCitiesStats] API URL: $_apiBaseUrl');
+    print('📍 [CountriesCitiesStats] API URL: ${_dio.options.baseUrl}');
 
     try {
-      final url = Uri.parse('$_apiBaseUrl/public-places/countries-cities-stats');
-      final response = await http.get(url).timeout(const Duration(seconds: 30));
+      final response = await _dio.get<Map<String, dynamic>>(
+        'public-places/countries-cities-stats',
+      );
 
       if (response.statusCode != 200) {
         throw Exception('API 请求失败: ${response.statusCode}');
       }
 
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final json = response.data!;
       if (json['success'] != true) {
         throw Exception(json['error'] ?? 'Unknown error');
       }

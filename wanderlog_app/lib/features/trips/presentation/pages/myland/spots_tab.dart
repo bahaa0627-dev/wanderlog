@@ -29,6 +29,8 @@ import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as 
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 
 class SpotsTabController {
   _SpotsTabState? _state;
@@ -87,7 +89,7 @@ class SpotsTab extends ConsumerStatefulWidget {
 
   final int? initialSubTab;
   final ValueChanged<String>? onCityChanged;
-  final ValueChanged<List<String>>? onCityOptionsChanged;
+  final void Function(List<String> cities, Map<String, String> cityToCountry)? onCityOptionsChanged;
   final SpotsTabController? controller;
 
   @override
@@ -137,6 +139,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   final List<String> _userCityHistory = [];
   final Map<String, String> _extraCitySlugs = {};
   bool _isLoadingDestinations = true;
+  bool _hasLoadError = false; // 加载错误状态
 
   late int _selectedSubTab;
   late bool _isMapView;
@@ -914,13 +917,21 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     if (mounted) {
       setState(() {
         _isLoadingDestinations = true;
+        _hasLoadError = false; // 重置错误状态
       });
     } else {
       _isLoadingDestinations = true;
+      _hasLoadError = false;
     }
     try {
+      // 确保认证状态是最新的
+      final authState = ref.read(authProvider);
+      print('🔐 [SpotsTab] Auth state: isAuthenticated=${authState.isAuthenticated}, user=${authState.user?.email}');
+      
       final repo = ref.read(tripRepositoryProvider);
+      print('📡 [SpotsTab] Loading destinations...');
       final destinations = await repo.getMyTrips();
+      print('📦 [SpotsTab] Loaded ${destinations.length} destinations');
       if (!mounted) return;
       destinations.sort(
         (a, b) => (b.createdAt ?? DateTime.now()).compareTo(a.createdAt ?? DateTime.now()),
@@ -1013,8 +1024,11 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       _notifyCityChanged();
       _notifyCityOptionsChanged();
       _persistCityState();
-    } catch (_) {
-      // Ignore errors; fallback to local state.
+    } catch (e, stackTrace) {
+      // 标记加载错误
+      print('❌ [SpotsTab] Failed to load destinations: $e');
+      print('📋 Stack trace: $stackTrace');
+      _hasLoadError = true;
     } finally {
       if (mounted) {
         setState(() {
@@ -1161,7 +1175,22 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     }
     widget.onCityOptionsChanged!(
       _cityOptionsWithAll(),
+      _buildCityToCountryMap(),
     );
+  }
+
+  /// 构建城市到国家的映射
+  Map<String, String> _buildCityToCountryMap() {
+    final Map<String, String> result = {};
+    for (final entry in _entries) {
+      final city = entry.city.trim();
+      final country = entry.spot.country?.trim();
+      if (city.isNotEmpty && country != null && country.isNotEmpty) {
+        // 只保留第一个找到的国家（避免重复覆盖）
+        result.putIfAbsent(city, () => country);
+      }
+    }
+    return result;
   }
 
   void _selectCity(String cityName) {
@@ -1217,6 +1246,11 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   Widget build(BuildContext context) {
     if (_isLoadingDestinations) {
       return const _LoadingState();
+    }
+
+    // 加载失败且没有数据时显示错误状态
+    if (_hasLoadError && _entries.isEmpty) {
+      return _ErrorState(onRetry: _loadDestinationsFromServer);
     }
 
     final hasDestinations = _citiesInCreationOrder(newestFirst: true).isNotEmpty;
@@ -1336,7 +1370,95 @@ class _LoadingState extends StatelessWidget {
   Widget build(BuildContext context) => const Center(
         child: Padding(
           padding: EdgeInsets.only(top: 64),
-          child: CircularProgressIndicator(),
+          child: CircularProgressIndicator(color: AppTheme.primaryYellow),
+        ),
+      );
+}
+
+class _ErrorState extends StatefulWidget {
+  const _ErrorState({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  State<_ErrorState> createState() => _ErrorStateState();
+}
+
+class _ErrorStateState extends State<_ErrorState> {
+  bool _isRetrying = false;
+
+  Future<void> _handleRetry() async {
+    if (_isRetrying) return;
+    setState(() => _isRetrying = true);
+    try {
+      await widget.onRetry();
+    } finally {
+      if (mounted) {
+        setState(() => _isRetrying = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.cloud_off_outlined,
+                size: 64,
+                color: AppTheme.mediumGray,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load',
+                style: AppTheme.bodyLarge(context).copyWith(
+                  color: AppTheme.darkGray,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please check your network and try again',
+                style: AppTheme.bodySmall(context).copyWith(
+                  color: AppTheme.mediumGray,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              GestureDetector(
+                onTap: _isRetrying ? null : _handleRetry,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _isRetrying 
+                        ? AppTheme.primaryYellow.withOpacity(0.6) 
+                        : AppTheme.primaryYellow,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.black, width: 2),
+                  ),
+                  child: _isRetrying
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.black,
+                          ),
+                        )
+                      : Text(
+                          'Retry',
+                          style: AppTheme.labelLarge(context).copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.black,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
 }
@@ -2097,46 +2219,48 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
               : <String>[];
           
           return DraggableScrollableSheet(
-            initialChildSize: 0.5,
+            initialChildSize: 0.45,
             minChildSize: 0.3,
-            maxChildSize: 0.8,
+            maxChildSize: 0.7,
             expand: false,
             builder: (context, scrollController) => Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Select City', style: AppTheme.headlineMedium(context)),
-                  const SizedBox(height: 16),
-                  // "All" 选项
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      if (widget.cityName != 'All') {
-                        widget.onCityChanged?.call('All');
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                      color: widget.cityName == 'All' ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'All',
-                              style: AppTheme.bodyMedium(context).copyWith(
-                                fontWeight: widget.cityName == 'All' ? FontWeight.bold : FontWeight.normal,
-                              ),
+                  Row(
+                    children: [
+                      Text('Select City', style: AppTheme.headlineMedium(context)),
+                      const Spacer(),
+                      // "All" 选项放在标题行右侧
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                          if (widget.cityName != 'All') {
+                            widget.onCityChanged?.call('All');
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: widget.cityName == 'All' 
+                                ? AppTheme.primaryYellow.withOpacity(0.3) 
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppTheme.border),
+                          ),
+                          child: Text(
+                            'All',
+                            style: AppTheme.bodyMedium(context).copyWith(
+                              fontWeight: widget.cityName == 'All' ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
-                          if (widget.cityName == 'All')
-                            const Icon(Icons.check, size: 18, color: AppTheme.primaryYellow),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  const Divider(height: 1),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Expanded(
                     child: Row(
                       children: [
@@ -3272,7 +3396,7 @@ class _VisitedSpotCard extends StatelessWidget {
                                     ..._buildStarRating(entry.spot.rating!),
                                     const SizedBox(width: 4),
                                     Text(
-                                      entry.spot.ratingCount != null ? '(${entry.spot.ratingCount})' : '',
+                                      formatRatingCount(entry.spot.ratingCount),
                                       style: AppTheme.labelSmall(context).copyWith(
                                         color: AppTheme.black.withOpacity(0.6),
                                       ),
@@ -3331,10 +3455,12 @@ class _VisitedSpotCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // User notes (black, 14px)
+                          // User notes (black, 14px, max 5 lines)
                           if (entry.userNotes != null && entry.userNotes!.isNotEmpty)
                             Text(
                               entry.userNotes!,
+                              maxLines: 5,
+                              overflow: TextOverflow.ellipsis,
                               style: AppTheme.bodyMedium(context).copyWith(
                                 color: AppTheme.black,
                                 fontSize: 14,

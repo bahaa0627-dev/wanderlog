@@ -9,6 +9,7 @@ import 'package:wanderlog/features/collections/providers/collection_providers.da
 import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
+import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 
 /// Collections Tab - 显示用户收藏的合集
 /// 这些合集与 trip 的城市相关
@@ -367,17 +368,8 @@ class _CollectionCardState extends State<_CollectionCard> {
     // 使用稍小的内圆角确保完全覆盖边框内侧，避免缺口
     const double innerRadius = cardRadius - AppTheme.borderThick - 0.5;
 
-    // 占位图组件
-    const placeholder = ColoredBox(
-      color: AppTheme.lightGray,
-      child: Center(
-        child: Icon(
-          Icons.collections_outlined,
-          size: 48,
-          color: AppTheme.mediumGray,
-        ),
-      ),
-    );
+    // 占位图组件 - 使用 VAGO 品牌占位符
+    const placeholder = VagoPlaceholderSmall();
 
     return RepaintBoundary(
       child: GestureDetector(

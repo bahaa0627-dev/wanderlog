@@ -274,6 +274,9 @@ function extractTagsFromStructured(tags: Record<string, string[]> | null | undef
  * @param structuredTags 结构化标签对象（可选）
  * @returns 合并后的标签数组
  */
+// 需要过滤的旧标签（不再使用的通用标签）
+const FILTERED_TAGS = new Set(['place', 'landmark']);
+
 function buildDisplayTags(
   categoryEn: string | null | undefined, 
   aiTags: any,
@@ -304,7 +307,8 @@ function buildDisplayTags(
       if (tagStr && tagStr.trim()) {
         const trimmed = tagStr.trim();
         const key = trimmed.toLowerCase();
-        if (!seen.has(key)) {
+        // 过滤掉旧的通用标签（如 "place", "landmark"）
+        if (!seen.has(key) && !FILTERED_TAGS.has(key)) {
           tags.push(trimmed);
           seen.add(key);
         }
@@ -318,7 +322,8 @@ function buildDisplayTags(
     for (const tag of extracted) {
       if (tags.length >= 4) break; // 最多 4 个标签
       const key = tag.toLowerCase();
-      if (!seen.has(key)) {
+      // 过滤掉旧的通用标签
+      if (!seen.has(key) && !FILTERED_TAGS.has(key)) {
         tags.push(tag);
         seen.add(key);
       }

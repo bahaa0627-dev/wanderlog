@@ -1,5 +1,41 @@
 import 'package:wanderlog/core/supabase/supabase_config.dart';
 
+// 需要过滤的旧标签（不再使用的通用标签）
+const _filteredTags = {'place', 'landmark'};
+
+/// 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
+/// 过滤掉旧的通用标签（如 "place", "landmark"）
+List<String> _buildDisplayTags(String? category, List<String> parsedTags, List<String> parsedAiTags) {
+  final displayTagsEn = <String>[];
+  final seenTags = <String>{};
+  
+  // 1. 先添加 category
+  if (category != null && category.isNotEmpty) {
+    displayTagsEn.add(category);
+    seenTags.add(category.toLowerCase());
+  }
+  
+  // 2. 添加 tags（过滤掉旧的通用标签）
+  for (final tag in parsedTags) {
+    if (displayTagsEn.length >= 4) break;
+    final key = tag.toLowerCase();
+    if (seenTags.add(key) && !_filteredTags.contains(key)) {
+      displayTagsEn.add(tag);
+    }
+  }
+  
+  // 3. 添加 aiTags（过滤掉旧的通用标签）
+  for (final tag in parsedAiTags) {
+    if (displayTagsEn.length >= 4) break;
+    final key = tag.toLowerCase();
+    if (seenTags.add(key) && !_filteredTags.contains(key)) {
+      displayTagsEn.add(tag);
+    }
+  }
+  
+  return displayTagsEn;
+}
+
 /// Supabase 版本的合集仓库
 class SupabaseCollectionRepository {
   final _client = SupabaseConfig.client;
@@ -199,34 +235,11 @@ class SupabaseCollectionRepository {
       }
     }
     
-    // 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
-    final displayTagsEn = <String>[];
-    final seenTags = <String>{};
-    
-    // 1. 先添加 category（优先使用 category_en）
+    // 获取 category（优先使用 category_en）
     final category = (place['category_en'] as String?) ?? (place['category'] as String?);
-    if (category != null && category.isNotEmpty) {
-      displayTagsEn.add(category);
-      seenTags.add(category.toLowerCase());
-    }
     
-    // 2. 添加 tags
-    for (final tag in parsedTags) {
-      if (displayTagsEn.length >= 4) break;
-      final key = tag.toLowerCase();
-      if (seenTags.add(key)) {
-        displayTagsEn.add(tag);
-      }
-    }
-    
-    // 3. 添加 aiTags
-    for (final tag in parsedAiTags) {
-      if (displayTagsEn.length >= 4) break;
-      final key = tag.toLowerCase();
-      if (seenTags.add(key)) {
-        displayTagsEn.add(tag);
-      }
-    }
+    // 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
+    final displayTagsEn = _buildDisplayTags(category, parsedTags, parsedAiTags);
     
     return {
       'id': place['id'],
@@ -253,7 +266,11 @@ class SupabaseCollectionRepository {
       'phoneNumber': place['phone_number'],
       'website': place['website'],
       'openingHours': place['opening_hours'],
+      // 剧照数据
+      'customFields': place['custom_fields'],
     };
+    // Debug: 打印 customFields 数据
+    print('🎬 [_convertPlaceToSpot] ${place['name']}: custom_fields = ${place['custom_fields']}');
   }
 
   /// 获取合集推荐列表
@@ -424,34 +441,11 @@ class SupabaseCollectionRepository {
       }
     }
     
-    // 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
-    final displayTagsEn = <String>[];
-    final seenTags = <String>{};
-    
-    // 1. 先添加 category（优先使用 category_en）
+    // 获取 category（优先使用 category_en）
     final category = (place['category_en'] as String?) ?? (place['category'] as String?);
-    if (category != null && category.isNotEmpty) {
-      displayTagsEn.add(category);
-      seenTags.add(category.toLowerCase());
-    }
     
-    // 2. 添加 tags
-    for (final tag in parsedTags) {
-      if (displayTagsEn.length >= 4) break;
-      final key = tag.toLowerCase();
-      if (seenTags.add(key)) {
-        displayTagsEn.add(tag);
-      }
-    }
-    
-    // 3. 添加 aiTags
-    for (final tag in parsedAiTags) {
-      if (displayTagsEn.length >= 4) break;
-      final key = tag.toLowerCase();
-      if (seenTags.add(key)) {
-        displayTagsEn.add(tag);
-      }
-    }
+    // 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
+    final displayTagsEn = _buildDisplayTags(category, parsedTags, parsedAiTags);
     
     return {
       'id': place['id'],
@@ -473,6 +467,8 @@ class SupabaseCollectionRepository {
       'displayTagsEn': displayTagsEn, // category + tags + aiTags 合并后取前 4 个
       'aiSummary': place['ai_summary'],
       'aiDescription': place['ai_description'],
+      // 剧照数据
+      'customFields': place['custom_fields'],
     };
   }
 

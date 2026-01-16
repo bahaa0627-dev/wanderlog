@@ -33,6 +33,7 @@ import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_di
 import 'package:wanderlog/shared/models/spot_model.dart' as spot_model;
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// 地点来源枚举
 enum SpotSource {
@@ -55,6 +56,7 @@ class Spot {
     required this.images,
     required this.tags,
     this.displayTagsEn = const [],
+    this.description,
     this.aiSummary,
     this.isFromAI = false,
     this.isVerified = true,
@@ -66,6 +68,7 @@ class Spot {
     this.website,
     this.openingHours,
     this.country,
+    this.customFields,
   });
 
   final String id;
@@ -82,6 +85,9 @@ class Spot {
   final List<String> tags;
   /// 后端计算好的展示标签（category + aiTags + tags 的合并结果）
   final List<String> displayTagsEn;
+  /// 后台设置的描述（优先显示）
+  final String? description;
+  /// AI 生成的描述（description 为空时显示）
   final String? aiSummary;
   final bool isFromAI;
   
@@ -103,6 +109,9 @@ class Spot {
   final String? phoneNumber;
   final String? website;
   final Map<String, dynamic>? openingHours;
+  
+  /// 自定义字段（包含剧照等数据）
+  final PlaceCustomFields? customFields;
   
   /// 是否是 AI-only 地点（未经 Google 验证）
   bool get isAIOnly => !isVerified && source == SpotSource.ai;
@@ -133,6 +142,7 @@ class Spot {
     List<String>? images,
     List<String>? tags,
     List<String>? displayTagsEn,
+    String? description,
     String? aiSummary,
     bool? isFromAI,
     bool? isVerified,
@@ -142,6 +152,7 @@ class Spot {
     String? phoneNumber,
     String? website,
     Map<String, dynamic>? openingHours,
+    PlaceCustomFields? customFields,
   }) => Spot(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -156,6 +167,7 @@ class Spot {
       images: images ?? this.images,
       tags: tags ?? this.tags,
       displayTagsEn: displayTagsEn ?? this.displayTagsEn,
+      description: description ?? this.description,
       aiSummary: aiSummary ?? this.aiSummary,
       isFromAI: isFromAI ?? this.isFromAI,
       isVerified: isVerified ?? this.isVerified,
@@ -165,6 +177,7 @@ class Spot {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       website: website ?? this.website,
       openingHours: openingHours ?? this.openingHours,
+      customFields: customFields ?? this.customFields,
     );
 }
 
@@ -842,10 +855,11 @@ class _MapPageState extends ConsumerState<MapPage> {
                         if (widget.onBack != null) ...[
                           IconButtonCustom(
                             icon: Icons.arrow_back,
+                            size: 36,
                             onPressed: _handleBackPressed,
                             backgroundColor: Colors.white,
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
                         ],
                         _CitySelector(
                           selectedCity: _selectedCity,
@@ -897,20 +911,22 @@ class _MapPageState extends ConsumerState<MapPage> {
                         ],
                         if (!_isFullscreen) const Spacer(),
                         if (_isFullscreen) const SizedBox(width: 8),
-                        IconButtonCustom(
-                          icon: _isFullscreen
-                              ? Icons.fullscreen_exit
-                              : Icons.fullscreen,
-                          size: 36,
-                          onPressed: () {
-                            if (_isFullscreen) {
-                              _requestExitFullscreen();
-                            } else {
-                              _openFullscreen();
-                            }
-                          },
-                          backgroundColor: Colors.white,
-                        ),
+                        // 只在非 MyLand 入口时显示全屏切换按钮
+                        if (widget.onBack == null)
+                          IconButtonCustom(
+                            icon: _isFullscreen
+                                ? Icons.fullscreen_exit
+                                : Icons.fullscreen,
+                            size: 36,
+                            onPressed: () {
+                              if (_isFullscreen) {
+                                _requestExitFullscreen();
+                              } else {
+                                _openFullscreen();
+                              }
+                            },
+                            backgroundColor: Colors.white,
+                          ),
                       ],
                     ),
                   ),
@@ -2029,13 +2045,28 @@ class _MapPageState extends ConsumerState<MapPage> {
       images: images,
       tags: place.aiTags,
       displayTagsEn: displayTags,
-      aiSummary: place.aiSummary ?? place.aiDescription ?? place.description,
+      description: place.description,
+      aiSummary: place.aiSummary ?? place.aiDescription,
       // 详情页需要的额外字段
       address: place.address,
       phoneNumber: place.phoneNumber,
       website: place.website,
       openingHours: place.openingHours,
+      customFields: place.customFields,
     );
+  }
+
+  // Debug: 检查是否有剧照数据
+  void _debugCheckStillsData() {
+    final cacheState = ref.read(placesCacheProvider);
+    if (cacheState.hasData) {
+      final allPlaces = cacheState.placesByCity.values.expand((list) => list).toList();
+      final placesWithStills = allPlaces.where((p) => p.customFields?.hasStills == true).toList();
+      print('🎬 [MapPage] 有剧照数据的地点数量: ${placesWithStills.length}');
+      for (final p in placesWithStills.take(3)) {
+        print('🎬 [MapPage] - ${p.name}: ${p.customFields?.stills.length ?? 0} stills');
+      }
+    }
   }
 
   List<String> _dedupeImages(List<String> rawImages) {
@@ -2592,7 +2623,7 @@ class _RatingRow extends StatelessWidget {
         if (hasRating) ...[
           const SizedBox(width: 4),
           Text(
-            '($ratingCount)',
+            formatRatingCount(ratingCount),
             style: AppTheme.bodySmall(context).copyWith(
               color: Colors.white70,
             ),
@@ -2905,7 +2936,7 @@ class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '(${widget.spot.ratingCount})',
+                          formatRatingCount(widget.spot.ratingCount),
                           style: AppTheme.bodyMedium(context).copyWith(
                             color: AppTheme.mediumGray,
                           ),

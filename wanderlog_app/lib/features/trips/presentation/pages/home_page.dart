@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
+import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_chat_page.dart';
@@ -601,8 +602,9 @@ class _TripCard extends StatefulWidget {
 }
 
 class _TripCardState extends State<_TripCard> {
-  Color _dominantColor = Colors.black;
+  Color _dominantColor = AppTheme.lightGray; // 默认使用浅灰色而不是黑色
   bool _colorExtracted = false;
+  bool _imageLoaded = false; // 图片是否成功加载
 
   @override
   void initState() {
@@ -614,6 +616,10 @@ class _TripCardState extends State<_TripCard> {
   void didUpdateWidget(_TripCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.imageUrl != widget.imageUrl) {
+      setState(() {
+        _imageLoaded = false;
+        _colorExtracted = false;
+      });
       _extractDominantColor();
     }
   }
@@ -637,20 +643,22 @@ class _TripCardState extends State<_TripCard> {
       
       if (mounted) {
         setState(() {
-          // 优先使用主色，如果没有则使用暗色调或默认黑色
+          // 优先使用主色，如果没有则使用暗色调或默认灰色
           _dominantColor = paletteGenerator.dominantColor?.color ??
               paletteGenerator.darkMutedColor?.color ??
               paletteGenerator.darkVibrantColor?.color ??
-              Colors.black;
+              AppTheme.mediumGray;
           _colorExtracted = true;
+          _imageLoaded = true;
         });
       }
     } catch (e) {
-      // 取色失败时使用默认黑色
+      // 取色失败时使用默认灰色
       if (mounted) {
         setState(() {
-          _dominantColor = Colors.black;
+          _dominantColor = AppTheme.mediumGray;
           _colorExtracted = true;
+          _imageLoaded = false;
         });
       }
     }
@@ -679,39 +687,15 @@ class _TripCardState extends State<_TripCard> {
             child: Stack(
               fit: StackFit.expand,
               children: [
+                // 底层占位符 - 始终显示
+                const VagoPlaceholderSmall(),
                 // 背景图片 - 支持 DataURL (base64) 和网络图片
-                if (widget.imageUrl.startsWith('data:image/')) Image.memory(
-                        _decodeBase64Image(widget.imageUrl),
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                        filterQuality: FilterQuality.low,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const ColoredBox(
-                          color: AppTheme.lightGray,
-                          child: Icon(
-                            Icons.image,
-                            size: 50,
-                            color: AppTheme.mediumGray,
-                          ),
-                        ),
-                      ) else Image.network(
-                        widget.imageUrl,
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                        filterQuality: FilterQuality.low,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const ColoredBox(
-                          color: AppTheme.lightGray,
-                          child: Icon(
-                            Icons.image,
-                            size: 50,
-                            color: AppTheme.mediumGray,
-                          ),
-                        ),
-                      ),
+                if (widget.imageUrl.isNotEmpty && !widget.imageUrl.contains('placeholder'))
+                  _buildCoverImage(),
 
-                // 底部渐变蒙层 - 使用提取的主色
-                Positioned(
+                // 底部渐变蒙层 - 只在图片加载成功后显示
+                if (_imageLoaded)
+                  Positioned(
                   left: 0,
                   right: 0,
                   bottom: 0,
@@ -885,6 +869,30 @@ class _TripCardState extends State<_TripCard> {
       ),
     );
   }
+
+  /// 构建封面图片，处理加载状态
+  Widget _buildCoverImage() {
+    if (widget.imageUrl.startsWith('data:image/')) {
+      final bytes = _decodeBase64Image(widget.imageUrl);
+      if (bytes.isEmpty) return const SizedBox.shrink();
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.low,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      );
+    }
+
+    return _NetworkImageWithPlaceholder(
+      imageUrl: widget.imageUrl,
+      onLoaded: () {
+        if (mounted && !_imageLoaded) {
+          setState(() => _imageLoaded = true);
+        }
+      },
+    );
+  }
   
   // 解码 base64 图片
   static Uint8List _decodeBase64Image(String dataUrl) {
@@ -894,5 +902,93 @@ class _TripCardState extends State<_TripCard> {
     } catch (e) {
       return Uint8List(0);
     }
+  }
+}
+
+/// 网络图片组件，在加载完成前完全隐藏
+class _NetworkImageWithPlaceholder extends StatefulWidget {
+  const _NetworkImageWithPlaceholder({
+    required this.imageUrl,
+    this.onLoaded,
+  });
+
+  final String imageUrl;
+  final VoidCallback? onLoaded;
+
+  @override
+  State<_NetworkImageWithPlaceholder> createState() => _NetworkImageWithPlaceholderState();
+}
+
+class _NetworkImageWithPlaceholderState extends State<_NetworkImageWithPlaceholder> {
+  bool _loaded = false;
+  bool _error = false;
+  ImageStream? _imageStream;
+  ImageStreamListener? _listener;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  @override
+  void didUpdateWidget(_NetworkImageWithPlaceholder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _removeListener();
+      setState(() {
+        _loaded = false;
+        _error = false;
+      });
+      _loadImage();
+    }
+  }
+
+  @override
+  void dispose() {
+    _removeListener();
+    super.dispose();
+  }
+
+  void _removeListener() {
+    if (_listener != null && _imageStream != null) {
+      _imageStream!.removeListener(_listener!);
+    }
+    _listener = null;
+    _imageStream = null;
+  }
+
+  void _loadImage() {
+    final imageProvider = NetworkImage(widget.imageUrl);
+    _imageStream = imageProvider.resolve(const ImageConfiguration());
+    _listener = ImageStreamListener(
+      (info, synchronousCall) {
+        if (mounted && !_loaded) {
+          setState(() => _loaded = true);
+          widget.onLoaded?.call();
+        }
+      },
+      onError: (exception, stackTrace) {
+        if (mounted && !_error) {
+          setState(() => _error = true);
+        }
+      },
+    );
+    _imageStream!.addListener(_listener!);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 加载中或出错时不显示任何内容，让底层占位符显示
+    if (!_loaded || _error) {
+      return const SizedBox.shrink();
+    }
+
+    return Image.network(
+      widget.imageUrl,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      filterQuality: FilterQuality.low,
+    );
   }
 }

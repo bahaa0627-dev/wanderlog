@@ -19,16 +19,26 @@ import 'package:wanderlog/features/search/presentation/widgets/search_menu_sheet
 import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/map/presentation/widgets/tag_type_filter_bar.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// 搜索结果地图页面
 class SearchResultsMapPage extends ConsumerStatefulWidget {
   const SearchResultsMapPage({
-    required this.city, required this.country, required this.selectedTags, super.key,
+    required this.city,
+    required this.country,
+    required this.selectedTags,
+    this.categoryFilters = const [],
+    this.tagFilters = const [],
+    super.key,
   });
 
   final String city;
   final String country;
   final List<String> selectedTags;
+  /// 后端 category 字段过滤条件
+  final List<String> categoryFilters;
+  /// 后端 tags/ai_tags 字段过滤条件
+  final List<String> tagFilters;
 
   @override
   ConsumerState<SearchResultsMapPage> createState() => _SearchResultsMapPageState();
@@ -42,6 +52,8 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   late String _currentCity;
   late String _currentCountry;
   late List<String> _userSelectedTags;
+  late List<String> _categoryFilters;
+  late List<String> _tagFilters;
   
   List<Spot> _spots = [];
   List<Spot> _cachedFilteredSpots = []; // 缓存过滤后的 spots
@@ -58,9 +70,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   // 所有地点的标签统计
   Map<String, int> _allTagsCounts = {};
   Set<String> _activeFilterTags = {};
-  
-  // 标签类型筛选
-  String? _selectedTagType;
 
   @override
   void initState() {
@@ -68,6 +77,8 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     _currentCity = widget.city;
     _currentCountry = widget.country;
     _userSelectedTags = List.from(widget.selectedTags);
+    _categoryFilters = List.from(widget.categoryFilters);
+    _tagFilters = List.from(widget.tagFilters);
     _activeFilterTags = Set.from(widget.selectedTags);
     _cardPageController = PageController(viewportFraction: 0.55);
     _loadPlaces();
@@ -128,20 +139,22 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
       final repository = ref.read(searchRepositoryProvider);
       
       // 调试日志
-      print('🔍 Searching: city=$_currentCity, country=$_currentCountry, tags=$_userSelectedTags');
+      print('🔍 Searching: city=$_currentCity, country=$_currentCountry');
+      print('🔍 Categories: $_categoryFilters, Tags: $_tagFilters');
       
-      // 先尝试从数据库搜索
+      // 先尝试从数据库搜索，使用新的过滤参数
       var result = await repository.searchPlaces(
         city: _currentCity,
         country: _currentCountry,
-        tags: _userSelectedTags.isEmpty ? null : _userSelectedTags,
+        categories: _categoryFilters.isEmpty ? null : _categoryFilters,
+        tags: _tagFilters.isEmpty ? null : _tagFilters,
         limit: 50,
       );
       
       // 调试日志
       print('📍 Search result: ${result.places.length} places, isAiGenerated=${result.isAiGenerated}');
       if (result.places.isNotEmpty) {
-        print('📍 First place: ${result.places.first.name}, tags: ${result.places.first.tags}');
+        print('📍 First place: ${result.places.first.name}, category: ${result.places.first.category}, tags: ${result.places.first.tags}');
       }
 
       // 如果选择了标签但没有结果，尝试使用 AI 生成
@@ -202,17 +215,25 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   }
 
   Spot _convertToSpot(SearchPlaceResult place) {
-    // 合并 category 和 aiTags 作为 tags
-    final displayCategory = place.categoryEn ?? place.category;
-    final allTags = <String>{
-      if (displayCategory != null && displayCategory.isNotEmpty) displayCategory,
-      ...place.tags,
-    }.toList();
+    // 优先使用后端计算好的 displayTagsEn（包含 category + aiTags + tags 的合并结果）
+    // 如果没有，则回退到手动合并
+    List<String> allTags;
+    if (place.displayTagsEn.isNotEmpty) {
+      allTags = place.displayTagsEn;
+    } else {
+      final displayCategory = place.categoryEn ?? place.category;
+      allTags = <String>{
+        if (displayCategory != null && displayCategory.isNotEmpty) displayCategory,
+        ...place.tags,
+      }.toList();
+    }
     
     // 调试日志
     if (place.name.contains('Yoyogi') || place.name.contains('Ebisu')) {
-      print('🏷️ Converting ${place.name}: category=$displayCategory, tags=${place.tags}, allTags=$allTags');
+      print('🏷️ Converting ${place.name}: displayTagsEn=${place.displayTagsEn}, tags=${place.tags}, allTags=$allTags');
     }
+    
+    final displayCategory = place.categoryEn ?? place.category;
     
     return Spot(
       id: place.id,
@@ -383,11 +404,13 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     setState(() => _showSearchMenu = false);
   }
 
-  void _handleNewSearch(String city, String country, List<String> tags) {
+  void _handleNewSearch(String city, String country, List<String> tags, List<String> categories, List<String> tagFilters) {
     setState(() {
       _currentCity = city;
       _currentCountry = country;
       _userSelectedTags = tags;
+      _categoryFilters = categories;
+      _tagFilters = tagFilters;
       _activeFilterTags = Set.from(tags);
       _showSearchMenu = false;
     });
@@ -494,17 +517,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                // Tag type filter bar
-                TagTypeFilterBar(
-                  selectedType: _selectedTagType,
-                  onTypeChanged: (type) {
-                    setState(() {
-                      _selectedTagType = type;
-                    });
-                  },
-                ),
-                const SizedBox(height: 8),
-                // Tag bar - 与首页 map 样式一致
+                // Tag bar - 与首页 map 样式一致，不显示标签类型筛选器
                 _buildTagBar(),
               ],
             ),
@@ -641,16 +654,13 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     );
   }
 
-  /// 标签栏 - 与首页 map 样式一致，最多展示 8 个标签
+  /// 标签栏 - 与首页 map 样式一致，最多展示 10 个标签
   Widget _buildTagBar() {
     // 合并用户选择的标签和搜索结果的标签
-    final allTags = <String>{..._userSelectedTags, ..._allTagsCounts.keys};
-    
-    // 根据选中的标签类型筛选标签
-    final filteredByType = TagTypeFilterBar.filterTagsByType(allTags.toList(), _selectedTagType);
+    final allTags = <String>{..._userSelectedTags, ..._allTagsCounts.keys}.toList();
     
     // 按数量排序，用户选择的标签优先
-    final sortedTags = filteredByType..sort((a, b) {
+    allTags.sort((a, b) {
       final aSelected = _userSelectedTags.contains(a);
       final bSelected = _userSelectedTags.contains(b);
       if (aSelected && !bSelected) return -1;
@@ -660,8 +670,8 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
       return bCount.compareTo(aCount);
     });
     
-    // 最多展示 8 个标签
-    final displayTags = sortedTags.take(8).toList();
+    // 最多展示 10 个标签（与首页 map 一致）
+    final displayTags = allTags.take(10).toList();
 
     if (displayTags.isEmpty) {
       return const SizedBox.shrink();
@@ -1034,7 +1044,7 @@ class _RatingRow extends StatelessWidget {
         if (ratingCount > 0) ...[
           const SizedBox(width: 4),
           Text(
-            '($ratingCount)',
+            formatRatingCount(ratingCount),
             style: AppTheme.labelSmall(context).copyWith(color: Colors.white70),
           ),
         ],
@@ -1059,7 +1069,7 @@ class _SearchMenuOverlayInPage extends ConsumerStatefulWidget {
   final String initialCity;
   final List<String> initialTags;
   final VoidCallback onClose;
-  final void Function(String city, String country, List<String> tags) onSearch;
+  final void Function(String city, String country, List<String> tags, List<String> categories, List<String> tagFilters) onSearch;
 
   @override
   ConsumerState<_SearchMenuOverlayInPage> createState() => _SearchMenuOverlayInPageState();
@@ -1070,12 +1080,55 @@ class _SearchMenuOverlayInPageState extends ConsumerState<_SearchMenuOverlayInPa
   late String? _selectedCity;
   late Set<String> _selectedTags;
 
+  // 兴趣标签分类 - 与 SearchMenuOverlay 保持一致
   static const Map<String, List<String>> _interestCategories = {
-    'Things to do': ['Museum', 'Attractions', 'Store'],
-    'Nature': ['Park', 'Cemetery', 'Hiking'],
+    'Things to do': ['Museum', 'Attraction', 'Store', 'Park', 'Cemetery'],
     'Arts': ['Architecture', 'Pilgrimage', 'Knitting'],
-    'Food': ['Cafe', 'Bread', 'Brunch', 'Restaurant'],
+    'Food': ['Cafe', 'Bakery', 'Brunch', 'Restaurant'],
   };
+
+  // 前端标签到后端分类/标签的映射（与 SearchMenuOverlay 保持一致）
+  static const Map<String, Map<String, dynamic>> _tagMapping = {
+    // Things to do
+    'museum': {'type': 'category', 'values': ['museum']},
+    'attraction': {'type': 'category', 'values': ['landmark', 'castle', 'church', 'library', 'art_gallery']},
+    'store': {'type': 'category', 'values': ['shop', 'bookstore', 'thrift_store', 'market', 'shopping_mall']},
+    'park': {'type': 'category', 'values': ['park']},
+    'cemetery': {'type': 'category', 'values': ['cemetery']},
+    // Arts
+    'architecture': {'type': 'tags', 'values': ['architecture', 'domain:architecture']},
+    'pilgrimage': {'type': 'tags', 'values': ['pilgrimage']},
+    'knitting': {'type': 'category', 'values': ['yarn_store']},
+    // Food
+    'cafe': {'type': 'category', 'values': ['cafe']},
+    'bakery': {'type': 'category', 'values': ['bakery']},
+    'brunch': {'type': 'tags', 'values': ['brunch', 'meal:brunch']},
+    'restaurant': {'type': 'category', 'values': ['restaurant', 'bar']},
+  };
+
+  /// 将前端选中的标签转换为后端查询参数
+  static Map<String, List<String>> convertTagsForSearch(Set<String> selectedTags) {
+    final categories = <String>{};
+    final tags = <String>{};
+    
+    for (final tag in selectedTags) {
+      final mapping = _tagMapping[tag.toLowerCase()];
+      if (mapping != null) {
+        final type = mapping['type'] as String;
+        final values = mapping['values'] as List<String>;
+        if (type == 'category') {
+          categories.addAll(values);
+        } else if (type == 'tags') {
+          tags.addAll(values);
+        }
+      }
+    }
+    
+    return {
+      'categories': categories.toList(),
+      'tags': tags.toList(),
+    };
+  }
 
   @override
   void initState() {
@@ -1111,7 +1164,17 @@ class _SearchMenuOverlayInPageState extends ConsumerState<_SearchMenuOverlayInPa
       CustomToast.showInfo(context, 'Please select a city first');
       return;
     }
-    widget.onSearch(_selectedCity!, _selectedCountry!, _selectedTags.toList());
+    
+    // 转换标签为后端查询参数
+    final searchParams = convertTagsForSearch(_selectedTags);
+    
+    widget.onSearch(
+      _selectedCity!,
+      _selectedCountry!,
+      _selectedTags.toList(),
+      searchParams['categories'] ?? [],
+      searchParams['tags'] ?? [],
+    );
   }
 
   @override

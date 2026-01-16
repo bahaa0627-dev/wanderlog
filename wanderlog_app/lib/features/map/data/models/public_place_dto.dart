@@ -29,6 +29,7 @@ class PublicPlaceDto {
     this.source,
     this.createdAt,
     this.updatedAt,
+    this.customFields,
   });
 
   factory PublicPlaceDto.fromJson(Map<String, dynamic> json) => PublicPlaceDto(
@@ -59,6 +60,7 @@ class PublicPlaceDto {
         source: json['source'] as String?,
         createdAt: _parseDateTime(json['createdAt']),
         updatedAt: _parseDateTime(json['updatedAt']),
+        customFields: PlaceCustomFields.fromJson(json['customFields'] as Map<String, dynamic>?),
       );
 
   /// 从 Supabase 数据创建 (字段名使用 snake_case)
@@ -75,6 +77,19 @@ class PublicPlaceDto {
       print('🔍 [fromSupabase] Raw ai_tags field: ${json['ai_tags']}');
       print('🔍 [fromSupabase] Parsed structuredTags: $structuredTags');
       print('🔍 [fromSupabase] Parsed aiTags: $aiTags');
+    }
+    
+    // Debug logging for mocation places (剧照数据)
+    final customFieldsRaw = json['custom_fields'];
+    if (customFieldsRaw != null) {
+      final cf = customFieldsRaw as Map<String, dynamic>?;
+      if (cf != null && cf['stills'] != null) {
+        final stills = cf['stills'] as List?;
+        if (stills != null && stills.isNotEmpty) {
+          print('🎬 [fromSupabase] Place with stills: $name');
+          print('🎬 [fromSupabase] Stills count: ${stills.length}');
+        }
+      }
     }
     
     // 动态计算 displayTagsEn（因为数据库中没有这个字段）
@@ -108,6 +123,7 @@ class PublicPlaceDto {
         source: json['source'] as String?,
         createdAt: _parseDateTime(json['created_at']),
         updatedAt: _parseDateTime(json['updated_at']),
+        customFields: PlaceCustomFields.fromJson(json['custom_fields'] as Map<String, dynamic>?),
       );
   }
 
@@ -138,6 +154,129 @@ class PublicPlaceDto {
   final String? source;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final PlaceCustomFields? customFields;
+
+  /// 检查是否有剧照数据
+  bool get hasStills => customFields?.hasStills ?? false;
+}
+
+/// 电影引用数据
+class MovieReference {
+  const MovieReference({
+    required this.movieId,
+    this.movieNameCn,
+    this.movieNameEn,
+    this.sceneDescription,
+    this.image,
+    this.sourceUrl,
+  });
+
+  factory MovieReference.fromJson(Map<String, dynamic> json) => MovieReference(
+        movieId: json['movieId'] as String? ?? '',
+        movieNameCn: json['movieNameCn'] as String?,
+        movieNameEn: json['movieNameEn'] as String?,
+        sceneDescription: json['sceneDescription'] as String?,
+        image: json['image'] as String?,
+        sourceUrl: json['sourceUrl'] as String?,
+      );
+
+  final String movieId;
+  final String? movieNameCn;
+  final String? movieNameEn;
+  final String? sceneDescription;
+  final String? image;
+  final String? sourceUrl;
+
+  /// 获取显示名称（优先英文）
+  String get displayName => movieNameEn ?? movieNameCn ?? 'Unknown';
+}
+
+/// 剧照数据（带电影信息）
+class StillWithMovie {
+  const StillWithMovie({
+    required this.imageUrl,
+    required this.movieId,
+    this.movieNameCn,
+    this.movieNameEn,
+    this.canCompare = false,
+  });
+
+  factory StillWithMovie.fromJson(Map<String, dynamic> json) => StillWithMovie(
+        // 支持两种字段名：url（后端格式）和 imageUrl
+        imageUrl: (json['url'] as String?) ?? (json['imageUrl'] as String?) ?? '',
+        movieId: json['movieId'] as String? ?? '',
+        movieNameCn: json['movieNameCn'] as String?,
+        movieNameEn: json['movieNameEn'] as String?,
+        canCompare: json['canCompare'] as bool? ?? false,
+      );
+
+  final String imageUrl;
+  final String movieId;
+  final String? movieNameCn;
+  final String? movieNameEn;
+  final bool canCompare;
+
+  /// 获取电影显示名称
+  String get movieDisplayName => movieNameEn ?? movieNameCn ?? 'Unknown';
+}
+
+/// Place 自定义字段
+class PlaceCustomFields {
+  const PlaceCustomFields({
+    this.movies = const [],
+    this.stills = const [],
+    this.sourceUrl,
+  });
+
+  factory PlaceCustomFields.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const PlaceCustomFields();
+    
+    return PlaceCustomFields(
+      movies: _parseMovies(json['movies']),
+      stills: _parseStills(json['stills']),
+      sourceUrl: json['sourceUrl'] as String?,
+    );
+  }
+
+  final List<MovieReference> movies;
+  final List<StillWithMovie> stills;
+  final String? sourceUrl;
+
+  /// 检查是否有剧照
+  bool get hasStills => stills.isNotEmpty;
+
+  /// 获取可合拍的剧照
+  List<StillWithMovie> get compareableStills => 
+      stills.where((s) => s.canCompare).toList();
+
+  /// 检查是否有可合拍的剧照
+  bool get hasCompareableStills => compareableStills.isNotEmpty;
+
+  /// 按电影分组的剧照
+  Map<String, List<StillWithMovie>> get stillsByMovie {
+    final result = <String, List<StillWithMovie>>{};
+    for (final still in stills) {
+      final key = still.movieId;
+      result.putIfAbsent(key, () => []).add(still);
+    }
+    return result;
+  }
+}
+
+List<MovieReference> _parseMovies(dynamic value) {
+  if (value == null || value is! List) return const [];
+  return value
+      .whereType<Map<String, dynamic>>()
+      .map(MovieReference.fromJson)
+      .toList();
+}
+
+List<StillWithMovie> _parseStills(dynamic value) {
+  if (value == null || value is! List) return const [];
+  return value
+      .whereType<Map<String, dynamic>>()
+      .map(StillWithMovie.fromJson)
+      .toList();
 }
 
 List<String> _parseStringList(dynamic value) {
@@ -347,9 +486,13 @@ List<String> _extractTagsFromStructured(Map<String, List<String>>? tags) {
   return result;
 }
 
+// 需要过滤的旧标签（不再使用的通用标签）
+const _filteredTags = {'place', 'landmark'};
+
 /// 计算展示标签：category + structuredTags + aiTags 的并集
 /// 顺序：分类 → 结构化标签（如 Architecture, Jørn Utzon）→ AI 标签（如 Historical）
 /// 最多返回 4 个标签
+/// 过滤掉旧的通用标签（如 "place", "landmark"）
 List<String> _computeDisplayTags(
   String? categoryEn,
   List<String> aiTags,
@@ -369,23 +512,23 @@ List<String> _computeDisplayTags(
     seen.add(categoryEn.toLowerCase());
   }
   
-  // 2. 添加结构化标签（优先于 AI 标签）
+  // 2. 添加结构化标签（优先于 AI 标签，过滤掉旧的通用标签）
   final extracted = _extractTagsFromStructured(structuredTags);
   print('🏷️ [_computeDisplayTags] extracted from structured: $extracted');
   for (final tag in extracted) {
     if (result.length >= 4) break;
     final key = tag.toLowerCase();
-    if (!seen.contains(key)) {
+    if (!seen.contains(key) && !_filteredTags.contains(key)) {
       result.add(tag);
       seen.add(key);
     }
   }
   
-  // 3. 添加 aiTags
+  // 3. 添加 aiTags（过滤掉旧的通用标签）
   for (final tag in aiTags) {
     if (result.length >= 4) break;
     final key = tag.toLowerCase();
-    if (!seen.contains(key)) {
+    if (!seen.contains(key) && !_filteredTags.contains(key)) {
       result.add(tag);
       seen.add(key);
     }

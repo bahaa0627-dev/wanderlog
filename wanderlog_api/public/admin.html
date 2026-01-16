@@ -4302,14 +4302,14 @@
                                 stills: []
                             };
                         }
-                        movieGroups[key].stills.push({ url: still.url, idx });
+                        movieGroups[key].stills.push({ url: still.url, idx, canCompare: still.canCompare || false });
                     } else {
                         // 兼容旧格式（纯字符串URL）
                         const key = '_unknown_';
                         if (!movieGroups[key]) {
                             movieGroups[key] = { movieNameCn: '未知电影', movieNameEn: '', year: '', stills: [] };
                         }
-                        movieGroups[key].stills.push({ url: typeof still === 'string' ? still : still.url, idx });
+                        movieGroups[key].stills.push({ url: typeof still === 'string' ? still : still.url, idx, canCompare: false });
                     }
                 });
                 
@@ -4328,7 +4328,7 @@
                             </div>
                             <div style="display:flex;flex-wrap:wrap;gap:8px;">
                                 ${group.stills.map(s => `
-                                    <div class="chip draggable-image" style="padding:4px;cursor:move;"
+                                    <div class="chip draggable-image" style="padding:4px;cursor:move;position:relative;"
                                          draggable="true"
                                          ondragstart="handleImageDragStart(event, ${s.idx}, 'stills')"
                                          ondragend="handleImageDragEnd(event)"
@@ -4339,6 +4339,10 @@
                                              title="长按拖拽调整顺序"
                                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2275%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>🎬</text></svg>'">
                                         <button onclick="removePlaceStill(${s.idx})" style="margin-left:4px;">×</button>
+                                        <label style="display:flex;align-items:center;gap:2px;font-size:10px;color:#666;margin-top:2px;cursor:pointer;" title="勾选后可在App中合拍">
+                                            <input type="checkbox" ${s.canCompare ? 'checked' : ''} onchange="toggleStillCompare(${s.idx}, this.checked)" style="width:12px;height:12px;">
+                                            <span>📷</span>
+                                        </label>
                                     </div>
                                 `).join('')}
                             </div>
@@ -4372,6 +4376,16 @@
         function removePlaceStill(idx) {
             placeStills.splice(idx, 1);
             renderPlaceStills();
+        }
+        
+        // 切换剧照的可合拍状态
+        function toggleStillCompare(idx, canCompare) {
+            if (idx >= 0 && idx < placeStills.length) {
+                if (typeof placeStills[idx] === 'object') {
+                    placeStills[idx].canCompare = canCompare;
+                }
+                console.log(`剧照 ${idx + 1} 可合拍状态: ${canCompare}`);
+            }
         }
         
         // 保存地点数据
@@ -4458,9 +4472,25 @@
                 const coverImage = document.getElementById('placeCoverImage').value.trim();
                 
                 // 构建 customFields（包含剧照）
+                // 需要保留原有的 customFields 中的其他字段（如 matchedBy, raw, evidence 等）
                 let customFields = undefined;
+                const existingCustomFields = currentEditPlace?.customFields || {};
+                const parsedExisting = typeof existingCustomFields === 'string' 
+                    ? JSON.parse(existingCustomFields) 
+                    : existingCustomFields;
+                
+                // 合并：保留原有字段，更新 stills
                 if (placeStills && placeStills.length > 0) {
-                    customFields = JSON.stringify({ stills: placeStills });
+                    customFields = JSON.stringify({ 
+                        ...parsedExisting,
+                        stills: placeStills 
+                    });
+                } else if (parsedExisting && Object.keys(parsedExisting).length > 0) {
+                    // 如果没有剧照但有其他 customFields，保留它们（但移除 stills）
+                    const { stills, ...rest } = parsedExisting;
+                    if (Object.keys(rest).length > 0) {
+                        customFields = JSON.stringify(rest);
+                    }
                 }
                 
                 const payload = {

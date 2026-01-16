@@ -591,6 +591,7 @@ class PublicPlaceService {
           googlePlaceId: true,
           source: true,
           createdAt: true,
+          customFields: true,  // 包含剧照等自定义数据
         }
       }),
       prisma.place.count({ where })
@@ -836,10 +837,24 @@ class PublicPlaceService {
       updateData.categoryEn = normalized.categoryEn;
       updateData.categoryZh = normalized.categoryZh;
       
-      // 合并 customFields
+      // 合并 customFields - 保留用户传入的 stills 等数据
       if (normalized.customFields) {
-        const existingCustomFields = updateData.customFields || existingPlace?.customFields || {};
-        updateData.customFields = { ...existingCustomFields, ...normalized.customFields };
+        // 获取现有的 customFields
+        const existingCustomFields = (existingPlace?.customFields && typeof existingPlace.customFields === 'object') 
+          ? existingPlace.customFields as Record<string, any>
+          : {};
+        // 获取用户传入的 customFields（可能包含 stills）
+        const userCustomFields = (updateData.customFields && typeof updateData.customFields === 'object')
+          ? updateData.customFields as Record<string, any>
+          : {};
+        // 合并顺序：existing -> normalized -> user（用户数据优先级最高）
+        updateData.customFields = { 
+          ...existingCustomFields, 
+          ...normalized.customFields,
+          ...userCustomFields,
+          // 确保 stills 不被覆盖
+          stills: userCustomFields.stills || existingCustomFields.stills,
+        };
       }
     }
     
@@ -1628,6 +1643,7 @@ class PublicPlaceService {
         googlePlaceId: true,
         source: true,
         createdAt: true,
+        customFields: true,  // 包含剧照等自定义数据
       },
     });
 
@@ -1750,15 +1766,21 @@ class PublicPlaceService {
     city: string;
     country: string;
     tags?: string[];
+    categories?: string[];
     limit?: number;
   }) {
-    const { city, country, tags, limit = 50 } = options;
+    const { city, country, tags, categories, limit = 50 } = options;
 
     // 城市和国家使用不区分大小写的匹配
     const where: any = {
       city: { equals: city, mode: 'insensitive' },
       country: { equals: country, mode: 'insensitive' },
     };
+
+    // 如果有分类过滤，在数据库层面过滤 categorySlug
+    if (categories && categories.length > 0) {
+      where.categorySlug = { in: categories.map(c => c.toLowerCase()) };
+    }
 
     // 如果有标签，先不在数据库层面过滤，而是取出所有该城市的地点
     // 然后在内存中进行标签匹配（因为 aiTags 是 JSON 数组，Prisma 不支持直接查询）
@@ -1789,10 +1811,14 @@ class PublicPlaceService {
         tags: true,
         coverImage: true,
         images: true,
+        customFields: true,  // 包含剧照等自定义数据
       },
     });
 
     console.log(`🔍 [searchByFilters] Found ${places.length} places in ${city}, ${country}`);
+    if (categories && categories.length > 0) {
+      console.log(`🔍 [searchByFilters] Filtered by categories: ${categories.join(', ')}`);
+    }
     
     // 打印前几个地点的详细信息用于调试
     if (places.length > 0) {
@@ -1802,7 +1828,7 @@ class PublicPlaceService {
       }
     }
 
-    // 如果有标签，在内存中过滤 category、categoryEn、aiTags 和 tags 字段（不区分大小写）
+    // 如果有标签，在内存中过滤 tags 和 aiTags 字段（不区分大小写）
     let filteredPlaces = places;
     if (tags && tags.length > 0) {
       // 扩展标签：添加同义词映射
@@ -1812,33 +1838,6 @@ class PublicPlaceService {
       console.log(`🔍 [searchByFilters] Filtering by tags: ${tags.join(', ')} -> expanded: ${expandedTags.join(', ')}`);
       
       filteredPlaces = places.filter(place => {
-        // 检查 categorySlug（不区分大小写）- 这是最准确的分类标识
-        if (place.categorySlug) {
-          const categorySlugLower = place.categorySlug.toLowerCase();
-          if (tagsLower.some(tag => categorySlugLower.includes(tag) || tag.includes(categorySlugLower))) {
-            console.log(`✅ [searchByFilters] Matched by categorySlug: ${place.name} (categorySlug: ${place.categorySlug})`);
-            return true;
-          }
-        }
-        
-        // 检查 category（不区分大小写）
-        if (place.category) {
-          const categoryLower = place.category.toLowerCase();
-          if (tagsLower.some(tag => categoryLower.includes(tag))) {
-            console.log(`✅ [searchByFilters] Matched by category: ${place.name} (category: ${place.category})`);
-            return true;
-          }
-        }
-        
-        // 检查 categoryEn（不区分大小写）
-        if (place.categoryEn) {
-          const categoryEnLower = place.categoryEn.toLowerCase();
-          if (tagsLower.some(tag => categoryEnLower.includes(tag))) {
-            console.log(`✅ [searchByFilters] Matched by categoryEn: ${place.name} (categoryEn: ${place.categoryEn})`);
-            return true;
-          }
-        }
-        
         // 检查 aiTags (now array of AITagElement objects)
         if (place.aiTags) {
           const aiTagsArray = Array.isArray(place.aiTags) ? place.aiTags : [];
@@ -2140,6 +2139,7 @@ class PublicPlaceService {
         googlePlaceId: true,
         source: true,
         createdAt: true,
+        customFields: true,  // 包含剧照等自定义数据
       },
     });
 

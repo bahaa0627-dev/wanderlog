@@ -8,6 +8,7 @@ import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpotStatus;
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// 平铺展示组件 - 无分类时使用
 /// 
@@ -476,7 +477,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
         if (widget.place.ratingCount != null) ...[
           const SizedBox(width: 4),
           Text(
-            '(${widget.place.ratingCount})',
+            formatRatingCount(widget.place.ratingCount),
             style: AppTheme.bodySmall(context).copyWith(
               color: Colors.white.withOpacity(0.8),
               fontSize: 11,

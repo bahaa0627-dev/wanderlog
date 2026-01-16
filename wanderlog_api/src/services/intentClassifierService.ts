@@ -1127,6 +1127,9 @@ If you cannot identify a specific place, return "UNKNOWN".`;
     return 1 - distance / maxLen;
   }
 
+  // 需要过滤的旧标签（不再使用的通用标签）
+  private static readonly FILTERED_TAGS = new Set(['place', 'landmark']);
+
   /**
    * Build display tags from category and AI tags
    * @param categoryEn Category in English
@@ -1153,8 +1156,13 @@ If you cannot identify a specific place, return "UNKNOWN".`;
           // Object format: use tag[language] with fallback to tag.en then tag.id
           tagStr = tag[language] || tag.en || tag.id || null;
         }
-        if (tagStr && tagStr.trim() && !tags.includes(tagStr.trim())) {
-          tags.push(tagStr.trim());
+        if (tagStr && tagStr.trim()) {
+          const trimmed = tagStr.trim();
+          const key = trimmed.toLowerCase();
+          // 过滤掉旧的通用标签（如 "place", "landmark"）
+          if (!tags.includes(trimmed) && !IntentClassifierService.FILTERED_TAGS.has(key)) {
+            tags.push(trimmed);
+          }
         }
       }
     }

@@ -24,6 +24,8 @@ import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/features/trips/providers/spots_provider.dart';
 import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
+import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
 
 /// 合集地点地图页面 - 显示某个合集下的所有地点
 class CollectionSpotsMapPage extends ConsumerStatefulWidget {
@@ -306,8 +308,12 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
             phoneNumber: spotData['phoneNumber']?.toString() ?? spotData['phone_number']?.toString(),
             website: spotData['website']?.toString(),
             openingHours: openingHours,
+            // 剧照数据
+            customFields: PlaceCustomFields.fromJson(
+              (spotData['customFields'] ?? spotData['custom_fields']) as Map<String, dynamic>?,
+            ),
           );
-          print('✅ 创建 Spot: ${spot.name}, displayTagsEn: ${spot.displayTagsEn}, category: ${spot.category}');
+          print('✅ 创建 Spot: ${spot.name}, customFields: ${spot.customFields}, hasStills: ${spot.customFields?.hasStills}');
           spots.add(spot);
         } catch (e) {
           print('⚠️ 解析预加载地点失败: $e');
@@ -407,8 +413,12 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
               phoneNumber: spotData['phoneNumber']?.toString() ?? spotData['phone_number']?.toString(),
               website: spotData['website']?.toString(),
               openingHours: openingHours,
+              // 剧照数据
+              customFields: PlaceCustomFields.fromJson(
+                (spotData['customFields'] ?? spotData['custom_fields']) as Map<String, dynamic>?,
+              ),
             );
-            print('✅ 成功解析地点: ${spot.name}, displayTagsEn: ${spot.displayTagsEn}, category: ${spot.category}');
+            print('✅ 成功解析地点: ${spot.name}, customFields: ${spot.customFields}, hasStills: ${spot.customFields?.hasStills}');
             spots.add(spot);
           } catch (e, stackTrace) {
             print('⚠️ 解析地点失败: $e');
@@ -506,18 +516,22 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
     return [];
   }
 
+  // 需要过滤的旧标签（不再使用的通用标签）
+  static const _filteredTags = {'place', 'landmark'};
+
   /// 计算展示标签：优先使用后端返回的 displayTagsEn，否则从 category + tags + aiTags 计算
   /// 与 PublicPlaceDto._computeDisplayTags 逻辑一致
+  /// 过滤掉旧的通用标签（如 "place", "landmark"）
   List<String> _computeDisplayTags(Map<String, dynamic> spotData) {
     print('🏷️ [_computeDisplayTags] spotData keys: ${spotData.keys}');
     print('🏷️ [_computeDisplayTags] displayTagsEn from backend: ${spotData['displayTagsEn']}');
     
-    // 优先使用后端已经计算好的 displayTagsEn
+    // 优先使用后端已经计算好的 displayTagsEn（后端已经过滤了旧标签）
     final backendDisplayTags = spotData['displayTagsEn'];
     if (backendDisplayTags is List && backendDisplayTags.isNotEmpty) {
       final result = backendDisplayTags
           .map((e) => e?.toString() ?? '')
-          .where((s) => s.isNotEmpty)
+          .where((s) => s.isNotEmpty && !_filteredTags.contains(s.toLowerCase()))
           .take(4)
           .toList();
       if (result.isNotEmpty) {
@@ -545,7 +559,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
       seen.add(category.toLowerCase());
     }
     
-    // 2. 添加结构化标签（tags 字段可能是 Map 或 List 格式）
+    // 2. 添加结构化标签（tags 字段可能是 Map 或 List 格式，过滤掉旧的通用标签）
     final rawTags = spotData['tags'];
     if (rawTags is Map) {
       for (final entry in rawTags.entries) {
@@ -555,15 +569,17 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
           for (final v in value) {
             if (result.length >= 4) break;
             final tag = v?.toString() ?? '';
-            if (tag.isNotEmpty && !seen.contains(tag.toLowerCase())) {
+            final tagLower = tag.toLowerCase();
+            if (tag.isNotEmpty && !seen.contains(tagLower) && !_filteredTags.contains(tagLower)) {
               result.add(tag);
-              seen.add(tag.toLowerCase());
+              seen.add(tagLower);
             }
           }
         } else if (value is String && value.isNotEmpty) {
-          if (!seen.contains(value.toLowerCase())) {
+          final valueLower = value.toLowerCase();
+          if (!seen.contains(valueLower) && !_filteredTags.contains(valueLower)) {
             result.add(value);
-            seen.add(value.toLowerCase());
+            seen.add(valueLower);
           }
         }
       }
@@ -577,20 +593,22 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         } else if (tag is String) {
           tagStr = tag;
         }
-        if (tagStr.isNotEmpty && !seen.contains(tagStr.toLowerCase())) {
+        final tagLower = tagStr.toLowerCase();
+        if (tagStr.isNotEmpty && !seen.contains(tagLower) && !_filteredTags.contains(tagLower)) {
           result.add(tagStr);
-          seen.add(tagStr.toLowerCase());
+          seen.add(tagLower);
         }
       }
     }
     
-    // 3. 添加 aiTags
+    // 3. 添加 aiTags（过滤掉旧的通用标签）
     final aiTags = _parseTagsList(spotData['aiTags'] ?? spotData['ai_tags']);
     for (final tag in aiTags) {
       if (result.length >= 4) break;
-      if (!seen.contains(tag.toLowerCase())) {
+      final tagLower = tag.toLowerCase();
+      if (!seen.contains(tagLower) && !_filteredTags.contains(tagLower)) {
         result.add(tag);
-        seen.add(tag.toLowerCase());
+        seen.add(tagLower);
       }
     }
     
@@ -1214,7 +1232,7 @@ class _RatingRow extends StatelessWidget {
         if (ratingCount > 0) ...[
           const SizedBox(width: 8),
           Text(
-            '($ratingCount)',
+            formatRatingCount(ratingCount),
             style: AppTheme.labelMedium(context).copyWith(
               color: Colors.white70,
               fontWeight: FontWeight.w600,

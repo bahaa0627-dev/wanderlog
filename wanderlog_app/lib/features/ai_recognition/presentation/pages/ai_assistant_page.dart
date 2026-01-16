@@ -28,6 +28,7 @@ import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpotStatus;
 
 /// 聊天消息模型
@@ -1925,7 +1926,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                           Text(widget.spot.rating.toStringAsFixed(1),
                             style: AppTheme.bodySmall(context).copyWith(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),),
                           const SizedBox(width: 4),
-                          Text('(${widget.spot.ratingCount})',
+                          Text(formatRatingCount(widget.spot.ratingCount),
                             style: AppTheme.bodySmall(context).copyWith(color: Colors.white.withValues(alpha: 0.8), fontSize: 11),),
                         ],),
                     ],
@@ -2431,7 +2432,7 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                                 if (widget.place.ratingCount != null) ...[
                                   const SizedBox(width: 6),
                                   Text(
-                                    '(${widget.place.ratingCount})',
+                                    formatRatingCount(widget.place.ratingCount),
                                     style: AppTheme.bodyMedium(context).copyWith(
                                       color: Colors.white.withOpacity(0.8),
                                       fontSize: 13,

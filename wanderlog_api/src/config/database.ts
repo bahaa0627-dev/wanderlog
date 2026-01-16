@@ -26,11 +26,21 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// Add connection pool parameters to the URL if not already present
+let connectionUrl = databaseUrl;
+if (connectionUrl && !connectionUrl.includes('connection_limit')) {
+  const separator = connectionUrl.includes('?') ? '&' : '?';
+  // connection_limit: max connections in pool
+  // pool_timeout: seconds to wait for a connection
+  // connect_timeout: seconds to wait for initial connection
+  connectionUrl = `${connectionUrl}${separator}connection_limit=10&pool_timeout=30&connect_timeout=30`;
+}
+
 const prisma = globalForPrisma.prisma ?? new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   datasources: {
     db: {
-      url: databaseUrl,
+      url: connectionUrl,
     },
   },
 });
@@ -49,5 +59,19 @@ setTimeout(() => {
       console.error('❌ Database connection failed:', err.message);
     });
 }, 100);
+
+// Handle connection errors gracefully - attempt reconnection
+process.on('unhandledRejection', (reason: any) => {
+  if (reason?.message?.includes('PostgreSQL connection') || 
+      reason?.message?.includes('Connection closed') ||
+      reason?.code === 'P2024') {
+    console.warn('⚠️ Database connection issue detected, will retry on next query');
+  }
+});
+
+// Graceful shutdown
+process.on('beforeExit', async () => {
+  await prisma.$disconnect();
+});
 
 export default prisma;

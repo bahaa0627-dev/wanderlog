@@ -174,6 +174,7 @@ export const getMyTrips = async (req: Request, res: Response) => {
           phone_number: ts.phone_number,
           google_place_id: ts.google_place_id,
           source: ts.source,
+          custom_fields: ts.custom_fields,
         });
       }
       
@@ -305,6 +306,7 @@ export const getTripById = async (req: Request, res: Response) => {
           phone_number: ts.phone_number,
           google_place_id: ts.google_place_id,
           source: ts.source,
+          custom_fields: ts.custom_fields,
         });
       }
       
@@ -712,6 +714,7 @@ const normalizePlace = (dbPlace: any) => {
     phoneNumber: dbPlace.phoneNumber || dbPlace.phone_number,
     googlePlaceId: dbPlace.googlePlaceId || dbPlace.google_place_id,
     source: dbPlace.source,
+    custom_fields: dbPlace.custom_fields || dbPlace.customFields || null,
     createdAt: dbPlace.created_at ? new Date(dbPlace.created_at).toISOString() : null,
     updatedAt: dbPlace.updated_at ? new Date(dbPlace.updated_at).toISOString() : null,
   };

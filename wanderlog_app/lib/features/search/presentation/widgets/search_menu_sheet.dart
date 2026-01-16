@@ -26,13 +26,57 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
   String? _selectedCity;
   final Set<String> _selectedTags = {};
 
-  // 兴趣标签分类（根据图片）
+  // 兴趣标签分类 - 前端展示标签
   static const Map<String, List<String>> _interestCategories = {
-    'Things to do': ['Museum', 'Attractions', 'Store'],
-    'Nature': ['Park', 'Cemetery', 'Hiking'],
+    'Things to do': ['Museum', 'Attraction', 'Store', 'Park', 'Cemetery'],
     'Arts': ['Architecture', 'Pilgrimage', 'Knitting'],
-    'Food': ['Cafe', 'Bread', 'Brunch', 'Restaurant'],
+    'Food': ['Cafe', 'Bakery', 'Brunch', 'Restaurant'],
   };
+
+  // 前端标签到后端分类/标签的映射（忽略大小写）
+  // category: 匹配 category 字段
+  // tags: 匹配 tags 或 ai_tags 字段
+  static const Map<String, Map<String, dynamic>> _tagMapping = {
+    // Things to do
+    'museum': {'type': 'category', 'values': ['museum']},
+    'attraction': {'type': 'category', 'values': ['landmark', 'castle', 'church', 'library', 'art_gallery']},
+    'store': {'type': 'category', 'values': ['shop', 'bookstore', 'thrift_store', 'market', 'shopping_mall']},
+    'park': {'type': 'category', 'values': ['park']},
+    'cemetery': {'type': 'category', 'values': ['cemetery']},
+    // Arts
+    'architecture': {'type': 'tags', 'values': ['architecture', 'domain:architecture']},
+    'pilgrimage': {'type': 'tags', 'values': ['pilgrimage']},
+    'knitting': {'type': 'category', 'values': ['yarn_store']},
+    // Food
+    'cafe': {'type': 'category', 'values': ['cafe']},
+    'bakery': {'type': 'category', 'values': ['bakery']},
+    'brunch': {'type': 'tags', 'values': ['brunch', 'meal:brunch']},
+    'restaurant': {'type': 'category', 'values': ['restaurant', 'bar']},
+  };
+
+  /// 将前端选中的标签转换为后端查询参数
+  static Map<String, List<String>> convertTagsForSearch(Set<String> selectedTags) {
+    final categories = <String>{};
+    final tags = <String>{};
+    
+    for (final tag in selectedTags) {
+      final mapping = _tagMapping[tag.toLowerCase()];
+      if (mapping != null) {
+        final type = mapping['type'] as String;
+        final values = mapping['values'] as List<String>;
+        if (type == 'category') {
+          categories.addAll(values);
+        } else if (type == 'tags') {
+          tags.addAll(values);
+        }
+      }
+    }
+    
+    return {
+      'categories': categories.toList(),
+      'tags': tags.toList(),
+    };
+  }
 
   List<String> get _countries {
     final data = ref.watch(countriesCitiesProvider);
@@ -63,6 +107,9 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
       return;
     }
 
+    // 转换标签为后端查询参数
+    final searchParams = _SearchMenuOverlayState.convertTagsForSearch(_selectedTags);
+
     widget.onClose();
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -70,6 +117,8 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
           city: _selectedCity!,
           country: _selectedCountry!,
           selectedTags: _selectedTags.toList(),
+          categoryFilters: searchParams['categories'] ?? [],
+          tagFilters: searchParams['tags'] ?? [],
         ),
       ),
     );
@@ -212,52 +261,11 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
       );
     }
     
-    return Container(
-      height: 44,
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.black, width: 1.5),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          hint: Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Text(
-              hint,
-              style: AppTheme.bodyMedium(context).copyWith(
-                color: AppTheme.mediumGray,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          isExpanded: true,
-          icon: const Padding(
-            padding: EdgeInsets.only(right: 8),
-            child: Icon(Icons.keyboard_arrow_down, color: AppTheme.black, size: 20),
-          ),
-          selectedItemBuilder: (context) => items.map((item) => Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  item,
-                  style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            )).toList(),
-          items: items.map((item) => DropdownMenuItem<String>(
-              value: item,
-              child: Text(
-                item,
-                style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
-              ),
-            )).toList(),
-          onChanged: onChanged,
-        ),
-      ),
+    return _CustomDropdown(
+      value: value,
+      hint: hint,
+      items: items,
+      onChanged: onChanged,
     );
   }
 
@@ -265,70 +273,17 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
     final hasCountry = _selectedCountry != null;
     final cities = _availableCities;
     
-    return Container(
-      height: 44,
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.black, width: 1.5),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedCity,
-          hint: Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Text(
-              'City',
-              style: AppTheme.bodyMedium(context).copyWith(
-                color: AppTheme.mediumGray,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          isExpanded: true,
-          icon: const Padding(
-            padding: EdgeInsets.only(right: 8),
-            child: Icon(Icons.keyboard_arrow_down, color: AppTheme.black, size: 20),
-          ),
-          selectedItemBuilder: hasCountry ? (context) => cities.map((item) => Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  item,
-                  style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            )).toList() : null,
-          items: hasCountry
-              ? cities.map((item) => DropdownMenuItem<String>(
-                    value: item,
-                    child: Text(
-                      item,
-                      style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
-                    ),
-                  )).toList()
-              : [
-                  DropdownMenuItem<String>(
-                    enabled: false,
-                    child: Text(
-                      'Choose country first',
-                      style: AppTheme.bodyMedium(context).copyWith(
-                        color: AppTheme.mediumGray,
-                        fontSize: 14,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ),
-                ],
-          onChanged: hasCountry ? (value) {
-            setState(() {
-              _selectedCity = value;
-            });
-          } : null,
-        ),
-      ),
+    return _CustomDropdown(
+      value: _selectedCity,
+      hint: 'City',
+      items: hasCountry ? cities : [],
+      enabled: hasCountry,
+      emptyHint: 'Choose country first',
+      onChanged: hasCountry ? (value) {
+        setState(() {
+          _selectedCity = value;
+        });
+      } : null,
     );
   }
 
@@ -399,4 +354,116 @@ class SearchMenuSheet extends ConsumerStatefulWidget {
 class _SearchMenuSheetState extends ConsumerState<SearchMenuSheet> {
   @override
   Widget build(BuildContext context) => Container();
+}
+
+/// 自定义下拉组件 - 菜单从按钮下边缘向下展开
+class _CustomDropdown extends StatefulWidget {
+  const _CustomDropdown({
+    required this.value,
+    required this.hint,
+    required this.items,
+    required this.onChanged,
+    this.enabled = true,
+    this.emptyHint,
+  });
+
+  final String? value;
+  final String hint;
+  final List<String> items;
+  final ValueChanged<String?>? onChanged;
+  final bool enabled;
+  final String? emptyHint;
+
+  @override
+  State<_CustomDropdown> createState() => _CustomDropdownState();
+}
+
+class _CustomDropdownState extends State<_CustomDropdown> {
+  final GlobalKey _buttonKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final displayText = widget.value ?? widget.hint;
+    final isHint = widget.value == null;
+    
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 获取按钮实际宽度
+        final buttonWidth = constraints.maxWidth;
+        
+        return Container(
+          key: _buttonKey,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppTheme.black, width: 1.5),
+          ),
+          child: PopupMenuButton<String>(
+            enabled: widget.enabled && widget.items.isNotEmpty,
+            offset: const Offset(0, 48), // 增加间距，从44改为48
+            constraints: BoxConstraints(
+              maxHeight: 300,
+              minWidth: buttonWidth, // 使用按钮宽度
+              maxWidth: buttonWidth, // 限制最大宽度与按钮一致
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: AppTheme.black, width: 1.5),
+            ),
+            color: AppTheme.white,
+            onSelected: widget.onChanged,
+            itemBuilder: (context) {
+              if (widget.items.isEmpty && widget.emptyHint != null) {
+                return [
+                  PopupMenuItem<String>(
+                    enabled: false,
+                    height: 48, // 增加选项高度
+                    child: Text(
+                      widget.emptyHint!,
+                      style: AppTheme.bodyMedium(context).copyWith(
+                        color: AppTheme.mediumGray,
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ];
+              }
+              return widget.items.map((item) => PopupMenuItem<String>(
+                value: item,
+                height: 48, // 增加选项高度，默认是48但明确设置
+                child: Text(
+                  item,
+                  style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
+                ),
+              )).toList();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      displayText,
+                      style: AppTheme.bodyMedium(context).copyWith(
+                        color: isHint ? AppTheme.mediumGray : AppTheme.black,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Icon(
+                    Icons.keyboard_arrow_down,
+                    color: widget.enabled ? AppTheme.black : AppTheme.mediumGray,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

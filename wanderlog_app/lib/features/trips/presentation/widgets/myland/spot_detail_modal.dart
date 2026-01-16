@@ -16,6 +16,7 @@ import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// Callback for MustGo/TodaysPlan/Visited state changes
 typedef SpotStatusCallback = void Function(String spotId, {bool? isMustGo, bool? isTodaysPlan, bool? isVisited, bool? isRemoved});
@@ -481,7 +482,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                           const SizedBox(width: 8),
                           if (widget.spot.ratingCount != null)
                             Text(
-                              '(${widget.spot.ratingCount})',
+                              formatRatingCount(widget.spot.ratingCount),
                               style: AppTheme.bodyMedium(context).copyWith(
                                 color: AppTheme.mediumGray,
                               ),

@@ -20,6 +20,7 @@ import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// MyLand 地点地图页面 - 展示 MustGo 或 Today's Plan 中的地点
 class MyLandSpotsMapPage extends ConsumerStatefulWidget {
@@ -1376,7 +1377,7 @@ class _RatingRow extends StatelessWidget {
         if (ratingCount > 0) ...[
           const SizedBox(width: 8),
           Text(
-            '($ratingCount)',
+            formatRatingCount(ratingCount),
             style: AppTheme.labelMedium(context).copyWith(
               color: Colors.white70,
               fontWeight: FontWeight.w600,

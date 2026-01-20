@@ -825,10 +825,54 @@
             margin-top: 8px;
         }
 
+        .accordion details {
+            transition: all 0.2s ease;
+        }
+
         .accordion details summary {
             cursor: pointer;
             font-weight: 600;
             color: #444;
+            padding: 4px 0;
+            list-style: none;
+            user-select: none;
+        }
+
+        .accordion details summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .accordion details[open] summary {
+            margin-bottom: 4px;
+        }
+
+        .accordion details summary::before {
+            content: '▶';
+            display: inline-block;
+            margin-right: 6px;
+            transition: transform 0.2s ease;
+            font-size: 10px;
+        }
+
+        .accordion details[open] summary::before {
+            transform: rotate(90deg);
+        }
+
+        .accordion ul {
+            max-height: 300px;
+            overflow-y: auto;
+            animation: slideDown 0.2s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 300px;
+            }
         }
 
         /* Toast 提示样式 */
@@ -2926,8 +2970,8 @@
                         <div class="accordion">
                             <details>
                                 <summary>地点列表（${count}）</summary>
-                                <ul style="padding-left:16px;">
-                                    ${(col.collectionSpots || []).map(cs => `<li>${cs.spot?.name || cs.spotId} - ${cs.spot?.city || ''} ${cs.spot?.address || ''}</li>`).join('')}
+                                <ul style="padding-left:16px; margin-top: 8px; font-size: 13px; line-height: 1.6;">
+                                    ${(col.collectionSpots || []).map(cs => `<li style="margin-bottom: 4px;">${cs.spot?.name || cs.spotId}</li>`).join('')}
                                 </ul>
                             </details>
                             ${(col.people ? (() => { try { const arr = JSON.parse(col.people); return `<details><summary>人物</summary><ul style=\"padding-left:16px;\">${arr.map((p)=>`<li>${p.name || ''}${p.link?` - <a href='${p.link}' target='_blank'>链接</a>`:''}</li>`).join('')}</ul></details>`; } catch { return ''; } })() : '')}
@@ -2943,6 +2987,9 @@
                             ${col.isPublished 
                                 ? `<button class="btn btn-secondary" disabled>已上线不可编辑</button>`
                                 : `<button class="btn btn-secondary" onclick="startEditCollection('${col.id}')">编辑</button>`}
+                            ${!col.isPublished 
+                                ? `<button class="btn btn-danger" onclick="deleteCollection('${col.id}', '${col.name.replace(/'/g, "\\'")}')">删除</button>`
+                                : ''}
                         </div>
                     </td>
                 `;
@@ -3138,6 +3185,34 @@
                     renderCollections();
                 }
                 showToast('下线失败: ' + e.message, 'error');
+            }
+        }
+
+        async function deleteCollection(id, name) {
+            if (!confirm(`确定要删除合集"${name}"吗？此操作不可恢复。`)) {
+                return;
+            }
+
+            const token = getTokenOrAlert();
+            if (!token) return;
+
+            try {
+                const res = await fetch(`${COLLECTION_API_BASE}/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await res.json();
+
+                if (res.ok && result.success) {
+                    showToast('删除成功', 'success');
+                    // 从本地数组中移除
+                    collections = collections.filter(c => c.id !== id);
+                    renderCollections();
+                } else {
+                    throw new Error(result.message || '删除失败');
+                }
+            } catch (e) {
+                showToast('删除失败: ' + e.message, 'error');
             }
         }
 

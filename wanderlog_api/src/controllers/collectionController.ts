@@ -367,10 +367,7 @@ class CollectionController {
         if (!spotsMap.has(cs.collectionId)) {
           spotsMap.set(cs.collectionId, []);
         }
-        const spots = spotsMap.get(cs.collectionId)!;
-        if (spots.length < 10) { // 只保留前10个
-          spots.push(cs);
-        }
+        spotsMap.get(cs.collectionId)!.push(cs);
       });
       const favoritedSet = new Set(userFavorites.map(f => f.collectionId));
 
@@ -711,6 +708,59 @@ class CollectionController {
       if (error.code === 'P2025') {
         return res.json({ isFavorited: false });
       }
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  /**
+   * 删除合集（仅未上线状态可删除）
+   */
+  async delete(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const collection = await prisma.collection.findUnique({
+        where: { id },
+        select: { isPublished: true },
+      });
+
+      if (!collection) {
+        return res.status(404).json({ success: false, message: 'Collection not found' });
+      }
+
+      if (collection.isPublished) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Cannot delete published collection. Please unpublish first.' 
+        });
+      }
+
+      // 使用事务删除合集及其关联数据
+      await prisma.$transaction(async (tx) => {
+        // 删除合集地点关联
+        await tx.collectionSpot.deleteMany({
+          where: { collectionId: id },
+        });
+
+        // 删除用户收藏关联
+        await tx.userCollectionFavorite.deleteMany({
+          where: { collectionId: id },
+        });
+
+        // 删除合集推荐关联
+        await tx.collectionRecommendationItem.deleteMany({
+          where: { collectionId: id },
+        });
+
+        // 删除合集本身
+        await tx.collection.delete({
+          where: { id },
+        });
+      });
+
+      return res.json({ success: true, message: 'Collection deleted successfully' });
+    } catch (error: any) {
+      console.error('删除合集错误:', error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }

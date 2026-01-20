@@ -1,0 +1,312 @@
+[
+  {
+    "sourceType": "movie",
+    "movie": {
+      "movieId": "5448",
+      "movieNameCn": "我的天才女友 第二季",
+      "movieNameEn": "My Brilliant Friend Season 2",
+      "sourceUrl": "https://prd.mocation.cc/html/movie_detail.html?id=5448",
+      "placeCount": 33
+    },
+    "places": [
+      {
+        "placeName": "《我的天才女友》布景",
+        "placeNameEn": "My Brilliant Friend film set",
+        "cityCountry": "卡塞塔 意大利",
+        "sceneDescription": "卢扎迪街区",
+        "image": "http://cache.fotoplace.cc/mocation/240918/5/1726637125831391075.jpg",
+        "episode": "1",
+        "position": "05:23"
+      },
+      {
+        "placeName": "卡罗三世广场",
+        "placeNameEn": "Piazza Carlo III",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "埃莱娜偶遇阿方索",
+        "image": "http://cache.fotoplace.cc/mocation/240918/5/1726641257540827347.jpg",
+        "episode": "1",
+        "position": "12:25"
+      },
+      {
+        "placeName": "阿马尔菲大道观景台",
+        "placeNameEn": "Amalfi Drive Viewpoint",
+        "cityCountry": "皮亚诺迪索伦托 意大利",
+        "sceneDescription": "度蜜月路上停车",
+        "image": "http://cache.fotoplace.cc/mocation/240918/5/1726644306094817210.jpg",
+        "episode": "1",
+        "position": "18:45"
+      },
+      {
+        "placeName": "伊克斯西尔维多利亚大酒店",
+        "placeNameEn": "Grand Hotel Excelsior Vittoria",
+        "cityCountry": "索伦托 意大利",
+        "sceneDescription": "蜜月酒店",
+        "image": "http://cache.fotoplace.cc/mocation/240918/5/1726646458720977314.jpg",
+        "episode": "1",
+        "position": "23:35"
+      },
+      {
+        "placeName": "那不勒斯艺术学院",
+        "placeNameEn": "Art School Di Napoli",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "高中校门",
+        "image": "http://cache.fotoplace.cc/mocation/240918/5/1726647484258472075.jpg",
+        "episode": "1",
+        "position": "39:03"
+      },
+      {
+        "placeName": "阿莱西奥·马佐基街",
+        "placeNameEn": "Via Alessio Mazzocchi",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "堵车街道",
+        "image": "http://cache.fotoplace.cc/mocation/240918/5/1726652748106730652.jpg",
+        "episode": "2",
+        "position": "19:08"
+      },
+      {
+        "placeName": "G.诺皮科内男装店",
+        "placeNameEn": "G.no Picone",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "裁缝铺",
+        "image": "http://cache.fotoplace.cc/mocation/240918/5/1726649410654637873.jpg",
+        "episode": "2",
+        "position": "22:58"
+      },
+      {
+        "placeName": "格拉维纳宫",
+        "placeNameEn": "Palazzo Gravina",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "高中内景",
+        "image": "http://cache.fotoplace.cc/mocation/240918/5/1726653499321733860.jpg",
+        "episode": "2",
+        "position": "39:31"
+      },
+      {
+        "placeName": "理想浴室海滨浴场",
+        "placeNameEn": "Bagno Ideal",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "那不勒斯海滩",
+        "image": "http://cache.fotoplace.cc/mocation/240918/5/1726654040622267487.jpg",
+        "episode": "2",
+        "position": "44:32"
+      },
+      {
+        "placeName": "马里奥·华伦天奴鞋店",
+        "placeNameEn": "Mario Valentino",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "鞋店",
+        "image": "http://cache.fotoplace.cc/mocation/240919/5/1726724757387769076.jpg",
+        "episode": "3",
+        "position": "03:31"
+      },
+      {
+        "placeName": "基艾亚滨海路215号",
+        "placeNameEn": "Riviera di Chiaia, 215",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "加利亚尼老师家",
+        "image": "http://cache.fotoplace.cc/mocation/240919/5/1726715686561411978.jpg",
+        "episode": "3",
+        "position": "34:08"
+      },
+      {
+        "placeName": "贝里西奥书店",
+        "placeNameEn": "Libreria Berisio",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "埃莱娜打工的书店",
+        "image": "http://cache.fotoplace.cc/mocation/240919/5/1726717374008266120.jpg",
+        "episode": "3",
+        "position": "51:41"
+      },
+      {
+        "placeName": "卡斯特拉纳餐厅",
+        "placeNameEn": "La Castellana",
+        "cityCountry": "卡塞塔 意大利",
+        "sceneDescription": "婚宴餐厅",
+        "image": "http://cache.fotoplace.cc/mocation/240919/5/1726718553062350812.jpg",
+        "episode": "4",
+        "position": "01:12"
+      },
+      {
+        "placeName": "松林街露台",
+        "placeNameEn": "Terrace of Via della Pineta",
+        "cityCountry": "卡塞塔 意大利",
+        "sceneDescription": "婚宴餐厅停车场",
+        "image": "http://cache.fotoplace.cc/mocation/240919/5/1726719657437353529.jpg",
+        "episode": "4",
+        "position": "04:21"
+      },
+      {
+        "placeName": "最后的狂野海滩",
+        "placeNameEn": "Ultima Spiaggia \"Selvaggia\"",
+        "cityCountry": "加埃塔 意大利",
+        "sceneDescription": "伊斯基亚岛海滩",
+        "image": "http://cache.fotoplace.cc/mocation/240919/5/1726728444053765147.jpg",
+        "episode": "4",
+        "position": "08:14"
+      },
+      {
+        "placeName": "老佩扎皮亚纳街16号",
+        "placeNameEn": "Via Vecchia Pezzapiana, 16",
+        "cityCountry": "福里奥 意大利",
+        "sceneDescription": "伊斯基亚岛住处",
+        "image": "http://cache.fotoplace.cc/mocation/240919/5/1726732194193135676.jpg",
+        "episode": "4",
+        "position": "22:00"
+      },
+      {
+        "placeName": "安吉洛·里佐利道144号",
+        "placeNameEn": "Corso Angelo Rizzoli, 144",
+        "cityCountry": "拉科阿梅诺 意大利",
+        "sceneDescription": "吃冰激凌",
+        "image": "http://cache.fotoplace.cc/mocation/240919/5/1726734163282020492.jpg",
+        "episode": "5",
+        "position": "10:14"
+      },
+      {
+        "placeName": "红衣主教路易吉·拉维特拉诺街36号",
+        "placeNameEn": "Via Cardinale Luigi Lavitrano, 36",
+        "cityCountry": "福里奥 意大利",
+        "sceneDescription": "尼诺住处",
+        "image": "http://cache.fotoplace.cc/mocation/240919/5/1726738741206730945.jpg",
+        "episode": "5",
+        "position": "23:22"
+      },
+      {
+        "placeName": "托里奥内街",
+        "placeNameEn": "Via Torrione",
+        "cityCountry": "福里奥 意大利",
+        "sceneDescription": "伊斯基亚街道",
+        "image": "http://cache.fotoplace.cc/mocation/240919/5/1726740362614067392.jpg",
+        "episode": "5",
+        "position": "24:53"
+      },
+      {
+        "placeName": "阿拉贡广场",
+        "placeNameEn": "Piazzale Aragonese",
+        "cityCountry": "伊斯基亚 意大利",
+        "sceneDescription": "伊斯基亚岛码头",
+        "image": "http://cache.fotoplace.cc/mocation/240919/5/1726741236802115831.jpg",
+        "episode": "5",
+        "position": "26:40"
+      },
+      {
+        "placeName": "乔治·科拉法街36号",
+        "placeNameEn": "Via Giorgio Corafà, 36",
+        "cityCountry": "巴拉诺迪伊斯基亚 意大利",
+        "sceneDescription": "内拉家",
+        "image": "http://cache.fotoplace.cc/mocation/240920/5/1726798643429800155.jpg",
+        "episode": "5",
+        "position": "41:36"
+      },
+      {
+        "placeName": "比萨高等师范学校",
+        "placeNameEn": "Scuola Normale Superiore di Pisa",
+        "cityCountry": "比萨 意大利",
+        "sceneDescription": "埃莱娜的大学",
+        "image": "http://cache.fotoplace.cc/mocation/240920/5/1726808322590985781.jpg",
+        "episode": "7",
+        "position": "01:23"
+      },
+      {
+        "placeName": "伦卡诺安东尼奥·帕西诺蒂大道",
+        "placeNameEn": "Lungarno Antonio Pacinotti",
+        "cityCountry": "比萨 意大利",
+        "sceneDescription": "失业工人游行",
+        "image": "http://cache.fotoplace.cc/mocation/240920/5/1726813930697624246.jpg",
+        "episode": "7",
+        "position": "05:11"
+      },
+      {
+        "placeName": "盖尔斯服装店",
+        "placeNameEn": "Marciano GUESS",
+        "cityCountry": "比萨 意大利",
+        "sceneDescription": "弗朗科给埃莱娜买大衣",
+        "image": "http://cache.fotoplace.cc/mocation/240920/5/1726816003434860433.jpg",
+        "episode": "7",
+        "position": "06:21"
+      },
+      {
+        "placeName": "皇家维多利亚酒店",
+        "placeNameEn": "Royal Victoria Hotel",
+        "cityCountry": "比萨 意大利",
+        "sceneDescription": "大学女生宿舍",
+        "image": "http://cache.fotoplace.cc/mocation/240920/5/1726819419305703961.jpg",
+        "episode": "7",
+        "position": "15:04"
+      },
+      {
+        "placeName": "中桥",
+        "placeNameEn": "Ponte di Mezzo",
+        "cityCountry": "比萨 意大利",
+        "sceneDescription": "埃莱娜扔掉莉拉手记",
+        "image": "http://cache.fotoplace.cc/mocation/240920/5/1726820985920142029.jpg",
+        "episode": "7",
+        "position": "57:46"
+      },
+      {
+        "placeName": "骑士咖啡馆",
+        "placeNameEn": "Cavalieri",
+        "cityCountry": "比萨 意大利",
+        "sceneDescription": "咖啡座男生调戏",
+        "image": "http://cache.fotoplace.cc/mocation/240920/5/1726822984590872874.jpg",
+        "episode": "8",
+        "position": "03:11"
+      },
+      {
+        "placeName": "提迪胡同",
+        "placeNameEn": "Vicolo del Tidi",
+        "cityCountry": "比萨 意大利",
+        "sceneDescription": "彼得罗跟踪埃莱娜",
+        "image": "http://cache.fotoplace.cc/mocation/240920/5/1726825215771360735.jpg",
+        "episode": "8",
+        "position": "04:20"
+      },
+      {
+        "placeName": "弗朗西斯科·卡拉拉广场",
+        "placeNameEn": "Piazza Francesco Carrara",
+        "cityCountry": "比萨 意大利",
+        "sceneDescription": "埃莱娜和彼得罗初吻",
+        "image": "http://cache.fotoplace.cc/mocation/240920/5/1726827680971062692.jpg",
+        "episode": "8",
+        "position": "16:33"
+      },
+      {
+        "placeName": "比萨斜塔",
+        "placeNameEn": "Leaning Tower of Pisa",
+        "cityCountry": "比萨 意大利",
+        "sceneDescription": "埃莱娜订婚",
+        "image": "http://cache.fotoplace.cc/mocation/240923/5/1727069432120278132.jpg",
+        "episode": "8",
+        "position": "19:20"
+      },
+      {
+        "placeName": "维格列纳街44号",
+        "placeNameEn": "44 Via Vigliena",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "莉拉和恩佐的公寓",
+        "image": "http://cache.fotoplace.cc/mocation/240923/5/1727072215195783990.jpg",
+        "episode": "8",
+        "position": "36:17"
+      },
+      {
+        "placeName": "皇家阿尼工厂旧址",
+        "placeNameEn": "Real Fabbrica D' Arni",
+        "cityCountry": "托雷安农齐亚塔 意大利",
+        "sceneDescription": "斯卡沃腊肠工厂",
+        "image": "http://cache.fotoplace.cc/mocation/240923/5/1727078855158662805.jpg",
+        "episode": "8",
+        "position": "56:49"
+      },
+      {
+        "placeName": "博卡书店",
+        "placeNameEn": "Libreria Bocca",
+        "cityCountry": "米兰 意大利",
+        "sceneDescription": "新书发布会",
+        "image": "http://cache.fotoplace.cc/mocation/240923/5/1727081292394708452.jpg",
+        "episode": "8",
+        "position": "67:09"
+      }
+    ],
+    "scrapedAt": "2026-01-20T15:43:00.459Z"
+  }
+]

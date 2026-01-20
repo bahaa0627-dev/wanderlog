@@ -937,10 +937,10 @@
                 <div class="filter-group">
                     <label for="sortBy">📊 排序字段</label>
                     <select id="sortBy">
-                        <option value="">默认</option>
+                        <option value="createdAt" selected>创建时间</option>
+                        <option value="updatedAt">更新时间</option>
                         <option value="rating">评分</option>
                         <option value="ratingCount">评分人数</option>
-                        <option value="createdAt">创建时间</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -1461,10 +1461,10 @@
         const SPOT_API_BASE = `${API_HOST}/api/spots`;
         const COLLECTION_API_BASE = `${API_HOST}/api/collections`;
         const RECOMMENDATION_API_BASE = `${API_HOST}/api/collection-recommendations`;
-        const FETCH_TIMEOUT = 30000; // 30s 超时
+        const FETCH_TIMEOUT = 60000; // 60s 超时
         let currentPage = 1;
         let totalPages = 1;
-        let filters = {};
+        let filters = { sortBy: 'createdAt', sortOrder: 'desc' };
         let allPlaces = []; // 缓存所有地点数据
         let collections = [];
         let recommendations = [];
@@ -1709,7 +1709,7 @@
         async function loadFilterOptions() {
             console.log('🚀 管理后台版本: v2.3.0 - 修复标签类型检测逻辑');
             try {
-                const response = await fetchWithTimeout(`${API_BASE}/filter-options`, {}, 30000);
+                const response = await fetchWithTimeout(`${API_BASE}/filter-options`, {}, 60000);
                 const result = await response.json();
                 if (result.success && result.data) {
                     filterOptions = result.data;
@@ -2817,7 +2817,7 @@
             document.getElementById('tagTypeFilter').value = '';
             document.getElementById('sourceFilter').value = '';
             document.getElementById('hasCoverImage').value = '';
-            document.getElementById('sortBy').value = '';
+            document.getElementById('sortBy').value = 'createdAt';
             document.getElementById('sortOrder').value = 'desc';
 
             updateFilterOptions();

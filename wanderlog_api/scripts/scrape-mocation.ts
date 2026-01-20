@@ -607,101 +607,93 @@ class MocationScraper {
     });
     console.log(`   Debug info for ID ${id}:`, JSON.stringify(debugInfo));
     
-    const data = await page.evaluate(() => {
+    const data = await page.evaluate(`(function() {
       // Helper function to safely get text content
-      const getText = (selector: string): string | null => {
-        const el = document.querySelector(selector);
-        const text = el?.textContent?.trim();
+      function getText(selector) {
+        var el = document.querySelector(selector);
+        var text = el ? el.textContent.trim() : null;
         // Filter out Vue template placeholders
         if (text && text.includes('{{')) return null;
         return text || null;
-      };
+      }
 
       // Extract movie name (Chinese name from h21, English from h11)
-      const movieNameCn = getText('div.h21.alic');
-      const movieNameEn = getText('div.h11.alic');
+      var movieNameCn = getText('div.h21.alic');
+      var movieNameEn = getText('div.h11.alic');
 
       // Extract place count
-      const placeCountText = getText('.fs36.mocation-num');
-      const placeCount = placeCountText ? parseInt(placeCountText, 10) : null;
+      var placeCountText = getText('.fs36.mocation-num');
+      var placeCount = placeCountText ? parseInt(placeCountText, 10) : null;
 
       // Extract all places from plot list
-      const places: Array<{
-        placeName: string;
-        placeNameEn: string | null;
-        cityCountry: string | null;
-        sceneDescription: string | null;
-        image: string | null;
-        episode: string | null;
-        position: string | null;
-      }> = [];
+      var places = [];
 
       // Each li in .movie-plot ul is a place
-      const plotItems = document.querySelectorAll('.movie-plot ul li');
+      var plotItems = document.querySelectorAll('.movie-plot ul li');
       
-      plotItems.forEach((li) => {
-        const plotContent = li.querySelector('.plot-content');
+      plotItems.forEach(function(li) {
+        var plotContent = li.querySelector('.plot-content');
         if (!plotContent) return;
 
         // Get place name (Chinese)
-        const placeNameEl = plotContent.querySelector('div.fs16.pb5, div.fs16[style*="margin-bottom"]');
-        const placeName = placeNameEl?.textContent?.trim() || null;
+        var placeNameEl = plotContent.querySelector('div.fs16.pb5, div.fs16[style*="margin-bottom"]');
+        var placeName = placeNameEl ? placeNameEl.textContent.trim() : null;
 
         // Get place name (English)
-        const placeNameEnEl = plotContent.querySelector('div.fs10');
-        let placeNameEn = placeNameEnEl?.textContent?.trim() || null;
+        var placeNameEnEl = plotContent.querySelector('div.fs10');
+        var placeNameEn = placeNameEnEl ? placeNameEnEl.textContent.trim() : null;
         // Filter out if it's a Vue placeholder
         if (placeNameEn && placeNameEn.includes('{{')) placeNameEn = null;
 
         // Get city/country
-        const cityCountryEl = plotContent.querySelector('div.fs12.pb5[style*="margin-top"], div[style*="margin-top"].fs12.pb5');
-        const cityCountry = cityCountryEl?.textContent?.trim() || null;
+        var cityCountryEl = plotContent.querySelector('div.fs12.pb5[style*="margin-top"], div[style*="margin-top"].fs12.pb5');
+        var cityCountry = cityCountryEl ? cityCountryEl.textContent.trim() : null;
 
         // Get scene description
-        const sceneEl = plotContent.querySelector('div.fs12.c88');
-        const sceneDescription = sceneEl?.textContent?.trim() || null;
+        var sceneEl = plotContent.querySelector('div.fs12.c88');
+        var sceneDescription = sceneEl ? sceneEl.textContent.trim() : null;
 
         // Get image
-        const imgEl = plotContent.querySelector('img[alt="剧照"]');
-        let image: string | null = null;
+        var imgEl = plotContent.querySelector('img[alt="剧照"]');
+        var image = null;
         if (imgEl) {
-          const src = imgEl.getAttribute('src') || imgEl.getAttribute('data-src');
+          var src = imgEl.getAttribute('src') || imgEl.getAttribute('data-src');
           if (src && !src.startsWith('http')) {
-            image = `https://prd.mocation.cc${src.startsWith('/') ? '' : '/'}${src}`;
+            image = 'https://prd.mocation.cc' + (src.startsWith('/') ? '' : '/') + src;
           } else {
             image = src;
           }
         }
 
         // Get episode and position from plot-time
-        const plotTimeEl = li.querySelector('.plot-time');
-        const plotTimeText = plotTimeEl?.textContent?.trim() || '';
-        const episodeMatch = plotTimeText.match(/E(\d+)/);
-        const episode = episodeMatch ? episodeMatch[1] : null;
+        var plotTimeEl = li.querySelector('.plot-time');
+        var plotTimeText = plotTimeEl ? plotTimeEl.textContent.trim() : '';
+        var episodeMatch = plotTimeText.match(/E(\\d+)/);
+        var episode = episodeMatch ? episodeMatch[1] : null;
         // Position is the rest after episode
-        const position = plotTimeText.replace(/E\d+\s*/, '').trim() || null;
+        var position = plotTimeText.replace(/E\\d+\\s*/, '').trim() || null;
 
         // Only add if we have at least a place name
         if (placeName) {
           places.push({
-            placeName,
-            placeNameEn,
-            cityCountry,
-            sceneDescription,
-            image,
-            episode,
-            position,
+            placeName: placeName,
+            placeNameEn: placeNameEn,
+            cityCountry: cityCountry,
+            sceneDescription: sceneDescription,
+            image: image,
+            episode: episode,
+            position: position
           });
         }
       });
 
       return {
-        movieNameCn,
-        movieNameEn,
-        placeCount: isNaN(placeCount as number) ? null : placeCount,
-        places,
+        movieNameCn: movieNameCn,
+        movieNameEn: movieNameEn,
+        placeCount: isNaN(placeCount) ? null : placeCount,
+        places: places
       };
-    });
+    })()`);
 
     // Return null if no places found
     if (data.places.length === 0) {

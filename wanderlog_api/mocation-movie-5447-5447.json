@@ -1,0 +1,168 @@
+[
+  {
+    "sourceType": "movie",
+    "movie": {
+      "movieId": "5447",
+      "movieNameCn": "我的天才女友 第一季",
+      "movieNameEn": "My Brilliant Friend Season 1",
+      "sourceUrl": "https://prd.mocation.cc/html/movie_detail.html?id=5447",
+      "placeCount": 17
+    },
+    "places": [
+      {
+        "placeName": "《我的天才女友》布景",
+        "placeNameEn": "My Brilliant Friend film set",
+        "cityCountry": "卡塞塔 意大利",
+        "sceneDescription": "卢扎迪街区",
+        "image": "http://cache.fotoplace.cc/mocation/240911/5/1726037632098371743.jpg",
+        "episode": "1",
+        "position": "10:36"
+      },
+      {
+        "placeName": "和平医院与隔离区旧址",
+        "placeNameEn": "Ospedale della Pace e Lazzaretto",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "埃莱娜父亲工作的法院",
+        "image": "http://cache.fotoplace.cc/mocation/240911/5/1726048120382926709.jpg",
+        "episode": "4",
+        "position": "00:16"
+      },
+      {
+        "placeName": "阿克顿海军上将街与纳扎里奥·萨罗街交叉口",
+        "placeNameEn": "Via Ammiraglio Ferdinando Acton & Via Nazario Sauro",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "埃莱娜看到大海",
+        "image": "http://cache.fotoplace.cc/mocation/240911/5/1726050156977677063.jpg",
+        "episode": "4",
+        "position": "01:33"
+      },
+      {
+        "placeName": "那不勒斯艺术学院",
+        "placeNameEn": "Art School Di Napoli",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "高中校门",
+        "image": "http://cache.fotoplace.cc/mocation/240912/5/1726111341548033050.jpg",
+        "episode": "4",
+        "position": "19:21"
+      },
+      {
+        "placeName": "格拉维纳宫",
+        "placeNameEn": "Palazzo Gravina",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "高中内景",
+        "image": "http://cache.fotoplace.cc/mocation/240912/5/1726113619457257066.jpg",
+        "episode": "4",
+        "position": "20:59"
+      },
+      {
+        "placeName": "圣使徒钟楼巷",
+        "placeNameEn": "Vico Campanile Ai SS. Apostoli",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "埃莱娜跟踪尼诺",
+        "image": "http://cache.fotoplace.cc/mocation/240912/5/1726121772549608770.jpg",
+        "episode": "4",
+        "position": "27:30"
+      },
+      {
+        "placeName": "平民表决广场",
+        "placeNameEn": "Piazza del Plebiscito",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "进城里诺被打",
+        "image": "http://cache.fotoplace.cc/mocation/240912/5/1726127454154360226.jpg",
+        "episode": "5",
+        "position": "17:50"
+      },
+      {
+        "placeName": "那不勒斯王子画廊",
+        "placeNameEn": "Galleria Principe di Napoli",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "进城吃冰激凌",
+        "image": "http://cache.fotoplace.cc/mocation/240912/5/1726132039130762812.jpg",
+        "episode": "5",
+        "position": "19:14"
+      },
+      {
+        "placeName": "那不勒斯港",
+        "placeNameEn": "Port Naples",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "前往伊斯基亚岛",
+        "image": "http://cache.fotoplace.cc/mocation/240913/5/1726195943232473000.jpg",
+        "episode": "5",
+        "position": "49:21"
+      },
+      {
+        "placeName": "阿拉贡广场",
+        "placeNameEn": "Piazzale Aragonese",
+        "cityCountry": "伊斯基亚 意大利",
+        "sceneDescription": "伊斯基亚岛码头",
+        "image": "http://cache.fotoplace.cc/mocation/240913/5/1726199449344280321.jpg",
+        "episode": "6",
+        "position": "00:29"
+      },
+      {
+        "placeName": "乔治·科拉法街36号",
+        "placeNameEn": "Via Giorgio Corafà, 36",
+        "cityCountry": "巴拉诺迪伊斯基亚 意大利",
+        "sceneDescription": "内拉家",
+        "image": "http://cache.fotoplace.cc/mocation/240913/5/1726207613665206059.jpg",
+        "episode": "6",
+        "position": "01:32"
+      },
+      {
+        "placeName": "最后的狂野海滩",
+        "placeNameEn": "Ultima Spiaggia \"Selvaggia\"",
+        "cityCountry": "加埃塔 意大利",
+        "sceneDescription": "伊斯基亚岛海滩",
+        "image": "http://cache.fotoplace.cc/mocation/240913/5/1726211512132927627.jpg",
+        "episode": "6",
+        "position": "04:29"
+      },
+      {
+        "placeName": "阿拉贡桥",
+        "placeNameEn": "Ponte Aragonese",
+        "cityCountry": "伊斯基亚 意大利",
+        "sceneDescription": "尼诺表白",
+        "image": "http://cache.fotoplace.cc/mocation/240914/5/1726302404130879700.jpg",
+        "episode": "6",
+        "position": "23:45"
+      },
+      {
+        "placeName": "理想浴室海滨浴场",
+        "placeNameEn": "Bagno Ideal",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "埃莱娜和安东尼奥初吻",
+        "image": "http://cache.fotoplace.cc/mocation/240914/5/1726304918147416827.jpg",
+        "episode": "7",
+        "position": "45:18"
+      },
+      {
+        "placeName": "圣马蒂诺修道院博物馆",
+        "placeNameEn": "Certosa e Museo di San Martino",
+        "cityCountry": "那不勒斯 意大利",
+        "sceneDescription": "莉拉的婚礼教堂",
+        "image": "http://cache.fotoplace.cc/mocation/240914/5/1726308245978469539.jpg",
+        "episode": "8",
+        "position": "36:53"
+      },
+      {
+        "placeName": "松林街露台",
+        "placeNameEn": "Terrace of Via della Pineta",
+        "cityCountry": "卡塞塔 意大利",
+        "sceneDescription": "婚宴餐厅停车场",
+        "image": "http://cache.fotoplace.cc/mocation/240918/5/1726626545229949267.jpg",
+        "episode": "8",
+        "position": "38:45"
+      },
+      {
+        "placeName": "卡斯特拉纳餐厅",
+        "placeNameEn": "La Castellana",
+        "cityCountry": "卡塞塔 意大利",
+        "sceneDescription": "婚宴餐厅",
+        "image": "http://cache.fotoplace.cc/mocation/240918/5/1726628742770978542.jpg",
+        "episode": "8",
+        "position": "39:43"
+      }
+    ],
+    "scrapedAt": "2026-01-20T09:36:46.459Z"
+  }
+]

@@ -19,13 +19,12 @@ import * as crypto from 'crypto';
 import { ImageUploadResult } from '../types/apify';
 
 // ============================================================================
-// Configuration
+// Configuration (defaults only - actual values read from env at runtime)
 // ============================================================================
 
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || 'https://wanderlog-images.blcubahaa0627.workers.dev';
-const R2_UPLOAD_SECRET = process.env.R2_UPLOAD_SECRET || '';
-const IMAGE_PROXY_URL = process.env.IMAGE_PROXY_URL || 'https://wanderlog-images.blcubahaa0627.workers.dev/proxy/google-photo';
-const IMAGE_CDN_URL = process.env.IMAGE_CDN_URL || 'https://wanderlog-images.blcubahaa0627.workers.dev'; // 对外图片 CDN URL
+const DEFAULT_R2_PUBLIC_URL = 'https://wanderlog-images.blcubahaa0627.workers.dev';
+const DEFAULT_IMAGE_PROXY_URL = 'https://wanderlog-images.blcubahaa0627.workers.dev/proxy/google-photo';
+const DEFAULT_IMAGE_CDN_URL = 'https://wanderlog-images.blcubahaa0627.workers.dev';
 
 // Image processing settings
 const IMAGE_QUALITY = 85;  // JPEG quality (82-88 range per requirements)
@@ -79,10 +78,12 @@ export class R2ImageService {
   private maxRetries: number;
 
   constructor(config?: R2ImageServiceConfig) {
-    this.r2PublicUrl = config?.r2PublicUrl || R2_PUBLIC_URL;
-    this.r2UploadSecret = config?.r2UploadSecret || R2_UPLOAD_SECRET;
-    this.imageProxyUrl = config?.imageProxyUrl || IMAGE_PROXY_URL;
-    this.imageCdnUrl = config?.imageCdnUrl || IMAGE_CDN_URL;
+    // Read env vars at instantiation time (not at module load time)
+    // This ensures dotenv.config() has been called before we read them
+    this.r2PublicUrl = config?.r2PublicUrl || process.env.R2_PUBLIC_URL || DEFAULT_R2_PUBLIC_URL;
+    this.r2UploadSecret = config?.r2UploadSecret || process.env.R2_UPLOAD_SECRET || '';
+    this.imageProxyUrl = config?.imageProxyUrl || process.env.IMAGE_PROXY_URL || DEFAULT_IMAGE_PROXY_URL;
+    this.imageCdnUrl = config?.imageCdnUrl || process.env.IMAGE_CDN_URL || DEFAULT_IMAGE_CDN_URL;
     this.imageQuality = config?.imageQuality || IMAGE_QUALITY;
     this.maxDimension = config?.maxDimension || MAX_DIMENSION;
     this.downloadTimeoutMs = config?.downloadTimeoutMs || DOWNLOAD_TIMEOUT_MS;

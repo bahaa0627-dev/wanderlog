@@ -13,7 +13,7 @@ import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
 import * as crypto from 'crypto';
-import { R2ImageService, r2ImageService } from './r2ImageService';
+import { R2ImageService } from './r2ImageService';
 import { ImageHandlerOptions, ImageProcessResult } from '../types/mocation';
 
 // ============================================================================
@@ -37,7 +37,9 @@ export class MocationImageHandler {
   constructor(options?: ImageHandlerOptions) {
     this.downloadDir = options?.downloadDir || DEFAULT_DOWNLOAD_DIR;
     this.uploadToR2Enabled = options?.uploadToR2 ?? false;
-    this.r2Service = r2ImageService;
+    // Create a new R2ImageService instance to ensure env vars are loaded
+    // (The singleton r2ImageService may be created before dotenv.config runs)
+    this.r2Service = new R2ImageService();
     
     // Ensure download directory exists
     this.ensureDownloadDir();

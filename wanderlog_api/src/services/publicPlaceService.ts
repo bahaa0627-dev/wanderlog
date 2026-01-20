@@ -469,7 +469,7 @@ class PublicPlaceService {
     tag?: string;
     tagType?: string;
     hasCoverImage?: boolean;
-    sortBy?: 'rating' | 'ratingCount' | 'createdAt';
+    sortBy?: 'rating' | 'ratingCount' | 'createdAt' | 'updatedAt';
     sortOrder?: 'asc' | 'desc';
   }) {
     const page = options?.page || 1;

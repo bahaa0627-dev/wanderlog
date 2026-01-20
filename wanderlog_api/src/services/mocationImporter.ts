@@ -282,17 +282,12 @@ export class MocationImporter {
   }
   
   /**
-   * Get the Pilgrimage AI tag for mocation imports
+   * Get the Pilgrimage tag value for mocation imports
    * All mocation data should be tagged with Pilgrimage (圣地巡礼)
+   * Returns the tag value for use in tags.others array
    */
-  private getPilgrimageTag(): Record<string, any> {
-    return {
-      kind: 'facet',
-      id: 'Pilgrimage',
-      en: 'Pilgrimage',
-      zh: '圣地巡礼',
-      priority: 85,
-    };
+  private getPilgrimageTagValue(): string {
+    return 'Pilgrimage';
   }
   
   /**
@@ -344,8 +339,8 @@ export class MocationImporter {
       updateData.images = mergedImages;
     }
     
-    // Also add Pilgrimage tag if not present
-    updateData.ai_tags = [this.getPilgrimageTag()];
+    // Also add Pilgrimage tag to tags.others if not present
+    updateData.tags = { others: [this.getPilgrimageTagValue()] };
     
     const { error } = await this.supabase
       .from('places')
@@ -404,7 +399,7 @@ export class MocationImporter {
       longitude: 0,
       source: 'mocation',
       source_detail: `movie:${movie.movieId}:${primaryName}`,
-      ai_tags: [this.getPilgrimageTag()], // Auto-tag with Pilgrimage
+      tags: { others: [this.getPilgrimageTagValue()] }, // Auto-tag with Pilgrimage in tags.others
       i18n: i18n,
       custom_fields: {
         movies: [movieRef],
@@ -467,7 +462,7 @@ export class MocationImporter {
       longitude: 0,
       source: 'mocation',
       source_detail: `place:${data.sourceId}`,
-      ai_tags: [this.getPilgrimageTag()], // Auto-tag with Pilgrimage
+      tags: { others: [this.getPilgrimageTagValue()] }, // Auto-tag with Pilgrimage in tags.others
       i18n: i18n,
       custom_fields: {
         movies: movieRefs,

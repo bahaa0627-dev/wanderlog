@@ -13,6 +13,7 @@ import axios from 'axios';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { MocationImageHandler } from '../src/services/mocationImageHandler';
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -20,6 +21,24 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const API_BASE_URL = 'https://prd.mocation.cc/api';
 const MAX_STILLS_PER_MOVIE = 10;
 const REQUEST_DELAY = 1000; // 1 second between requests
+
+// ============================================================================
+// Movie API Types
+// ============================================================================
+
+interface MocationMovieResponse {
+  code: number;
+  msg: string | null;
+  data: {
+    movie: {
+      id: number;
+      cname: string;
+      ename: string;
+      placeIds?: number[];
+      plots?: Array<{ placeId: number; coverPath?: string | null }>;
+    } | null;
+  };
+}
 
 // Mocation category ID to our category mapping
 const MOCATION_CATEGORY_MAP: Record<number, { slug: string; en: string; zh: string }> = {
@@ -139,21 +158,50 @@ async function fetchPlace(placeId: number): Promise<MocationPlace | null> {
   }
 }
 
+async function fetchMoviePlaceIds(movieId: number): Promise<{ placeIds: number[]; coverMap: Record<number, string | null> }> {
+  try {
+    const response = await axios.get<MocationMovieResponse>(`${API_BASE_URL}/movie/${movieId}`);
+    if (response.data.code !== 0 || !response.data.data.movie) {
+      console.warn(`⚠️  Movie ${movieId} not found or empty`);
+      return { placeIds: [], coverMap: {} };
+    }
+    const movie = response.data.data.movie;
+    const coverMap: Record<number, string | null> = {};
+    if (Array.isArray(movie.plots)) {
+      for (const plot of movie.plots) {
+        if (plot.placeId) {
+          coverMap[plot.placeId] = plot.coverPath || null;
+        }
+      }
+    }
+    if (Array.isArray(movie.placeIds) && movie.placeIds.length > 0) {
+      return { placeIds: movie.placeIds, coverMap };
+    }
+    if (Array.isArray(movie.plots) && movie.plots.length > 0) {
+      return {
+        placeIds: movie.plots.map(plot => plot.placeId).filter(Boolean),
+        coverMap,
+      };
+    }
+    return { placeIds: [], coverMap };
+  } catch (error: any) {
+    console.error(`❌ Error fetching movie ${movieId}: ${error.message}`);
+    return { placeIds: [], coverMap: {} };
+  }
+}
+
 // ============================================================================
 // Data Conversion
 // ============================================================================
 
-function getPilgrimageTag() {
-  return {
-    kind: 'facet',
-    id: 'Pilgrimage',
-    en: 'Pilgrimage',
-    zh: '圣地巡礼',
-    priority: 85,
-  };
+/**
+ * Get the Pilgrimage tag value for tags.others array
+ */
+function getPilgrimageTagValue(): string {
+  return 'Pilgrimage';
 }
 
-function convertPlaceToDbFormat(place: MocationPlace): Record<string, any> {
+function convertPlaceToDbFormat(place: MocationPlace, coverOverride?: string | null): Record<string, any> {
   // Determine if ename is actually English (contains only ASCII) or Japanese
   const isEnglishName = place.ename && /^[\x00-\x7F\s]+$/.test(place.ename);
   
@@ -233,7 +281,7 @@ function convertPlaceToDbFormat(place: MocationPlace): Record<string, any> {
     name: primaryName,
     address: place.caddress || place.eaddress || null,
     phone_number: place.phone || null,
-    cover_image: place.coverPath || null, // 封面图
+    cover_image: coverOverride || place.coverPath || null, // 优先 movie detail 封面图
     images: realImages, // 实景图 only
     city: place.areaEname || place.areaCname || null, // Use English city name (Tokyo)
     country: place.level1Ename || place.level1Cname || null, // Use English country name (Japan)
@@ -245,7 +293,7 @@ function convertPlaceToDbFormat(place: MocationPlace): Record<string, any> {
     category_slug: category?.slug || null,
     category_en: category?.en || null,
     category_zh: category?.zh || null,
-    ai_tags: [getPilgrimageTag()],
+    tags: { others: [getPilgrimageTagValue()] }, // Pilgrimage tag in tags.others
     i18n: i18n,
     custom_fields: {
       // Stills with movie info for admin panel display (剧照按电影分组)
@@ -274,8 +322,9 @@ function convertPlaceToDbFormat(place: MocationPlace): Record<string, any> {
 
 class MocationApiImporter {
   private supabase: SupabaseClient;
+  private imageHandler: MocationImageHandler | null;
   
-  constructor() {
+  constructor(options?: { uploadToR2?: boolean }) {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
     
@@ -284,17 +333,29 @@ class MocationApiImporter {
     }
     
     this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.imageHandler = options?.uploadToR2 ? new MocationImageHandler({ uploadToR2: true }) : null;
   }
   
   async findExistingPlace(name: string, nameZh: string | null, city: string | null): Promise<{
     id: string;
     custom_fields: any;
     images: string[];
+    source: string | null;
+    address: string | null;
+    phone_number: string | null;
+    city: string | null;
+    country: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    cover_image: string | null;
+    category_slug: string | null;
+    category_en: string | null;
+    category_zh: string | null;
   } | null> {
     // Search by name (primary) - also check i18n for Chinese name
     let query = this.supabase
       .from('places')
-      .select('id, custom_fields, images, i18n')
+      .select('id, custom_fields, images, i18n, source, address, phone_number, city, country, latitude, longitude, cover_image, category_slug, category_en, category_zh')
       .eq('name', name);
     
     if (city) {
@@ -313,6 +374,17 @@ class MocationApiImporter {
         id: data[0].id,
         custom_fields: data[0].custom_fields,
         images: data[0].images || [],
+        source: data[0].source || null,
+        address: data[0].address || null,
+        phone_number: data[0].phone_number || null,
+        city: data[0].city || null,
+        country: data[0].country || null,
+        latitude: data[0].latitude ?? null,
+        longitude: data[0].longitude ?? null,
+        cover_image: data[0].cover_image || null,
+        category_slug: data[0].category_slug || null,
+        category_en: data[0].category_en || null,
+        category_zh: data[0].category_zh || null,
       };
     }
     
@@ -329,6 +401,17 @@ class MocationApiImporter {
           id: dataZh[0].id,
           custom_fields: dataZh[0].custom_fields,
           images: dataZh[0].images || [],
+          source: dataZh[0].source || null,
+          address: dataZh[0].address || null,
+          phone_number: dataZh[0].phone_number || null,
+          city: dataZh[0].city || null,
+          country: dataZh[0].country || null,
+          latitude: dataZh[0].latitude ?? null,
+          longitude: dataZh[0].longitude ?? null,
+          cover_image: dataZh[0].cover_image || null,
+          category_slug: dataZh[0].category_slug || null,
+          category_en: dataZh[0].category_en || null,
+          category_zh: dataZh[0].category_zh || null,
         };
       }
     }
@@ -336,7 +419,23 @@ class MocationApiImporter {
     return null;
   }
   
-  async importPlace(place: MocationPlace): Promise<'imported' | 'updated' | 'skipped' | 'error'> {
+  private async processImageUrl(url: string | null): Promise<string | null> {
+    if (!url || !this.imageHandler) return url;
+    const result = await this.imageHandler.downloadAndUpload(url);
+    return result.finalUrl || url;
+  }
+
+  private async processImageUrls(urls: string[]): Promise<string[]> {
+    if (!this.imageHandler || urls.length === 0) return urls;
+    const processed: string[] = [];
+    for (const url of urls) {
+      const finalUrl = await this.processImageUrl(url);
+      if (finalUrl) processed.push(finalUrl);
+    }
+    return processed;
+  }
+
+  async importPlace(place: MocationPlace, coverOverride?: string | null): Promise<'imported' | 'updated' | 'skipped' | 'error'> {
     try {
       // Determine primary name (same logic as convertPlaceToDbFormat)
       const isEnglishName = place.ename && /^[\x00-\x7F\s]+$/.test(place.ename);
@@ -348,46 +447,112 @@ class MocationApiImporter {
       
       if (existing) {
         // Update existing place with new movie references
-        const dbData = convertPlaceToDbFormat(place);
+        const dbData = convertPlaceToDbFormat(place, coverOverride);
+
+        if (this.imageHandler) {
+          dbData.cover_image = await this.processImageUrl(dbData.cover_image);
+          dbData.images = await this.processImageUrls(dbData.images);
+
+          if (Array.isArray(dbData.custom_fields?.stills)) {
+            for (const still of dbData.custom_fields.stills) {
+              if (still.url) {
+                still.url = await this.processImageUrl(still.url);
+              }
+            }
+          }
+
+          if (Array.isArray(dbData.custom_fields?.movies)) {
+            for (const movie of dbData.custom_fields.movies) {
+              if (movie.coverImage) {
+                movie.coverImage = await this.processImageUrl(movie.coverImage);
+              }
+              if (Array.isArray(movie.stills)) {
+                movie.stills = await this.processImageUrls(movie.stills);
+              }
+            }
+          }
+        }
         const existingMovies = existing.custom_fields?.movies || [];
         const existingStills = existing.custom_fields?.stills || [];
         const newMovies = dbData.custom_fields.movies;
         const newStills = dbData.custom_fields.stills;
-        
-        // Merge movies (avoid duplicates by movieId)
+
         const existingMovieIds = new Set(existingMovies.map((m: any) => m.movieId));
         const moviesToAdd = newMovies.filter((m: any) => !existingMovieIds.has(m.movieId));
-        
-        if (moviesToAdd.length === 0) {
+
+        const shouldUpdate =
+          moviesToAdd.length > 0 ||
+          this.imageHandler !== null ||
+          (!existing.address && dbData.address) ||
+          (!existing.phone_number && dbData.phone_number) ||
+          (!existing.city && dbData.city) ||
+          (!existing.country && dbData.country) ||
+          (!existing.cover_image && dbData.cover_image);
+
+        if (!shouldUpdate) {
           return 'skipped';
         }
-        
-        const mergedMovies = [...existingMovies, ...moviesToAdd];
-        
-        // Merge stills (avoid duplicates by url)
-        const existingStillUrls = new Set(existingStills.map((s: any) => s.url || s));
-        const stillsToAdd = newStills.filter((s: any) => !existingStillUrls.has(s.url));
-        const mergedStills = [...existingStills, ...stillsToAdd];
-        
-        // Merge real images (avoid duplicates)
+
+        let mergedMovies = existingMovies;
+        if (this.imageHandler) {
+          const movieMap = new Map(existingMovies.map((m: any) => [m.movieId, m]));
+          for (const movie of newMovies) {
+            movieMap.set(movie.movieId, movie);
+          }
+          mergedMovies = Array.from(movieMap.values());
+        } else {
+          mergedMovies = [...existingMovies, ...moviesToAdd];
+        }
+
+        let mergedStills = existingStills;
+        if (this.imageHandler) {
+          mergedStills = newStills;
+        } else {
+          const existingStillUrls = new Set(existingStills.map((s: any) => s.url || s));
+          const stillsToAdd = newStills.filter((s: any) => !existingStillUrls.has(s.url));
+          mergedStills = [...existingStills, ...stillsToAdd];
+        }
+
         const existingImages = existing.images || [];
-        const mergedImages = [...new Set([...existingImages, ...dbData.images])];
-        
+        const mergedImages = this.imageHandler && dbData.images.length > 0
+          ? dbData.images
+          : [...new Set([...existingImages, ...dbData.images])];
+
+        const updateData: Record<string, any> = {
+          custom_fields: {
+            ...existing.custom_fields,
+            movies: mergedMovies,
+            stills: mergedStills,
+          },
+          images: mergedImages,
+          tags: { others: [getPilgrimageTagValue()] }, // Pilgrimage tag in tags.others
+          // Update category if not set
+          category_slug: existing.category_slug || dbData.category_slug,
+          category_en: existing.category_en || dbData.category_en,
+          category_zh: existing.category_zh || dbData.category_zh,
+        };
+
+        // Only enrich core fields for mocation-sourced records
+        if (existing.source === 'mocation') {
+          if (!existing.address && dbData.address) updateData.address = dbData.address;
+          if (!existing.phone_number && dbData.phone_number) updateData.phone_number = dbData.phone_number;
+          if (!existing.city && dbData.city) updateData.city = dbData.city;
+          if (!existing.country && dbData.country) updateData.country = dbData.country;
+          if (!existing.cover_image && dbData.cover_image) updateData.cover_image = dbData.cover_image;
+          const hasLatLng = !!existing.latitude && !!existing.longitude && existing.latitude !== 0 && existing.longitude !== 0;
+          if (!hasLatLng && dbData.latitude && dbData.longitude) {
+            updateData.latitude = dbData.latitude;
+            updateData.longitude = dbData.longitude;
+          }
+        }
+
+        if (this.imageHandler && dbData.cover_image) {
+          updateData.cover_image = dbData.cover_image;
+        }
+
         const { error } = await this.supabase
           .from('places')
-          .update({
-            custom_fields: {
-              ...existing.custom_fields,
-              movies: mergedMovies,
-              stills: mergedStills,
-            },
-            images: mergedImages,
-            ai_tags: [getPilgrimageTag()],
-            // Update category if not set
-            category_slug: existing.custom_fields?.category_slug || dbData.category_slug,
-            category_en: existing.custom_fields?.category_en || dbData.category_en,
-            category_zh: existing.custom_fields?.category_zh || dbData.category_zh,
-          })
+          .update(updateData)
           .eq('id', existing.id);
         
         if (error) {
@@ -399,7 +564,31 @@ class MocationApiImporter {
       }
       
       // Insert new place
-      const dbData = convertPlaceToDbFormat(place);
+      const dbData = convertPlaceToDbFormat(place, coverOverride);
+
+      if (this.imageHandler) {
+        dbData.cover_image = await this.processImageUrl(dbData.cover_image);
+        dbData.images = await this.processImageUrls(dbData.images);
+
+        if (Array.isArray(dbData.custom_fields?.stills)) {
+          for (const still of dbData.custom_fields.stills) {
+            if (still.url) {
+              still.url = await this.processImageUrl(still.url);
+            }
+          }
+        }
+
+        if (Array.isArray(dbData.custom_fields?.movies)) {
+          for (const movie of dbData.custom_fields.movies) {
+            if (movie.coverImage) {
+              movie.coverImage = await this.processImageUrl(movie.coverImage);
+            }
+            if (Array.isArray(movie.stills)) {
+              movie.stills = await this.processImageUrls(movie.stills);
+            }
+          }
+        }
+      }
       
       const { error } = await this.supabase
         .from('places')
@@ -417,7 +606,7 @@ class MocationApiImporter {
     }
   }
   
-  async importPlaces(placeIds: number[]): Promise<ImportResult> {
+  async importPlaces(placeIds: number[], coverMap?: Record<number, string | null>): Promise<ImportResult> {
     const result: ImportResult = {
       total: placeIds.length,
       imported: 0,
@@ -442,7 +631,8 @@ class MocationApiImporter {
         continue;
       }
       
-      const status = await this.importPlace(place);
+      const coverOverride = coverMap ? coverMap[placeId] : null;
+      const status = await this.importPlace(place, coverOverride);
       
       switch (status) {
         case 'imported':
@@ -477,8 +667,8 @@ class MocationApiImporter {
 // CLI
 // ============================================================================
 
-function parseArgs(args: string[]): { ids?: number[]; start?: number; end?: number; dryRun: boolean } {
-  const options: { ids?: number[]; start?: number; end?: number; dryRun: boolean } = { dryRun: false };
+function parseArgs(args: string[]): { ids?: number[]; start?: number; end?: number; movieIds?: number[]; dryRun: boolean; uploadR2: boolean } {
+  const options: { ids?: number[]; start?: number; end?: number; movieIds?: number[]; dryRun: boolean; uploadR2: boolean } = { dryRun: false, uploadR2: false };
   
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -493,8 +683,15 @@ function parseArgs(args: string[]): { ids?: number[]; start?: number; end?: numb
       case '--end':
         options.end = parseInt(args[++i], 10);
         break;
+      case '--movie-id':
+      case '--movie-ids':
+        options.movieIds = args[++i].split(',').map(id => parseInt(id.trim(), 10));
+        break;
       case '--dry-run':
         options.dryRun = true;
+        break;
+      case '--upload-r2':
+        options.uploadR2 = true;
         break;
     }
   }
@@ -511,8 +708,20 @@ async function main() {
   console.log('╚══════════════════════════════════════════════════════════════════════════════╝\n');
   
   let placeIds: number[] = [];
+  let coverMap: Record<number, string | null> = {};
   
-  if (options.ids) {
+  if (options.movieIds) {
+    const allPlaceIds: number[] = [];
+    for (const movieId of options.movieIds) {
+      console.log(`🎬 Fetching movie ${movieId} place IDs...`);
+      const { placeIds: placeIdsForMovie, coverMap: movieCoverMap } = await fetchMoviePlaceIds(movieId);
+      console.log(`   Found ${placeIdsForMovie.length} places for movie ${movieId}`);
+      allPlaceIds.push(...placeIdsForMovie);
+      coverMap = { ...coverMap, ...movieCoverMap };
+      await new Promise(r => setTimeout(r, REQUEST_DELAY));
+    }
+    placeIds = Array.from(new Set(allPlaceIds));
+  } else if (options.ids) {
     placeIds = options.ids;
   } else if (options.start !== undefined && options.end !== undefined) {
     for (let i = options.start; i <= options.end; i++) {
@@ -522,6 +731,7 @@ async function main() {
     console.log('Usage:');
     console.log('  npx ts-node --transpile-only scripts/import-mocation-api.ts --ids 17103,17104,17105');
     console.log('  npx ts-node --transpile-only scripts/import-mocation-api.ts --start 17103 --end 17110');
+    console.log('  npx ts-node --transpile-only scripts/import-mocation-api.ts --movie-id 5447');
     console.log('  npx ts-node --transpile-only scripts/import-mocation-api.ts --ids 17103 --dry-run');
     process.exit(1);
   }
@@ -529,6 +739,9 @@ async function main() {
   console.log(`📋 Configuration:`);
   console.log(`   Place IDs: ${placeIds.length} places`);
   console.log(`   Mode: ${options.dryRun ? 'DRY RUN' : 'IMPORT'}`);
+  if (options.uploadR2) {
+    console.log(`   Images: Upload to R2`);
+  }
   
   if (options.dryRun) {
     console.log('\n🔍 Dry run - fetching data without importing...\n');
@@ -576,8 +789,13 @@ async function main() {
     return;
   }
   
-  const importer = new MocationApiImporter();
-  const result = await importer.importPlaces(placeIds);
+  if (options.uploadR2 && !process.env.R2_UPLOAD_SECRET) {
+    console.error('❌ R2_UPLOAD_SECRET not configured. Set it in .env to upload images.');
+    process.exit(1);
+  }
+
+  const importer = new MocationApiImporter({ uploadToR2: options.uploadR2 });
+  const result = await importer.importPlaces(placeIds, coverMap);
   
   console.log('\n╔══════════════════════════════════════════════════════════════════════════════╗');
   console.log('║                           IMPORT COMPLETE                                     ║');

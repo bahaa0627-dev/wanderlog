@@ -26,6 +26,7 @@ import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
+import 'package:wanderlog/shared/widgets/share_bottom_sheet.dart';
 
 /// 合集地点地图页面 - 显示某个合集下的所有地点
 class CollectionSpotsMapPage extends ConsumerStatefulWidget {
@@ -843,10 +844,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
           const SizedBox(width: 8),
           IconButtonCustom(
             icon: Icons.share,
-            onPressed: () {
-              final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
-              DialogUtils.showInfoSnackBar(context, l10n.shareComingSoon);
-            },
+            onPressed: _showShareSheet,
             backgroundColor: Colors.white,
           ),
         ],
@@ -907,6 +905,24 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _showShareSheet() {
+    final collectionId = widget.collectionId;
+    if (collectionId == null) return;
+    
+    // 构建分享链接
+    final shareUrl = 'https://vago.to/collection/$collectionId';
+    
+    ShareBottomSheet.show(
+      context,
+      shareData: ShareData(
+        title: widget.collectionTitle,
+        url: shareUrl,
+        description: widget.description,
+        imageUrl: widget.coverImage,
       ),
     );
   }
@@ -1213,17 +1229,22 @@ class _RatingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 没有评分时不显示任何内容
     final hasRating = rating > 0;
+    if (!hasRating && ratingCount <= 0) {
+      return const SizedBox.shrink();
+    }
+    
     return Row(
       children: [
-        Icon(
+        const Icon(
           Icons.star,
-          color: hasRating ? AppTheme.primaryYellow : Colors.white70,
+          color: AppTheme.primaryYellow,
           size: 18,
         ),
         const SizedBox(width: 6),
         Text(
-          hasRating ? rating.toStringAsFixed(1) : '暂无评分',
+          rating.toStringAsFixed(1),
           style: AppTheme.bodyMedium(context).copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w700,

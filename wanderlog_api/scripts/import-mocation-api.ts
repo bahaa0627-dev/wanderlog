@@ -202,12 +202,9 @@ function getPilgrimageTagValue(): string {
 }
 
 function convertPlaceToDbFormat(place: MocationPlace, coverOverride?: string | null): Record<string, any> {
-  // Determine if ename is actually English (contains only ASCII) or Japanese
-  const isEnglishName = place.ename && /^[\x00-\x7F\s]+$/.test(place.ename);
-  
-  // Use English name if available, otherwise use Chinese name
-  // If ename is Japanese (not ASCII), prefer cname as it's more readable
-  const primaryName = isEnglishName ? place.ename : place.cname;
+  // Always prefer ename (English/local name) over cname (Chinese name)
+  // Only fall back to cname if ename is empty
+  const primaryName = place.ename && place.ename.trim() ? place.ename : place.cname;
   
   // Get category from first category ID
   const categoryId = place.categories?.[0];
@@ -266,15 +263,12 @@ function convertPlaceToDbFormat(place: MocationPlace, coverOverride?: string | n
   }
   
   // Build i18n object for multilingual support
+  // Always store Chinese name, and English/local name if different
   const i18n: Record<string, any> = {
     name_zh: place.cname,
   };
-  if (isEnglishName && place.ename) {
+  if (place.ename && place.ename !== place.cname) {
     i18n.name_en = place.ename;
-  }
-  // If ename is Japanese, store it separately
-  if (!isEnglishName && place.ename && place.ename !== place.cname) {
-    i18n.name_ja = place.ename;
   }
   
   return {
@@ -438,8 +432,7 @@ class MocationApiImporter {
   async importPlace(place: MocationPlace, coverOverride?: string | null): Promise<'imported' | 'updated' | 'skipped' | 'error'> {
     try {
       // Determine primary name (same logic as convertPlaceToDbFormat)
-      const isEnglishName = place.ename && /^[\x00-\x7F\s]+$/.test(place.ename);
-      const primaryName = isEnglishName ? place.ename : place.cname;
+      const primaryName = place.ename && place.ename.trim() ? place.ename : place.cname;
       const city = place.areaEname || place.areaCname || null;
       
       // Check if place exists
@@ -749,8 +742,7 @@ async function main() {
     for (const placeId of placeIds) {
       const place = await fetchPlace(placeId);
       if (place) {
-        const isEnglishName = place.ename && /^[\x00-\x7F\s]+$/.test(place.ename);
-        const primaryName = isEnglishName ? place.ename : place.cname;
+        const primaryName = place.ename && place.ename.trim() ? place.ename : place.cname;
         const categoryId = place.categories?.[0];
         const category = categoryId !== undefined ? MOCATION_CATEGORY_MAP[categoryId] : null;
         
@@ -758,7 +750,7 @@ async function main() {
         console.log(`   Name: ${primaryName}`);
         console.log(`   Name (CN): ${place.cname}`);
         if (place.ename && place.ename !== place.cname) {
-          console.log(`   Name (${isEnglishName ? 'EN' : 'JA'}): ${place.ename}`);
+          console.log(`   Name (Local): ${place.ename}`);
         }
         console.log(`   Category: ${category?.en || 'Unknown'} (${category?.zh || '未知'})`);
         console.log(`   Address: ${place.caddress}`);

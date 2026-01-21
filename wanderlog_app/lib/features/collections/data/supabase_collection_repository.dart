@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:wanderlog/core/supabase/supabase_config.dart';
 
 // 需要过滤的旧标签（不再使用的通用标签）
@@ -39,6 +41,40 @@ List<String> _buildDisplayTags(String? category, List<String> parsedTags, List<S
 /// Supabase 版本的合集仓库
 class SupabaseCollectionRepository {
   final _client = SupabaseConfig.client;
+
+  /// 过滤 custom_fields 中隐藏的剧照 (isHidden === true)
+  Map<String, dynamic>? _filterHiddenStills(dynamic customFields) {
+    if (customFields == null) return null;
+    Map<String, dynamic>? parsed;
+    if (customFields is Map<String, dynamic>) {
+      parsed = customFields;
+    } else if (customFields is String && customFields.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(customFields);
+        if (decoded is Map<String, dynamic>) {
+          parsed = decoded;
+        }
+      } catch (_) {
+        return null;
+      }
+    }
+    if (parsed == null) return null;
+
+    final stills = parsed['stills'];
+    if (stills is! List) return parsed;
+
+    final visibleStills = stills.where((s) {
+      if (s is Map<String, dynamic>) {
+        return s['isHidden'] != true;
+      }
+      return true;
+    }).toList();
+
+    return {
+      ...parsed,
+      'stills': visibleStills,
+    };
+  }
 
   /// 获取合集列表
   /// [includeAll] = true: 返回所有已发布的合集（用于 explore 页面）
@@ -267,10 +303,8 @@ class SupabaseCollectionRepository {
       'website': place['website'],
       'openingHours': place['opening_hours'],
       // 剧照数据
-      'customFields': place['custom_fields'],
+      'customFields': _filterHiddenStills(place['custom_fields']),
     };
-    // Debug: 打印 customFields 数据
-    print('🎬 [_convertPlaceToSpot] ${place['name']}: custom_fields = ${place['custom_fields']}');
   }
 
   /// 获取合集推荐列表
@@ -468,7 +502,7 @@ class SupabaseCollectionRepository {
       'aiSummary': place['ai_summary'],
       'aiDescription': place['ai_description'],
       // 剧照数据
-      'customFields': place['custom_fields'],
+      'customFields': _filterHiddenStills(place['custom_fields']),
     };
   }
 

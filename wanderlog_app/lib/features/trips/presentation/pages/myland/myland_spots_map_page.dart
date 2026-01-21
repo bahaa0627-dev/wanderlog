@@ -1358,17 +1358,21 @@ class _RatingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasRating = rating > 0;
+    // 没有评分时不显示任何内容
+    if (rating <= 0 && ratingCount <= 0) {
+      return const SizedBox.shrink();
+    }
+    
     return Row(
       children: [
-        Icon(
+        const Icon(
           Icons.star,
-          color: hasRating ? AppTheme.primaryYellow : Colors.white70,
+          color: AppTheme.primaryYellow,
           size: 18,
         ),
         const SizedBox(width: 6),
         Text(
-          hasRating ? rating.toStringAsFixed(1) : 'No rating',
+          rating.toStringAsFixed(1),
           style: AppTheme.bodyMedium(context).copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w700,

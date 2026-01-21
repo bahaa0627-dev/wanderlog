@@ -2578,11 +2578,13 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
-                    _RatingRow(
-                      rating: widget.spot.rating,
-                      ratingCount: widget.spot.ratingCount,
-                    ),
+                    if (widget.spot.rating > 0 || widget.spot.ratingCount > 0) ...[
+                      const SizedBox(height: 8),
+                      _RatingRow(
+                        rating: widget.spot.rating,
+                        ratingCount: widget.spot.ratingCount,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -2604,23 +2606,23 @@ class _RatingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasRating = rating > 0;
+    // 没有评分时不显示任何内容
+    if (rating <= 0 && ratingCount <= 0) {
+      return const SizedBox.shrink();
+    }
+    
     return Row(
       children: [
-        Icon(
-          Icons.star,
-          color: hasRating ? AppTheme.primaryYellow : Colors.white70,
-          size: 18,
-        ),
+        const Icon(Icons.star, color: AppTheme.primaryYellow, size: 18),
         const SizedBox(width: 6),
         Text(
-          hasRating ? rating.toStringAsFixed(1) : '暂无评分',
+          rating.toStringAsFixed(1),
           style: AppTheme.bodyMedium(context).copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w600,
           ),
         ),
-        if (hasRating) ...[
+        if (ratingCount > 0) ...[
           const SizedBox(width: 4),
           Text(
             formatRatingCount(ratingCount),

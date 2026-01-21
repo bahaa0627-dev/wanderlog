@@ -156,6 +156,50 @@ function computeDisplayTagsWithUnion(
 }
 
 /**
+ * 过滤隐藏的剧照
+ * 仅返回 isHidden !== true 的剧照
+ */
+function filterHiddenStills(customFields: any): any {
+  if (!customFields) return customFields;
+  
+  // 解析 customFields
+  let parsed: any;
+  try {
+    parsed = typeof customFields === 'string' ? JSON.parse(customFields) : customFields;
+  } catch {
+    return customFields;
+  }
+  
+  if (!parsed || typeof parsed !== 'object') {
+    return parsed;
+  }
+  
+  // 如果没有 stills 数组，直接返回解析后的对象
+  if (!parsed.stills || !Array.isArray(parsed.stills)) {
+    return parsed;
+  }
+  
+  // Debug: 打印每个剧照的 isHidden 状态
+  const originalCount = parsed.stills.length;
+  console.log(`[filterHiddenStills-publicPlace] 开始过滤, 剧照数量: ${originalCount}`);
+  
+  const hiddenStills = parsed.stills.filter((still: any) => still.isHidden === true);
+  
+  // 过滤掉隐藏的剧照 (isHidden === true)
+  const visibleStills = parsed.stills.filter((still: any) => {
+    // 默认显示 (isHidden 为 false、undefined 或不存在时都显示)
+    return still.isHidden !== true;
+  });
+  
+  console.log(`[filterHiddenStills-publicPlace] 结果: 原始=${originalCount}, 隐藏=${hiddenStills.length}, 可见=${visibleStills.length}`);
+  
+  return {
+    ...parsed,
+    stills: visibleStills,
+  };
+}
+
+/**
  * 转换 place 对象为 API 响应格式
  * 
  * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
@@ -164,6 +208,7 @@ function computeDisplayTagsWithUnion(
  * - 返回 ai_tags 作为对象数组 {kind, id, en, zh, priority}
  * - 返回计算的 display_tags_en 和 display_tags_zh
  * - 不返回内部 tags 字段给 C 端用户（除非 includeInternalTags=true）
+ * - C端过滤隐藏的剧照（isHidden: true）
  */
 function transformPlace(place: any, includeInternalTags: boolean = false): any {
   if (!place) return place;
@@ -229,6 +274,7 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
     };
   } else {
     // C 端：移除内部 tags 字段 (Requirements: 8.4)
+    // 并过滤隐藏的剧照 (isHidden: true)
     const { tags: _internalTags, ...placeWithoutTags } = place;
     
     result = {
@@ -243,7 +289,7 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
       aiTags,
       display_tags_en,
       display_tags_zh,
-      customFields: place.customFields || null,
+      customFields: filterHiddenStills(place.customFields),
     };
   }
   
@@ -323,11 +369,20 @@ class PublicPlaceController {
 
   /**
    * 搜索地点
-   * GET /api/public-places/search?q=query&city=Paris&country=France
+   * GET /api/public-places/search?q=query&city=Paris&country=France&limit=20
+   * 
+   * 支持的搜索场景：
+   * 1. 具体地点名：query 完全匹配则直接出现对应结果（如 "Eiffel Tower"）
+   * 2. 模糊搜索地点名：部分匹配（如 "tower"）
+   * 3. 搜索类型：匹配 category、tags、ai_tags（如 "church", "cafe", "architecture"）
+   * 4. 具体标签：如建筑师名字（如 "zaha"）匹配 tags 中的 architect 等字段
+   * 5. 搜索城市：匹配城市名
+   * 
+   * 默认返回评价人数多且评分高的前 20 个地点
    */
   async searchPlaces(req: Request, res: Response): Promise<void> {
     try {
-      const { q, city, country } = req.query;
+      const { q, city, country, limit } = req.query;
 
       if (!q) {
         return res.status(400).json({
@@ -339,7 +394,8 @@ class PublicPlaceController {
       const places = await publicPlaceService.searchPlaces(
         q as string,
         city as string | undefined,
-        country as string | undefined
+        country as string | undefined,
+        limit ? parseInt(limit as string) : 20
       );
 
       res.json({

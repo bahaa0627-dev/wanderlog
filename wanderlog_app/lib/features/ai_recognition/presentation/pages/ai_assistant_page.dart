@@ -375,17 +375,14 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// Requirements: 7.1, 7.2, 7.3, 7.4
   Future<void> _handleSearchV2(String query) async {
     debugPrint('🔍 [SearchV2] Starting search for: $query');
-    final user = ref.read(authProvider).user;
+    var user = ref.read(authProvider).user;
     if (user == null) {
-      setState(() {
-        _messages.add(_ChatMessage(
-          id: 'error_${DateTime.now().millisecondsSinceEpoch}',
-          isUser: false, 
-          text: 'Please login to use AI search.',
-          timestamp: DateTime.now(),
-        ),);
-      });
-      return;
+      // 未登录时跳转到登录页面
+      final authed = await requireAuth(context, ref);
+      if (!authed || !mounted) return;
+      // 登录成功后重新获取用户信息
+      user = ref.read(authProvider).user;
+      if (user == null) return;
     }
 
     // 不在前端检查配额，让后端来判断

@@ -116,12 +116,52 @@ const normalizePlace = (place: any) => {
   // 删除原始的 snake_case 字段，避免混淆
   const { display_tags_en, display_tags_zh, ...restPlace } = place;
   
+  // 过滤隐藏的剧照
+  const customFields = filterHiddenStillsFromCustomFields(place.customFields || place.custom_fields);
+  
   return {
     ...restPlace,
     tags,
     aiTags,
     images,
     displayTagsEn,
+    customFields,
+  };
+};
+
+/**
+ * 过滤 customFields 中隐藏的剧照 (isHidden === true)
+ */
+const filterHiddenStillsFromCustomFields = (customFields: any): any => {
+  if (!customFields) return null;
+  
+  // 解析 customFields
+  let parsed: any;
+  try {
+    parsed = typeof customFields === 'string' ? JSON.parse(customFields) : customFields;
+  } catch {
+    return customFields;
+  }
+  
+  if (!parsed || typeof parsed !== 'object') {
+    return parsed;
+  }
+  
+  // 如果没有 stills 数组，直接返回
+  if (!parsed.stills || !Array.isArray(parsed.stills)) {
+    return parsed;
+  }
+  
+  // Debug: 打印过滤信息
+  const originalCount = parsed.stills.length;
+  const hiddenStills = parsed.stills.filter((still: any) => still.isHidden === true);
+  const visibleStills = parsed.stills.filter((still: any) => still.isHidden !== true);
+  
+  console.log(`[filterHiddenStills-collection] 结果: 原始=${originalCount}, 隐藏=${hiddenStills.length}, 可见=${visibleStills.length}`);
+  
+  return {
+    ...parsed,
+    stills: visibleStills,
   };
 };
 

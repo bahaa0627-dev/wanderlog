@@ -16,6 +16,7 @@ import 'package:wanderlog/features/collections/providers/collection_providers.da
 import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
 import 'package:wanderlog/features/map/providers/places_cache_provider.dart';
 import 'package:wanderlog/features/search/presentation/widgets/search_menu_sheet.dart';
+import 'package:wanderlog/features/search/presentation/pages/search_results_map_page.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/features/profile/presentation/pages/settings_page.dart';
@@ -42,6 +43,11 @@ class _HomePageState extends ConsumerState<HomePage> {
   int _mapResetKey = 0;
   
   final GlobalKey _searchBoxKey = GlobalKey();
+  
+  // 搜索相关状态
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  bool _isSearching = false;
 
   bool _asBool(dynamic value) {
     if (value is bool) return value;
@@ -63,6 +69,18 @@ class _HomePageState extends ConsumerState<HomePage> {
       // 预加载城市选择器数据（带统计信息），避免打开时加载慢
       ref.read(countriesCitiesStatsProvider.notifier).load();
     });
+    
+    // 监听搜索框变化
+    _searchController.addListener(() {
+      setState(() {});
+    });
+  }
+  
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadRecommendations() async {
@@ -109,10 +127,141 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
   
   void _toggleSearchMenu() {
-    print('📍 Search box tapped! _showSearchMenu: $_showSearchMenu');
+    print('📍 Filter button tapped! _showSearchMenu: $_showSearchMenu');
+    // 收起键盘
+    _searchFocusNode.unfocus();
     setState(() {
       _showSearchMenu = !_showSearchMenu;
     });
+  }
+  
+  /// 执行搜索 - 全局搜索地点
+  Future<void> _performSearch() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+    
+    // 收起键盘
+    _searchFocusNode.unfocus();
+    
+    print('🔍 [HomePage] 搜索: "$query"');
+    
+    // 导航到搜索结果页面，让它处理搜索逻辑
+    if (mounted) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (context) => SearchResultsMapPage(
+            city: '', // 全局搜索不限制城市
+            country: '',
+            selectedTags: const [],
+            categoryFilters: const [],
+            tagFilters: const [],
+            searchQuery: query, // 传递搜索关键词
+          ),
+        ),
+      );
+      // 返回后清空搜索框，让用户从头开始搜索
+      if (mounted) {
+        _searchController.clear();
+      }
+    }
+  }
+  
+  /// 清除搜索
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {});
+  }
+  
+  /// 构建搜索框
+  Widget _buildSearchBox() {
+    const double height = 48.0;
+    const double radius = 24.0;
+    
+    return Container(
+      key: _searchBoxKey,
+      height: height,
+      decoration: BoxDecoration(
+        color: AppTheme.white,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: AppTheme.black,
+          width: AppTheme.borderMedium,
+        ),
+        boxShadow: AppTheme.searchBoxShadow,
+      ),
+      child: Row(
+        children: [
+          // 左侧图标
+          const Padding(
+            padding: EdgeInsets.only(left: 16),
+            child: Text('🌏', style: TextStyle(fontSize: 18)),
+          ),
+          const SizedBox(width: 8),
+          // 搜索输入框
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              style: AppTheme.bodyMedium(context),
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _performSearch(),
+              decoration: InputDecoration(
+                hintText: 'Find city and spot here',
+                hintStyle: AppTheme.bodySmall(context).copyWith(
+                  color: AppTheme.mediumGray,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                isDense: true,
+              ),
+            ),
+          ),
+          // 清除按钮（当有输入内容时显示）
+          if (_searchController.text.isNotEmpty)
+            GestureDetector(
+              onTap: _clearSearch,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(
+                  Icons.close,
+                  size: 18,
+                  color: AppTheme.mediumGray,
+                ),
+              ),
+            ),
+          // 搜索加载指示器
+          if (_isSearching)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
+                ),
+              ),
+            ),
+          // 筛选按钮
+          GestureDetector(
+            onTap: _toggleSearchMenu,
+            child: Container(
+              margin: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: AppTheme.primaryYellow,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.tune,
+                color: AppTheme.black,
+                size: 18,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -148,14 +297,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       const SizedBox(height: 12), // 描述距离搜索框 12px
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: SearchBox(
-                          key: _searchBoxKey,
-                          hintText: 'Find city and spot here',
-                          prefixIcon: const Text('🌏', style: TextStyle(fontSize: 18)),
-                          borderRadius: 24, // 大圆角
-                          readOnly: true,
-                          onTap: _toggleSearchMenu,
-                        ),
+                        child: _buildSearchBox(),
                       ),
                       const SizedBox(height: 24), // 搜索框距离下面 24px
                       _TabSwitcher(

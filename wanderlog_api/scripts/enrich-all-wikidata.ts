@@ -1,42 +1,25 @@
 /**
- * Enrich All Wikidata Places
- * 
- * Automatically process all Wikidata places in batches:
- * 1. Fetch from database in batches
- * 2. Use Apify to scrape Google Places data
- * 3. Re-import with enriched data
- * 
- * Features:
- * - Automatic batching (default: 500 places per batch)
- * - Resume from last batch if interrupted
- * - Progress tracking
- * - Cost estimation
- * 
+ * Enrich All Wikidata Places (OSM + Wikipedia + Ratings)
+ *
  * Usage:
  *   npx tsx scripts/enrich-all-wikidata.ts [options]
- * 
+ *
  * Options:
- *   --batch-size <number>    Places per batch (default: 500)
- *   --start-batch <number>   Start from specific batch (default: 0)
- *   --max-batches <number>   Maximum batches to process (default: all)
- *   --dry-run                Preview without processing
- * 
- * Examples:
- *   # Process all in batches of 500
- *   npx tsx scripts/enrich-all-wikidata.ts
- * 
- *   # Resume from batch 5
- *   npx tsx scripts/enrich-all-wikidata.ts --start-batch 5
- * 
- *   # Process only 3 batches
- *   npx tsx scripts/enrich-all-wikidata.ts --max-batches 3
+ *   --batch-size <number>        Places per batch (default: 200)
+ *   --start-batch <number>       Start from specific batch (default: 0)
+ *   --max-batches <number>       Maximum batches to process (default: all)
+ *   --dry-run                    Preview without updating
+ *   --ratings-provider <list>    Comma-separated: foursquare,yelp or none
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { execSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
 import * as dotenv from 'dotenv';
+import osmEnrichmentService from '../src/services/osmEnrichmentService';
+import reverseGeocodeService from '../src/services/reverseGeocodeService';
+import wikidataDescriptionService from '../src/services/wikidataDescriptionService';
+import ratingsProviderService, { RatingsProvider } from '../src/services/ratingsProviderService';
+import { mergePolicyService, SourceData } from '../src/services/mergePolicyService';
+import { normalizeCountryName, isLikelyCountryName } from '../src/utils/countryNormalizer';
 
 dotenv.config();
 
@@ -49,266 +32,463 @@ interface Options {
   startBatch: number;
   maxBatches?: number;
   dryRun: boolean;
+  ratingsProviders: RatingsProvider[];
 }
 
-interface BatchResult {
-  batchNumber: number;
-  totalPlaces: number;
-  scraped: number;
-  inserted: number;
-  updated: number;
-  skipped: number;
-  failed: number;
-  cost: number;
-  duration: number;
+interface WikidataPlaceRow {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  description?: string | null;
+  opening_hours?: string | null;
+  rating?: number | null;
+  rating_count?: number | null;
+  website?: string | null;
+  phone_number?: string | null;
+  cover_image?: string | null;
+  images?: string[] | null;
+  source_detail?: string | null;
+  custom_fields?: Record<string, unknown> | null;
 }
 
-/**
- * Parse command line arguments
- */
 function parseArgs(): Options {
   const args = process.argv.slice(2);
   const options: Options = {
-    batchSize: 500,
+    batchSize: 200,
     startBatch: 0,
     dryRun: false,
+    ratingsProviders: [],
   };
-  
+
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
       case '--batch-size':
-        options.batchSize = parseInt(args[++i]);
+        options.batchSize = parseInt(args[++i], 10);
         break;
       case '--start-batch':
-        options.startBatch = parseInt(args[++i]);
+        options.startBatch = parseInt(args[++i], 10);
         break;
       case '--max-batches':
-        options.maxBatches = parseInt(args[++i]);
+        options.maxBatches = parseInt(args[++i], 10);
         break;
       case '--dry-run':
         options.dryRun = true;
         break;
+      case '--ratings-provider':
+        options.ratingsProviders = parseRatingsProviders(args[++i]);
+        break;
     }
   }
-  
+
   return options;
 }
 
-/**
- * Get total count of Wikidata places
- */
+function parseRatingsProviders(value?: string): RatingsProvider[] {
+  if (!value || value.trim().toLowerCase() === 'none') {
+    return [];
+  }
+
+  const providers = value.split(',')
+    .map(provider => provider.trim().toLowerCase())
+    .filter(Boolean)
+    .filter(provider => provider === 'foursquare' || provider === 'yelp') as RatingsProvider[];
+
+  return providers;
+}
+
 async function getTotalCount(): Promise<number> {
   const { count, error } = await supabase
     .from('places')
     .select('*', { count: 'exact', head: true })
     .eq('source', 'wikidata');
-  
+
   if (error) {
     throw new Error(`Failed to count places: ${error.message}`);
   }
-  
+
   return count || 0;
 }
 
-/**
- * Export batch to CSV
- */
-async function exportBatch(batchNumber: number, batchSize: number): Promise<string> {
+async function fetchBatch(batchNumber: number, batchSize: number): Promise<WikidataPlaceRow[]> {
   const offset = batchNumber * batchSize;
-  const outputPath = `./wikidata-batch-${batchNumber}.csv`;
-  
-  console.log(`📤 Exporting batch ${batchNumber} (offset: ${offset}, limit: ${batchSize})...`);
-  
-  try {
-    execSync(
-      `npx tsx scripts/export-to-csv.ts --source wikidata --limit ${batchSize} --offset ${offset} --output ${outputPath}`,
-      { cwd: __dirname + '/..', stdio: 'inherit' }
-    );
-    
-    return path.resolve(__dirname + '/..', outputPath);
-  } catch (error) {
-    throw new Error(`Failed to export batch ${batchNumber}`);
+  const { data, error } = await supabase
+    .from('places')
+    .select('id,name,latitude,longitude,address,city,country,description,opening_hours,rating,rating_count,website,phone_number,cover_image,images,source_detail,custom_fields')
+    .eq('source', 'wikidata')
+    .order('id', { ascending: true })
+    .range(offset, offset + batchSize - 1);
+
+  if (error) {
+    throw new Error(`Failed to fetch batch ${batchNumber}: ${error.message}`);
+  }
+
+  return data as WikidataPlaceRow[] || [];
+}
+
+function buildSources(
+  row: WikidataPlaceRow,
+  params: {
+    osm?: {
+      address?: string;
+      openingHours?: string;
+      website?: string;
+      phoneNumber?: string;
+    };
+    wikidata?: {
+      description?: string;
+      website?: string;
+    };
+    ratings?: {
+      provider: RatingsProvider;
+      rating?: number;
+      ratingCount?: number;
+    };
+  }
+): SourceData {
+  const sources: SourceData = {
+    wikidata: {
+      openingHours: row.opening_hours || undefined,
+      address: row.address || undefined,
+      rating: row.rating ?? undefined,
+      ratingCount: row.rating_count ?? undefined,
+      website: row.website || undefined,
+      phoneNumber: row.phone_number || undefined,
+      description: row.description || undefined,
+      coverImage: row.cover_image || undefined,
+      images: row.images || undefined,
+    },
+  };
+
+  if (params.osm) {
+    sources.osm = {
+      openingHours: params.osm.openingHours,
+      opening_hours: params.osm.openingHours,
+      address: params.osm.address,
+      website: params.osm.website,
+      phoneNumber: params.osm.phoneNumber,
+    };
+  }
+
+  if (params.wikidata) {
+    sources.wikidata = {
+      ...sources.wikidata,
+      description: params.wikidata.description ?? sources.wikidata?.description,
+      website: params.wikidata.website ?? sources.wikidata?.website,
+    };
+  }
+
+  if (params.ratings) {
+    sources[params.ratings.provider === 'foursquare' ? 'fsq' : 'yelp'] = {
+      rating: params.ratings.rating,
+      ratingCount: params.ratings.ratingCount,
+    };
+  }
+
+  return sources;
+}
+
+function setIfChanged(
+  updateData: Record<string, unknown>,
+  key: string,
+  newValue: unknown,
+  oldValue: unknown
+): void {
+  if (newValue === undefined) {
+    return;
+  }
+  if (newValue === null) {
+    if (oldValue !== null && oldValue !== undefined) {
+      updateData[key] = null;
+    }
+    return;
+  }
+  if (newValue !== oldValue) {
+    updateData[key] = newValue;
   }
 }
 
-/**
- * Process batch with Apify
- */
-async function processBatch(csvPath: string, batchNumber: number): Promise<BatchResult> {
-  const startTime = Date.now();
-  
-  console.log(`\n🚀 Processing batch ${batchNumber}...`);
-  console.log('─'.repeat(80));
-  
-  // Convert CSV to KML format (Apify expects coordinates)
-  const kmlPath = csvPath.replace('.csv', '.kml');
-  
-  // Create simple KML from CSV
-  const csvContent = fs.readFileSync(csvPath, 'utf-8');
-  const lines = csvContent.split('\n');
-  const headers = lines[0].split(',');
-  
-  const nameIdx = headers.indexOf('name');
-  const latIdx = headers.indexOf('latitude');
-  const lngIdx = headers.indexOf('longitude');
-  
-  let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>Wikidata Batch ${batchNumber}</name>
-`;
-  
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    
-    const cols = lines[i].split(',');
-    const name = cols[nameIdx]?.replace(/"/g, '');
-    const lat = cols[latIdx];
-    const lng = cols[lngIdx];
-    
-    if (name && lat && lng) {
-      kmlContent += `    <Placemark>
-      <name>${name}</name>
-      <Point>
-        <coordinates>${lng},${lat},0</coordinates>
-      </Point>
-    </Placemark>
-`;
+function normalizeValue(value?: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function chooseCity(
+  existingCity?: string | null,
+  existingCountry?: string | null,
+  reverseCity?: string | null
+): string | null {
+  const normalizedExistingCity = normalizeValue(existingCity);
+  const normalizedExistingCountry = normalizeValue(existingCountry);
+  const normalizedReverseCity = normalizeValue(reverseCity);
+
+  if (!normalizedExistingCity) {
+    return normalizedReverseCity;
+  }
+
+  if (normalizedExistingCountry &&
+      normalizedExistingCity.toLowerCase() === normalizedExistingCountry.toLowerCase()) {
+    return normalizedReverseCity || normalizedExistingCity;
+  }
+
+  if (isLikelyCountryName(normalizedExistingCity)) {
+    return normalizedReverseCity || normalizedExistingCity;
+  }
+
+  return normalizedExistingCity;
+}
+
+function chooseCountry(
+  existingCountry?: string | null,
+  reverseCountry?: string | null
+): string | null {
+  const normalizedExisting = normalizeCountryName(existingCountry || undefined);
+  if (normalizedExisting) {
+    return normalizedExisting;
+  }
+  return normalizeCountryName(reverseCountry || undefined);
+}
+
+function mergeCustomFields(
+  existing: Record<string, unknown> | null | undefined,
+  mergedRaw: Record<string, unknown>,
+  extra: Record<string, unknown>
+): Record<string, unknown> {
+  const existingFields = existing && typeof existing === 'object' ? existing : {};
+  const existingRaw = (existingFields as any).raw && typeof (existingFields as any).raw === 'object'
+    ? (existingFields as any).raw as Record<string, unknown>
+    : {};
+
+  return {
+    ...existingFields,
+    ...extra,
+    raw: {
+      ...existingRaw,
+      ...mergedRaw,
+    },
+  };
+}
+
+async function processPlace(
+  row: WikidataPlaceRow,
+  ratingsProviders: RatingsProvider[]
+): Promise<{ updateData: Record<string, unknown>; customFields: Record<string, unknown> }> {
+  const qid = row.source_detail || undefined;
+  const updateData: Record<string, unknown> = {};
+
+  let osmResult = null;
+  try {
+    osmResult = await osmEnrichmentService.enrichPlace({
+      qid,
+      name: row.name,
+      latitude: row.latitude,
+      longitude: row.longitude,
+    });
+  } catch (error) {
+    console.warn(`⚠️  OSM lookup failed for ${row.name}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  let wikiResult = null;
+  if (qid) {
+    try {
+      wikiResult = await wikidataDescriptionService.fetchDescription(qid);
+    } catch (error) {
+      console.warn(`⚠️  Wikidata summary failed for ${row.name}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
-  kmlContent += `  </Document>
-</kml>`;
-  
-  fs.writeFileSync(kmlPath, kmlContent);
-  
-  // Process with Apify
-  try {
-    execSync(
-      `npx tsx scripts/enrich-from-google.ts "${kmlPath}"`,
-      { cwd: __dirname + '/..', stdio: 'inherit' }
-    );
-  } catch (error) {
-    console.error(`❌ Batch ${batchNumber} failed:`, error);
-    throw error;
+
+  let ratingsResult = null;
+  if (ratingsProviders.length > 0) {
+    try {
+      ratingsResult = await ratingsProviderService.fetchBestRating({
+        name: row.name,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        city: row.city,
+        country: row.country,
+        providers: ratingsProviders,
+      });
+    } catch (error) {
+      console.warn(`⚠️  Ratings lookup failed for ${row.name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
-  
-  const duration = (Date.now() - startTime) / 1000;
-  
-  // Parse results from output (simplified - you'd parse actual import results)
-  const result: BatchResult = {
-    batchNumber,
-    totalPlaces: lines.length - 1,
-    scraped: 0, // Would parse from Apify output
-    inserted: 0, // Would parse from import output
-    updated: 0,
-    skipped: 0,
-    failed: 0,
-    cost: (lines.length - 1) * 0.0022,
-    duration,
-  };
-  
-  // Clean up temporary files
-  fs.unlinkSync(csvPath);
-  fs.unlinkSync(kmlPath);
-  const apifyJsonPath = kmlPath.replace('.kml', '-apify.json');
-  if (fs.existsSync(apifyJsonPath)) {
-    fs.unlinkSync(apifyJsonPath);
+
+  let reverseGeocodeResult = null;
+  const needsReverseGeocode = !row.address || !row.city || !row.country;
+  if (needsReverseGeocode) {
+    try {
+      reverseGeocodeResult = await reverseGeocodeService.reverseGeocode(row.latitude, row.longitude);
+    } catch (error) {
+      console.warn(`⚠️  Reverse geocode failed for ${row.name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
-  
-  return result;
+
+  const sources = buildSources(row, {
+    osm: osmResult
+      ? {
+          address: osmResult.address,
+          openingHours: osmResult.openingHours,
+          website: osmResult.website,
+          phoneNumber: osmResult.phoneNumber,
+        }
+      : undefined,
+    wikidata: wikiResult
+      ? {
+          description: wikiResult.description,
+          website: wikiResult.website,
+        }
+      : undefined,
+    ratings: ratingsResult
+      ? {
+          provider: ratingsResult.provider,
+          rating: ratingsResult.rating,
+          ratingCount: ratingsResult.ratingCount,
+        }
+      : undefined,
+  });
+
+  const merged = mergePolicyService.mergeMultiSourceData(sources);
+
+  const finalAddress = merged.address ?? reverseGeocodeResult?.address;
+  const finalCity = chooseCity(row.city, row.country, reverseGeocodeResult?.city || osmResult?.city || null);
+  const finalCountry = chooseCountry(row.country, reverseGeocodeResult?.country || osmResult?.country || null);
+
+  setIfChanged(updateData, 'address', finalAddress, row.address);
+  setIfChanged(updateData, 'city', finalCity, row.city);
+  setIfChanged(updateData, 'country', finalCountry, row.country);
+  setIfChanged(updateData, 'opening_hours', merged.openingHours, row.opening_hours);
+  setIfChanged(updateData, 'rating', merged.rating, row.rating);
+  setIfChanged(updateData, 'rating_count', merged.ratingCount, row.rating_count);
+  setIfChanged(updateData, 'website', merged.website, row.website);
+  setIfChanged(updateData, 'phone_number', merged.phoneNumber, row.phone_number);
+  setIfChanged(updateData, 'description', merged.description, row.description);
+
+  const extraCustomFields: Record<string, unknown> = {};
+  if (osmResult) {
+    extraCustomFields.osmMatch = {
+      osmId: osmResult.osmId,
+      osmType: osmResult.osmType,
+      matchScore: osmResult.matchScore,
+      matchedBy: osmResult.matchedBy,
+    };
+  }
+  if (wikiResult) {
+    extraCustomFields.wikidataSummary = {
+      wikipediaTitle: wikiResult.wikipediaTitle,
+      wikipediaLang: wikiResult.wikipediaLang,
+      description: wikiResult.description,
+      website: wikiResult.website,
+    };
+  }
+  if (ratingsResult) {
+    extraCustomFields.ratings = {
+      provider: ratingsResult.provider,
+      rating: ratingsResult.rating,
+      ratingCount: ratingsResult.ratingCount,
+      sourceUrl: ratingsResult.sourceUrl,
+      matchScore: ratingsResult.matchScore,
+    };
+  }
+  if (reverseGeocodeResult) {
+    extraCustomFields.reverseGeocode = {
+      address: reverseGeocodeResult.address,
+      city: reverseGeocodeResult.city,
+      country: reverseGeocodeResult.country,
+      raw: reverseGeocodeResult.raw,
+    };
+  }
+
+  const customFields = mergeCustomFields(row.custom_fields, merged.customFields.raw, extraCustomFields);
+
+  return { updateData, customFields };
 }
 
-/**
- * Main function
- */
 async function main() {
   const options = parseArgs();
-  
+  const totalPlaces = await getTotalCount();
+  const totalBatches = Math.ceil(totalPlaces / options.batchSize);
+  const batchesToProcess = options.maxBatches
+    ? Math.min(options.maxBatches, totalBatches - options.startBatch)
+    : totalBatches - options.startBatch;
+
   console.log('\n╔══════════════════════════════════════════════════════════════════════════════╗');
   console.log('║                     ENRICH ALL WIKIDATA PLACES                                ║');
   console.log('╚══════════════════════════════════════════════════════════════════════════════╝\n');
-  
-  // Get total count
-  console.log('🔍 Counting Wikidata places...');
-  const totalPlaces = await getTotalCount();
-  const totalBatches = Math.ceil(totalPlaces / options.batchSize);
-  const batchesToProcess = options.maxBatches 
-    ? Math.min(options.maxBatches, totalBatches - options.startBatch)
-    : totalBatches - options.startBatch;
-  
-  console.log(`✅ Found ${totalPlaces} Wikidata places\n`);
-  
-  console.log('📋 Processing plan:');
   console.log(`   Total places: ${totalPlaces}`);
   console.log(`   Batch size: ${options.batchSize}`);
   console.log(`   Total batches: ${totalBatches}`);
   console.log(`   Start batch: ${options.startBatch}`);
   console.log(`   Batches to process: ${batchesToProcess}`);
-  console.log(`   Estimated cost: $${(totalPlaces * 0.0022).toFixed(2)}`);
-  console.log(`   Estimated time: ${Math.ceil(batchesToProcess * 20)} minutes`);
+  console.log(`   Dry run: ${options.dryRun ? 'YES' : 'NO'}`);
+  console.log(`   Ratings providers: ${options.ratingsProviders.length > 0 ? options.ratingsProviders.join(', ') : 'none'}`);
   console.log('');
-  
-  if (options.dryRun) {
-    console.log('🔍 DRY RUN MODE - No actual processing');
-    return;
-  }
-  
-  // Confirm
-  console.log('⚠️  This will process', batchesToProcess, 'batches');
-  console.log('   Press Ctrl+C to cancel, or wait 5 seconds to continue...');
-  await new Promise(resolve => setTimeout(resolve, 5000));
-  
-  console.log('\n🚀 Starting batch processing...\n');
-  
-  const results: BatchResult[] = [];
-  let totalCost = 0;
-  let totalDuration = 0;
-  
+
+  let updated = 0;
+  let skipped = 0;
+  let failed = 0;
+
   for (let i = 0; i < batchesToProcess; i++) {
     const batchNumber = options.startBatch + i;
-    
     console.log(`\n${'='.repeat(80)}`);
     console.log(`BATCH ${batchNumber + 1}/${totalBatches}`);
     console.log('='.repeat(80));
-    
-    try {
-      // Export batch
-      const csvPath = await exportBatch(batchNumber, options.batchSize);
-      
-      // Process batch
-      const result = await processBatch(csvPath, batchNumber);
-      results.push(result);
-      
-      totalCost += result.cost;
-      totalDuration += result.duration;
-      
-      console.log(`\n✅ Batch ${batchNumber} complete!`);
-      console.log(`   Duration: ${result.duration.toFixed(1)}s`);
-      console.log(`   Cost: $${result.cost.toFixed(2)}`);
-      console.log(`   Progress: ${((i + 1) / batchesToProcess * 100).toFixed(1)}%`);
-      
-    } catch (error: any) {
-      console.error(`\n❌ Batch ${batchNumber} failed:`, error.message);
-      console.log(`\n💡 To resume from this batch, run:`);
-      console.log(`   npx tsx scripts/enrich-all-wikidata.ts --start-batch ${batchNumber}`);
-      process.exit(1);
+
+    const rows = await fetchBatch(batchNumber, options.batchSize);
+    if (rows.length === 0) {
+      console.log('No rows found for this batch.');
+      continue;
+    }
+
+    for (const row of rows) {
+      try {
+        const { updateData, customFields } = await processPlace(row, options.ratingsProviders);
+        const hasUpdates = Object.keys(updateData).length > 0;
+        const existingCustomFields = row.custom_fields && typeof row.custom_fields === 'object'
+          ? row.custom_fields
+          : {};
+        const customFieldsChanged = JSON.stringify(customFields) !== JSON.stringify(existingCustomFields);
+        const shouldUpdate = hasUpdates || customFieldsChanged;
+
+        if (!shouldUpdate) {
+          skipped++;
+          continue;
+        }
+
+        if (!options.dryRun) {
+          const { error } = await supabase
+            .from('places')
+            .update({
+              ...updateData,
+              custom_fields: customFields,
+            })
+            .eq('id', row.id);
+
+          if (error) {
+            throw new Error(error.message);
+          }
+        }
+
+        updated++;
+      } catch (error) {
+        failed++;
+        console.error(`❌ Failed to enrich ${row.name}: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
   }
-  
-  // Final summary
+
   console.log('\n' + '='.repeat(80));
-  console.log('🎉 ALL BATCHES COMPLETE!');
+  console.log('ENRICHMENT COMPLETE');
   console.log('='.repeat(80));
-  console.log(`   Batches processed: ${results.length}`);
-  console.log(`   Total cost: $${totalCost.toFixed(2)}`);
-  console.log(`   Total duration: ${(totalDuration / 60).toFixed(1)} minutes`);
-  console.log('');
-  console.log('✨ All Wikidata places have been enriched with Google data!');
-  console.log('');
+  console.log(`Updated: ${updated}`);
+  console.log(`Skipped: ${skipped}`);
+  console.log(`Failed: ${failed}`);
 }
 
 main().catch(error => {
-  console.error('\n❌ Fatal error:', error.message);
+  console.error('\n❌ Fatal error:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

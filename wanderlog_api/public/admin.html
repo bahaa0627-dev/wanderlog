@@ -724,6 +724,64 @@
             margin-top: 8px;
         }
 
+        .spots-list {
+            margin-top: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .spots-list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            background: #fff;
+            transition: background 0.15s;
+        }
+
+        .spots-list-item:last-child {
+            border-bottom: none;
+        }
+
+        .spots-list-item:hover {
+            background: #f8f9fa;
+        }
+
+        .spots-list-item-info {
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .spots-list-item-info:hover {
+            color: #667eea;
+        }
+
+        .spots-list-item-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .spots-list-item-city {
+            font-size: 12px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .spots-list-item-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .spots-list-empty {
+            padding: 20px;
+            text-align: center;
+            color: #999;
+            font-size: 13px;
+        }
+
         .chip {
             background: #eef2ff;
             color: #3743a6;
@@ -1049,6 +1107,7 @@
                         <th>地点信息</th>
                         <th>城市</th>
                         <th>国家</th>
+                        <th>地址</th>
                         <th>坐标</th>
                         <th>评分</th>
                         <th>分类</th>
@@ -1106,25 +1165,13 @@
                 <div class="form-card" style="margin:0; margin-top:8px;">
                     <div class="section-title">地点选择（必填，至少 1 个，可添加多个）</div>
                     <div class="form-row">
-                        <div class="form-group dropdown">
+                        <div class="form-group dropdown" style="flex:1;">
                             <label>地点名称（输入字母进行模糊匹配搜索）</label>
                             <input id="spotSearchInput" type="text" placeholder="输入地点名称、地址或城市进行搜索..." oninput="handleSpotSearch(this.value)" autocomplete="off">
                             <div id="spotSearchDropdown" class="dropdown-list" style="display:none;"></div>
                         </div>
-                        <div class="form-group">
-                            <label>纬度</label>
-                            <input id="spotLat" type="number" step="any" placeholder="如 55.6761" autocomplete="off">
-                        </div>
-                        <div class="form-group">
-                            <label>经度</label>
-                            <input id="spotLng" type="number" step="any" placeholder="如 12.5683" autocomplete="off">
-                        </div>
-                        <div class="form-group">
-                            <label>&nbsp;</label>
-                            <button class="btn btn-secondary" type="button" onclick="searchByLatLng()">按经纬度查找</button>
-                        </div>
                     </div>
-                    <div id="selectedSpots" class="chip-list"></div>
+                    <div id="selectedSpots" class="spots-list"></div>
                 </div>
 
                 <div class="form-card" style="margin:0; margin-top:8px;">
@@ -2635,6 +2682,7 @@
                     </td>
                     <td class="nowrap-cell">${place.city || '-'}</td>
                     <td class="nowrap-cell">${place.country || '-'}</td>
+                    <td class="wrap-cell" style="max-width:220px;">${place.address || '-'}</td>
                     <td class="nowrap-cell" style="font-size:11px;color:#666;">
                         ${place.latitude ? place.latitude.toFixed(4) : '-'}, 
                         ${place.longitude ? place.longitude.toFixed(4) : '-'}
@@ -3522,20 +3570,24 @@
 
         function renderSelectedSpots() {
             const container = document.getElementById('selectedSpots');
-            container.innerHTML = '';
-            selectedSpots.forEach((s, index) => {
-                const chip = document.createElement('div');
-                chip.className = 'chip';
-                chip.innerHTML = `
-                    <span>${s.name || ''}</span>
-                    <span style="color:#777;font-size:12px;">${s.city || ''}</span>
-                    <button>×</button>
-                `;
-                chip.querySelector('button').addEventListener('click', () => {
-                    removeSpot(s.id);
-                });
-                container.appendChild(chip);
-            });
+            
+            if (selectedSpots.length === 0) {
+                container.innerHTML = '<div class="spots-list-empty">暂无已选地点，请通过搜索添加</div>';
+                return;
+            }
+            
+            container.innerHTML = selectedSpots.map((s, index) => `
+                <div class="spots-list-item">
+                    <div class="spots-list-item-info" onclick="openEditPlaceModal('${s.id}')" title="点击查看/编辑地点详情">
+                        <div class="spots-list-item-name">${index + 1}. ${s.name || ''}</div>
+                        <div class="spots-list-item-city">${s.city || ''}${s.address ? ' · ' + s.address : ''}</div>
+                    </div>
+                    <div class="spots-list-item-actions">
+                        <button class="btn btn-secondary" style="padding:4px 8px;font-size:12px;" onclick="openEditPlaceModal('${s.id}')" title="编辑地点">✏️</button>
+                        <button class="btn btn-secondary" style="padding:4px 8px;font-size:12px;color:#dc3545;" onclick="removeSpot('${s.id}')" title="移除地点">×</button>
+                    </div>
+                </div>
+            `).join('');
         }
 
         // 人物与作品
@@ -4377,14 +4429,14 @@
                                 stills: []
                             };
                         }
-                        movieGroups[key].stills.push({ url: still.url, idx, canCompare: still.canCompare || false });
+                        movieGroups[key].stills.push({ url: still.url, idx, canCompare: still.canCompare || false, isHidden: still.isHidden || false });
                     } else {
                         // 兼容旧格式（纯字符串URL）
                         const key = '_unknown_';
                         if (!movieGroups[key]) {
                             movieGroups[key] = { movieNameCn: '未知电影', movieNameEn: '', year: '', stills: [] };
                         }
-                        movieGroups[key].stills.push({ url: typeof still === 'string' ? still : still.url, idx, canCompare: false });
+                        movieGroups[key].stills.push({ url: typeof still === 'string' ? still : still.url, idx, canCompare: false, isHidden: false });
                     }
                 });
                 
@@ -4403,7 +4455,7 @@
                             </div>
                             <div style="display:flex;flex-wrap:wrap;gap:8px;">
                                 ${group.stills.map(s => `
-                                    <div class="chip draggable-image" style="padding:4px;cursor:move;position:relative;"
+                                    <div class="chip draggable-image" style="padding:4px;cursor:move;position:relative;${s.isHidden ? 'opacity:0.4;' : ''}"
                                          draggable="true"
                                          ondragstart="handleImageDragStart(event, ${s.idx}, 'stills')"
                                          ondragend="handleImageDragEnd(event)"
@@ -4414,10 +4466,15 @@
                                              title="长按拖拽调整顺序"
                                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2275%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>🎬</text></svg>'">
                                         <button onclick="removePlaceStill(${s.idx})" style="margin-left:4px;">×</button>
-                                        <label style="display:flex;align-items:center;gap:2px;font-size:10px;color:#666;margin-top:2px;cursor:pointer;" title="勾选后可在App中合拍">
-                                            <input type="checkbox" ${s.canCompare ? 'checked' : ''} onchange="toggleStillCompare(${s.idx}, this.checked)" style="width:12px;height:12px;">
-                                            <span>📷</span>
-                                        </label>
+                                        <div style="display:flex;gap:4px;margin-top:2px;">
+                                            <label style="display:flex;align-items:center;gap:2px;font-size:10px;color:#666;cursor:pointer;" title="勾选后可在App中合拍">
+                                                <input type="checkbox" ${s.canCompare ? 'checked' : ''} onchange="toggleStillCompare(${s.idx}, this.checked)" style="width:12px;height:12px;">
+                                                <span>📷</span>
+                                            </label>
+                                            <button onclick="toggleStillHidden(${s.idx})" style="font-size:10px;padding:0 4px;cursor:pointer;background:${s.isHidden ? '#ff6b6b' : '#51cf66'};color:white;border:none;border-radius:2px;" title="${s.isHidden ? '点击显示此剧照' : '点击隐藏此剧照'}">
+                                                ${s.isHidden ? '👁️‍🗨️' : '👁️'}
+                                            </button>
+                                        </div>
                                     </div>
                                 `).join('')}
                             </div>
@@ -4460,6 +4517,17 @@
                     placeStills[idx].canCompare = canCompare;
                 }
                 console.log(`剧照 ${idx + 1} 可合拍状态: ${canCompare}`);
+            }
+        }
+        
+        // 切换剧照的隐藏/显示状态
+        function toggleStillHidden(idx) {
+            if (idx >= 0 && idx < placeStills.length) {
+                if (typeof placeStills[idx] === 'object') {
+                    placeStills[idx].isHidden = !placeStills[idx].isHidden;
+                    console.log(`剧照 ${idx + 1} 隐藏状态: ${placeStills[idx].isHidden}`);
+                    renderPlaceStills(); // 重新渲染以更新UI
+                }
             }
         }
         

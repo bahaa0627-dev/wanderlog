@@ -21,6 +21,7 @@ export interface SourceData {
   osm?: Record<string, any>;
   wikidata?: Record<string, any>;
   fsq?: Record<string, any>;
+  yelp?: Record<string, any>;
   apify?: Record<string, any>;
 }
 
@@ -150,6 +151,7 @@ class MergePolicyService {
       ?? sources.osm?.[field] 
       ?? sources.wikidata?.[field]
       ?? sources.fsq?.[field]
+      ?? sources.yelp?.[field]
       ?? sources.apify?.[field];
   }
   
@@ -161,6 +163,7 @@ class MergePolicyService {
       ?? sources.google?.[field] 
       ?? sources.osm?.[field]
       ?? sources.fsq?.[field]
+      ?? sources.yelp?.[field]
       ?? sources.apify?.[field];
   }
   
@@ -172,6 +175,7 @@ class MergePolicyService {
       ?? sources.google?.[field] 
       ?? sources.wikidata?.[field]
       ?? sources.fsq?.[field]
+      ?? sources.yelp?.[field]
       ?? sources.apify?.[field];
   }
   

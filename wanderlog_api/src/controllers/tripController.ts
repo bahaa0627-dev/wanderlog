@@ -714,9 +714,49 @@ const normalizePlace = (dbPlace: any) => {
     phoneNumber: dbPlace.phoneNumber || dbPlace.phone_number,
     googlePlaceId: dbPlace.googlePlaceId || dbPlace.google_place_id,
     source: dbPlace.source,
-    custom_fields: dbPlace.custom_fields || dbPlace.customFields || null,
+    custom_fields: filterHiddenStillsFromCustomFields(dbPlace.custom_fields || dbPlace.customFields),
     createdAt: dbPlace.created_at ? new Date(dbPlace.created_at).toISOString() : null,
     updatedAt: dbPlace.updated_at ? new Date(dbPlace.updated_at).toISOString() : null,
+  };
+};
+
+/**
+ * 过滤 custom_fields 中隐藏的剧照 (isHidden === true)
+ */
+const filterHiddenStillsFromCustomFields = (customFields: any): any => {
+  if (!customFields) return null;
+  
+  // 解析 customFields
+  let parsed: any;
+  try {
+    parsed = typeof customFields === 'string' ? JSON.parse(customFields) : customFields;
+  } catch {
+    return customFields;
+  }
+  
+  if (!parsed || typeof parsed !== 'object') {
+    return parsed;
+  }
+  
+  // 如果没有 stills 数组，直接返回
+  if (!parsed.stills || !Array.isArray(parsed.stills)) {
+    return parsed;
+  }
+  
+  // Debug: 打印过滤信息
+  const originalCount = parsed.stills.length;
+  console.log(`[filterHiddenStills-trip] 开始过滤, 剧照数量: ${originalCount}`);
+  
+  const hiddenStills = parsed.stills.filter((still: any) => still.isHidden === true);
+  
+  // 过滤掉隐藏的剧照 (isHidden === true)
+  const visibleStills = parsed.stills.filter((still: any) => still.isHidden !== true);
+  
+  console.log(`[filterHiddenStills-trip] 结果: 原始=${originalCount}, 隐藏=${hiddenStills.length}, 可见=${visibleStills.length}`);
+  
+  return {
+    ...parsed,
+    stills: visibleStills,
   };
 };
 

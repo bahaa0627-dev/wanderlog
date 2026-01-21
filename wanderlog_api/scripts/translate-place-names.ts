@@ -1,150 +1,182 @@
 /**
- * 翻译非英文地点名为英文
- * 使用 OpenAI API 进行翻译
+ * Translate non-English place names to English using Kouri API (OpenAI compatible)
  */
-import prisma from '../src/config/database';
+
 import axios from 'axios';
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+import { createClient } from '@supabase/supabase-js';
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-// 检测可能是非英文的名称
-function needsTranslation(name: string): boolean {
-  const nonEnglishPatterns = [
-    // 西班牙语/加泰罗尼亚语
-    /[áéíóúüñ]/i,
-    /\b(el|la|los|las|del|de|y|en|con|para|por|un|una)\b/i,
-    /\b(calle|plaza|paseo|avenida|carrer|plaça|carretera)\b/i,
-    /\b(restaurante|cafetería|tienda|mercado|museo|iglesia|parque|jardín|mirador|biblioteca)\b/i,
-    /\b(sant|santa|san)\b/i,
-    // 意大利语
-    /\b(via|piazza|palazzo|chiesa|museo|giardino|ponte|fontana|villa)\b/i,
-    /\b(il|lo|la|gli|le|di|da|in|su|per|tra|fra)\b/i,
-    // 法语
-    /[àâäçèéêëîïôùûü]/i,
-    /\b(rue|place|avenue|boulevard|jardin|musée|église|pont|château)\b/i,
-    /\b(le|la|les|du|de|des|un|une|et|ou|dans|sur|pour)\b/i,
-    // 德语
-    /[äöüß]/i,
-    /\b(straße|platz|kirche|museum|garten|brücke|schloss|haus)\b/i,
-    // 日语/韩语/中文（已经是非ASCII）
-    /[\u3000-\u9fff\uac00-\ud7af]/,
-  ];
-  
-  return nonEnglishPatterns.some(pattern => pattern.test(name));
+const KOURI_API_KEY = process.env.KOURI_API_KEY;
+const KOURI_BASE_URL = process.env.KOURI_BASE_URL || 'https://api.kourichat.com/v1';
+const BATCH_SIZE = 10;
+const DELAY_MS = 2000;
+
+// Check if text contains non-ASCII characters
+function isNonEnglish(text: string): boolean {
+  if (!text) return false;
+  return /[^\x00-\x7F]/.test(text);
 }
 
-// 批量翻译
-async function translateBatch(names: string[]): Promise<Map<string, string>> {
-  const result = new Map<string, string>();
-  
-  if (names.length === 0) return result;
-  
-  const prompt = `Translate the following place names to English. Keep proper nouns (brand names, personal names) unchanged. Return ONLY a JSON object mapping original names to translations.
+async function translateBatch(names: string[]): Promise<Record<string, string>> {
+  const prompt = `Translate the following place names to English. These are real place names from various countries (Japan, Italy, France, Germany, Austria, etc.).
 
-Place names:
+Rules:
+1. Keep well-known English names (e.g., "新宿駅" → "Shinjuku Station")
+2. For Japanese places, use romanization + English descriptor (e.g., "代々木公園" → "Yoyogi Park")
+3. For European places with special characters, just romanize/anglicize (e.g., "Caffè Gilli" → "Caffe Gilli")
+4. Keep brand names as-is if commonly used
+
+Place names to translate:
 ${names.map((n, i) => `${i + 1}. ${n}`).join('\n')}
 
-Return format: {"original name": "English translation", ...}`;
+Return ONLY a valid JSON object (no markdown, no explanation):
+{"original name": "English translation", ...}`;
 
   try {
     const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
+      `${KOURI_BASE_URL}/chat/completions`,
       {
         model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 2000,
       },
       {
         headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${KOURI_API_KEY}`,
         },
+        timeout: 60000,
       }
     );
-    
-    const content = response.data.choices[0]?.message?.content;
-    if (content) {
-      const translations = JSON.parse(content);
-      for (const [original, translated] of Object.entries(translations)) {
-        result.set(original, translated as string);
-      }
+
+    const content = response.data.choices[0]?.message?.content?.trim();
+    if (!content) {
+      console.error('Empty response from API');
+      return {};
     }
-  } catch (e: any) {
-    console.error('Translation error:', e.message);
+
+    // Extract JSON from response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    console.error('Failed to parse response:', content.substring(0, 200));
+    return {};
+  } catch (error: any) {
+    console.error('Translation error:', error.response?.data?.error?.message || error.message);
+    return {};
   }
-  
-  return result;
 }
 
 async function main() {
+  if (!KOURI_API_KEY) {
+    console.error('❌ KOURI_API_KEY not configured');
+    process.exit(1);
+  }
+  
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase credentials');
+  }
+  
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   const dryRun = process.argv.includes('--dry-run');
-  const cityFilter = process.argv.find(a => a.startsWith('--city='))?.split('=')[1];
   
-  console.log(`🌐 开始翻译地点名 (dry-run: ${dryRun})`);
-  if (cityFilter) console.log(`   只处理城市: ${cityFilter}`);
+  console.log('\n╔══════════════════════════════════════════════════════════════════════════════╗');
+  console.log('║                   TRANSLATE PLACE NAMES                                       ║');
+  console.log('╚══════════════════════════════════════════════════════════════════════════════╝\n');
   
-  // 获取需要翻译的地点
-  const where: any = {};
-  if (cityFilter) where.city = cityFilter;
+  // Get all mocation places with non-English names
+  const { data: places } = await supabase
+    .from('places')
+    .select('id, name, i18n, country')
+    .eq('source', 'mocation');
   
-  const places = await prisma.place.findMany({
-    where,
-    select: { id: true, name: true, city: true }
-  });
+  const toTranslate = places?.filter(p => isNonEnglish(p.name)) || [];
   
-  // 筛选需要翻译的
-  const toTranslate = places.filter(p => needsTranslation(p.name));
-  console.log(`\n找到 ${toTranslate.length}/${places.length} 个地点需要翻译\n`);
+  console.log(`📊 Found ${toTranslate.length} places with non-English names`);
+  console.log(`   Mode: ${dryRun ? 'DRY RUN' : 'TRANSLATE & UPDATE'}`);
+  console.log('');
   
   if (toTranslate.length === 0) {
-    console.log('没有需要翻译的地点');
+    console.log('✅ All place names are already in English!');
     return;
   }
   
-  // 按批次处理（每批10个，避免 rate limit）
-  const batchSize = 10;
+  // Process in batches
   let translated = 0;
-  let skipped = 0;
+  let failed = 0;
   
-  for (let i = 0; i < toTranslate.length; i += batchSize) {
-    const batch = toTranslate.slice(i, i + batchSize);
+  for (let i = 0; i < toTranslate.length; i += BATCH_SIZE) {
+    const batch = toTranslate.slice(i, i + BATCH_SIZE);
     const names = batch.map(p => p.name);
     
-    console.log(`\n📦 处理批次 ${Math.floor(i / batchSize) + 1}/${Math.ceil(toTranslate.length / batchSize)}`);
+    console.log(`\n📦 Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(toTranslate.length / BATCH_SIZE)}`);
+    console.log(`   Translating ${names.length} names...`);
     
     const translations = await translateBatch(names);
     
     for (const place of batch) {
-      const newName = translations.get(place.name);
+      const englishName = translations[place.name];
       
-      if (newName && newName !== place.name) {
-        console.log(`  ✅ ${place.name} -> ${newName}`);
+      if (!englishName) {
+        console.log(`   ⚠️  No translation for: ${place.name}`);
+        failed++;
+        continue;
+      }
+      
+      console.log(`   ✅ ${place.name} → ${englishName}`);
+      
+      if (!dryRun) {
+        // Update the place
+        const newI18n = {
+          ...place.i18n,
+          name_original: place.name, // Keep original name
+          name_en: englishName,
+        };
         
-        if (!dryRun) {
-          await prisma.place.update({
-            where: { id: place.id },
-            data: { name: newName }
-          });
+        const { error } = await supabase
+          .from('places')
+          .update({ 
+            name: englishName,
+            i18n: newI18n,
+          })
+          .eq('id', place.id);
+        
+        if (error) {
+          console.log(`   ❌ Update failed: ${error.message}`);
+          failed++;
+        } else {
+          translated++;
         }
-        translated++;
       } else {
-        skipped++;
+        translated++;
       }
     }
     
-    // 避免 rate limit - 等待更长时间
-    if (i + batchSize < toTranslate.length) {
-      console.log('  ⏳ 等待 5 秒...');
-      await new Promise(r => setTimeout(r, 5000));
+    // Delay between batches
+    if (i + BATCH_SIZE < toTranslate.length) {
+      await new Promise(r => setTimeout(r, DELAY_MS));
     }
   }
   
-  console.log(`\n=== 完成 ===`);
-  console.log(`翻译: ${translated}`);
-  console.log(`跳过: ${skipped}`);
+  console.log('\n╔══════════════════════════════════════════════════════════════════════════════╗');
+  console.log('║                        TRANSLATION COMPLETE                                   ║');
+  console.log('╚══════════════════════════════════════════════════════════════════════════════╝\n');
   
-  await prisma.$disconnect();
+  console.log('📊 Summary:');
+  console.log(`   Translated: ${translated}`);
+  console.log(`   Failed: ${failed}`);
+  console.log('');
 }
 
 main().catch(console.error);

@@ -111,8 +111,10 @@ class StillsListPage extends ConsumerWidget {
             }),
           ],
           
-          // 2. Others stills（包含：有可拼图电影中不可拼图的剧照 + 完全没有可拼图的电影）
-          if (nonCompareableStillsFromCompareableMovies.isNotEmpty || otherMovieStills.isNotEmpty) ...[
+          // 2. Others stills（仅当有可拼图内容时才显示此区域）
+          // 如果没有任何可拼图的剧照，直接显示所有电影剧照，不需要 "Others stills" 标题
+          if (compareableMovieStills.isNotEmpty && 
+              (nonCompareableStillsFromCompareableMovies.isNotEmpty || otherMovieStills.isNotEmpty)) ...[
             // Others stills 标题（紧凑间距）
             const SizedBox(height: 8),
             Text(
@@ -134,6 +136,25 @@ class StillsListPage extends ConsumerWidget {
             ],
             
             // 完全没有可拼图的电影（按电影分组显示，不同剧集之间有分隔线）
+            ...otherMovieStills.entries.toList().asMap().entries.map((mapEntry) {
+              final index = mapEntry.key;
+              final entry = mapEntry.value;
+              final movieId = entry.key;
+              final stills = entry.value;
+              final movie = movies.firstWhere(
+                (m) => m.movieId == movieId,
+                orElse: () => MovieReference(movieId: movieId),
+              );
+              final isLast = index == otherMovieStills.length - 1;
+              return _buildOtherMovieSection(
+                context, movie, stills, validStills, isZh,
+                showDivider: !isLast,
+              );
+            }),
+          ],
+          
+          // 3. 如果没有任何可拼图的剧照，直接显示所有电影剧照（不显示 "Others stills" 标题）
+          if (compareableMovieStills.isEmpty && otherMovieStills.isNotEmpty) ...[
             ...otherMovieStills.entries.toList().asMap().entries.map((mapEntry) {
               final index = mapEntry.key;
               final entry = mapEntry.value;

@@ -90,6 +90,58 @@ class SearchRepository {
     }
   }
 
+  /// 全局关键词搜索（搜索地点名称、tags、ai_tags）
+  Future<SearchResult> searchByKeyword({
+    required String query,
+    String? city,
+    String? country,
+    int limit = 50,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{
+        'q': query,
+        'limit': limit,
+      };
+      
+      if (city != null && city.isNotEmpty) {
+        queryParams['city'] = city;
+      }
+      if (country != null && country.isNotEmpty) {
+        queryParams['country'] = country;
+      }
+
+      print('🔍 API Request: public-places/search');
+      print('🔍 Params: $queryParams');
+
+      final response = await _dio.get<Map<String, dynamic>>(
+        'public-places/search',
+        queryParameters: queryParams,
+      );
+      
+      print('🔍 Response status: ${response.statusCode}');
+      
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final dataList = response.data!['data'] as List;
+        print('🔍 Data count: ${dataList.length}');
+        
+        final places = dataList
+            .map((e) => SearchPlaceResult.fromJson(e as Map<String, dynamic>))
+            .toList();
+        
+        return SearchResult(
+          places: places,
+          total: (response.data!['total'] as int?) ?? places.length,
+          isAiGenerated: false,
+        );
+      }
+      
+      return SearchResult(places: [], total: 0);
+    } catch (e) {
+      print('❌ API Error: $e');
+      return SearchResult(places: [], total: 0);
+    }
+  }
+
   /// 使用 AI 生成地点（当数据库没有匹配结果时）
   Future<SearchResult> generatePlacesWithAI({
     required String city,

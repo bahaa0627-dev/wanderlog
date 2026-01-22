@@ -256,7 +256,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       iconAnchor: IconAnchor.BOTTOM,
       // 2x 分辨率图片，缩放比例减半
       iconSize: widget.markerMode == MapboxMarkerMode.checkIn
-          ? 1.0  // checkIn 模式使用 1.0，因为图片是 2x 分辨率 (60*2*1.0 = 120px)
+          ? 1.0  // checkIn 模式使用 1.0，因为图片是 2x 分辨率 (30*2*1.0 = 60px，缩小50%)
           : (isSelected ? 1.2 : 1.0),
       // 选中的 marker 使用更高的 sortKey，确保在最上层
       // sortKey 越大越在上面
@@ -497,87 +497,79 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
   Future<Uint8List> _createCheckInMarkerBitmap() async {
     const double scale = 2.0;
-    const double markerWidth = 60.0;
-    const double markerHeight = 50.0;
-    const double triangleHeight = 12.0;
-    const double totalHeight = markerHeight + triangleHeight;
-    const double cornerRadius = 25.0;
-    const double triangleWidth = 16.0;
+    // 缩小 50%：从 60 改为 30
+    const double markerWidth = 30.0;
+    const double markerHeight = 30.0; // 水滴高度
+    const double tipHeight = 4.0; // 底部尖角高度（也缩小 50%）
+    const double totalHeight = markerHeight + tipHeight;
+    const double radius = markerWidth / 2; // 圆形半径
 
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
     canvas.scale(scale);
 
+    // 使用黄色，不添加任何效果
     final bgPaint = Paint()
-      ..color = const Color(0xFFFFD93D)
+      ..color = const Color(0xFFFFD93D) // 黄色
       ..style = PaintingStyle.fill;
 
-    final borderPaint = Paint()
-      ..color = AppTheme.black
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-
-    final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.2)
-      ..style = PaintingStyle.fill;
-
-    const left = 0.0;
-    const top = 0.0;
-    const right = markerWidth;
-    const bottom = markerHeight;
     const centerX = markerWidth / 2;
-    const tipY = totalHeight;
+    const circleCenterY = radius; // 圆形中心Y坐标
+    const tipY = totalHeight; // 底部尖角Y坐标
 
-    final path = Path()
-      ..moveTo(left + cornerRadius, top)
-      ..lineTo(right - cornerRadius, top)
-      ..arcToPoint(
-        const Offset(right, top + cornerRadius),
-        radius: const Radius.circular(cornerRadius),
-      )
-      ..lineTo(right, bottom - cornerRadius)
-      ..arcToPoint(
-        const Offset(right - cornerRadius, bottom),
-        radius: const Radius.circular(cornerRadius),
-      )
-      ..lineTo(centerX + triangleWidth / 2, bottom)
-      ..lineTo(centerX, tipY)
-      ..lineTo(centerX - triangleWidth / 2, bottom)
-      ..lineTo(left + cornerRadius, bottom)
-      ..arcToPoint(
-        const Offset(left, bottom - cornerRadius),
-        radius: const Radius.circular(cornerRadius),
-      )
-      ..lineTo(left, top + cornerRadius)
-      ..arcToPoint(
-        const Offset(left + cornerRadius, top),
-        radius: const Radius.circular(cornerRadius),
-      )
-      ..close();
-
-    canvas.save();
-    canvas.translate(1.5, 2);
-    canvas.drawPath(path, shadowPaint);
-    canvas.restore();
-
-    canvas.drawPath(path, bgPaint);
-    canvas.drawPath(path, borderPaint);
-
-    final textPainter = TextPainter(
-      text: const TextSpan(
-        text: '✓',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-        ),
+    // 创建水滴形状路径
+    // 水滴形状：上半部分是圆形，下半部分是尖角
+    final path = Path();
+    
+    // 画上半圆（从左侧底部到右侧底部，180度）
+    final bottomY = circleCenterY + radius;
+    path.addArc(
+      Rect.fromCircle(
+        center: Offset(centerX, circleCenterY),
+        radius: radius,
       ),
-      textDirection: TextDirection.ltr,
+      -3.14159, // -180度（从顶部开始）
+      3.14159,  // 180度（画上半圆）
     );
-    textPainter.layout();
-    final textX = (markerWidth - textPainter.width) / 2;
-    final textY = (markerHeight - textPainter.height) / 2;
-    textPainter.paint(canvas, Offset(textX, textY));
+    
+    // 从圆的底部中心点向下画尖角
+    path.lineTo(centerX, tipY); // 到尖角底部
+    path.close(); // 闭合路径（会自动回到起点）
+
+    // 只绘制填充，不添加任何效果
+    canvas.drawPath(path, bgPaint);
+
+    // 绘制白色对勾（调整大小以适应缩小后的图标）
+    final checkmarkPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5 // 缩小对勾线条宽度
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    // 对勾路径（在圆形区域内）
+    final checkmarkPath = Path();
+    final checkmarkSize = radius * 0.55; // 对勾大小（稍微缩小）
+    final checkmarkX = centerX;
+    final checkmarkY = circleCenterY;
+    
+    // 对勾的左下角
+    checkmarkPath.moveTo(
+      checkmarkX - checkmarkSize * 0.3,
+      checkmarkY + checkmarkSize * 0.05,
+    );
+    // 对勾的中间点
+    checkmarkPath.lineTo(
+      checkmarkX - checkmarkSize * 0.1,
+      checkmarkY + checkmarkSize * 0.3,
+    );
+    // 对勾的右上角
+    checkmarkPath.lineTo(
+      checkmarkX + checkmarkSize * 0.4,
+      checkmarkY - checkmarkSize * 0.15,
+    );
+    
+    canvas.drawPath(checkmarkPath, checkmarkPaint);
 
     final picture = pictureRecorder.endRecording();
     final image = await picture.toImage(
@@ -586,7 +578,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     );
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final result = byteData!.buffer.asUint8List();
-    print('📍 [共享地图] checkIn 标记图片生成完成: ${(markerWidth * scale).toInt()}x${(totalHeight * scale).toInt()}, ${result.length} bytes');
+    print('📍 [共享地图] checkIn 标记图片生成完成（水滴形状，缩小50%）: ${(markerWidth * scale).toInt()}x${(totalHeight * scale).toInt()}, ${result.length} bytes');
     return result;
   }
 

@@ -14,6 +14,7 @@ import 'package:wanderlog/features/profile/presentation/widgets/photo_wall.dart'
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page;
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
+import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 
 /// Mine page - displays user's visited places and check-in photos
 class MinePage extends ConsumerStatefulWidget {
@@ -24,6 +25,14 @@ class MinePage extends ConsumerStatefulWidget {
 }
 
 class _MinePageState extends ConsumerState<MinePage> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final mineDataAsync = ref.watch(minePageDataProvider);
@@ -59,6 +68,7 @@ class _MinePageState extends ConsumerState<MinePage> {
 
   Widget _buildContent(BuildContext context, MinePageData data) {
     return CustomScrollView(
+      controller: _scrollController,
       slivers: [
         // Header
         SliverToBoxAdapter(
@@ -132,6 +142,7 @@ class _MinePageState extends ConsumerState<MinePage> {
 
   void _openFullscreenMap(BuildContext context, MinePageData data) {
     // Convert visited spots to map_page.Spot format with cover images
+    // Note: visitedSpots is already sorted by visitDate (newest first) in the provider
     final spots = data.visitedSpots.where((ts) => ts.spot != null).map((tripSpot) {
       final spot = tripSpot.spot!;
       // Get cover image from user photos or spot images
@@ -155,6 +166,11 @@ class _MinePageState extends ConsumerState<MinePage> {
         coverImage: coverImage,
         images: spot.images,
         tags: spot.tags,
+        // Add detail page fields
+        address: spot.address,
+        phoneNumber: spot.phoneNumber,
+        website: spot.website,
+        openingHours: spot.openingHours,
       );
     }).toList();
 
@@ -256,6 +272,11 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
         coverImage: coverImage,
         images: spot.images,
         tags: spot.tags,
+        // Add detail page fields
+        address: spot.address,
+        phoneNumber: spot.phoneNumber,
+        website: spot.website,
+        openingHours: spot.openingHours,
       );
     }).toList();
     
@@ -439,6 +460,7 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
   String? _selectedCountry;
   final Set<String> _selectedTags = {};
   int _currentCardIndex = 0;
+  bool _isExiting = false; // 标记是否正在退出
 
   // Get dynamic tags from filtered spots
   List<String> get _dynamicTagOptions {
@@ -467,6 +489,7 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
   void initState() {
     super.initState();
     _carouselController = PageController(viewportFraction: 0.55);
+    // widget.spots is already sorted by visitDate (newest first) from the provider
     _filteredSpots = List.from(widget.spots);
     _searchController.addListener(_onSearchChanged);
   }
@@ -608,7 +631,17 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
                     // Back button
                     _NeoBrutalismIconButton(
                       icon: Icons.arrow_back,
-                      onTap: () => Navigator.of(context).pop(),
+                      onTap: () {
+                        // 退出时立即隐藏 carousel，避免卡片露出
+                        setState(() {
+                          _isExiting = true;
+                        });
+                        // 重置 carousel 位置
+                        if (_carouselController.hasClients) {
+                          _carouselController.jumpToPage(0);
+                        }
+                        Navigator.of(context).pop();
+                      },
                     ),
                     const SizedBox(width: 8),
                     // Search bar
@@ -626,7 +659,8 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
           ),
 
           // Bottom carousel - vertical cards matching map page style
-          if (carouselSpots.isNotEmpty)
+          // 退出时隐藏 carousel，避免卡片露出
+          if (carouselSpots.isNotEmpty && !_isExiting)
             Positioned(
               bottom: 32,
               left: 0,
@@ -837,21 +871,15 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
   }
 
   void _onSpotTap(map_page.Spot spot) {
-    final index = _filteredSpots.indexWhere((s) => s.id == spot.id);
-    if (index != -1) {
-      setState(() {
-        _selectedSpot = spot;
-        _currentCardIndex = index;
-      });
-      _carouselController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-      _mapKey.currentState?.jumpToPosition(
-        Position(spot.longitude, spot.latitude),
-      );
-    }
+    // Show spot detail modal
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => UnifiedSpotDetailModal(
+        spot: spot,
+      ),
+    );
   }
 }
 

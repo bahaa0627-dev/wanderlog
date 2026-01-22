@@ -859,8 +859,9 @@ class _TripCardState extends State<_TripCard> {
                   ),
                 ),
 
-                // 内容层 - 顶部标签
-                Positioned(
+                // 内容层 - 顶部标签（只在图片加载成功后显示）
+                if (_imageLoaded)
+                  Positioned(
                   left: 12,
                   right: 12,
                   top: 12,
@@ -958,8 +959,9 @@ class _TripCardState extends State<_TripCard> {
                   ),
                 ),
 
-                // 底部标题和标签层 - 固定在底部
-                Positioned(
+                // 底部标题和标签层 - 固定在底部（只在图片加载成功后显示）
+                if (_imageLoaded)
+                  Positioned(
                   left: 12,
                   right: 12,
                   bottom: 12,
@@ -1017,12 +1019,25 @@ class _TripCardState extends State<_TripCard> {
     if (widget.imageUrl.startsWith('data:image/')) {
       final bytes = _decodeBase64Image(widget.imageUrl);
       if (bytes.isEmpty) return const SizedBox.shrink();
+      // base64 图片是同步加载的，立即设置加载状态
+      if (!_imageLoaded && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _imageLoaded = true);
+          }
+        });
+      }
       return Image.memory(
         bytes,
         fit: BoxFit.cover,
         gaplessPlayback: true,
         filterQuality: FilterQuality.low,
-        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        errorBuilder: (_, __, ___) {
+          if (mounted) {
+            setState(() => _imageLoaded = false);
+          }
+          return const SizedBox.shrink();
+        },
       );
     }
 

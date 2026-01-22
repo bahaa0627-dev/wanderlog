@@ -87,10 +87,16 @@ class _PhotoViewerOverlayState extends State<PhotoViewerOverlay> {
               return GestureDetector(
                 onTap: () => Navigator.of(context).pop(),
                 child: Center(
-                  child: InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 3.0,
-                    child: _buildImage(photo),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 3.0,
+                        child: _buildImage(photo),
+                      ),
+                    ),
                   ),
                 ),
               );

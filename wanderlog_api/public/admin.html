@@ -1307,30 +1307,30 @@
                     <label>分类</label>
                     <select id="placeCategory">
                         <option value="">请选择分类</option>
-                        <option value="landmark">Landmark (地标)</option>
-                        <option value="museum">Museum (博物馆)</option>
-                        <option value="art_gallery">Gallery (美术馆)</option>
-                        <option value="shopping_mall">Shopping (商场)</option>
-                        <option value="cafe">Cafe (咖啡店)</option>
                         <option value="bakery">Bakery (面包店)</option>
-                        <option value="restaurant">Restaurant (餐馆)</option>
                         <option value="bar">Bar (酒吧)</option>
-                        <option value="hotel">Hotel (酒店)</option>
-                        <option value="church">Church (教堂)</option>
-                        <option value="library">Library (图书馆)</option>
                         <option value="bookstore">Bookstore (书店)</option>
-                        <option value="cemetery">Cemetery (墓园)</option>
-                        <option value="park">Park (公园)</option>
+                        <option value="building">Building (建筑)</option>
+                        <option value="cafe">Cafe (咖啡店)</option>
                         <option value="castle">Castle (城堡)</option>
+                        <option value="cemetery">Cemetery (墓园)</option>
+                        <option value="church">Church (教堂)</option>
+                        <option value="art_gallery">Gallery (美术馆)</option>
+                        <option value="hotel">Hotel (酒店)</option>
+                        <option value="landmark">Landmark (地标)</option>
+                        <option value="library">Library (图书馆)</option>
                         <option value="market">Market (市集)</option>
+                        <option value="museum">Museum (博物馆)</option>
+                        <option value="others">Others (其他)</option>
+                        <option value="park">Park (公园)</option>
+                        <option value="restaurant">Restaurant (餐馆)</option>
                         <option value="shop">Shop (商店)</option>
-                        <option value="yarn_store">Yarn (毛线店)</option>
+                        <option value="shopping_mall">Shopping (商场)</option>
+                        <option value="temple">Temple (寺庙)</option>
                         <option value="thrift_store">Thrift (二手店)</option>
                         <option value="university">University (大学)</option>
-                        <option value="temple">Temple (寺庙)</option>
+                        <option value="yarn_store">Yarn (毛线店)</option>
                         <option value="zoo">Zoo (动物园)</option>
-                        <option value="building">Building (建筑)</option>
-                        <option value="others">Others (其他)</option>
                     </select>
                 </div>
             </div>
@@ -1962,6 +1962,13 @@
                 // 显示所有分类
                 categoriesToShow = filterOptions.categories;
             }
+            
+            // 按分类名称字母顺序排序
+            categoriesToShow.sort((a, b) => {
+                const nameA = (a.name || '').toLowerCase();
+                const nameB = (b.name || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
             
             categoriesToShow.forEach(c => {
                 const option = document.createElement('option');

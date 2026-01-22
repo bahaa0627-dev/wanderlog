@@ -94,6 +94,7 @@ class MinePageData {
 }
 
 /// Provider for Mine page data
+/// Uses keepAlive to cache data and improve performance
 final minePageDataProvider = FutureProvider<MinePageData>((ref) async {
   try {
     print('🏠 [MinePageProvider] Loading trips data...');
@@ -101,6 +102,10 @@ final minePageDataProvider = FutureProvider<MinePageData>((ref) async {
     print('🏠 [MinePageProvider] Loaded ${tripsAsync.length} trips');
     final result = _processMinePageData(tripsAsync);
     print('🏠 [MinePageProvider] Processed: ${result.countriesCount} countries, ${result.citiesCount} cities, ${result.mapMarkers.length} markers');
+    
+    // Keep data alive to avoid unnecessary reloads
+    ref.keepAlive();
+    
     return result;
   } catch (e, stack) {
     print('🏠 [MinePageProvider] Error: $e');

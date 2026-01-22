@@ -32,7 +32,7 @@ class TripsBottomNav extends StatelessWidget {
               onTap: () => onItemTapped(0),
             ),
             _NavItem(
-              label: 'MyLand',
+              label: 'VAGO',
               active: selectedIndex == 1,
               onTap: () => onItemTapped(1),
             ),
@@ -58,22 +58,66 @@ class _NavItem extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: active
-              ? BoxDecoration(
-                  color: AppTheme.primaryYellow,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                )
-              : null,
-          child: Text(
-            label,
-            style: AppTheme.labelLarge(context).copyWith(
-              color: active ? AppTheme.black : AppTheme.mediumGray,
+  Widget build(BuildContext context) {
+    // 使用 20px 字号
+    final textStyle = AppTheme.labelLarge(context).copyWith(
+      fontSize: 20,
+      color: active 
+          ? AppTheme.black 
+          : AppTheme.black.withOpacity(0.48), // 48% 透明度黑色
+    );
+    
+    // 测量文字大小以确定画笔背景大小
+    final textPainter = TextPainter(
+      text: TextSpan(text: label, style: textStyle),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    
+    final textWidth = textPainter.width;
+    final textHeight = textPainter.height;
+    
+    // 计算固定尺寸，确保文字位置不变
+    final containerWidth = textWidth + 40; // 文字宽度 + 左右 padding
+    final containerHeight = 50.0; // 固定高度
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        // 固定宽度和高度，确保文字位置完全不变
+        width: containerWidth,
+        height: containerHeight,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // 画笔样式背景（选中时）- 使用图片，根据文字大小自适应
+            if (active)
+              Positioned(
+                // 完全居中，不影响文字位置
+                left: (containerWidth - (textWidth + 32)) / 2,
+                top: (containerHeight - (textHeight + 20)) / 2,
+                child: SizedBox(
+                  width: textWidth + 32, // 文字宽度 + 左右边距
+                  height: textHeight + 20, // 文字高度 + 上下边距
+                  child: Image.asset(
+                    'assets/images/pencil.jpg',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            // 文字 - 使用 Positioned 精确定位在中心，确保位置不变
+            Positioned(
+              left: (containerWidth - textWidth) / 2,
+              top: (containerHeight - textHeight) / 2,
+              child: Text(
+                label,
+                style: textStyle,
+              ),
             ),
-          ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
+

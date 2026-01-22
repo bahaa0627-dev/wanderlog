@@ -26,6 +26,15 @@ dotenv.config();
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
+const MISSING_FIELDS_FILTER = [
+  'address.is.null',
+  'opening_hours.is.null',
+  'rating.is.null',
+  'rating_count.is.null',
+  'description.is.null',
+  'website.is.null',
+  'phone_number.is.null',
+].join(',');
 
 interface Options {
   batchSize: number;
@@ -104,7 +113,8 @@ async function getTotalCount(): Promise<number> {
   const { count, error } = await supabase
     .from('places')
     .select('*', { count: 'exact', head: true })
-    .eq('source', 'wikidata');
+    .eq('source', 'wikidata')
+    .or(MISSING_FIELDS_FILTER);
 
   if (error) {
     throw new Error(`Failed to count places: ${error.message}`);
@@ -119,6 +129,7 @@ async function fetchBatch(batchNumber: number, batchSize: number): Promise<Wikid
     .from('places')
     .select('id,name,latitude,longitude,address,city,country,description,opening_hours,rating,rating_count,website,phone_number,cover_image,images,source_detail,custom_fields')
     .eq('source', 'wikidata')
+    .or(MISSING_FIELDS_FILTER)
     .order('id', { ascending: true })
     .range(offset, offset + batchSize - 1);
 
@@ -279,53 +290,40 @@ async function processPlace(
 ): Promise<{ updateData: Record<string, unknown>; customFields: Record<string, unknown> }> {
   const qid = row.source_detail || undefined;
   const updateData: Record<string, unknown> = {};
+  const needsReverseGeocode = !row.address || !row.city || !row.country;
 
-  let osmResult = null;
-  try {
-    osmResult = await osmEnrichmentService.enrichPlace({
+  // Run all API calls in parallel
+  const [osmResult, wikiResult, ratingsResult, reverseGeocodeResult] = await Promise.all([
+    // OSM
+    osmEnrichmentService.enrichPlace({
       qid,
       name: row.name,
       latitude: row.latitude,
       longitude: row.longitude,
-    });
-  } catch (error) {
-    console.warn(`⚠️  OSM lookup failed for ${row.name}: ${error instanceof Error ? error.message : String(error)}`);
-  }
-
-  let wikiResult = null;
-  if (qid) {
-    try {
-      wikiResult = await wikidataDescriptionService.fetchDescription(qid);
-    } catch (error) {
-      console.warn(`⚠️  Wikidata summary failed for ${row.name}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  let ratingsResult = null;
-  if (ratingsProviders.length > 0) {
-    try {
-      ratingsResult = await ratingsProviderService.fetchBestRating({
-        name: row.name,
-        latitude: row.latitude,
-        longitude: row.longitude,
-        city: row.city,
-        country: row.country,
-        providers: ratingsProviders,
-      });
-    } catch (error) {
-      console.warn(`⚠️  Ratings lookup failed for ${row.name}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  let reverseGeocodeResult = null;
-  const needsReverseGeocode = !row.address || !row.city || !row.country;
-  if (needsReverseGeocode) {
-    try {
-      reverseGeocodeResult = await reverseGeocodeService.reverseGeocode(row.latitude, row.longitude);
-    } catch (error) {
-      console.warn(`⚠️  Reverse geocode failed for ${row.name}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
+    }).catch(() => null),
+    
+    // Wikidata/Wikipedia
+    qid
+      ? wikidataDescriptionService.fetchDescription(qid).catch(() => null)
+      : Promise.resolve(null),
+    
+    // Ratings
+    ratingsProviders.length > 0
+      ? ratingsProviderService.fetchBestRating({
+          name: row.name,
+          latitude: row.latitude,
+          longitude: row.longitude,
+          city: row.city,
+          country: row.country,
+          providers: ratingsProviders,
+        }).catch(() => null)
+      : Promise.resolve(null),
+    
+    // Reverse Geocode
+    needsReverseGeocode
+      ? reverseGeocodeService.reverseGeocode(row.latitude, row.longitude).catch(() => null)
+      : Promise.resolve(null),
+  ]);
 
   const sources = buildSources(row, {
     osm: osmResult
@@ -430,9 +428,11 @@ async function main() {
   let updated = 0;
   let skipped = 0;
   let failed = 0;
+  let processed = 0;
 
   for (let i = 0; i < batchesToProcess; i++) {
     const batchNumber = options.startBatch + i;
+    const batchStartTime = Date.now();
     console.log(`\n${'='.repeat(80)}`);
     console.log(`BATCH ${batchNumber + 1}/${totalBatches}`);
     console.log('='.repeat(80));
@@ -443,6 +443,7 @@ async function main() {
       continue;
     }
 
+    let processedInBatch = 0;
     for (const row of rows) {
       try {
         const { updateData, customFields } = await processPlace(row, options.ratingsProviders);
@@ -455,6 +456,11 @@ async function main() {
 
         if (!shouldUpdate) {
           skipped++;
+          processed++;
+          processedInBatch++;
+          if (processedInBatch % 25 === 0 || processedInBatch === rows.length) {
+            console.log(`Progress: batch ${batchNumber + 1}/${totalBatches} - ${processedInBatch}/${rows.length} (overall ${processed}/${totalPlaces})`);
+          }
           continue;
         }
 
@@ -473,11 +479,24 @@ async function main() {
         }
 
         updated++;
+        processed++;
+        processedInBatch++;
+        if (processedInBatch % 25 === 0 || processedInBatch === rows.length) {
+          console.log(`Progress: batch ${batchNumber + 1}/${totalBatches} - ${processedInBatch}/${rows.length} (overall ${processed}/${totalPlaces})`);
+        }
       } catch (error) {
         failed++;
+        processed++;
+        processedInBatch++;
         console.error(`❌ Failed to enrich ${row.name}: ${error instanceof Error ? error.message : String(error)}`);
+        if (processedInBatch % 25 === 0 || processedInBatch === rows.length) {
+          console.log(`Progress: batch ${batchNumber + 1}/${totalBatches} - ${processedInBatch}/${rows.length} (overall ${processed}/${totalPlaces})`);
+        }
       }
     }
+
+    const batchDurationSeconds = ((Date.now() - batchStartTime) / 1000).toFixed(1);
+    console.log(`Batch ${batchNumber + 1} done in ${batchDurationSeconds}s (updated: ${updated}, skipped: ${skipped}, failed: ${failed})`);
   }
 
   console.log('\n' + '='.repeat(80));

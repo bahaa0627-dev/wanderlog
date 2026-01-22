@@ -113,12 +113,18 @@ export class RatingsProviderService {
     url.searchParams.set('limit', '5');
     url.searchParams.set('fields', 'name,location,distance,rating,stats,link');
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
     const response = await fetch(url.toString(), {
       headers: {
         Authorization: this.foursquareApiKey,
         Accept: 'application/json',
       },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       return null;
@@ -180,12 +186,18 @@ export class RatingsProviderService {
     url.searchParams.set('radius', `${this.defaultRadiusMeters}`);
     url.searchParams.set('limit', '5');
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
     const response = await fetch(url.toString(), {
       headers: {
         Authorization: `Bearer ${this.yelpApiKey}`,
         Accept: 'application/json',
       },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       return null;

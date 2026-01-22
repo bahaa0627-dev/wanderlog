@@ -30,15 +30,24 @@ class SettingsPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 标题
+            // Header with back button
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-              child: Text(
-                l10n.settingsTitle,
-                style: AppTheme.displayLarge(context),
+              padding: const EdgeInsets.fromLTRB(12, 16, 20, 16),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: AppTheme.black),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    l10n.settingsTitle,
+                    style: AppTheme.displayLarge(context),
+                  ),
+                ],
               ),
             ),
-            // 内容列表
+            // Content list
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
@@ -46,13 +55,17 @@ class SettingsPage extends ConsumerWidget {
                   // Account
                   _SettingsItem(
                     title: l10n.accountTitle,
-                    subtitle: isLoggedIn 
-                        ? '📮 ${user?.email ?? ""}' 
+                    subtitle: isLoggedIn
+                        ? '📮 ${user?.email ?? ""}'
                         : l10n.accountNotLoggedIn,
                     showArrow: true,
-                    onTap: () => isLoggedIn
-                        ? _showLogoutDialog(context, ref, l10n)
-                        : context.push('/login'),
+                    onTap: () {
+                      if (isLoggedIn) {
+                        _showLogoutDialog(context, ref, l10n);
+                      } else {
+                        context.push('/login');
+                      }
+                    },
                   ),
                   const _Divider(),
 
@@ -66,7 +79,8 @@ class SettingsPage extends ConsumerWidget {
                     customContent: Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryYellow,
                           borderRadius: BorderRadius.circular(16),
@@ -86,11 +100,16 @@ class SettingsPage extends ConsumerWidget {
                   // Language
                   _SettingsItem(
                     title: l10n.languageTitle,
-                    subtitle: currentLanguage == AppLanguage.english 
-                        ? 'English' 
+                    subtitle: currentLanguage == AppLanguage.english
+                        ? 'English'
                         : '中文',
                     showArrow: true,
-                    onTap: () => _showLanguageSheet(context, ref, l10n, currentLanguage),
+                    onTap: () => _showLanguageSheet(
+                      context,
+                      ref,
+                      l10n,
+                      currentLanguage,
+                    ),
                   ),
                   const _Divider(),
 
@@ -110,7 +129,8 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  void _showLogoutDialog(BuildContext context, WidgetRef ref, AppLocalizations l10n) {
+  void _showLogoutDialog(
+      BuildContext context, WidgetRef ref, AppLocalizations l10n) {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -119,12 +139,15 @@ class SettingsPage extends ConsumerWidget {
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           side: const BorderSide(color: AppTheme.black, width: 2),
         ),
-        title: Text(l10n.logoutTitle, style: AppTheme.headlineMedium(context)),
-        content: Text(l10n.logoutConfirm, style: AppTheme.bodyMedium(context)),
+        title:
+            Text(l10n.logoutTitle, style: AppTheme.headlineMedium(context)),
+        content:
+            Text(l10n.logoutConfirm, style: AppTheme.bodyMedium(context)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.cancel, style: const TextStyle(color: AppTheme.mediumGray)),
+            child: Text(l10n.cancel,
+                style: const TextStyle(color: AppTheme.mediumGray)),
           ),
           TextButton(
             onPressed: () async {
@@ -134,16 +157,24 @@ class SettingsPage extends ConsumerWidget {
                 CustomToast.showSuccess(context, l10n.logoutSuccess);
               }
             },
-            child: Text(l10n.confirm, style: const TextStyle(color: AppTheme.error)),
+            child: Text(l10n.confirm,
+                style: const TextStyle(color: AppTheme.error)),
           ),
         ],
       ),
     );
   }
 
+  void _showFeedbackDialog(BuildContext context, AppLocalizations l10n) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => _FeedbackDialog(l10n: l10n),
+    );
+  }
+
   void _showLanguageSheet(
-    BuildContext context, 
-    WidgetRef ref, 
+    BuildContext context,
+    WidgetRef ref,
     AppLocalizations l10n,
     AppLanguage currentLanguage,
   ) {
@@ -166,7 +197,9 @@ class SettingsPage extends ConsumerWidget {
                 label: 'English',
                 isSelected: currentLanguage == AppLanguage.english,
                 onTap: () {
-                  ref.read(localeProvider.notifier).setLocale(AppLanguage.english);
+                  ref
+                      .read(localeProvider.notifier)
+                      .setLocale(AppLanguage.english);
                   Navigator.of(context).pop();
                 },
               ),
@@ -175,7 +208,9 @@ class SettingsPage extends ConsumerWidget {
                 label: '中文',
                 isSelected: currentLanguage == AppLanguage.chinese,
                 onTap: () {
-                  ref.read(localeProvider.notifier).setLocale(AppLanguage.chinese);
+                  ref
+                      .read(localeProvider.notifier)
+                      .setLocale(AppLanguage.chinese);
                   Navigator.of(context).pop();
                 },
               ),
@@ -183,13 +218,6 @@ class SettingsPage extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
-
-  void _showFeedbackDialog(BuildContext context, AppLocalizations l10n) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => _FeedbackDialog(l10n: l10n),
     );
   }
 }
@@ -339,7 +367,6 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
 
   Future<void> _saveToAlbum() async {
     if (_imageBytes == null) {
-      // 如果还没加载图片，先加载
       await _loadImage();
       if (_imageBytes == null) {
         if (mounted) {
@@ -352,8 +379,6 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
     setState(() => _isSaving = true);
 
     try {
-      // iOS 上直接保存，不需要显式请求权限
-      // image_gallery_saver 会自动处理权限
       final result = await ImageGallerySaver.saveImage(
         _imageBytes!,
         quality: 100,
@@ -363,29 +388,28 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
       debugPrint('Save result: $result');
 
       if (mounted) {
-        // 检查保存结果
-        final isSuccess = result['isSuccess'] == true || 
-                          result['isSuccess'] == 'true' ||
-                          (result['filePath'] != null && result['filePath'].toString().isNotEmpty);
-        
+        final isSuccess = result['isSuccess'] == true ||
+            result['isSuccess'] == 'true' ||
+            (result['filePath'] != null &&
+                result['filePath'].toString().isNotEmpty);
+
         if (isSuccess) {
           CustomToast.showSuccess(context, widget.l10n.saveSuccess);
         } else {
-          // 可能是权限问题，尝试请求权限后重试
           final status = await Permission.photosAddOnly.request();
           if (status.isGranted || status.isLimited) {
-            // 重试保存
             final retryResult = await ImageGallerySaver.saveImage(
               _imageBytes!,
               quality: 100,
               name: 'vago_wechat_qr_${DateTime.now().millisecondsSinceEpoch}',
             );
             debugPrint('Retry save result: $retryResult');
-            
-            final retrySuccess = retryResult['isSuccess'] == true || 
-                                 retryResult['isSuccess'] == 'true' ||
-                                 (retryResult['filePath'] != null && retryResult['filePath'].toString().isNotEmpty);
-            
+
+            final retrySuccess = retryResult['isSuccess'] == true ||
+                retryResult['isSuccess'] == 'true' ||
+                (retryResult['filePath'] != null &&
+                    retryResult['filePath'].toString().isNotEmpty);
+
             if (retrySuccess) {
               CustomToast.showSuccess(context, widget.l10n.saveSuccess);
             } else {
@@ -429,17 +453,18 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 关闭按钮
+                // Close button
                 Align(
                   alignment: Alignment.topRight,
                   child: GestureDetector(
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(Icons.close, color: AppTheme.mediumGray),
+                    child:
+                        const Icon(Icons.close, color: AppTheme.mediumGray),
                   ),
                 ),
-                // 标题 - 👋🏻 Ciao
+                // Title
                 const Text(
-                  '👋🏻 Ciao',
+                  '✋ Ciao',
                   style: TextStyle(
                     fontFamily: 'ReemKufi',
                     fontSize: 28,
@@ -448,7 +473,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // 描述 - scan the QR code / welcome to the VAGO world
+                // Description
                 Text(
                   'scan the QR code',
                   style: AppTheme.bodyMedium(context).copyWith(
@@ -464,35 +489,42 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
-                // 二维码图片 - 使用本地 asset
+                // QR code image
                 Container(
                   width: 180,
                   height: 180,
                   decoration: BoxDecoration(
                     color: AppTheme.white,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    borderRadius:
+                        BorderRadius.circular(AppTheme.radiusMedium),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    borderRadius:
+                        BorderRadius.circular(AppTheme.radiusMedium),
                     child: Image.asset(
                       AppConfig.feedbackQrCodeAsset,
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const Center(
-                        child: Icon(Icons.qr_code, size: 80, color: AppTheme.mediumGray),
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Center(
+                        child: Icon(Icons.qr_code,
+                            size: 80, color: AppTheme.mediumGray),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                // 保存按钮 - Neo Brutalism 黄色样式
+                // Save button
                 GestureDetector(
                   onTap: _isSaving ? null : _saveToAlbum,
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
-                      color: _isSaving ? AppTheme.lightGray : AppTheme.primaryYellow,
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      color: _isSaving
+                          ? AppTheme.lightGray
+                          : AppTheme.primaryYellow,
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
                       border: Border.all(color: AppTheme.black, width: 2),
                       boxShadow: _isSaving
                           ? null
@@ -509,7 +541,8 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Text(
                               widget.l10n.saveToAlbum,

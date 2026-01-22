@@ -86,17 +86,33 @@ class RateLimiter {
 }
 
 export class OsmEnrichmentService {
-  private readonly endpoint: string;
+  private readonly endpoints: string[];
   private readonly rateLimiter: RateLimiter;
   private readonly defaultRadiusMeters: number;
   private readonly maxRetries: number;
 
   constructor(options: OsmEnrichmentOptions = {}) {
     const envEndpoint = process.env.OVERPASS_ENDPOINT;
+    const envEndpoints = process.env.OVERPASS_ENDPOINTS
+      ?.split(',')
+      .map(endpoint => endpoint.trim())
+      .filter(Boolean);
     const envRps = process.env.OVERPASS_RPS ? parseFloat(process.env.OVERPASS_RPS) : undefined;
     const envRetries = process.env.OVERPASS_MAX_RETRIES ? parseInt(process.env.OVERPASS_MAX_RETRIES, 10) : undefined;
 
-    this.endpoint = options.endpoint || envEndpoint || 'https://overpass-api.de/api/interpreter';
+    if (options.endpoint) {
+      this.endpoints = [options.endpoint];
+    } else if (envEndpoints && envEndpoints.length > 0) {
+      this.endpoints = envEndpoints;
+    } else if (envEndpoint) {
+      this.endpoints = [envEndpoint];
+    } else {
+      this.endpoints = [
+        'https://overpass.nchc.org.tw/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter',
+        'https://overpass-api.de/api/interpreter',
+      ];
+    }
     const rps = options.maxRequestsPerSecond ?? envRps ?? 0.5;
     this.rateLimiter = new RateLimiter(Math.max(0.1, rps));
     this.defaultRadiusMeters = options.defaultRadiusMeters ?? 1200;
@@ -198,13 +214,20 @@ out center tags;
       await this.rateLimiter.acquire();
 
       try {
-        const response = await fetch(this.endpoint, {
+        const endpoint = this.endpoints[(attempt - 1) % this.endpoints.length];
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: new URLSearchParams({ data: query }),
+          signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           if (response.status === 429 || response.status >= 500) {
@@ -212,7 +235,7 @@ out center tags;
             await new Promise(resolve => setTimeout(resolve, waitMs));
             continue;
           }
-          throw new Error(`Overpass API error: ${response.status}`);
+          throw new Error(`Overpass API error: ${response.status} (${endpoint})`);
         }
 
         const data = await response.json() as OverpassResponse;

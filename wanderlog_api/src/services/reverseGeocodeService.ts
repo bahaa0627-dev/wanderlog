@@ -75,11 +75,17 @@ export class ReverseGeocodeService {
         url.searchParams.set('lon', String(lon));
         url.searchParams.set('addressdetails', '1');
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
         const response = await fetch(url.toString(), {
           headers: {
             'User-Agent': 'wanderlog-wikidata-enrichment/1.0',
           },
+          signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           if (response.status === 429 || response.status >= 500) {

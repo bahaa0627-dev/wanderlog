@@ -12,6 +12,10 @@ import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 
 /// 共享的 Mapbox 地图组件 - 使用原生标记渲染
+enum MapboxMarkerMode {
+  bubble,
+  checkIn,
+}
 ///
 /// 统一了 Map tab 和 Album 地图的交互逻辑
 class MapboxSpotMap extends StatefulWidget {
@@ -25,6 +29,7 @@ class MapboxSpotMap extends StatefulWidget {
     this.onCameraMove,
     this.cameraPadding,
     this.visitedSpots,
+    this.markerMode = MapboxMarkerMode.bubble,
     super.key,
   });
 
@@ -37,6 +42,7 @@ class MapboxSpotMap extends StatefulWidget {
   final void Function(Position center, double zoom)? onCameraMove;
   final MbxEdgeInsets? cameraPadding;
   final Map<String, bool>? visitedSpots; // spotId -> isVisited
+  final MapboxMarkerMode markerMode;
 
   @override
   State<MapboxSpotMap> createState() => MapboxSpotMapState();
@@ -131,8 +137,13 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       );
 
       await map.gestures.updateSettings(settings);
-      print('✅ [共享地图] 地图手势已启用！双指缩放: 已开启');
+      print('✅ [共享地图] 地图手势已启用！');
+      print('👆 [共享地图] scrollEnabled: ${settings.scrollEnabled}');
       print('👆 [共享地图] pinchToZoomEnabled: ${settings.pinchToZoomEnabled}');
+      
+      // 验证设置是否生效
+      final currentSettings = await map.gestures.getSettings();
+      print('🔍 [共享地图] 验证手势设置 - scrollEnabled: ${currentSettings.scrollEnabled}, pinchToZoomEnabled: ${currentSettings.pinchToZoomEnabled}');
     } catch (e) {
       print('❌ [共享地图] 启用地图手势失败: $e');
     }
@@ -171,17 +182,20 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       
       // 限制一次添加的标记数量，避免卡顿
       final spotsToAdd = spots.length > 50 ? spots.take(50).toList() : spots;
-      print('📍 [共享地图] 将添加 ${spotsToAdd.length} 个标记（总共 ${spots.length} 个）');
+      print('📍 [共享地图] 将添加 ${spotsToAdd.length} 个标记（总共 ${spots.length} 个），模式: ${widget.markerMode}');
 
       // 先添加未选中的标记
       for (final spot in spotsToAdd.where((s) => s.id != selectedId)) {
         if (generation != _markerGeneration) return;
         try {
+          print('📍 [共享地图] 添加标记: ${spot.name} at (${spot.latitude}, ${spot.longitude}), 模式: ${widget.markerMode}');
           final annotation = await _createAnnotation(spot, isSelected: false);
           _annotationsBySpotId[spot.id] = annotation;
           _spotByAnnotationId[annotation.id] = spot;
-        } catch (e) {
+          print('✅ [共享地图] 标记添加成功: ${spot.name}, annotationId: ${annotation.id}');
+        } catch (e, stack) {
           print('⚠️ [共享地图] 添加标记失败: ${spot.name} - $e');
+          print('⚠️ [共享地图] Stack: $stack');
         }
       }
 
@@ -241,11 +255,19 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       image: markerImage,
       iconAnchor: IconAnchor.BOTTOM,
       // 2x 分辨率图片，缩放比例减半
-      iconSize: isSelected ? 1.2 : 1.0,
+      iconSize: widget.markerMode == MapboxMarkerMode.checkIn
+          ? 1.0  // checkIn 模式使用 1.0，因为图片是 2x 分辨率 (60*2*1.0 = 120px)
+          : (isSelected ? 1.2 : 1.0),
       // 选中的 marker 使用更高的 sortKey，确保在最上层
       // sortKey 越大越在上面
-      symbolSortKey: isSelected ? 1000.0 : 0.0,
+      symbolSortKey: widget.markerMode == MapboxMarkerMode.checkIn
+          ? 1000.0  // checkIn 模式所有标记都在最上层
+          : (isSelected ? 1000.0 : 0.0),
     );
+    
+    if (widget.markerMode == MapboxMarkerMode.checkIn) {
+      print('📍 [共享地图] 创建 checkIn 标记: ${spot.name}, iconSize: 1.0, symbolSortKey: 1000.0, 位置: (${spot.latitude}, ${spot.longitude})');
+    }
 
     return manager.create(annotation);
   }
@@ -414,6 +436,20 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     Spot spot, {
     required bool isSelected,
   }) async {
+    if (widget.markerMode == MapboxMarkerMode.checkIn) {
+      const cacheKey = 'checkin_marker';
+      final cached = _markerBitmapCache[cacheKey];
+      if (cached != null) {
+        print('📍 [共享地图] 使用缓存的 checkIn 标记图片，大小: ${cached.length} bytes');
+        return cached;
+      }
+      print('📍 [共享地图] 创建新的 checkIn 标记图片...');
+      final bitmap = await _createCheckInMarkerBitmap();
+      print('📍 [共享地图] checkIn 标记图片创建完成，大小: ${bitmap.length} bytes');
+      _markerBitmapCache[cacheKey] = bitmap;
+      return bitmap;
+    }
+
     final isVisited = widget.visitedSpots?[spot.id] ?? false;
     final isClosed = _isSpotClosed(spot);
     // 使用名称和类别作为缓存 key，因为相同内容的 marker 可以共享 bitmap
@@ -457,6 +493,101 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     );
     _markerBitmapCache[cacheKey] = bitmap;
     return bitmap;
+  }
+
+  Future<Uint8List> _createCheckInMarkerBitmap() async {
+    const double scale = 2.0;
+    const double markerWidth = 60.0;
+    const double markerHeight = 50.0;
+    const double triangleHeight = 12.0;
+    const double totalHeight = markerHeight + triangleHeight;
+    const double cornerRadius = 25.0;
+    const double triangleWidth = 16.0;
+
+    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(pictureRecorder);
+    canvas.scale(scale);
+
+    final bgPaint = Paint()
+      ..color = const Color(0xFFFFD93D)
+      ..style = PaintingStyle.fill;
+
+    final borderPaint = Paint()
+      ..color = AppTheme.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.2)
+      ..style = PaintingStyle.fill;
+
+    const left = 0.0;
+    const top = 0.0;
+    const right = markerWidth;
+    const bottom = markerHeight;
+    const centerX = markerWidth / 2;
+    const tipY = totalHeight;
+
+    final path = Path()
+      ..moveTo(left + cornerRadius, top)
+      ..lineTo(right - cornerRadius, top)
+      ..arcToPoint(
+        const Offset(right, top + cornerRadius),
+        radius: const Radius.circular(cornerRadius),
+      )
+      ..lineTo(right, bottom - cornerRadius)
+      ..arcToPoint(
+        const Offset(right - cornerRadius, bottom),
+        radius: const Radius.circular(cornerRadius),
+      )
+      ..lineTo(centerX + triangleWidth / 2, bottom)
+      ..lineTo(centerX, tipY)
+      ..lineTo(centerX - triangleWidth / 2, bottom)
+      ..lineTo(left + cornerRadius, bottom)
+      ..arcToPoint(
+        const Offset(left, bottom - cornerRadius),
+        radius: const Radius.circular(cornerRadius),
+      )
+      ..lineTo(left, top + cornerRadius)
+      ..arcToPoint(
+        const Offset(left + cornerRadius, top),
+        radius: const Radius.circular(cornerRadius),
+      )
+      ..close();
+
+    canvas.save();
+    canvas.translate(1.5, 2);
+    canvas.drawPath(path, shadowPaint);
+    canvas.restore();
+
+    canvas.drawPath(path, bgPaint);
+    canvas.drawPath(path, borderPaint);
+
+    final textPainter = TextPainter(
+      text: const TextSpan(
+        text: '✓',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    final textX = (markerWidth - textPainter.width) / 2;
+    final textY = (markerHeight - textPainter.height) / 2;
+    textPainter.paint(canvas, Offset(textX, textY));
+
+    final picture = pictureRecorder.endRecording();
+    final image = await picture.toImage(
+      (markerWidth * scale).toInt(),
+      (totalHeight * scale).toInt(),
+    );
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final result = byteData!.buffer.asUint8List();
+    print('📍 [共享地图] checkIn 标记图片生成完成: ${(markerWidth * scale).toInt()}x${(totalHeight * scale).toInt()}, ${result.length} bytes');
+    return result;
   }
 
   /// 使用 Canvas 绘制自定义标记图标
@@ -940,9 +1071,15 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
             _pointAnnotationManager =
                 await mapboxMap.annotations.createPointAnnotationManager();
 
+            print('🗺️ [共享地图] 地图创建完成，初始中心: (${widget.initialCenter.lng}, ${widget.initialCenter.lat}), 缩放: ${widget.initialZoom}');
+            
             await _enableMapGestures();
             await _addNativeMarkers();
             await _applyPendingCamera();
+            
+            // 确保地图显示正确的位置
+            final cameraState = await mapboxMap.getCameraState();
+            print('🗺️ [共享地图] 地图当前相机: (${cameraState.center.coordinates.lng}, ${cameraState.center.coordinates.lat}), 缩放: ${cameraState.zoom}');
 
             _isMapReady = true; // 标记地图已准备好
             widget.onMapCreated?.call();

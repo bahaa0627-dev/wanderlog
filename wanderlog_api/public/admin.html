@@ -1535,7 +1535,16 @@
         // 本地开发：使用相对路径
         // 测试环境：api-test.vago.to
         // 生产环境：api.vago.to
-        const getApiHost = () => {
+        const getApiHostOverride = () => {
+            const params = new URLSearchParams(window.location.search);
+            const override = params.get('apiHost');
+            if (override) {
+                localStorage.setItem('adminApiHost', override);
+                return override;
+            }
+            return localStorage.getItem('adminApiHost') || '';
+        };
+        const getDefaultApiHost = () => {
             const hostname = window.location.hostname;
             if (hostname === 'localhost' || hostname === '127.0.0.1') {
                 return ''; // 本地开发使用相对路径
@@ -1545,13 +1554,25 @@
             }
             return 'https://api.vago.to';
         };
-        const API_HOST = getApiHost();
+        const getApiHost = () => {
+            const override = getApiHostOverride();
+            if (override) return override;
+            return getDefaultApiHost();
+        };
+        let API_HOST = getApiHost();
         console.log('API_HOST:', API_HOST, 'hostname:', window.location.hostname);
-        const API_BASE = `${API_HOST}/api/public-places`;
-        const API_BASE_WITH_INTERNAL_TAGS = `${API_HOST}/api/public-places?includeInternalTags=true`;
-        const SPOT_API_BASE = `${API_HOST}/api/spots`;
-        const COLLECTION_API_BASE = `${API_HOST}/api/collections`;
-        const RECOMMENDATION_API_BASE = `${API_HOST}/api/collection-recommendations`;
+        let API_BASE = `${API_HOST}/api/public-places`;
+        let API_BASE_WITH_INTERNAL_TAGS = `${API_HOST}/api/public-places?includeInternalTags=true`;
+        let SPOT_API_BASE = `${API_HOST}/api/spots`;
+        let COLLECTION_API_BASE = `${API_HOST}/api/collections`;
+        let RECOMMENDATION_API_BASE = `${API_HOST}/api/collection-recommendations`;
+        function setApiBases(host) {
+            API_BASE = `${host}/api/public-places`;
+            API_BASE_WITH_INTERNAL_TAGS = `${host}/api/public-places?includeInternalTags=true`;
+            SPOT_API_BASE = `${host}/api/spots`;
+            COLLECTION_API_BASE = `${host}/api/collections`;
+            RECOMMENDATION_API_BASE = `${host}/api/collection-recommendations`;
+        }
         const FETCH_TIMEOUT = 60000; // 60s 超时
         let currentPage = 1;
         let totalPages = 1;
@@ -1721,12 +1742,32 @@
             return Promise.race([
                 fetch(url, options),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout))
-            ]);
+            ]).catch(err => {
+                const apiLabel = API_HOST ? `API_HOST: ${API_HOST}` : `API_HOST: ${window.location.origin}`;
+                console.error('Fetch failed:', url, apiLabel, err);
+                throw new Error(`${err?.message || 'fetch_failed'} (${apiLabel})`);
+            });
+        }
+
+        async function ensureApiHost() {
+            if (!API_HOST) return;
+            try {
+                await Promise.race([
+                    fetch(`${API_HOST}/health`),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+                ]);
+            } catch (err) {
+                console.warn('API_HOST not reachable, fallback to default:', API_HOST, err);
+                localStorage.removeItem('adminApiHost');
+                API_HOST = getDefaultApiHost();
+                setApiBases(API_HOST);
+            }
         }
 
         // 初始化
         async function init() {
             loadStoredToken();
+            await ensureApiHost();
 
             // 并行加载筛选选项，不阻塞地点列表显示
             loadFilterOptions().catch(err => {
@@ -3916,7 +3957,8 @@
                 document.getElementById('placeModal').style.display = 'flex';
             } catch (e) {
                 console.error('加载地点数据失败:', e);
-                alert('加载地点数据失败: ' + e.message);
+                const apiLabel = API_HOST ? `API_HOST: ${API_HOST}` : `API_HOST: ${window.location.origin}`;
+                alert('加载地点数据失败: ' + e.message + ` (${apiLabel})`);
             }
         }
         

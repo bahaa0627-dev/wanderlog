@@ -19,7 +19,7 @@ import 'package:wanderlog/features/search/presentation/widgets/search_menu_sheet
 import 'package:wanderlog/features/search/presentation/pages/search_results_map_page.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
-import 'package:wanderlog/features/profile/presentation/pages/settings_page.dart';
+import 'package:wanderlog/features/profile/presentation/pages/mine_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({
@@ -271,10 +271,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           children: [
             // 根据底部 tab 显示不同内容
             if (_selectedIndex == 2)
-              // Profile/Settings 页面 - 需要给底部导航留空间
+              // Mine 页面 - 需要给底部导航留空间
               const Positioned.fill(
                 bottom: 70, // 底部导航栏高度
-                child: SettingsPage(),
+                child: MinePage(),
               )
             else
               // Home 页面内容

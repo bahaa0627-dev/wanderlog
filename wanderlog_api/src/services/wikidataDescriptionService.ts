@@ -71,7 +71,15 @@ export class WikidataDescriptionService {
       origin: '*',
     });
 
-    const response = await fetch(`${this.wikidataApiUrl}?${params}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+    const response = await fetch(`${this.wikidataApiUrl}?${params}`, {
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       throw new Error(`Wikidata API error: ${response.status}`);
     }
@@ -120,7 +128,14 @@ export class WikidataDescriptionService {
   private async fetchWikipediaSummary(lang: string, title: string): Promise<string | null> {
     const encodedTitle = encodeURIComponent(title.replace(/ /g, '_'));
     const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodedTitle}`;
-    const response = await fetch(url);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+    const response = await fetch(url, { signal: controller.signal });
+
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       return null;
     }

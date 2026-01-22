@@ -68,6 +68,8 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   bool _shouldRefreshCollections = false;
   bool _skipNextRecenter = false;
   bool _isExiting = false; // 标记是否正在退出页面
+  Position? _initialCenter; // 从第一个地点计算的初始中心点
+  bool _hasInitialCenter = false; // 是否已经确定了初始中心点（避免显示哥本哈根再跳转）
 
   bool? _extractIsFavorited(dynamic collection) {
     if (collection is Map<String, dynamic>) {
@@ -223,6 +225,22 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   void initState() {
     super.initState();
     _isFavorite = _asBool(widget.initialIsFavorited);
+    
+    // 如果有预加载的地点，立即计算第一个地点的坐标作为初始中心
+    if (widget.preloadedSpots != null && widget.preloadedSpots!.isNotEmpty) {
+      final firstSpotData = widget.preloadedSpots!.first;
+      final spotData = (firstSpotData['spot'] ?? firstSpotData['place']) as Map<String, dynamic>?;
+      if (spotData != null) {
+        final lat = (spotData['latitude'] as num?)?.toDouble();
+        final lng = (spotData['longitude'] as num?)?.toDouble();
+        if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+          _initialCenter = Position(lng, lat);
+          _hasInitialCenter = true;
+          print('✅ 从预加载数据设置初始中心: ($lng, $lat)');
+        }
+      }
+    }
+    
     _loadCitySpots();
 
     // 监听卡片滑动，同步更新地图中心
@@ -322,6 +340,14 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
       }
       
       if (spots.isNotEmpty && mounted) {
+        // 如果还没有初始中心，使用第一个地点的坐标
+        if (_initialCenter == null) {
+          final firstSpot = spots[0];
+          _initialCenter = Position(firstSpot.longitude, firstSpot.latitude);
+          _hasInitialCenter = true;
+          print('✅ 从预加载地点设置初始中心: (${firstSpot.longitude}, ${firstSpot.latitude})');
+        }
+        
         setState(() {
           _citySpots = spots;
           _selectedSpot = spots[0];
@@ -430,6 +456,14 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         print('✅ 成功转换了 ${spots.length} 个地点');
         
         if (mounted) {
+          // 如果还没有初始中心，使用第一个地点的坐标
+          if (spots.isNotEmpty && _initialCenter == null) {
+            final firstSpot = spots[0];
+            _initialCenter = Position(firstSpot.longitude, firstSpot.latitude);
+            _hasInitialCenter = true;
+            print('✅ 从API加载的第一个地点设置初始中心: (${firstSpot.longitude}, ${firstSpot.latitude})');
+          }
+          
           setState(() {
             _citySpots = spots;
             if (spots.isNotEmpty) {
@@ -481,6 +515,12 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
 
     if (_citySpots.isNotEmpty) {
       _selectedSpot = _citySpots[0];
+      // 如果还没有初始中心，使用第一个地点的坐标
+      if (_initialCenter == null) {
+        _initialCenter = Position(_citySpots[0].longitude, _citySpots[0].latitude);
+        _hasInitialCenter = true;
+        print('✅ 从mock数据设置初始中心: (${_citySpots[0].longitude}, ${_citySpots[0].latitude})');
+      }
     }
   }
 
@@ -662,10 +702,19 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   };
 
   Position _getCityCenter() {
+    // 优先使用已计算的初始中心（从第一个地点）
+    if (_initialCenter != null) {
+      return _initialCenter!;
+    }
+    
     // 如果有 spots，计算 bounding box 中心点（确保 markers 居中显示）
     if (_citySpots.isNotEmpty) {
       if (_citySpots.length == 1) {
-        return Position(_citySpots.first.longitude, _citySpots.first.latitude);
+        final center = Position(_citySpots.first.longitude, _citySpots.first.latitude);
+        // 缓存初始中心，避免后续重新计算
+        _initialCenter = center;
+        _hasInitialCenter = true;
+        return center;
       }
       
       double minLat = _citySpots.first.latitude;
@@ -680,10 +729,14 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         if (spot.longitude > maxLng) maxLng = spot.longitude;
       }
       
-      return Position(
+      final center = Position(
         (minLng + maxLng) / 2,
         (minLat + maxLat) / 2,
       );
+      // 缓存初始中心
+      _initialCenter = center;
+      _hasInitialCenter = true;
+      return center;
     }
     
     // 否则使用城市坐标
@@ -693,15 +746,68 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
     );
     
     if (cityKey.isNotEmpty) {
-      return _cityCoordinates[cityKey]!;
+      final center = _cityCoordinates[cityKey]!;
+      _initialCenter = center;
+      _hasInitialCenter = true;
+      return center;
     }
     
-    // 默认返回 Copenhagen
-    return _cityCoordinates['Copenhagen']!;
+    // 最后才默认返回 Copenhagen（不应该到达这里，因为 build() 中已经检查了 _hasInitialCenter）
+    final fallback = _cityCoordinates['Copenhagen']!;
+    _initialCenter = fallback;
+    _hasInitialCenter = true;
+    return fallback;
   }
 
   @override
   Widget build(BuildContext context) {
+    // 如果还没有确定初始中心点，显示加载状态，避免先显示哥本哈根再跳转
+    if (!_hasInitialCenter && _initialCenter == null) {
+      return WillPopScope(
+        onWillPop: () async {
+          _handleBack();
+          return false;
+        },
+        child: Scaffold(
+          body: Stack(
+            children: [
+              // 显示加载状态
+              Container(
+                color: Colors.white,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Loading collection…',
+                        style: AppTheme.bodyLarge(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // 顶部导航栏
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _buildAppBar(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final cityCenter = _getCityCenter();
 
     return WillPopScope(
@@ -712,7 +818,7 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
       child: Scaffold(
         body: Stack(
           children: [
-            // 全屏地图 - 使用共享组件（即使没有 spots 也显示地图）
+            // 全屏地图 - 只有在确定了初始中心后才显示
             MapboxSpotMap(
               key: _mapKey,
               spots: _citySpots,
@@ -1391,6 +1497,8 @@ class _CollectionMetaCard extends StatefulWidget {
 
 class _CollectionMetaCardState extends State<_CollectionMetaCard> {
   bool _isExpanded = false;
+  // 缓存头像 widget，避免滑动卡片时重建导致闪动
+  final Map<String, Widget> _avatarCache = {};
 
   bool get _hasMeta =>
       (widget.description?.isNotEmpty ?? false) ||
@@ -1403,6 +1511,17 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
     if (widget.people.isNotEmpty) count++;
     if (widget.works.isNotEmpty) count++;
     return count;
+  }
+
+  @override
+  void didUpdateWidget(_CollectionMetaCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 如果 people 列表变化了，清除头像缓存
+    if (oldWidget.people.length != widget.people.length ||
+        oldWidget.people.any((p) => !widget.people.any((wp) => 
+          wp.name == p.name && wp.avatarUrl == p.avatarUrl))) {
+      _avatarCache.clear();
+    }
   }
 
   @override
@@ -1503,54 +1622,61 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
     final hasLink = person.link != null && person.link!.isNotEmpty;
     final hasAvatar = person.avatarUrl?.isNotEmpty ?? false;
     
-    // 处理头像 URL：支持普通 URL 和 base64
-    Widget avatarWidget;
-    if (hasAvatar) {
-      final url = person.avatarUrl!;
-      if (url.startsWith('data:image')) {
-        // Base64 图片
-        try {
-          final base64Data = url.split(',').last;
-          final bytes = base64Decode(base64Data);
-          avatarWidget = Image.memory(
-            bytes,
+    // 使用缓存键：person.name + avatarUrl（如果有）
+    final cacheKey = hasAvatar ? '${person.name}_${person.avatarUrl}' : '${person.name}_default';
+    
+    // 从缓存获取或创建头像 widget
+    Widget avatarWidget = _avatarCache.putIfAbsent(cacheKey, () {
+      if (hasAvatar) {
+        final url = person.avatarUrl!;
+        if (url.startsWith('data:image')) {
+          // Base64 图片
+          try {
+            final base64Data = url.split(',').last;
+            final bytes = base64Decode(base64Data);
+            return Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              width: 20,
+              height: 20,
+              errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
+            );
+          } catch (e) {
+            return _buildDefaultAvatar();
+          }
+        } else {
+          // 普通 URL
+          String compressedUrl = url;
+          if (url.contains('supabase') || url.contains('storage')) {
+            compressedUrl = url.contains('?') 
+                ? '$url&width=48&height=48' 
+                : '$url?width=48&height=48';
+          }
+          return CachedNetworkImage(
+            imageUrl: compressedUrl,
             fit: BoxFit.cover,
-            width: 20,
-            height: 20,
-            errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
+            memCacheWidth: 48,
+            memCacheHeight: 48,
+            placeholder: (_, __) => _buildDefaultAvatar(),
+            errorWidget: (_, __, ___) => _buildDefaultAvatar(),
           );
-        } catch (e) {
-          avatarWidget = _buildDefaultAvatar();
         }
       } else {
-        // 普通 URL
-        String compressedUrl = url;
-        if (url.contains('supabase') || url.contains('storage')) {
-          compressedUrl = url.contains('?') 
-              ? '$url&width=48&height=48' 
-              : '$url?width=48&height=48';
-        }
-        avatarWidget = CachedNetworkImage(
-          imageUrl: compressedUrl,
-          fit: BoxFit.cover,
-          memCacheWidth: 48,
-          memCacheHeight: 48,
-          placeholder: (_, __) => _buildDefaultAvatar(),
-          errorWidget: (_, __, ___) => _buildDefaultAvatar(),
-        );
+        return _buildDefaultAvatar();
       }
-    } else {
-      avatarWidget = _buildDefaultAvatar();
-    }
+    });
 
     return GestureDetector(
       onTap: hasLink ? () => _openLink(person.link!) : null,
       child: Row(
         children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: ClipOval(child: avatarWidget),
+          // 使用 RepaintBoundary 包裹头像，避免不必要的重绘
+          RepaintBoundary(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: ClipOval(child: avatarWidget),
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(

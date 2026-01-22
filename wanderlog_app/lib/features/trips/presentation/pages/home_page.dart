@@ -60,14 +60,22 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialTabIndex;
-    _loadRecommendations();
-    // 使用 addPostFrameCallback 延迟预加载，避免在 widget 构建期间修改 provider
+    
+    // 延迟加载推荐数据，让页面先显示，提升感知性能
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(placesCacheProvider.notifier).preloadPlaces();
-      ref.read(collectionsCacheProvider.notifier).preloadCollections();
-      ref.read(countriesCitiesProvider.notifier).preload();
-      // 预加载城市选择器数据（带统计信息），避免打开时加载慢
-      ref.read(countriesCitiesStatsProvider.notifier).load();
+      _loadRecommendations();
+    });
+    
+    // 使用 addPostFrameCallback 延迟预加载，避免在 widget 构建期间修改 provider
+    // 进一步延迟预加载，避免阻塞初始渲染
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        ref.read(placesCacheProvider.notifier).preloadPlaces();
+        ref.read(collectionsCacheProvider.notifier).preloadCollections();
+        ref.read(countriesCitiesProvider.notifier).preload();
+        // 预加载城市选择器数据（带统计信息），避免打开时加载慢
+        ref.read(countriesCitiesStatsProvider.notifier).load();
+      }
     });
     
     // 监听搜索框变化
@@ -337,7 +345,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   ),
                                 )
                               : ListView.builder(
-                                  padding: const EdgeInsets.symmetric(vertical: 0),
+                                  padding: const EdgeInsets.only(bottom: 80), // 底部 padding（底部导航栏高度约82px + 安全区域）
+                                  cacheExtent: 500, // 优化性能：减少预加载范围
                                   itemCount: _recommendations.length,
                                   itemBuilder: (context, recommendationIndex) {
                                     final recommendation = _recommendations[recommendationIndex];
@@ -348,7 +357,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     
                                     return Padding(
                                       padding: EdgeInsets.only(
-                                        bottom: recommendationIndex < _recommendations.length - 1 ? 16 : 0, // 合集推荐之间间距 16px
+                                        bottom: recommendationIndex < _recommendations.length - 1 ? 16 : 16, // 合集推荐之间间距 16px，最后一个合集底部也留 16px
                                       ),
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -390,12 +399,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                                             ),
                                           ),
                                           const SizedBox(height: 8), // 合集标题距离合集卡片 8px
-                                          // 横向滚动的合集列表 - 增加高度以容纳阴影
+                                          // 横向滚动的合集列表 - 增加高度以容纳阴影和底部间距
                                           SizedBox(
-                                            height: 258, // 卡片高度 250px + 阴影偏移 4px + 边距 4px
+                                            height: 270, // 卡片高度 250px + 阴影偏移 4px + 边距 16px（确保卡片完全显示）
                                             child: ListView.builder(
                                               scrollDirection: Axis.horizontal,
                                               clipBehavior: Clip.none,
+                                              cacheExtent: 200, // 优化性能：减少横向预加载范围
                                               padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
                                               itemCount: displayItems.length,
                                               itemBuilder: (context, itemIndex) {
@@ -751,7 +761,10 @@ class _TripCardState extends State<_TripCard> {
   @override
   void initState() {
     super.initState();
-    _extractDominantColor();
+    // 延迟提取主色调，避免阻塞初始渲染
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _extractDominantColor();
+    });
   }
 
   @override
@@ -1015,7 +1028,19 @@ class _TripCardState extends State<_TripCard> {
   }
 
   /// 构建封面图片，处理加载状态
+  /// 使用 4:3 竖向比例（3:4 宽高比），自动裁剪中间部分
   Widget _buildCoverImage() {
+    // 使用 AspectRatio 确保 4:3 竖向比例（宽:高 = 3:4）
+    return AspectRatio(
+      aspectRatio: 3 / 4, // 竖向 4:3，即宽:高 = 3:4
+      child: ClipRect(
+        child: _buildImageContent(),
+      ),
+    );
+  }
+
+  /// 构建图片内容（支持 base64 和网络图片）
+  Widget _buildImageContent() {
     if (widget.imageUrl.startsWith('data:image/')) {
       final bytes = _decodeBase64Image(widget.imageUrl);
       if (bytes.isEmpty) return const SizedBox.shrink();
@@ -1029,7 +1054,7 @@ class _TripCardState extends State<_TripCard> {
       }
       return Image.memory(
         bytes,
-        fit: BoxFit.cover,
+        fit: BoxFit.cover, // 自动裁剪中间部分以适应 4:3 比例
         gaplessPlayback: true,
         filterQuality: FilterQuality.low,
         errorBuilder: (_, __, ___) {

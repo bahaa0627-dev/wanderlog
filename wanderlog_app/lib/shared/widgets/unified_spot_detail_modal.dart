@@ -479,7 +479,8 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   /// 从缓存同步读取收藏状态（立即生效，无需等待）
   void _loadWishlistStatusFromCache() {
     // 1. 首先尝试从同步缓存读取完整状态（最快，无延迟）
-    final fullStatus = WishlistStatusCache.getFullStatus(_spotId);
+    // 尝试使用 _spotId（可能是 UUID 或 googlePlaceId）
+    var fullStatus = WishlistStatusCache.getFullStatus(_spotId);
     if (fullStatus != null && fullStatus.destinationId != null) {
       _isWishlist = true;
       _destinationId = fullStatus.destinationId;
@@ -489,8 +490,50 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       return;
     }
     
+    // 如果 _spotId 是 UUID，也尝试使用 googlePlaceId 查找
+    if (_isValidUUID(_spotId)) {
+      try {
+        final googlePlaceId = (widget.spot as dynamic).googlePlaceId as String?;
+        if (googlePlaceId != null && googlePlaceId != _spotId) {
+          fullStatus = WishlistStatusCache.getFullStatus(googlePlaceId);
+          if (fullStatus != null && fullStatus.destinationId != null) {
+            _isWishlist = true;
+            _destinationId = fullStatus.destinationId;
+            _isMustGo = fullStatus.isMustGo;
+            _isTodaysPlan = fullStatus.isTodaysPlan;
+            _isVisited = fullStatus.isVisited;
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+    
+    // 如果 _spotId 是 googlePlaceId，也尝试使用 UUID 查找（如果 _actualPlaceId 存在）
+    if (_actualPlaceId != null && _actualPlaceId != _spotId) {
+      fullStatus = WishlistStatusCache.getFullStatus(_actualPlaceId!);
+      if (fullStatus != null && fullStatus.destinationId != null) {
+        _isWishlist = true;
+        _destinationId = fullStatus.destinationId;
+        _isMustGo = fullStatus.isMustGo;
+        _isTodaysPlan = fullStatus.isTodaysPlan;
+        _isVisited = fullStatus.isVisited;
+        return;
+      }
+    }
+    
     // 2. 尝试从基础缓存读取
-    final (isInCache, cachedDestId) = WishlistStatusCache.check(_spotId);
+    var (isInCache, cachedDestId) = WishlistStatusCache.check(_spotId);
+    if (!isInCache && _actualPlaceId != null && _actualPlaceId != _spotId) {
+      (isInCache, cachedDestId) = WishlistStatusCache.check(_actualPlaceId!);
+    }
+    if (!isInCache) {
+      try {
+        final googlePlaceId = (widget.spot as dynamic).googlePlaceId as String?;
+        if (googlePlaceId != null && googlePlaceId != _spotId) {
+          (isInCache, cachedDestId) = WishlistStatusCache.check(googlePlaceId);
+        }
+      } catch (_) {}
+    }
     if (isInCache) {
       _isWishlist = true;
       _destinationId = cachedDestId;
@@ -500,7 +543,18 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
     // 3. 回退到 FutureProvider 缓存
     final statusAsync = ref.read(wishlistStatusProvider);
     statusAsync.whenData((statusMap) {
-      final (isInWishlist, destId) = checkWishlistStatus(statusMap, _spotId);
+      var (isInWishlist, destId) = checkWishlistStatus(statusMap, _spotId);
+      if (!isInWishlist && _actualPlaceId != null && _actualPlaceId != _spotId) {
+        (isInWishlist, destId) = checkWishlistStatus(statusMap, _actualPlaceId!);
+      }
+      if (!isInWishlist) {
+        try {
+          final googlePlaceId = (widget.spot as dynamic).googlePlaceId as String?;
+          if (googlePlaceId != null && googlePlaceId != _spotId) {
+            (isInWishlist, destId) = checkWishlistStatus(statusMap, googlePlaceId);
+          }
+        } catch (_) {}
+      }
       if (isInWishlist) {
         _isWishlist = true;
         _destinationId = destId;
@@ -559,6 +613,141 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
           ],
         ),
       ),
+    );
+  }
+
+  /// 显示全屏图片查看器，支持左右滑动查看多张图片
+  void _showFullScreenImage(int initialIndex) {
+    if (_spotImages.isEmpty) return;
+    
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black,
+      builder: (context) {
+        final pageController = PageController(initialPage: initialIndex);
+        int currentIndex = initialIndex;
+        
+        return StatefulBuilder(
+          builder: (context, setDialogState) => Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: EdgeInsets.zero,
+            child: Stack(
+              children: [
+                // 全屏图片轮播
+                PageView.builder(
+                  controller: pageController,
+                  itemCount: _spotImages.length,
+                  onPageChanged: (index) {
+                    setDialogState(() {
+                      currentIndex = index;
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    final imageUrl = _spotImages[index];
+                    return GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        color: Colors.black,
+                        // 添加左右边距，图片居中显示
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Center(
+                          child: InteractiveViewer(
+                            minScale: 0.5,
+                            maxScale: 3.0,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(24), // 24px 圆角
+                              child: imageUrl.startsWith('data:')
+                                  ? Image.memory(
+                                      _decodeBase64Image(imageUrl)!,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) => Container(
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: Colors.black,
+                                          borderRadius: BorderRadius.circular(24),
+                                        ),
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.broken_image,
+                                            color: Colors.white54,
+                                            size: 64,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) => Container(
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: Colors.black,
+                                          borderRadius: BorderRadius.circular(24),
+                                        ),
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.broken_image,
+                                            color: Colors.white54,
+                                            size: 64,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                // 关闭按钮
+                Positioned(
+                  top: 40,
+                  right: 20,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+                // 图片指示器（多张图片时显示）
+                if (_spotImages.length > 1)
+                  Positioned(
+                    bottom: 40,
+                    left: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        _spotImages.length,
+                        (index) => Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: index == currentIndex
+                                ? AppTheme.primaryYellow
+                                : Colors.white.withOpacity(0.5),
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -687,6 +876,26 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
                 _userPhotos = tripSpot.userPhotos ?? [];
                 _isLoadingCheckInData = false; // 加载完成
               });
+            }
+            // 更新缓存，使用 UUID 和 googlePlaceId 两个键，确保下次打开时能正确读取
+            final uuid = tripSpot.spotId;
+            final googlePlaceId = tripSpot.spot?.googlePlaceId;
+            WishlistStatusCache.updateFullStatus(
+              uuid,
+              destinationId: detail.id,
+              isMustGo: tripSpot.isMustGo,
+              isTodaysPlan: tripSpot.isTodaysPlan,
+              isVisited: tripSpot.isVisited,
+            );
+            // 如果 googlePlaceId 存在且与 UUID 不同，也更新缓存
+            if (googlePlaceId != null && googlePlaceId != uuid) {
+              WishlistStatusCache.updateFullStatus(
+                googlePlaceId,
+                destinationId: detail.id,
+                isMustGo: tripSpot.isMustGo,
+                isTodaysPlan: tripSpot.isTodaysPlan,
+                isVisited: tripSpot.isVisited,
+              );
             }
             return;
           }
@@ -1241,16 +1450,51 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       if (tripSpot != null) {
         setState(() {
           _actualPlaceId = tripSpot.spotId;
+          _isWishlist = true; // 确保状态更新为已收藏
         });
+        // 使用 UUID 和 googlePlaceId 两个键更新缓存，确保下次打开时能正确读取
+        final uuid = tripSpot.spotId;
+        final googlePlaceId = tripSpot.spot?.googlePlaceId;
+        WishlistStatusCache.updateFullStatus(
+          uuid,
+          destinationId: destId,
+          isMustGo: _isMustGo,
+          isTodaysPlan: _isTodaysPlan,
+          isVisited: _isVisited,
+        );
+        // 如果 googlePlaceId 存在且与 UUID 不同，也更新缓存
+        if (googlePlaceId != null && googlePlaceId != uuid) {
+          WishlistStatusCache.updateFullStatus(
+            googlePlaceId,
+            destinationId: destId,
+            isMustGo: _isMustGo,
+            isTodaysPlan: _isTodaysPlan,
+            isVisited: _isVisited,
+          );
+        }
+        // 如果 _originalSpotId 与 UUID 不同，也更新缓存（可能是 googlePlaceId 或其他 ID）
+        if (_originalSpotId != uuid && _originalSpotId != googlePlaceId) {
+          WishlistStatusCache.updateFullStatus(
+            _originalSpotId,
+            destinationId: destId,
+            isMustGo: _isMustGo,
+            isTodaysPlan: _isTodaysPlan,
+            isVisited: _isVisited,
+          );
+        }
+      } else {
+        // 如果没有返回 tripSpot，使用 _spotId 更新缓存
+        setState(() {
+          _isWishlist = true; // 确保状态更新为已收藏
+        });
+        WishlistStatusCache.updateFullStatus(
+          _spotId,
+          destinationId: destId,
+          isMustGo: _isMustGo,
+          isTodaysPlan: _isTodaysPlan,
+          isVisited: _isVisited,
+        );
       }
-      // 立即更新同步缓存，保留原有状态
-      WishlistStatusCache.updateFullStatus(
-        _spotId,
-        destinationId: destId,
-        isMustGo: _isMustGo,
-        isTodaysPlan: _isTodaysPlan,
-        isVisited: _isVisited,
-      );
       ref.invalidate(tripsProvider);
       ref.invalidate(wishlistStatusProvider);
       if (mounted) {
@@ -1900,48 +2144,52 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
         // 1. Image section with close button and collection entry
         Stack(
           children: [
+            // 图片容器 - 详情页图片铺满，无左右边距
             SizedBox(
               height: 300,
               child: _spotImages.isNotEmpty
-                  ? PageView.builder(
-                      controller: _imagePageController,
-                      onPageChanged: (index) => setState(() => _currentImageIndex = index),
-                      itemCount: _spotImages.length,
-                      itemBuilder: (context, index) {
-                        final imageSource = _spotImages[index];
-                        if (imageSource.startsWith('data:')) {
-                          final bytes = _decodeBase64Image(imageSource);
-                          if (bytes != null) {
-                            return ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                              child: Image.memory(
-                                bytes,
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: double.infinity,
-                                gaplessPlayback: true,
-                                errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                              ),
-                            );
+                  ? GestureDetector(
+                      onTap: () => _showFullScreenImage(_currentImageIndex),
+                      child: PageView.builder(
+                        controller: _imagePageController,
+                        onPageChanged: (index) => setState(() => _currentImageIndex = index),
+                        itemCount: _spotImages.length,
+                        itemBuilder: (context, index) {
+                          final imageSource = _spotImages[index];
+                          if (imageSource.startsWith('data:')) {
+                            final bytes = _decodeBase64Image(imageSource);
+                            if (bytes != null) {
+                              return ClipRRect(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                                child: Image.memory(
+                                  bytes,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  gaplessPlayback: true,
+                                  errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                                ),
+                              );
+                            }
+                            return _buildPlaceholder();
                           }
-                          return _buildPlaceholder();
-                        }
-                        return ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                          child: Image.network(
-                            imageSource,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            gaplessPlayback: true,
-                            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                              if (wasSynchronouslyLoaded) return child;
-                              return child;
-                            },
-                            errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                          ),
-                        );
-                      },
+                          return ClipRRect(
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                            child: Image.network(
+                              imageSource,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              gaplessPlayback: true,
+                              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                                if (wasSynchronouslyLoaded) return child;
+                                return child;
+                              },
+                              errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                            ),
+                          );
+                        },
+                      ),
                     )
                   : _buildPlaceholder(),
             ),

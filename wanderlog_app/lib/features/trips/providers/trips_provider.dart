@@ -10,9 +10,13 @@ final tripRepositoryProvider = Provider<TripRepository>((ref) {
 });
 
 // Trips List Provider
+// 使用 keepAlive 缓存数据，避免重复加载
 final tripsProvider = FutureProvider<List<Trip>>((ref) async {
   final repository = ref.watch(tripRepositoryProvider);
-  return await repository.getMyTrips();
+  final trips = await repository.getMyTrips();
+  // 缓存数据，提升性能
+  ref.keepAlive();
+  return trips;
 });
 
 // Single Trip Provider

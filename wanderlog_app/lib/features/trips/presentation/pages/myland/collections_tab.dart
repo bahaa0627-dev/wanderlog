@@ -34,7 +34,10 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
   @override
   void initState() {
     super.initState();
-    _loadCollections();
+    // 延迟加载，让页面先显示
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCollections();
+    });
   }
 
   @override

@@ -156,6 +156,8 @@ class _MyLandScreenState extends State<MyLandScreen> {
           Expanded(
             child: IndexedStack(
                 index: _selectedTabIndex,
+                // IndexedStack 会保持所有子 widget 的状态，但只有当前 index 的 widget 会被渲染
+                // 这样可以避免切换 tab 时重新加载数据
                 children: [
                   SpotsTab(
                     initialSubTab: widget.initialSpotsSubTab,

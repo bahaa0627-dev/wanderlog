@@ -301,8 +301,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         _pendingSelectedSlug = savedSlug;
       }
     }
-    unawaited(_loadDestinationsFromServer());
+    // 延迟加载数据，让页面先显示
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_loadDestinationsFromServer());
       _notifyCityChanged();
       _notifyCityOptionsChanged();
     });

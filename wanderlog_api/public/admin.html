@@ -1152,9 +1152,9 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>封面图上传 *（竖向 4:3，≤5MB）</label>
+                        <label>封面图上传 *（≤5MB）</label>
                         <input id="colCoverFile" type="file" accept="image/*" onchange="handleCoverFile(this.files)">
-                        <div class="upload-hint">支持本地图片，自动转换为 DataURL。尺寸≤5MB，宽高约 3:4（竖向）。</div>
+                        <div class="upload-hint">支持本地图片，自动转换为 DataURL。尺寸≤5MB，上传后前端会自动裁剪为 4:3 比例。</div>
                         <div class="upload-preview" id="coverPreview" style="display:none;">
                             <img id="coverPreviewImg" alt="封面预览">
                             <div class="info" id="coverPreviewInfo"></div>
@@ -3801,21 +3801,16 @@
             }
 
             try {
-                // 压缩图片
+                // 压缩图片（不限制宽高比，允许任意比例）
                 const compressedDataUrl = await compressImage(file, 1200, 1600, 0.8);
                 
                 const img = new Image();
                 img.onload = () => {
                     const { width, height } = img;
-                    const ratio = width / height; // portrait expected ~ 3/4 = 0.75
-                    const isPortrait43 = ratio >= 0.7 && ratio <= 0.8;
-                    if (!isPortrait43) {
-                        alert('请使用竖向 4:3 图片（宽高比约 3:4）');
-                        clearCoverFile();
-                        return;
-                    }
+                    // 不再验证宽高比，允许上传任意比例的图片
+                    // 前端会自动裁剪为 4:3 比例（取中间部分）
 
-                    // 通过校验，设置预览和输入值
+                    // 设置预览和输入值
                     document.getElementById('colCover').value = compressedDataUrl;
                     const preview = document.getElementById('coverPreview');
                     const imgEl = document.getElementById('coverPreviewImg');
@@ -3823,7 +3818,7 @@
                     imgEl.src = compressedDataUrl;
                     preview.style.display = 'flex';
                     const compressedSize = (compressedDataUrl.length * 3 / 4 / 1024 / 1024).toFixed(2);
-                    infoEl.textContent = `尺寸: ${width}x${height}, 压缩后大小: ${compressedSize}MB`;
+                    infoEl.textContent = `尺寸: ${width}x${height}, 压缩后大小: ${compressedSize}MB（前端将自动裁剪为 4:3）`;
                 };
                 img.onerror = () => {
                     alert('图片读取失败，请重试');

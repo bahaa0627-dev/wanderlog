@@ -834,6 +834,40 @@ class PublicPlaceService {
     // 执行归一化 (now async to generate ai_tags)
     const normalized = await normalizationService.normalize(normInput);
     
+    // 处理 tags：如果请求中提供了 tags，优先使用；否则使用归一化的 tags
+    let finalTags = normalized.tags;
+    if (data.tags !== undefined && data.tags !== null) {
+      // 如果提供了 tags，解析并使用
+      if (typeof data.tags === 'string') {
+        try {
+          finalTags = JSON.parse(data.tags);
+        } catch {
+          // 如果解析失败，使用归一化的 tags
+          finalTags = normalized.tags;
+        }
+      } else if (typeof data.tags === 'object') {
+        // 如果已经是对象，直接使用
+        finalTags = data.tags;
+      }
+    }
+    
+    // 处理 aiTags：如果请求中提供了 aiTags，优先使用；否则使用归一化的 aiTags
+    let finalAiTags = normalized.aiTags;
+    if (data.aiTags !== undefined && data.aiTags !== null) {
+      // 如果提供了 aiTags，解析并使用
+      if (typeof data.aiTags === 'string') {
+        try {
+          finalAiTags = JSON.parse(data.aiTags);
+        } catch {
+          // 如果解析失败，使用归一化的 aiTags
+          finalAiTags = normalized.aiTags;
+        }
+      } else if (Array.isArray(data.aiTags)) {
+        // 如果已经是数组，直接使用
+        finalAiTags = data.aiTags;
+      }
+    }
+    
     // 准备数据
     const createData: any = {
       name: data.name,
@@ -854,8 +888,8 @@ class PublicPlaceService {
       openingHours: data.openingHours || null,
       website: data.website || null,
       phoneNumber: data.phoneNumber || null,
-      tags: normalized.tags,  // Now structured jsonb
-      aiTags: normalized.aiTags,  // Now AITagElement[] from normalization
+      tags: finalTags,  // 使用处理后的 tags（优先使用手动提供的）
+      aiTags: finalAiTags,  // 使用处理后的 aiTags（优先使用手动提供的）
       aiSummary: data.aiSummary || null,
       aiDescription: data.aiDescription || null,
       description: data.description || null,

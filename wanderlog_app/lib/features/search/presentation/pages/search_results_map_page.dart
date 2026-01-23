@@ -19,7 +19,7 @@ import 'package:wanderlog/features/collections/providers/collection_providers.da
 import 'package:wanderlog/features/map/presentation/widgets/tag_type_filter_bar.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
-import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_chat_page.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
 
 /// 搜索结果地图页面
 class SearchResultsMapPage extends ConsumerStatefulWidget {
@@ -671,7 +671,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                               onTap: () {
                                 Navigator.of(context).push<void>(
                                   MaterialPageRoute<void>(
-                                    builder: (context) => const AIChatPage(),
+                                    builder: (context) => const AIAssistantPage(),
                                   ),
                                 );
                               },

@@ -34,7 +34,7 @@ import 'package:wanderlog/shared/models/spot_model.dart' as spot_model;
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
-import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_chat_page.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
 
 /// 地点来源枚举
 enum SpotSource {
@@ -1097,7 +1097,7 @@ class _MapPageState extends ConsumerState<MapPage> {
               onTap: () {
                 Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
-                    builder: (context) => const AIChatPage(),
+                    builder: (context) => const AIAssistantPage(),
                   ),
                 );
               },

@@ -8,7 +8,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
-import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_chat_page.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' hide Spot;
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot;
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
@@ -883,7 +883,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
   void _navigateToAIChat() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (context) => const AIChatPage(),
+        builder: (context) => const AIAssistantPage(),
       ),
     );
   }

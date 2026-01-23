@@ -660,6 +660,17 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   }
 
   void _showAddCityDialog() {
+    // Check authentication first
+    final authState = ref.read(authProvider);
+    if (!authState.isAuthenticated) {
+      // Navigate to login page using push so user can return to current page
+      if (context.mounted) {
+        context.push('/login');
+      }
+      return;
+    }
+    
+    // User is authenticated, show the dialog
     showDialog<void>(
       context: context,
       builder: (context) => AddCityDialog(
@@ -946,7 +957,19 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       
       final repo = ref.read(tripRepositoryProvider);
       print('📡 [SpotsTab] Loading destinations...');
-      final destinations = await repo.getMyTrips();
+      final loadStart = DateTime.now();
+      
+      // 添加 30 秒超时
+      final destinations = await repo.getMyTrips().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          print('⏱️ [SpotsTab] Request timed out after 30 seconds');
+          throw TimeoutException('Request timed out. Please check your connection.');
+        },
+      );
+      
+      final loadTime = DateTime.now().difference(loadStart).inMilliseconds;
+      print('📦 [SpotsTab] Loaded ${destinations.length} destinations in ${loadTime}ms');
       print('📦 [SpotsTab] Loaded ${destinations.length} destinations');
       if (!mounted) return;
       destinations.sort(
@@ -1293,6 +1316,16 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
   @override
   Widget build(BuildContext context) {
+    // Check authentication status
+    final authState = ref.watch(authProvider);
+    
+    // If not authenticated, show login prompt
+    if (!authState.isAuthenticated) {
+      return _UnauthenticatedState(
+        onExplore: () => context.go('/home?homeTab=map'),
+      );
+    }
+
     if (_isLoadingDestinations) {
       return const _LoadingState();
     }
@@ -1511,6 +1544,66 @@ class _ErrorStateState extends State<_ErrorState> {
                             color: AppTheme.black,
                           ),
                         ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+/// Unauthenticated state - shown when user is not logged in
+class _UnauthenticatedState extends StatelessWidget {
+  const _UnauthenticatedState({
+    required this.onExplore,
+  });
+
+  final VoidCallback onExplore;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.cloud_off_outlined,
+                size: 64,
+                color: AppTheme.mediumGray,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'To find your interested spots',
+                style: AppTheme.bodyMedium(context).copyWith(
+                  color: AppTheme.mediumGray,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              GestureDetector(
+                onTap: onExplore,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryYellow,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.black, width: 2.5),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppTheme.black,
+                        offset: Offset(4, 4),
+                        blurRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    'To explore',
+                    style: AppTheme.labelLarge(context).copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.black,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1949,7 +2042,7 @@ class _EmptyState extends StatelessWidget {
       );
 }
 
-class _NoDestinationState extends StatelessWidget {
+class _NoDestinationState extends ConsumerWidget {
   const _NoDestinationState({
     required this.onAddDestination,
   });
@@ -1957,7 +2050,8 @@ class _NoDestinationState extends StatelessWidget {
   final VoidCallback onAddDestination;
 
   @override
-  Widget build(BuildContext context) => Center(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: Column(
@@ -2000,7 +2094,19 @@ class _NoDestinationState extends StatelessWidget {
               ),
               const SizedBox(height: 28),
               GestureDetector(
-                onTap: onAddDestination,
+                onTap: () async {
+                  // Check authentication
+                  final authState = ref.read(authProvider);
+                  if (!authState.isAuthenticated) {
+                    // Navigate to login page using push so user can return to current page
+                    if (context.mounted) {
+                      context.push('/login');
+                    }
+                    return;
+                  }
+                  // User is authenticated, proceed with add destination
+                  onAddDestination();
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 28,
@@ -2034,6 +2140,7 @@ class _NoDestinationState extends StatelessWidget {
           ),
         ),
       );
+  }
 }
 
 /// 紧凑地图预览组件 - 类似 home-map 初始态，展示真正的 Mapbox 地图、城市标签和放大按钮

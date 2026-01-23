@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/features/auth/presentation/pages/login_page.dart';
 import 'package:wanderlog/features/profile/providers/mine_page_provider.dart';
 import 'package:wanderlog/features/profile/presentation/widgets/settings_sheet.dart';
 import 'package:wanderlog/features/profile/presentation/widgets/photo_wall.dart';
@@ -35,13 +37,24 @@ class _MinePageState extends ConsumerState<MinePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Check authentication status
+    final authState = ref.watch(authProvider);
+    
+    // If not authenticated, show login page
+    if (!authState.isAuthenticated) {
+      return const Scaffold(
+        backgroundColor: AppTheme.background,
+        body: LoginPage(),
+      );
+    }
+
     final mineDataAsync = ref.watch(minePageDataProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
         child: mineDataAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => _buildLoadingState(context),
           error: (error, stack) => Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -63,6 +76,58 @@ class _MinePageState extends ConsumerState<MinePage> {
           data: (data) => _buildContent(context, data),
         ),
       ),
+    );
+  }
+
+  Widget _buildLoadingState(BuildContext context) {
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        // Header
+        SliverToBoxAdapter(
+          child: _buildHeader(context),
+        ),
+        // Loading skeleton
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // Globe map skeleton
+                Container(
+                  height: 300,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                    border: Border.all(
+                      color: AppTheme.black,
+                      width: AppTheme.borderMedium,
+                    ),
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Photo wall skeleton
+                Container(
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Loading your check-ins...',
+                      style: TextStyle(color: AppTheme.mediumGray),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

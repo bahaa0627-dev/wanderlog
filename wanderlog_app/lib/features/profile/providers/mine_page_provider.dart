@@ -98,10 +98,28 @@ class MinePageData {
 final minePageDataProvider = FutureProvider<MinePageData>((ref) async {
   try {
     print('🏠 [MinePageProvider] Loading trips data...');
+    final startTime = DateTime.now();
+    
     final tripsAsync = await ref.watch(tripsProvider.future);
-    print('🏠 [MinePageProvider] Loaded ${tripsAsync.length} trips');
+    print('🏠 [MinePageProvider] Loaded ${tripsAsync.length} trips in ${DateTime.now().difference(startTime).inMilliseconds}ms');
+    
+    // Log trips details
+    for (var trip in tripsAsync) {
+      final spots = trip.tripSpots ?? [];
+      final visitedCount = spots.where((s) => s.isVisited).length;
+      print('🏠   Trip "${trip.name}": ${spots.length} spots, $visitedCount visited');
+    }
+    
+    final processStart = DateTime.now();
     final result = _processMinePageData(tripsAsync);
-    print('🏠 [MinePageProvider] Processed: ${result.countriesCount} countries, ${result.citiesCount} cities, ${result.mapMarkers.length} markers');
+    final processTime = DateTime.now().difference(processStart).inMilliseconds;
+    
+    print('🏠 [MinePageProvider] Processed in ${processTime}ms:');
+    print('🏠   - ${result.countriesCount} countries, ${result.citiesCount} cities');
+    print('🏠   - ${result.mapMarkers.length} markers');
+    print('🏠   - ${result.photos.length} photos');
+    print('🏠   - ${result.visitedSpots.length} visited spots');
+    print('🏠   - ${result.topCategories.length} top categories');
     
     // Keep data alive to avoid unnecessary reloads
     ref.keepAlive();

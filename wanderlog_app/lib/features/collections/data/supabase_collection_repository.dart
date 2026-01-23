@@ -307,64 +307,87 @@ class SupabaseCollectionRepository {
     };
   }
 
-  /// 获取合集推荐列表
+  /// 获取合集推荐列表 - 优化版本：只加载封面数据，不加载完整的 spots
   Future<List<Map<String, dynamic>>> listRecommendations() async {
     try {
-      print('📡 Fetching recommendations from Supabase');
+      print('📡 [Fast] Fetching recommendations from Supabase');
+      final startTime = DateTime.now();
       
-      // 获取活跃的推荐分组，按 sort_order 升序排列
+      // 一次性获取所有需要的数据，只查询必要字段
+      final items = await _client
+          .from('collection_recommendation_items')
+          .select('''
+            id,
+            recommendation_id,
+            collection_id,
+            sort_order,
+            collection:collections(
+              id,
+              name,
+              description,
+              cover_image,
+              is_published,
+              created_at,
+              updated_at
+            )
+          ''')
+          .order('sort_order', ascending: true);
+
+      print('📦 Loaded ${items.length} recommendation items in ${DateTime.now().difference(startTime).inMilliseconds}ms');
+
+      // 获取推荐组信息
       final recommendations = await _client
           .from('collection_recommendations')
-          .select()
+          .select('id, name, sort_order, is_active')
           .eq('is_active', true)
           .order('sort_order', ascending: true);
 
       print('📊 Found ${recommendations.length} recommendation groups');
 
-      // 为每个推荐分组获取关联的合集
-      final result = <Map<String, dynamic>>[];
-      
-      for (final rec in recommendations) {
-        try {
-          final items = await _client
-              .from('collection_recommendation_items')
-              .select('*, collection:collections(*, collectionSpots:collection_spots(*, place:places(*)))')
-              .eq('recommendation_id', rec['id'] as Object)
-              .order('sort_order', ascending: true);
-
-          // 过滤出已发布的合集并转换字段名
-          final filteredItems = items
-              .where((item) => item['collection']?['is_published'] == true)
-              .map((item) {
-                try {
-                  final collection = item['collection'] as Map<String, dynamic>?;
-                  if (collection == null) return item;
-                  
-                  // 转换 collection 字段名
-                  final convertedCollection = _convertCollectionFields(collection);
-                  return {
-                    ...item,
-                    'collection': convertedCollection,
-                  };
-                } catch (e) {
-                  print('⚠️ Error converting collection: $e');
-                  return item;
-                }
-              })
-              .toList();
-
-          result.add({
-            'id': rec['id'],
-            'name': rec['name'],
-            'order': rec['sort_order'],
-            'items': filteredItems,
-          });
-        } catch (e) {
-          print('⚠️ Error processing recommendation ${rec['id']}: $e');
+      // 按推荐组分组
+      final Map<String, List<dynamic>> groupedItems = {};
+      for (final item in items) {
+        final recId = item['recommendation_id'] as String;
+        final collection = item['collection'] as Map<String, dynamic>?;
+        
+        // 只包含已发布的合集
+        if (collection != null && collection['is_published'] == true) {
+          groupedItems.putIfAbsent(recId, () => []).add(item);
         }
       }
 
-      print('✅ Returning ${result.length} recommendations');
+      // 构建结果 - 不需要转换字段名，只返回简化数据
+      final result = <Map<String, dynamic>>[];
+      for (final rec in recommendations) {
+        final recId = rec['id'] as String;
+        final recItems = groupedItems[recId] ?? [];
+        
+        if (recItems.isNotEmpty) {
+          result.add({
+            'id': recId,
+            'name': rec['name'],
+            'order': rec['sort_order'],
+            'items': recItems.map((item) {
+              final collection = item['collection'] as Map<String, dynamic>;
+              return {
+                'id': item['id'],
+                'collection': {
+                  'id': collection['id'],
+                  'name': collection['name'],
+                  'description': collection['description'],
+                  'coverImage': collection['cover_image'],
+                  'isPublished': collection['is_published'],
+                  'createdAt': collection['created_at'],
+                  'updatedAt': collection['updated_at'],
+                },
+              };
+            }).toList(),
+          });
+        }
+      }
+
+      final totalTime = DateTime.now().difference(startTime).inMilliseconds;
+      print('✅ [Fast] Returning ${result.length} recommendations in ${totalTime}ms');
       return result;
     } catch (e, stackTrace) {
       print('❌ Error in listRecommendations: $e');

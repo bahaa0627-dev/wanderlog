@@ -50,15 +50,19 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     jwt.verify(token, secret, (err: any, decoded: any) => {
       if (err) {
         console.log('[Auth] JWT verification failed:', err.message);
-        return res.status(403).json({ message: 'Invalid or expired token' });
+        return res.status(401).json({ message: 'Invalid or expired token', error: 'TOKEN_INVALID' });
       }
       req.user = decoded;
       console.log('[Auth] User authenticated via JWT:', req.user.id);
       return next();
     });
-  } catch (error) {
-    console.error('Auth error:', error);
-    return res.status(403).json({ message: 'Invalid or expired token' });
+  } catch (error: any) {
+    console.error('[Auth] Unexpected auth error:', error);
+    return res.status(401).json({ 
+      message: 'Authentication failed', 
+      error: 'AUTH_ERROR',
+      details: error?.message 
+    });
   }
 };
 

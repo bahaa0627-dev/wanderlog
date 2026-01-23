@@ -380,21 +380,9 @@ export const forgotPassword = async (req: Request, res: Response) => {
       });
     }
 
-    // Generate reset code
-    const resetCode = generateVerificationCode();
-    
-    // Save to database
-    await prisma.verificationToken.create({
-      data: {
-        userId: user.id,
-        token: resetCode,
-        type: 'PASSWORD_RESET',
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
-      },
-    });
-
-    // Send email
-    await sendPasswordResetEmail(email, resetCode, user.name || undefined);
+    // Note: Password reset is handled by Supabase's native resetPasswordForEmail()
+    // This endpoint is kept for backward compatibility and email existence check
+    // The actual reset email is sent by Supabase with deep link support
 
     return res.json({ 
       message: 'If the email exists, a reset code has been sent',
@@ -409,73 +397,12 @@ export const forgotPassword = async (req: Request, res: Response) => {
  * 重置密码
  */
 export const resetPassword = async (req: Request, res: Response) => {
-  try {
-    await ensureAuthTablesExist();
-    const { email, code, newPassword } = req.body;
-
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid reset code' });
-    }
-
-    // Find valid reset token
-    const token = await prisma.verificationToken.findFirst({
-      where: {
-        userId: user.id,
-        token: code,
-        type: 'PASSWORD_RESET',
-        expiresAt: { gte: new Date() },
-        usedAt: null,
-      },
-    });
-
-    if (!token) {
-      return res.status(400).json({ 
-        message: 'Invalid or expired reset code' 
-      });
-    }
-
-    // Check if new password is same as old password
-    if (user.password) {
-      const isSamePassword = await bcrypt.compare(newPassword, user.password);
-      if (isSamePassword) {
-        return res.status(400).json({ 
-          error: 'Same password',
-          message: 'New password must be different from your current password. Please choose a different password.',
-        });
-      }
-    }
-
-    // Hash new password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-    // Update password and increment token version (invalidate all tokens)
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-        tokenVersion: user.tokenVersion + 1,
-        refreshToken: null,
-      },
-    });
-
-    // Mark token as used
-    await prisma.verificationToken.update({
-      where: { id: token.id },
-      data: { usedAt: new Date() },
-    });
-
-    return res.json({ 
-      message: 'Password reset successfully. Please login with your new password.',
-    });
-  } catch (error) {
-    logger.error('Reset password error:', error);
-    return res.status(500).json({ message: 'Server error' });
-  }
+  // Note: Password reset is primarily handled by Supabase's native resetPasswordForEmail()
+  // with deep link support (io.supabase.wanderlog://login-callback)
+  // This endpoint returns 501 to indicate the feature is handled by Supabase
+  return res.status(501).json({ 
+    message: 'Password reset is handled by Supabase Auth. Use resetPasswordForEmail() from the client.',
+  });
 };
 
 /**

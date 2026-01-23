@@ -24,10 +24,12 @@ import 'package:wanderlog/features/profile/presentation/pages/mine_page.dart';
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({
     this.initialTabIndex = 0,
+    this.initialHomeTab = 0,
     super.key,
   });
 
   final int initialTabIndex;
+  final int initialHomeTab;
 
   @override
   ConsumerState<HomePage> createState() => _HomePageState();
@@ -60,6 +62,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialTabIndex;
+    _selectedTab = widget.initialHomeTab;
     
     // 延迟加载推荐数据，让页面先显示，提升感知性能
     WidgetsBinding.instance.addPostFrameCallback((_) {

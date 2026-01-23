@@ -55,10 +55,8 @@ class AppRouter {
           GoRoute(
             path: '/reset-password',
             name: 'reset-password',
-            pageBuilder: (context, state) {
-              final email = state.extra as String?;
-              return _slideFromRight(ResetPasswordPage(email: email));
-            },
+            pageBuilder: (context, state) =>
+                _slideFromRight(const ResetPasswordPage()),
           ),
           GoRoute(
             path: '/home',
@@ -66,8 +64,13 @@ class AppRouter {
             pageBuilder: (context, state) {
               final tabParam = state.uri.queryParameters['tab'];
               final initialTab = tabParam == 'profile' ? 2 : 0;
+              final homeTabParam = state.uri.queryParameters['homeTab'];
+              final initialHomeTab = homeTabParam == 'map' ? 1 : 0;
               return _noTransitionPage(
-                HomePage(initialTabIndex: initialTab),
+                HomePage(
+                  initialTabIndex: initialTab,
+                  initialHomeTab: initialHomeTab,
+                ),
               );
             },
           ),

@@ -76,7 +76,7 @@ class GoogleAuthService {
       String errorMessage = 'Google 登录失败';
       switch (e.code) {
         case GoogleSignInExceptionCode.canceled:
-          errorMessage = 'Google 登录已取消';
+          errorMessage = 'Google sign-in canceled';
           break;
         case GoogleSignInExceptionCode.providerConfigurationError:
           errorMessage = 'Google 登录失败：无法连接到 Google 服务\n\n'

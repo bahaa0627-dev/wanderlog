@@ -128,9 +128,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               children: [
                 const SizedBox(height: 16),
                 const Text(
-                  'Join WanderLog',
+                  'Join VAGO',
                   textAlign: TextAlign.center,
                   style: TextStyle(
+                    fontFamily: 'ReemKufi',
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                   ),
@@ -139,13 +140,25 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 const Text(
                   'Start exploring and organizing your trips',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 15, color: Colors.grey),
+                  style: TextStyle(
+                    fontFamily: 'ReemKufi',
+                    fontSize: 15,
+                    color: Colors.grey,
+                  ),
                 ),
                 const SizedBox(height: 32),
-                Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.black, width: 2.5),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black,
+                        offset: Offset(4, 4),
+                        blurRadius: 0,
+                      ),
+                    ],
                   ),
                   child: Padding(
                     padding:
@@ -155,19 +168,24 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       child: Column(
                         children: [
                           TextFormField(
-                            controller: _nameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Name (optional)',
-                              prefixIcon: Icon(Icons.person_outline),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(
+                            cursorColor: const Color(0xFFD4A017),
+                            style: const TextStyle(fontFamily: 'ReemKufi'),
+                            decoration: InputDecoration(
                               labelText: 'Email',
-                              prefixIcon: Icon(Icons.email_outlined),
+                              labelStyle: const TextStyle(fontFamily: 'ReemKufi'),
+                              floatingLabelStyle: const TextStyle(
+                                fontFamily: 'ReemKufi',
+                                color: Color(0xFFD4A017),
+                              ),
+                              prefixIcon: const Icon(Icons.email_outlined),
+                              enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(color: Color(0xFFB8860B), width: 2),
+                              ),
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -183,9 +201,22 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: true,
-                            decoration: const InputDecoration(
+                            cursorColor: const Color(0xFFD4A017),
+                            style: const TextStyle(fontFamily: 'ReemKufi'),
+                            decoration: InputDecoration(
                               labelText: 'Password',
-                              prefixIcon: Icon(Icons.lock_outline),
+                              labelStyle: const TextStyle(fontFamily: 'ReemKufi'),
+                              floatingLabelStyle: const TextStyle(
+                                fontFamily: 'ReemKufi',
+                                color: Color(0xFFD4A017),
+                              ),
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(color: Color(0xFFD4A017), width: 2),
+                              ),
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -201,9 +232,22 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           TextFormField(
                             controller: _confirmPasswordController,
                             obscureText: true,
-                            decoration: const InputDecoration(
+                            cursorColor: const Color(0xFFD4A017),
+                            style: const TextStyle(fontFamily: 'ReemKufi'),
+                            decoration: InputDecoration(
                               labelText: 'Confirm Password',
-                              prefixIcon: Icon(Icons.lock_outline),
+                              labelStyle: const TextStyle(fontFamily: 'ReemKufi'),
+                              floatingLabelStyle: const TextStyle(
+                                fontFamily: 'ReemKufi',
+                                color: Color(0xFFD4A017),
+                              ),
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(color: Color(0xFFD4A017), width: 2),
+                              ),
                             ),
                             validator: (value) {
                               if (value != _passwordController.text) {
@@ -215,23 +259,46 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           const SizedBox(height: 24),
                           SizedBox(
                             width: double.infinity,
-                            child: FilledButton(
+                            height: 48,
+                            child: ElevatedButton(
                               onPressed: _isLoading ? null : _onRegister,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFFE500),
+                                foregroundColor: Colors.black,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: const BorderSide(color: Colors.black, width: 2),
+                                ),
+                              ),
                               child: _isLoading
                                   ? const SizedBox(
                                       height: 20,
                                       width: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
+                                        color: Colors.black,
                                       ),
                                     )
-                                  : const Text('Create Account'),
+                                  : const Text(
+                                      'Create Account',
+                                      style: TextStyle(
+                                        fontFamily: 'ReemKufi',
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 12),
                           TextButton(
                             onPressed: () => context.go('/login'),
-                            child: const Text('Already have an account? Sign in'),
+                            child: const Text(
+                              'Already have an account? Sign in',
+                              style: TextStyle(
+                                fontFamily: 'ReemKufi',
+                                color: Color(0xFFD4A017),
+                              ),
+                            ),
                           ),
                         ],
                       ),

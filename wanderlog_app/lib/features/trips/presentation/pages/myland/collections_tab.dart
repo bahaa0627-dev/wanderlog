@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -5,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
-import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 
 /// Collections Tab - 显示用户收藏的合集
@@ -52,11 +53,40 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
+      // 先尝试从缓存加载
+      final cacheState = ref.read(collectionsCacheProvider);
+      
+      if (cacheState.hasData && !cacheState.isStale) {
+        final cachedCollections = cacheState.collectionsById.values.toList();
+        print('💾 [CollectionsTab] Using ${cachedCollections.length} cached collections');
+        if (mounted) {
+          setState(() {
+            _allCollections
+              ..clear()
+              ..addAll(cachedCollections);
+            _filterCollections();
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+      
       final repo = ref.read(collectionRepositoryProvider);
-      // Myland 只显示当前用户收藏的合集（默认 includeAll=false）
-      print('📡 Loading collections for myland...');
-      final data = await repo.listCollections();
-      print('📦 Loaded ${data.length} collections');
+      print('📡 [CollectionsTab] Loading collections for myland...');
+      final loadStart = DateTime.now();
+      
+      // 减少超时时间到 15 秒，提高响应速度
+      final data = await repo.listCollections().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          print('⏱️ [CollectionsTab] Request timed out after 15 seconds');
+          throw TimeoutException('Request timed out. Please check your connection.');
+        },
+      );
+      
+      final loadTime = DateTime.now().difference(loadStart).inMilliseconds;
+      print('📦 [CollectionsTab] Loaded ${data.length} collections in ${loadTime}ms');
+      
       if (mounted) {
         setState(() {
           _allCollections
@@ -64,16 +94,26 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
             ..addAll(data);
           _filterCollections();
         });
-        print('✅ Filtered to ${_filteredCollections.length} collections');
+        print('✅ [CollectionsTab] Filtered to ${_filteredCollections.length} collections');
       }
     } catch (e, stackTrace) {
-      print('❌ Error loading collections: $e');
-      print('📋 Stack trace: $stackTrace');
+      print('❌ [CollectionsTab] Error loading collections: $e');
+      print('📋 [CollectionsTab] Stack trace: $stackTrace');
       if (mounted) {
         setState(() {
           _allCollections.clear();
           _filteredCollections = [];
         });
+        // 显示错误toast
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load collections: ${e.toString()}'),
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: _loadCollections,
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -108,6 +148,14 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
 
   @override
   Widget build(BuildContext context) {
+    // Check authentication status
+    final authState = ref.watch(authProvider);
+    
+    // If not authenticated, show login prompt
+    if (!authState.isAuthenticated) {
+      return _buildUnauthenticatedState(context);
+    }
+
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -249,29 +297,103 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
     );
   }
 
-  Widget _buildEmptyState() => Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.collections_bookmark_outlined,
-            size: 80,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'To find more collections',
-            style: AppTheme.headlineMedium(context).copyWith(
-              color: AppTheme.darkGray,
+  Widget _buildUnauthenticatedState(BuildContext context) => Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.collections_bookmark_outlined,
+              size: 64,
+              color: Colors.grey.shade400,
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          PrimaryButton(
-            text: 'To explore',
-            onPressed: () => context.go('/home'),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              'To find more collections',
+              style: AppTheme.bodyMedium(context).copyWith(
+                color: AppTheme.mediumGray,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: () => context.go('/home'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryYellow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.black, width: 2.5),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: AppTheme.black,
+                      offset: Offset(4, 4),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  'To explore',
+                  style: AppTheme.labelLarge(context).copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.black,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+  Widget _buildEmptyState() => Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.collections_bookmark_outlined,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'To find more collections',
+              style: AppTheme.bodyMedium(context).copyWith(
+                color: AppTheme.mediumGray,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: () => context.go('/home'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryYellow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.black, width: 2.5),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: AppTheme.black,
+                      offset: Offset(4, 4),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  'To explore',
+                  style: AppTheme.labelLarge(context).copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.black,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
 }
@@ -538,52 +660,53 @@ class _CollectionCardState extends State<_CollectionCard> {
                     },
                   ),
                 ),
-                // 底部标题和标签层 - 固定在底部
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: 12,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.name,
-                        style: AppTheme.headlineMedium(context).copyWith(
-                          fontSize: 16,
-                          color: AppTheme.white,
-                          shadows: [
-                            const Shadow(
-                              color: Colors.black,
-                              blurRadius: 4,
-                            ),
-                          ],
+                // 底部标题和标签层 - 只在图片加载成功后显示
+                if (_imageLoaded)
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.name,
+                          style: AppTheme.headlineMedium(context).copyWith(
+                            fontSize: 16,
+                            color: AppTheme.white,
+                            shadows: [
+                              const Shadow(
+                                color: Colors.black,
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (widget.tags.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: widget.tags
-                              .take(2)
-                              .map(
-                                (tag) => Text(
-                                  tag,
-                                  style: AppTheme.labelSmall(context).copyWith(
-                                    fontSize: 12,
-                                    color: AppTheme.white.withOpacity(0.9),
+                        if (widget.tags.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: widget.tags
+                                .take(2)
+                                .map(
+                                  (tag) => Text(
+                                    tag,
+                                    style: AppTheme.labelSmall(context).copyWith(
+                                      fontSize: 12,
+                                      color: AppTheme.white.withOpacity(0.9),
+                                    ),
                                   ),
-                                ),
-                              )
-                              .toList(),
-                        ),
+                                )
+                                .toList(),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),

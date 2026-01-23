@@ -61,7 +61,7 @@ export async function sendVerificationEmail(
  */
 export async function sendPasswordResetEmail(
   email: string,
-  code: string,
+  resetLink: string,
   userName?: string
 ): Promise<boolean> {
   try {
@@ -70,7 +70,7 @@ export async function sendPasswordResetEmail(
       from: EMAIL_CONFIG.from,
       to: email,
       subject: 'Reset your WanderLog password 🔒',
-      html: passwordResetTemplate({ code, userName }),
+      html: passwordResetTemplate({ resetLink, userName }),
     });
 
     if (error) {

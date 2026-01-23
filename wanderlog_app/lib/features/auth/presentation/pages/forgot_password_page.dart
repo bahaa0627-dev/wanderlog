@@ -99,7 +99,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
 
   // Show dialog for unregistered email
   void _showEmailNotFoundDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Email Not Registered'),
@@ -224,59 +224,78 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   }
 
   // Task 3.1: Success view after email is sent
-  Widget _buildSuccessView() => Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Icon(
-            Icons.mark_email_read,
-            size: 80,
-            color: Colors.green,
-          ),
-          const SizedBox(height: 32),
-          const Text(
-            'Check Your Email',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
+  Widget _buildSuccessView() => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.black, width: 2.5),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black,
+              offset: Offset(4, 4),
+              blurRadius: 0,
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'We\'ve sent a password reset link to:',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
+          ],
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Icon(
+              Icons.mark_email_read,
+              size: 80,
+              color: Colors.green,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _emailController.text.trim(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+            const SizedBox(height: 32),
+            const Text(
+              'Check Your Email',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'ReemKufi',
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Click the link in the email to reset your password. '
-            'If you don\'t see the email, check your spam folder.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
+            const SizedBox(height: 16),
+            Text(
+              'We\'ve sent a password reset link to:',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'ReemKufi',
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
             ),
-          ),
-          const SizedBox(height: 48),
-          // Main button: Open the Email
-          _buildOpenEmailButton(),
-          const SizedBox(height: 16),
-          // Resend button: Yellow text button
-          _buildResendButton(),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              _emailController.text.trim(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'ReemKufi',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Click the link in the email to reset your password. '
+              'If you don\'t see the email, check your spam folder.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'ReemKufi',
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 48),
+            // Main button: Open the Email
+            _buildOpenEmailButton(),
+            const SizedBox(height: 16),
+            // Resend button: Yellow text button
+            _buildResendButton(),
+          ],
+        ),
       );
 
   // Main button: Open the Email
@@ -288,7 +307,22 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
       height: 48,
       child: ElevatedButton(
         onPressed: hasProvider ? _openEmailProvider : null,
-        child: const Text('Open the Email'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFFE500),
+          foregroundColor: Colors.black,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Colors.black, width: 2),
+          ),
+        ),
+        child: const Text(
+          'Open the Email',
+          style: TextStyle(
+            fontFamily: 'ReemKufi',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
@@ -305,6 +339,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
               width: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
+                color: Colors.black,
               ),
             )
           : Text(
@@ -312,74 +347,126 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                   ? 'Resend in ${_resendCountdown}s'
                   : 'Resend the Email',
               style: TextStyle(
+                fontFamily: 'ReemKufi',
                 color: canResend 
-                    ? const Color(0xFFD4A017) // Yellow/gold color
+                    ? const Color(0xFFD4A017)
                     : Colors.grey,
+                fontWeight: FontWeight.w600,
               ),
             ),
     );
   }
 
-  Widget _buildFormView() => Form(
-        key: _formKey,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(
-              Icons.lock_reset,
-              size: 80,
-              color: Colors.blue,
-            ),
-            const SizedBox(height: 32),
-            const Text(
-              'Reset Password',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Enter your email address and we\'ll send you a link to reset your password.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 48),
-            TextFormField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                hintText: 'your@email.com',
-                prefixIcon: Icon(Icons.email_outlined),
-                border: OutlineInputBorder(),
-              ),
-              // Task 3.3: Use Validators.validateEmail() instead of inline validation
-              validator: Validators.validateEmail,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _onSubmit,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Send Reset Link'),
-              ),
+  Widget _buildFormView() => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.black, width: 2.5),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black,
+              offset: Offset(4, 4),
+              blurRadius: 0,
             ),
           ],
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(
+                Icons.lock_reset,
+                size: 80,
+                color: Colors.blue,
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'Reset Password',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'ReemKufi',
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Enter your email address and we\'ll send you a link to reset your password.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'ReemKufi',
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 48),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                cursorColor: const Color(0xFFD4A017),
+                style: const TextStyle(fontFamily: 'ReemKufi'),
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  labelStyle: const TextStyle(fontFamily: 'ReemKufi'),
+                  floatingLabelStyle: const TextStyle(
+                    fontFamily: 'ReemKufi',
+                    color: Color(0xFFD4A017),
+                  ),
+                  hintText: 'your@email.com',
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+                  ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFB8860B), width: 2),
+                  ),
+                  errorBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.red, width: 2),
+                  ),
+                  focusedErrorBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.red, width: 2),
+                  ),
+                ),
+                // Task 3.3: Use Validators.validateEmail() instead of inline validation
+                validator: Validators.validateEmail,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _onSubmit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFE500),
+                    foregroundColor: Colors.black,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: const BorderSide(color: Colors.black, width: 2),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black,
+                          ),
+                        )
+                      : const Text(
+                          'Send Reset Link',
+                          style: TextStyle(
+                            fontFamily: 'ReemKufi',
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
 }

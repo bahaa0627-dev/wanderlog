@@ -197,6 +197,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   'VAGO',
                   textAlign: TextAlign.center,
                   style: TextStyle(
+                    fontFamily: 'ReemKufi',
                     fontSize: 32,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
@@ -206,13 +207,25 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 const Text(
                   'Your own personalized flaneur guide',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 15, color: Colors.grey),
+                  style: TextStyle(
+                    fontFamily: 'ReemKufi',
+                    fontSize: 15,
+                    color: Colors.grey,
+                  ),
                 ),
                 const SizedBox(height: 32),
-                Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.black, width: 2.5),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black,
+                        offset: Offset(4, 4),
+                        blurRadius: 0,
+                      ),
+                    ],
                   ),
                   child: Padding(
                     padding:
@@ -224,9 +237,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(
+                            cursorColor: const Color(0xFFD4A017),
+                            style: const TextStyle(fontFamily: 'ReemKufi'),
+                            decoration: InputDecoration(
                               labelText: 'Email',
-                              prefixIcon: Icon(Icons.email_outlined),
+                              labelStyle: const TextStyle(fontFamily: 'ReemKufi'),
+                              floatingLabelStyle: const TextStyle(
+                                fontFamily: 'ReemKufi',
+                                color: Color(0xFFD4A017),
+                              ),
+                              prefixIcon: const Icon(Icons.email_outlined),
+                              enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(color: Color(0xFFB8860B), width: 2),
+                              ),
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -242,9 +268,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: true,
-                            decoration: const InputDecoration(
+                            cursorColor: const Color(0xFFD4A017),
+                            style: const TextStyle(fontFamily: 'ReemKufi'),
+                            decoration: InputDecoration(
                               labelText: 'Password',
-                              prefixIcon: Icon(Icons.lock_outline),
+                              labelStyle: const TextStyle(fontFamily: 'ReemKufi'),
+                              floatingLabelStyle: const TextStyle(
+                                fontFamily: 'ReemKufi',
+                                color: Color(0xFFD4A017),
+                              ),
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(color: Color(0xFFD4A017), width: 2),
+                              ),
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -259,17 +298,35 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           const SizedBox(height: 24),
                           SizedBox(
                             width: double.infinity,
-                            child: FilledButton(
+                            height: 48,
+                            child: ElevatedButton(
                               onPressed: _isLoading ? null : _onLogin,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFFE500),
+                                foregroundColor: Colors.black,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: const BorderSide(color: Colors.black, width: 2),
+                                ),
+                                shadowColor: Colors.transparent,
+                              ),
                               child: _isLoading
                                   ? const SizedBox(
                                       height: 20,
                                       width: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
+                                        color: Colors.black,
                                       ),
                                     )
-                                  : const Text('Login'),
+                                  : const Text(
+                                      'Login',
+                                      style: TextStyle(
+                                        fontFamily: 'ReemKufi',
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -278,17 +335,49 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             children: [
                               TextButton(
                                 onPressed: () => context.go('/register'),
-                                child: const Text('Create account'),
+                                child: const Text(
+                                  'Create account',
+                                  style: TextStyle(
+                                    fontFamily: 'ReemKufi',
+                                    color: Color(0xFFD4A017),
+                                  ),
+                                ),
                               ),
                               TextButton(
                                 onPressed: () => context.go('/forgot-password'),
-                                child: const Text('Forgot password?'),
+                                child: const Text(
+                                  'Forgot password?',
+                                  style: TextStyle(
+                                    fontFamily: 'ReemKufi',
+                                    color: Color(0xFFD4A017),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                          const Divider(height: 32),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Row(
+                              children: [
+                                const Expanded(child: Divider(color: Color(0xFFE0E0E0))),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  child: Text(
+                                    'or',
+                                    style: TextStyle(
+                                      fontFamily: 'ReemKufi',
+                                      color: Colors.grey.shade600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                const Expanded(child: Divider(color: Color(0xFFE0E0E0))),
+                              ],
+                            ),
+                          ),
                           SizedBox(
                             width: double.infinity,
+                            height: 48,
                             child: OutlinedButton.icon(
                               icon: _isGoogleLoading
                                   ? const SizedBox(
@@ -296,11 +385,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                       height: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
+                                        color: Colors.black,
                                       ),
                                     )
-                                  : const Icon(Icons.account_circle_outlined),
+                                  : const Icon(Icons.account_circle_outlined, color: Colors.black),
                               onPressed: _isGoogleLoading ? null : _onGoogleLogin,
-                              label: Text(_isGoogleLoading ? 'Signing in...' : 'Continue with Google'),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.black, width: 2),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              label: Text(
+                                _isGoogleLoading ? 'Signing in...' : 'Continue with Google',
+                                style: const TextStyle(
+                                  fontFamily: 'ReemKufi',
+                                  color: Colors.black,
+                                ),
+                              ),
                             ),
                           ),
                         ],

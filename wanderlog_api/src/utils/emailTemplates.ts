@@ -126,7 +126,7 @@ export function emailVerificationTemplate({ code, userName }: EmailTemplateProps
 /**
  * 密码重置邮件模板
  */
-export function passwordResetTemplate({ code, userName }: EmailTemplateProps): string {
+export function passwordResetTemplate({ resetLink, userName }: { resetLink?: string; userName?: string }): string {
   return `
 <!DOCTYPE html>
 <html>
@@ -212,15 +212,20 @@ export function passwordResetTemplate({ code, userName }: EmailTemplateProps): s
     <h1>Reset Your Password 🔒</h1>
     
     <p style="text-align: center; color: #6b7280;">
-      ${userName ? 'Hi ' + userName + ', we' : 'We'} received a request to reset your password. Use the code below:
+      ${userName ? 'Hi ' + userName + ', we' : 'We'} received a request to reset your password. Click the button below to reset it:
     </p>
     
-    <div class="code-container">
-      <div class="code">${code}</div>
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${resetLink}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Reset Password</a>
     </div>
     
     <p class="info">
-      ⏱ This code will expire in <strong>30 minutes</strong>
+      ⏱ This link will expire in <strong>30 minutes</strong>
+    </p>
+    
+    <p style="text-align: center; color: #6b7280; font-size: 14px; margin-top: 24px;">
+      If the button doesn't work, copy and paste this link into your browser:<br>
+      <a href="${resetLink}" style="color: #667eea; word-break: break-all;">${resetLink}</a>
     </p>
     
     <div class="warning">

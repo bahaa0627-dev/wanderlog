@@ -15,7 +15,9 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:health": "tsx check_database_health.ts",
+    "fix:washington": "tsx scripts/unify-washington-cities.ts"
   },
   "keywords": [
     "wanderlog",

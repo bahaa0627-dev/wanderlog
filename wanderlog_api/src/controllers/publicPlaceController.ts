@@ -302,8 +302,27 @@ class PublicPlaceController {
    * GET /api/public-places
    */
   async getAllPlaces(req: Request, res: Response): Promise<void> {
+    const startTime = Date.now();
     try {
+      console.log(`[getAllPlaces] Request received:`, {
+        query: req.query,
+        timestamp: new Date().toISOString(),
+      });
+
       const { page, limit, city, country, category, source, search, minRating, maxRating, tag, tagType, hasCoverImage, sortBy, sortOrder, includeInternalTags } = req.query;
+
+      // 检查数据库连接
+      try {
+        await publicPlaceService.getStats(); // 简单的数据库连接测试
+      } catch (dbError: any) {
+        console.error('❌ [getAllPlaces] Database connection error:', dbError);
+        res.status(503).json({
+          success: false,
+          error: 'Database connection failed',
+          details: process.env.NODE_ENV === 'development' ? dbError.message : undefined,
+        });
+        return;
+      }
 
       const result = await publicPlaceService.getAllPlaces({
         page: page ? parseInt(page as string) : undefined,
@@ -325,16 +344,42 @@ class PublicPlaceController {
       // 如果请求包含 includeInternalTags=true，则不移除 tags 字段（用于后台管理）
       const shouldIncludeInternalTags = includeInternalTags === 'true';
 
-      res.json({
+      // 显式设置 Content-Type 为 application/json
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      
+      const responseData = {
         success: true,
         data: result.places.map(place => transformPlace(place, shouldIncludeInternalTags)),
         pagination: result.pagination,
-      });
+      };
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ [getAllPlaces] Success: ${responseData.data.length} places, pagination:`, responseData.pagination, `(${duration}ms)`);
+      
+      res.json(responseData);
     } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
+      const duration = Date.now() - startTime;
+      console.error(`❌ [getAllPlaces] Error after ${duration}ms:`, {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        code: error.code,
       });
+      
+      // 检查是否是数据库相关错误
+      if (error.code === 'P1001' || error.code === 'P1002' || error.code === 'P1003') {
+        res.status(503).json({
+          success: false,
+          error: 'Database connection error',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: error.message || 'Internal server error',
+          details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        });
+      }
     }
   }
 

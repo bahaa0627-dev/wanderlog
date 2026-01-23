@@ -1,12 +1,21 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:logger/logger.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wanderlog/core/supabase/supabase_config.dart';
 import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
 import 'package:wanderlog/features/map/providers/places_cache_provider.dart';
 
 /// Supabase 版本的地点仓库
 class SupabasePlaceRepository {
-  final _client = SupabaseConfig.client;
+  final Logger _logger = Logger();
+  SupabaseClient? get _client {
+    if (!SupabaseConfig.isInitialized) {
+      _logger.w('⚠️ Supabase not initialized. Check your .env file for SUPABASE_URL and SUPABASE_ANON_KEY');
+      return null;
+    }
+    return SupabaseConfig.client;
+  }
   final _dio = Dio();
   
   /// 获取后端 API 基础 URL
@@ -20,8 +29,15 @@ class SupabasePlaceRepository {
     int page = 1,
     double? minRating,
   }) async {
+    final client = _client;
+    if (client == null) {
+      throw SupabasePlaceRepositoryException(
+        'Supabase not initialized. ${SupabaseConfig.initializationError ?? "Please check your configuration."}',
+      );
+    }
+
     try {
-      var query = _client
+      var query = client
           .from('places')
           .select()
           .eq('city', city);
@@ -41,14 +57,23 @@ class SupabasePlaceRepository {
           .map((e) => PublicPlaceDto.fromSupabase(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      throw SupabasePlaceRepositoryException('Failed to load places for $city: $e');
+      final errorMsg = _extractErrorMessage(e);
+      _logger.e('❌ Failed to load places for $city: $errorMsg');
+      throw SupabasePlaceRepositoryException('Failed to load places for $city: $errorMsg');
     }
   }
 
   /// 获取单个地点详情
   Future<PublicPlaceDto?> getPlaceById(String placeId) async {
+    final client = _client;
+    if (client == null) {
+      throw SupabasePlaceRepositoryException(
+        'Supabase not initialized. ${SupabaseConfig.initializationError ?? "Please check your configuration."}',
+      );
+    }
+
     try {
-      final response = await _client
+      final response = await client
           .from('places')
           .select()
           .eq('id', placeId)
@@ -57,13 +82,24 @@ class SupabasePlaceRepository {
       if (response == null) return null;
       return PublicPlaceDto.fromSupabase(response);
     } catch (e) {
-      throw SupabasePlaceRepositoryException('Failed to load place $placeId: $e');
+      final errorMsg = _extractErrorMessage(e);
+      _logger.e('❌ Failed to load place $placeId: $errorMsg');
+      throw SupabasePlaceRepositoryException('Failed to load place $placeId: $errorMsg');
     }
   }
 
   /// 获取城市列表
   Future<List<String>> fetchCities({String? query}) async {
-    print('📍 [SupabasePlaceRepo] fetchCities 开始');
+    _logger.d('📍 [SupabasePlaceRepo] fetchCities 开始');
+    
+    final client = _client;
+    if (client == null) {
+      _logger.w('⚠️ Supabase not initialized, cannot fetch cities');
+      throw SupabasePlaceRepositoryException(
+        'Supabase not initialized. ${SupabaseConfig.initializationError ?? "Please check your configuration."}',
+      );
+    }
+
     try {
       // 使用分页获取所有城市，避免默认 1000 行限制
       final allCities = <String>{};
@@ -71,7 +107,7 @@ class SupabasePlaceRepository {
       const batchSize = 1000;
       
       while (true) {
-        final response = await _client
+        final response = await client
             .from('places')
             .select('city')
             .not('city', 'is', null)
@@ -90,7 +126,7 @@ class SupabasePlaceRepository {
         offset += batchSize;
       }
 
-      print('📍 [SupabasePlaceRepo] fetchCities 完成: ${allCities.length} 个城市');
+      _logger.d('📍 [SupabasePlaceRepo] fetchCities 完成: ${allCities.length} 个城市');
       
       var cities = allCities.toList();
 
@@ -102,15 +138,47 @@ class SupabasePlaceRepository {
       cities.sort();
       return cities;
     } catch (e) {
-      print('❌ [SupabasePlaceRepo] fetchCities 失败: $e');
-      throw SupabasePlaceRepositoryException('Failed to load cities: $e');
+      final errorMsg = _extractErrorMessage(e);
+      _logger.e('❌ [SupabasePlaceRepo] fetchCities 失败: $errorMsg');
+      throw SupabasePlaceRepositoryException('Failed to load cities: $errorMsg');
     }
+  }
+
+  /// 提取错误信息
+  String _extractErrorMessage(dynamic error) {
+    if (error == null) return 'Unknown error';
+    
+    final errorStr = error.toString();
+    
+    // 检查是否是网络相关错误
+    if (errorStr.contains('Failed host lookup') || 
+        errorStr.contains('nodename nor servname provided')) {
+      return 'DNS resolution failed - check internet connection';
+    }
+    
+    if (errorStr.contains('Connection refused') ||
+        errorStr.contains('Connection closed')) {
+      return 'Connection failed - server may be unreachable';
+    }
+    
+    if (errorStr.contains('SocketException')) {
+      return 'Network error - check your connection';
+    }
+    
+    return errorStr;
   }
 
   /// 搜索地点
   Future<List<PublicPlaceDto>> searchPlaces(String keyword, {int limit = 20}) async {
+    final client = _client;
+    if (client == null) {
+      throw SupabasePlaceRepositoryException(
+        'Supabase not initialized. ${SupabaseConfig.initializationError ?? "Please check your configuration."}',
+      );
+    }
+
     try {
-      final response = await _client.rpc('search_places', params: {
+      final response = await client.rpc('search_places', params: {
         'search_term': keyword,
         'limit_count': limit,
       },);
@@ -172,9 +240,16 @@ class SupabasePlaceRepository {
     String? country,
     int limit = 20,
   }) async {
+    final client = _client;
+    if (client == null) {
+      throw SupabasePlaceRepositoryException(
+        'Supabase not initialized. ${SupabaseConfig.initializationError ?? "Please check your configuration."}',
+      );
+    }
+
     try {
       print('🔍 [SupabasePlaceRepo] fetchTopPlacesByCity: city=$city, country=$country, limit=$limit');
-      var query = _client
+      var query = client
           .from('places')
           .select()
           .eq('city', city);
@@ -212,8 +287,15 @@ class SupabasePlaceRepository {
     double radiusKm = 5,
     int limit = 50,
   }) async {
+    final client = _client;
+    if (client == null) {
+      throw SupabasePlaceRepositoryException(
+        'Supabase not initialized. ${SupabaseConfig.initializationError ?? "Please check your configuration."}',
+      );
+    }
+
     try {
-      final response = await _client.rpc('get_nearby_places', params: {
+      final response = await client.rpc('get_nearby_places', params: {
         'lat': latitude,
         'lng': longitude,
         'radius_km': radiusKm,

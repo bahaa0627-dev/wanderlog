@@ -19,6 +19,7 @@ import 'package:wanderlog/features/collections/providers/collection_providers.da
 import 'package:wanderlog/features/map/presentation/widgets/tag_type_filter_bar.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_chat_page.dart';
 
 /// 搜索结果地图页面
 class SearchResultsMapPage extends ConsumerStatefulWidget {
@@ -665,16 +666,61 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                                 onSubmitted: (_) => _performSearch(),
                               ),
                             ),
+                            // Ask AI entry
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).push<void>(
+                                  MaterialPageRoute<void>(
+                                    builder: (context) => const AIChatPage(),
+                                  ),
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.auto_awesome,
+                                      size: 14,
+                                      color: AppTheme.primaryYellow,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    RichText(
+                                      text: TextSpan(
+                                        style: AppTheme.bodySmall(context).copyWith(
+                                          color: AppTheme.black,
+                                          fontSize: 12,
+                                        ),
+                                        children: [
+                                          const TextSpan(text: 'ask '),
+                                          TextSpan(
+                                            text: 'AI',
+                                            style: AppTheme.bodySmall(context).copyWith(
+                                              color: AppTheme.black,
+                                              fontSize: 12,
+                                              decoration: TextDecoration.underline,
+                                              decorationColor: AppTheme.primaryYellow,
+                                              decorationThickness: 2,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                             if (_searchController.text.isNotEmpty)
                               GestureDetector(
                                 onTap: _clearSearch,
                                 child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 8),
+                                  padding: EdgeInsets.only(left: 4, right: 8),
                                   child: Icon(Icons.close, size: 18, color: AppTheme.mediumGray),
                                 ),
                               )
                             else
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 4),
                           ],
                         ),
                       ),

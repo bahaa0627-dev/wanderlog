@@ -24,8 +24,17 @@ void main() async {
     print('Warning: .env file not found, using default values');
   }
   
-  // Init Supabase
-  await SupabaseConfig.initialize();
+  // Init Supabase (non-blocking - app can continue if Supabase fails)
+  try {
+    await SupabaseConfig.initialize();
+    if (!SupabaseConfig.isInitialized) {
+      print('⚠️ Warning: Supabase initialization failed. '
+          'Some features may be unavailable. '
+          'Error: ${SupabaseConfig.initializationError}');
+    }
+  } catch (e) {
+    print('⚠️ Warning: Supabase initialization error: $e');
+  }
   
   // Init services
   await StorageService.instance.init();
@@ -59,6 +68,12 @@ class _WanderlogAppState extends ConsumerState<WanderlogApp> {
   }
 
   void _listenSupabaseAuth() {
+    // Only listen to auth changes if Supabase is initialized
+    if (!SupabaseConfig.isInitialized) {
+      debugPrint('⚠️ Supabase not initialized, skipping auth listener');
+      return;
+    }
+    
     _authSub = SupabaseConfig.auth.onAuthStateChange.listen((data) {
       if (!mounted) return;
       if (data.event == AuthChangeEvent.passwordRecovery) {
@@ -97,7 +112,9 @@ class _WanderlogAppState extends ConsumerState<WanderlogApp> {
 
   @override
   void dispose() {
-    _authSub.cancel();
+    if (SupabaseConfig.isInitialized) {
+      _authSub.cancel();
+    }
     super.dispose();
   }
 

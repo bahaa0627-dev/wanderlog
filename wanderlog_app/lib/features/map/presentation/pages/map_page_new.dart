@@ -34,6 +34,7 @@ import 'package:wanderlog/shared/models/spot_model.dart' as spot_model;
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_chat_page.dart';
 
 /// 地点来源枚举
 enum SpotSource {
@@ -1091,11 +1092,56 @@ class _MapPageState extends ConsumerState<MapPage> {
                 ),
               ),
             ),
+            // Ask AI entry
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const AIChatPage(),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome,
+                      size: 14,
+                      color: AppTheme.primaryYellow,
+                    ),
+                    const SizedBox(width: 4),
+                    RichText(
+                      text: TextSpan(
+                        style: AppTheme.bodySmall(context).copyWith(
+                          color: AppTheme.black,
+                          fontSize: 12,
+                        ),
+                        children: [
+                          const TextSpan(text: 'ask '),
+                          TextSpan(
+                            text: 'AI',
+                            style: AppTheme.bodySmall(context).copyWith(
+                              color: AppTheme.black,
+                              fontSize: 12,
+                              decoration: TextDecoration.underline,
+                              decorationColor: AppTheme.primaryYellow,
+                              decorationThickness: 2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             if (_searchController.text.isNotEmpty)
               GestureDetector(
                 onTap: _clearSearch,
                 child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  padding: EdgeInsets.only(left: 4, right: 8),
                   child: Icon(
                     Icons.close,
                     size: 16,
@@ -1104,7 +1150,7 @@ class _MapPageState extends ConsumerState<MapPage> {
                 ),
               )
             else
-              const SizedBox(width: 12),
+              const SizedBox(width: 4),
           ],
         ),
       );

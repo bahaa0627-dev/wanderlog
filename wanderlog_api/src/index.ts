@@ -60,9 +60,25 @@ app.get('/auth/callback', (_req, res) => {
 });
 
 // Health check - 放在最前面
-app.get('/health', (_req, res) => {
+app.get('/health', async (_req, res) => {
   console.log('🏥 Health check requested');
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  
+  // 检查数据库连接
+  let dbStatus = 'unknown';
+  try {
+    const prisma = (await import('./config/database')).default;
+    await prisma.$queryRaw`SELECT 1`;
+    dbStatus = 'connected';
+  } catch (dbError: any) {
+    console.error('❌ Health check: Database connection failed:', dbError.message);
+    dbStatus = 'disconnected';
+  }
+  
+  res.json({ 
+    status: dbStatus === 'connected' ? 'ok' : 'degraded',
+    timestamp: new Date().toISOString(),
+    database: dbStatus,
+  });
 });
 
 console.log('🔄 Loading routes...');

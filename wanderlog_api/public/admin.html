@@ -662,6 +662,17 @@
         .upload-hint {
             font-size: 12px;
             color: #666;
+            line-height: 1.6;
+        }
+        
+        .upload-hint kbd {
+            background: #f4f4f4;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-family: monospace;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.2);
         }
 
         .upload-preview {
@@ -1154,7 +1165,7 @@
                     <div class="form-group">
                         <label>封面图上传 *（≤5MB）</label>
                         <input id="colCoverFile" type="file" accept="image/*" onchange="handleCoverFile(this.files)">
-                        <div class="upload-hint">支持本地图片，自动转换为 DataURL。尺寸≤5MB，上传后前端会自动裁剪为 4:3 比例。</div>
+                        <div class="upload-hint">支持本地图片上传，自动上传到 Cloudflare R2。尺寸≤5MB，上传后前端会自动裁剪为 4:3 比例。</div>
                         <div class="upload-preview" id="coverPreview" style="display:none;">
                             <img id="coverPreviewImg" alt="封面预览">
                             <div class="info" id="coverPreviewInfo"></div>
@@ -1497,13 +1508,27 @@
                 <div class="section-title">图片管理</div>
                 <div class="form-group">
                     <label>封面图 URL</label>
-                    <input id="placeCoverImage" type="text" placeholder="https://..." style="width:100%;" autocomplete="off">
+                    <div style="display:flex; gap:8px; align-items:flex-start;">
+                        <input id="placeCoverImage" type="text" placeholder="https://..." style="flex:1;" autocomplete="off" onchange="validateCoverImageUrl(this.value)">
+                        <button type="button" class="btn btn-secondary" onclick="uploadPlaceCoverImage()" style="white-space:nowrap;">📷 上传封面</button>
+                    </div>
+                    <div class="upload-hint" style="margin-top:4px;">支持直接输入 R2 URL，或点击"上传封面"按钮上传新图片</div>
                     <div id="coverImagePreview" style="margin-top:8px;"></div>
                 </div>
                 <div class="form-group">
                     <label>上传新图片</label>
-                    <input id="placeImageUpload" type="file" accept="image/*" onchange="handlePlaceImageUpload(this.files)">
-                    <div class="upload-hint">支持本地图片上传，自动转换为 DataURL</div>
+                    <div class="upload-hint" style="margin-bottom:8px;">支持本地图片上传，自动上传到 Cloudflare R2。<br>💡 <strong>多选方法</strong>：按住 <kbd>Ctrl</kbd>（Windows）或 <kbd>Cmd</kbd>（Mac）键，然后点击多张图片；或直接拖拽多张图片到下方区域。</div>
+                    <div id="placeImageDropZone" style="border:2px dashed #ddd; border-radius:8px; padding:30px; text-align:center; background:#f9f9f9; cursor:pointer; transition:all 0.3s; position:relative;" 
+                         ondrop="handleImageDropZone(event, 'placeImageUpload')" 
+                         ondragover="event.preventDefault(); this.style.borderColor='#007bff'; this.style.background='#f0f8ff';" 
+                         ondragleave="this.style.borderColor='#ddd'; this.style.background='#f9f9f9';">
+                        <input id="placeImageUpload" type="file" accept="image/*" multiple onchange="handlePlaceImageUpload(this.files)" style="position:absolute; width:100%; height:100%; top:0; left:0; opacity:0; cursor:pointer; z-index:1;">
+                        <div style="pointer-events:none; z-index:0;">
+                            <div style="font-size:32px; margin-bottom:8px;">📁</div>
+                            <div style="color:#666; font-size:14px; font-weight:500; margin-bottom:4px;">点击选择多张图片</div>
+                            <div style="color:#999; font-size:12px;">或拖拽多张图片到这里</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>图片列表（点击设为封面）</label>
@@ -1513,8 +1538,18 @@
                 <div class="section-title" style="margin-top:16px;">剧照（可选）</div>
                 <div class="form-group">
                     <label>上传剧照</label>
-                    <input id="placeStillUpload" type="file" accept="image/*" onchange="handlePlaceStillUpload(this.files)">
-                    <div class="upload-hint">与该地点相关的影视剧照，非必填</div>
+                    <div class="upload-hint" style="margin-bottom:8px;">与该地点相关的影视剧照，非必填。<br>💡 <strong>多选方法</strong>：按住 <kbd>Ctrl</kbd>（Windows）或 <kbd>Cmd</kbd>（Mac）键，然后点击多张图片；或直接拖拽多张图片到下方区域。</div>
+                    <div id="placeStillDropZone" style="border:2px dashed #ddd; border-radius:8px; padding:30px; text-align:center; background:#f9f9f9; cursor:pointer; transition:all 0.3s; position:relative;" 
+                         ondrop="handleImageDropZone(event, 'placeStillUpload')" 
+                         ondragover="event.preventDefault(); this.style.borderColor='#007bff'; this.style.background='#f0f8ff';" 
+                         ondragleave="this.style.borderColor='#ddd'; this.style.background='#f9f9f9';">
+                        <input id="placeStillUpload" type="file" accept="image/*" multiple onchange="handlePlaceStillUpload(this.files)" style="position:absolute; width:100%; height:100%; top:0; left:0; opacity:0; cursor:pointer; z-index:1;">
+                        <div style="pointer-events:none; z-index:0;">
+                            <div style="font-size:32px; margin-bottom:8px;">🎬</div>
+                            <div style="color:#666; font-size:14px; font-weight:500; margin-bottom:4px;">点击选择多张剧照</div>
+                            <div style="color:#999; font-size:12px;">或拖拽多张图片到这里</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>剧照列表</label>
@@ -2563,19 +2598,46 @@
                 });
 
                 const response = await fetchWithTimeout(`${API_BASE}?${params}`);
+                
+                // 检查响应状态
+                if (!response.ok) {
+                    const errorText = await response.text().catch(() => 'Unknown error');
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                // 检查 Content-Type
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    console.warn('⚠️ Unexpected Content-Type:', contentType);
+                }
+                
                 const result = await response.json();
+                
+                console.log('📦 API Response:', {
+                    success: result.success,
+                    dataLength: result.data?.length || 0,
+                    pagination: result.pagination,
+                    hasError: !!result.error
+                });
 
-                if (result.success) {
+                if (result.success && result.data) {
                     renderPlaces(result.data);
-                    renderPagination(result.pagination);
-                    renderStats(result.pagination);
+                    if (result.pagination) {
+                        renderPagination(result.pagination);
+                        renderStats(result.pagination);
+                    } else {
+                        console.warn('⚠️ No pagination data in response');
+                    }
                     updateActiveFilters();
                 } else {
+                    console.error('❌ API returned unsuccessful response:', result);
+                    document.getElementById('loading').textContent = result.error || '加载失败：API 返回失败状态';
                     showEmpty();
                 }
             } catch (error) {
-                console.error('加载地点失败:', error);
-                document.getElementById('loading').textContent = '加载失败，请检查 /api/public-places';
+                console.error('❌ 加载地点失败:', error);
+                const errorMsg = error.message || '未知错误';
+                document.getElementById('loading').textContent = `加载失败: ${errorMsg}`;
                 showEmpty();
             }
         }
@@ -2600,6 +2662,13 @@
         function renderPlaces(places) {
             const tbody = document.getElementById('placesBody');
             tbody.innerHTML = '';
+
+            // 检查 places 是否为有效数组
+            if (!places || !Array.isArray(places)) {
+                console.error('❌ renderPlaces: places is not an array:', places);
+                showEmpty();
+                return;
+            }
 
             if (places.length === 0) {
                 showEmpty();
@@ -2808,8 +2877,13 @@
             container.innerHTML = '';
             container.style.display = 'flex';
 
-            currentPage = pagination.page;
-            totalPages = pagination.pages;
+            if (!pagination) {
+                console.error('❌ renderPagination: pagination is null or undefined');
+                return;
+            }
+
+            currentPage = pagination.page || 1;
+            totalPages = pagination.pages || 1;
 
             // 首页按钮
             const firstBtn = document.createElement('button');
@@ -2856,12 +2930,17 @@
         // 渲染统计信息
         function renderStats(pagination) {
             const stats = document.getElementById('stats');
+            if (!pagination) {
+                console.error('❌ renderStats: pagination is null or undefined');
+                stats.innerHTML = '<div class="stats-info">统计信息不可用</div>';
+                return;
+            }
             stats.innerHTML = `
                 <div class="stats-info">
-                    共 <strong>${pagination.total}</strong> 个地点
+                    共 <strong>${pagination.total || 0}</strong> 个地点
                 </div>
                 <div class="stats-info">
-                    第 <strong>${pagination.page}</strong> / <strong>${pagination.pages}</strong> 页
+                    第 <strong>${pagination.page || 1}</strong> / <strong>${pagination.pages || 1}</strong> 页
                 </div>
             `;
         }
@@ -3727,12 +3806,13 @@
                 return;
             }
             try {
-                const compressedDataUrl = await compressImage(file, 800, 800, 0.8);
-                peopleListData[idx].avatarUrl = compressedDataUrl;
+                // 上传到 R2
+                const r2Url = await uploadImageToR2(file);
+                peopleListData[idx].avatarUrl = r2Url;
                 renderPeople();
             } catch (error) {
-                console.error('图片压缩失败:', error);
-                alert('图片处理失败，请重试');
+                console.error('图片上传失败:', error);
+                alert(`图片上传失败: ${error.message || '未知错误'}`);
             }
         }
 
@@ -3744,16 +3824,58 @@
                 return;
             }
             try {
-                const compressedDataUrl = await compressImage(file, 800, 800, 0.8);
-                worksListData[idx].coverImage = compressedDataUrl;
+                // 上传到 R2
+                const r2Url = await uploadImageToR2(file);
+                worksListData[idx].coverImage = r2Url;
                 renderWorks();
             } catch (error) {
-                console.error('图片压缩失败:', error);
-                alert('图片处理失败，请重试');
+                console.error('图片上传失败:', error);
+                alert(`图片上传失败: ${error.message || '未知错误'}`);
             }
         }
 
-        // 压缩图片
+        // 压缩图片为 Blob（用于上传到 R2）
+        function compressImageToBlob(file, maxWidth = 1200, maxHeight = 1600, quality = 0.8) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+
+                        // 计算新尺寸，保持宽高比
+                        if (width > maxWidth || height > maxHeight) {
+                            const ratio = Math.min(maxWidth / width, maxHeight / height);
+                            width = width * ratio;
+                            height = height * ratio;
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // 转换为 Blob，使用 JPEG 格式压缩
+                        canvas.toBlob((blob) => {
+                            if (blob) {
+                                resolve(blob);
+                            } else {
+                                reject(new Error('图片压缩失败'));
+                            }
+                        }, 'image/jpeg', quality);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 压缩图片为 DataURL（保留用于预览）
         function compressImage(file, maxWidth = 1200, maxHeight = 1600, quality = 0.8) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -3789,6 +3911,93 @@
             });
         }
 
+        // 上传图片到 R2
+        async function uploadImageToR2(file) {
+            const token = getStoredToken();
+            if (!token) {
+                throw new Error('请先登录管理员账号');
+            }
+
+            // 压缩图片
+            const blob = await compressImageToBlob(file, 1200, 1600, 0.8);
+            
+            // 创建 FormData
+            const formData = new FormData();
+            formData.append('image', blob, file.name);
+
+            // 上传到 R2
+            const response = await fetch(`${getApiHost()}/api/upload/image`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ message: '上传失败' }));
+                throw new Error(error.message || `上传失败: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (!data.success || !data.url) {
+                throw new Error(data.message || '上传失败：未返回图片 URL');
+            }
+
+            return data.url;
+        }
+
+        // 批量上传图片到 R2（支持分批上传，每批最多 3 张）
+        async function uploadMultipleImagesToR2(files) {
+            const token = getStoredToken();
+            if (!token) {
+                throw new Error('请先登录管理员账号');
+            }
+
+            const fileArray = Array.from(files);
+            const allUrls = [];
+            const batchSize = 3; // API 限制每批最多 3 张
+
+            // 分批上传
+            for (let i = 0; i < fileArray.length; i += batchSize) {
+                const batch = fileArray.slice(i, i + batchSize);
+                
+                // 压缩当前批次的图片
+                const blobs = await Promise.all(
+                    batch.map(file => compressImageToBlob(file, 1200, 1200, 0.8))
+                );
+
+                // 创建 FormData
+                const formData = new FormData();
+                blobs.forEach((blob, index) => {
+                    formData.append('images', blob, batch[index].name);
+                });
+
+                // 上传到 R2
+                const response = await fetch(`${getApiHost()}/api/upload/images`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ message: '上传失败' }));
+                    throw new Error(error.message || `上传失败: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (!data.success || !data.urls || data.urls.length === 0) {
+                    throw new Error(data.message || '上传失败：未返回图片 URL');
+                }
+
+                allUrls.push(...data.urls);
+            }
+
+            return allUrls;
+        }
+
         async function handleCoverFile(files) {
             if (!files || files.length === 0) return;
             const file = files[0];
@@ -3801,33 +4010,39 @@
             }
 
             try {
-                // 压缩图片（不限制宽高比，允许任意比例）
-                const compressedDataUrl = await compressImage(file, 1200, 1600, 0.8);
+                // 显示上传中状态
+                const preview = document.getElementById('coverPreview');
+                const infoEl = document.getElementById('coverPreviewInfo');
+                if (preview) preview.style.display = 'flex';
+                if (infoEl) infoEl.textContent = '正在上传到 R2...';
+
+                // 上传到 R2
+                const r2Url = await uploadImageToR2(file);
                 
+                // 生成预览（使用压缩后的 DataURL）
+                const compressedDataUrl = await compressImage(file, 1200, 1600, 0.8);
                 const img = new Image();
                 img.onload = () => {
                     const { width, height } = img;
-                    // 不再验证宽高比，允许上传任意比例的图片
-                    // 前端会自动裁剪为 4:3 比例（取中间部分）
 
-                    // 设置预览和输入值
-                    document.getElementById('colCover').value = compressedDataUrl;
-                    const preview = document.getElementById('coverPreview');
+                    // 设置预览和输入值（使用 R2 URL）
+                    document.getElementById('colCover').value = r2Url;
                     const imgEl = document.getElementById('coverPreviewImg');
-                    const infoEl = document.getElementById('coverPreviewInfo');
-                    imgEl.src = compressedDataUrl;
-                    preview.style.display = 'flex';
-                    const compressedSize = (compressedDataUrl.length * 3 / 4 / 1024 / 1024).toFixed(2);
-                    infoEl.textContent = `尺寸: ${width}x${height}, 压缩后大小: ${compressedSize}MB（前端将自动裁剪为 4:3）`;
+                    if (imgEl) {
+                        imgEl.src = compressedDataUrl; // 预览用 DataURL
+                    }
+                    if (infoEl) {
+                        infoEl.textContent = `尺寸: ${width}x${height}, 已上传到 R2（前端将自动裁剪为 4:3）`;
+                    }
                 };
                 img.onerror = () => {
-                    alert('图片读取失败，请重试');
-                    clearCoverFile();
+                    alert('图片预览失败，但已上传成功');
+                    if (infoEl) infoEl.textContent = '已上传到 R2';
                 };
                 img.src = compressedDataUrl;
             } catch (error) {
-                console.error('图片压缩失败:', error);
-                alert('图片处理失败，请重试');
+                console.error('图片上传失败:', error);
+                alert(`图片上传失败: ${error.message || '未知错误'}`);
                 clearCoverFile();
             }
         }
@@ -4383,66 +4598,264 @@
             renderPlaceImages();
         }
         
+        // 上传地点封面图
+        async function uploadPlaceCoverImage() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const maxSize = 5 * 1024 * 1024; // 5MB
+                if (file.size > maxSize) {
+                    alert('图片超过 5MB，无法上传');
+                    return;
+                }
+                
+                try {
+                    const coverImageInput = document.getElementById('placeCoverImage');
+                    const preview = document.getElementById('coverImagePreview');
+                    
+                    // 显示上传中
+                    if (preview) {
+                        preview.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">正在上传到 R2...</div>';
+                    }
+                    
+                    // 上传到 R2
+                    const r2Url = await uploadImageToR2(file);
+                    
+                    // 设置封面图 URL
+                    coverImageInput.value = r2Url;
+                    updateCoverImagePreview();
+                    
+                    alert('封面图已成功上传到 R2！');
+                } catch (error) {
+                    console.error('封面图上传失败:', error);
+                    alert(`封面图上传失败: ${error.message || '未知错误'}`);
+                }
+            };
+            input.click();
+        }
+        
+        // 验证封面图 URL
+        function validateCoverImageUrl(url) {
+            if (!url) return;
+            
+            // 检查是否是 DataURL
+            if (url.startsWith('data:image/')) {
+                const preview = document.getElementById('coverImagePreview');
+                if (preview) {
+                    preview.innerHTML = `
+                        <div style="padding:12px; background:#fff3cd; border:1px solid #ffc107; border-radius:6px; color:#856404; font-size:12px;">
+                            ⚠️ 检测到 DataURL 格式，请点击"上传封面"按钮将图片上传到 R2
+                        </div>
+                    `;
+                }
+            } else {
+                updateCoverImagePreview();
+            }
+        }
+        
         // 更新封面图预览
         function updateCoverImagePreview() {
             const coverImage = document.getElementById('placeCoverImage').value;
             const preview = document.getElementById('coverImagePreview');
+            if (!preview) return;
+            
             if (coverImage) {
-                preview.innerHTML = `<img src="${coverImage}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" onerror="this.style.display='none'">`;
+                // 检查是否是 DataURL
+                if (coverImage.startsWith('data:image/')) {
+                    preview.innerHTML = `
+                        <img src="${coverImage}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" onerror="this.style.display='none'">
+                        <div style="margin-top:8px; padding:8px; background:#fff3cd; border:1px solid #ffc107; border-radius:4px; color:#856404; font-size:11px;">
+                            ⚠️ 这是 DataURL 格式，建议上传到 R2
+                        </div>
+                    `;
+                } else {
+                    preview.innerHTML = `<img src="${coverImage}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" onerror="this.style.display='none'">`;
+                }
             } else {
                 preview.innerHTML = '';
             }
         }
         
-        // 处理图片上传
-        async function handlePlaceImageUpload(files) {
-            if (!files || files.length === 0) return;
-            const file = files[0];
+        // 处理拖拽上传
+        function handleImageDropZone(event, inputId) {
+            event.preventDefault();
+            event.stopPropagation();
             
-            if (file.size > 5 * 1024 * 1024) {
-                alert('图片超过 5MB');
+            // 恢复样式
+            const dropZone = event.currentTarget;
+            dropZone.style.borderColor = '#ddd';
+            dropZone.style.background = '#f9f9f9';
+            
+            const files = event.dataTransfer.files;
+            if (!files || files.length === 0) return;
+            
+            // 过滤出图片文件
+            const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+            if (imageFiles.length === 0) {
+                alert('请拖拽图片文件');
                 return;
             }
             
+            // 创建 FileList 对象
+            const dataTransfer = new DataTransfer();
+            imageFiles.forEach(file => dataTransfer.items.add(file));
+            
+            // 触发对应的上传函数
+            if (inputId === 'placeImageUpload') {
+                handlePlaceImageUpload(dataTransfer.files);
+            } else if (inputId === 'placeStillUpload') {
+                handlePlaceStillUpload(dataTransfer.files);
+            }
+        }
+        
+        // 处理图片上传（支持多选）
+        async function handlePlaceImageUpload(files) {
+            if (!files || files.length === 0) return;
+            
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            const validFiles = [];
+            const invalidFiles = [];
+            
+            // 检查所有文件大小
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.size > maxSize) {
+                    invalidFiles.push(file.name);
+                } else {
+                    validFiles.push(file);
+                }
+            }
+            
+            if (invalidFiles.length > 0) {
+                alert(`以下图片超过 5MB，已跳过：\n${invalidFiles.join('\n')}`);
+            }
+            
+            if (validFiles.length === 0) {
+                document.getElementById('placeImageUpload').value = '';
+                return;
+            }
+            
+            // 显示上传进度提示
+            const uploadCount = validFiles.length;
+            let uploadedCount = 0;
+            let hasError = false;
+            
             try {
-                const compressedDataUrl = await compressImage(file, 1200, 1200, 0.8);
-                placeImages.push(compressedDataUrl);
+                // 批量上传到 R2
+                const r2Urls = await uploadMultipleImagesToR2(validFiles);
                 
-                // 如果没有封面图，自动设置第一张为封面
-                if (!document.getElementById('placeCoverImage').value) {
-                    document.getElementById('placeCoverImage').value = compressedDataUrl;
-                    updateCoverImagePreview();
+                // 添加 R2 URL 到图片列表
+                for (let i = 0; i < r2Urls.length; i++) {
+                    placeImages.push(r2Urls[i]);
+                    uploadedCount++;
+                    
+                    // 如果没有封面图，自动设置第一张为封面
+                    if (!document.getElementById('placeCoverImage').value) {
+                        document.getElementById('placeCoverImage').value = r2Urls[i];
+                        updateCoverImagePreview();
+                    }
+                    
+                    // 实时更新列表显示
+                    renderPlaceImages();
                 }
                 
-                renderPlaceImages();
+                // 显示完成提示
+                if (uploadedCount > 0) {
+                    const message = hasError 
+                        ? `成功上传 ${uploadedCount}/${uploadCount} 张图片到 R2，部分图片处理失败`
+                        : `成功上传 ${uploadedCount} 张图片到 R2`;
+                    console.log(message);
+                }
+                
                 document.getElementById('placeImageUpload').value = '';
             } catch (e) {
                 console.error('图片上传失败:', e);
-                alert('图片上传失败');
+                alert(`图片上传失败: ${e.message || '未知错误'}`);
             }
         }
         
         // ============ 剧照管理 ============
         let placeStills = []; // 存储剧照列表
         
-        // 处理剧照上传
+        // 处理剧照上传（支持多选）
         async function handlePlaceStillUpload(files) {
             if (!files || files.length === 0) return;
-            const file = files[0];
             
-            if (file.size > 5 * 1024 * 1024) {
-                alert('图片超过 5MB');
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            const validFiles = [];
+            const invalidFiles = [];
+            
+            // 检查所有文件大小
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.size > maxSize) {
+                    invalidFiles.push(file.name);
+                } else {
+                    validFiles.push(file);
+                }
+            }
+            
+            if (invalidFiles.length > 0) {
+                alert(`以下剧照超过 5MB，已跳过：\n${invalidFiles.join('\n')}`);
+            }
+            
+            if (validFiles.length === 0) {
+                document.getElementById('placeStillUpload').value = '';
                 return;
             }
             
+            // 显示上传进度提示
+            const uploadCount = validFiles.length;
+            let uploadedCount = 0;
+            let hasError = false;
+            
             try {
-                const compressedDataUrl = await compressImage(file, 1200, 1200, 0.8);
-                placeStills.push(compressedDataUrl);
-                renderPlaceStills();
+                // 批量上传到 R2
+                const r2Urls = await uploadMultipleImagesToR2(validFiles);
+                
+                // 添加 R2 URL 到剧照列表
+                for (let i = 0; i < r2Urls.length; i++) {
+                    const r2Url = r2Urls[i];
+                    // 剧照格式：如果是新格式（对象），需要保持结构；否则直接添加字符串
+                    if (placeStills.length > 0 && typeof placeStills[0] === 'object' && placeStills[0].movieId) {
+                        // 如果已有新格式数据，需要找到最后一个电影ID或使用默认值
+                        const lastStill = placeStills[placeStills.length - 1];
+                        const movieId = (typeof lastStill === 'object' && lastStill.movieId) ? lastStill.movieId : '_unknown_';
+                        placeStills.push({
+                            movieId: movieId,
+                            movieNameCn: typeof lastStill === 'object' ? (lastStill.movieNameCn || '') : '',
+                            movieNameEn: typeof lastStill === 'object' ? (lastStill.movieNameEn || '') : '',
+                            year: typeof lastStill === 'object' ? (lastStill.year || '') : '',
+                            url: r2Url, // 使用 R2 URL
+                            canCompare: false,
+                            isHidden: false
+                        });
+                    } else {
+                        // 旧格式：直接添加字符串URL（R2 URL）
+                        placeStills.push(r2Url);
+                    }
+                    uploadedCount++;
+                    
+                    // 实时更新列表显示
+                    renderPlaceStills();
+                }
+                
+                // 显示完成提示
+                if (uploadedCount > 0) {
+                    const message = hasError 
+                        ? `成功上传 ${uploadedCount}/${uploadCount} 张剧照到 R2，部分剧照处理失败`
+                        : `成功上传 ${uploadedCount} 张剧照到 R2`;
+                    console.log(message);
+                }
+                
                 document.getElementById('placeStillUpload').value = '';
             } catch (e) {
                 console.error('剧照上传失败:', e);
-                alert('剧照上传失败');
+                alert(`剧照上传失败: ${e.message || '未知错误'}`);
             }
         }
         
@@ -4656,7 +5069,26 @@
                 }
                 
                 // 构建请求数据
-                const coverImage = document.getElementById('placeCoverImage').value.trim();
+                let coverImage = document.getElementById('placeCoverImage').value.trim();
+                
+                // 验证封面图：如果是 DataURL，提示用户上传到 R2
+                if (coverImage && coverImage.startsWith('data:image/')) {
+                    const confirmUpload = confirm('检测到封面图是 DataURL 格式。建议上传到 R2 以获得更好的性能。\n\n是否现在上传到 R2？\n（点击"取消"可以继续保存，但建议稍后上传）');
+                    if (confirmUpload) {
+                        await uploadPlaceCoverImage();
+                        // 重新获取上传后的 URL
+                        const newCoverImage = document.getElementById('placeCoverImage').value.trim();
+                        if (newCoverImage && !newCoverImage.startsWith('data:image/')) {
+                            // 用户已上传，使用新的 R2 URL
+                            coverImage = newCoverImage;
+                        } else {
+                            // 用户取消了上传，询问是否继续
+                            if (!confirm('封面图仍是 DataURL 格式，是否继续保存？')) {
+                                return;
+                            }
+                        }
+                    }
+                }
                 
                 // 构建 customFields（包含剧照）
                 // 需要保留原有的 customFields 中的其他字段（如 matchedBy, raw, evidence 等）

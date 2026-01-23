@@ -140,6 +140,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   final Map<String, String> _extraCitySlugs = {};
   bool _isLoadingDestinations = true;
   bool _hasLoadError = false; // 加载错误状态
+  String? _loadErrorMessage; // 错误消息
 
   late int _selectedSubTab;
   late bool _isMapView;
@@ -919,15 +920,29 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       setState(() {
         _isLoadingDestinations = true;
         _hasLoadError = false; // 重置错误状态
+        _loadErrorMessage = null;
       });
     } else {
       _isLoadingDestinations = true;
       _hasLoadError = false;
+      _loadErrorMessage = null;
     }
     try {
       // 确保认证状态是最新的
       final authState = ref.read(authProvider);
       print('🔐 [SpotsTab] Auth state: isAuthenticated=${authState.isAuthenticated}, user=${authState.user?.email}');
+      
+      if (!authState.isAuthenticated) {
+        print('⚠️ [SpotsTab] User not authenticated, cannot load destinations');
+        if (mounted) {
+          setState(() {
+            _hasLoadError = true;
+            _loadErrorMessage = 'Please log in to view your spots';
+            _isLoadingDestinations = false;
+          });
+        }
+        return;
+      }
       
       final repo = ref.read(tripRepositoryProvider);
       print('📡 [SpotsTab] Loading destinations...');
@@ -958,15 +973,35 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           .map((d) => repo.getTripById(d.id).catchError((_) => d));
       final details = await Future.wait(detailFutures);
 
+      print('📋 [SpotsTab] Processing ${details.length} trip details...');
+      int totalSpots = 0;
+      int savedSpots = 0;
+      int visitedSpots = 0;
+      int mustGoSpots = 0;
+      int todaysPlanSpots = 0;
+      
       for (final detail in details) {
         final tripSpots = detail.tripSpots ?? const <TripSpot>[];
+        print('📍 [SpotsTab] Trip "${detail.name}" has ${tripSpots.length} spots');
         for (final ts in tripSpots) {
+          totalSpots++;
           final s = ts.spot;
-          if (s == null) continue;
+          if (s == null) {
+            print('⚠️ [SpotsTab] Spot is null, skipping');
+            continue;
+          }
           
           // 只显示已收藏或已访问的地点
           // isSaved: false 且 isVisited: false 的地点不应该出现在列表中
-          if (!ts.isSaved && !ts.isVisited) continue;
+          if (!ts.isSaved && !ts.isVisited) {
+            print('⏭️ [SpotsTab] Skipping spot ${s.name} (not saved and not visited)');
+            continue;
+          }
+          
+          if (ts.isSaved) savedSpots++;
+          if (ts.isVisited) visitedSpots++;
+          if (ts.isMustGo) mustGoSpots++;
+          if (ts.isTodaysPlan) todaysPlanSpots++;
           
           final cityName = (s.city ?? 'Unknown').trim().isEmpty
               ? 'Unknown'
@@ -993,6 +1028,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           entries.add(entry);
         }
       }
+
+      print('✅ [SpotsTab] Processed spots: total=$totalSpots, saved=$savedSpots, visited=$visitedSpots, mustGo=$mustGoSpots, todaysPlan=$todaysPlanSpots');
+      print('📊 [SpotsTab] Created ${entries.length} entries');
 
       setState(() {
         _entries
@@ -1029,6 +1067,16 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       // 标记加载错误
       print('❌ [SpotsTab] Failed to load destinations: $e');
       print('📋 Stack trace: $stackTrace');
+      
+      // 检查是否是认证错误
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('401') || errorStr.contains('unauthorized') || errorStr.contains('authentication')) {
+        print('🔐 [SpotsTab] Authentication error detected');
+        _loadErrorMessage = 'Please log in to view your spots';
+      } else {
+        _loadErrorMessage = 'Failed to load spots. Please check your network connection.';
+      }
+      
       _hasLoadError = true;
     } finally {
       if (mounted) {
@@ -1251,7 +1299,10 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
     // 加载失败且没有数据时显示错误状态
     if (_hasLoadError && _entries.isEmpty) {
-      return _ErrorState(onRetry: _loadDestinationsFromServer);
+      return _ErrorState(
+        onRetry: _loadDestinationsFromServer,
+        message: _loadErrorMessage,
+      );
     }
 
     final hasDestinations = _citiesInCreationOrder(newestFirst: true).isNotEmpty;
@@ -1377,9 +1428,13 @@ class _LoadingState extends StatelessWidget {
 }
 
 class _ErrorState extends StatefulWidget {
-  const _ErrorState({required this.onRetry});
+  const _ErrorState({
+    required this.onRetry,
+    this.message,
+  });
 
   final Future<void> Function() onRetry;
+  final String? message;
 
   @override
   State<_ErrorState> createState() => _ErrorStateState();
@@ -1422,7 +1477,7 @@ class _ErrorStateState extends State<_ErrorState> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Please check your network and try again',
+                widget.message ?? 'Please check your network and try again',
                 style: AppTheme.bodySmall(context).copyWith(
                   color: AppTheme.mediumGray,
                 ),

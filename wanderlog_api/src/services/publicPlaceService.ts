@@ -442,45 +442,71 @@ class PublicPlaceService {
     }
 
     // 无标签筛选时，使用 Prisma 查询
-    const [places, total] = await Promise.all([
-      prisma.place.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy,
-        select: {
-          id: true,
-          name: true,
-          city: true,
-          country: true,
-          latitude: true,
-          longitude: true,
-          address: true,
-          description: true,
-          openingHours: true,
-          rating: true,
-          ratingCount: true,
-          category: true,
-          categoryEn: true,
-          categoryZh: true,
-          aiSummary: true,
-          aiDescription: true,
-          tags: true,
-          aiTags: true,
-          coverImage: true,
-          images: true,
-          price: true,
-          priceLevel: true,
-          website: true,
-          phoneNumber: true,
-          googlePlaceId: true,
-          source: true,
-          createdAt: true,
-          customFields: true,
-        }
-      }),
-      prisma.place.count({ where })
-    ]);
+    const queryStartTime = Date.now();
+    console.log(`[getAllPlaces] Starting database query:`, {
+      where,
+      skip,
+      take: limit,
+      orderBy,
+    });
+
+    let places, total;
+    try {
+      [places, total] = await Promise.all([
+        prisma.place.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy,
+          select: {
+            id: true,
+            name: true,
+            city: true,
+            country: true,
+            latitude: true,
+            longitude: true,
+            address: true,
+            description: true,
+            openingHours: true,
+            rating: true,
+            ratingCount: true,
+            category: true,
+            categoryEn: true,
+            categoryZh: true,
+            aiSummary: true,
+            aiDescription: true,
+            tags: true,
+            aiTags: true,
+            coverImage: true,
+            images: true,
+            price: true,
+            priceLevel: true,
+            website: true,
+            phoneNumber: true,
+            googlePlaceId: true,
+            source: true,
+            createdAt: true,
+            customFields: true,
+          }
+        }),
+        prisma.place.count({ where })
+      ]);
+
+      const queryDuration = Date.now() - queryStartTime;
+      console.log(`✅ [getAllPlaces] Database query completed in ${queryDuration}ms:`, {
+        placesCount: places.length,
+        total,
+      });
+    } catch (dbError: any) {
+      const queryDuration = Date.now() - queryStartTime;
+      console.error(`❌ [getAllPlaces] Database query failed after ${queryDuration}ms:`, {
+        error: dbError.message,
+        code: dbError.code,
+        name: dbError.name,
+        meta: dbError.meta,
+      });
+      throw new Error(`Database query failed: ${dbError.message}`);
+    }
 
     return {
       places,

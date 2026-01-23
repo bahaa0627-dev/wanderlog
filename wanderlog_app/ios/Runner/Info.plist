@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -20,9 +22,44 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.791447495976-rd5pp61vq7t61hp8sn2i3421kq7b18qi</string>
+				<string>io.supabase.wanderlog</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>GIDClientID</key>
+	<string>791447495976-rd5pp61vq7t61hp8sn2i3421kq7b18qi.apps.googleusercontent.com</string>
 	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>MBXAccessToken</key>
+	<string>pk.eyJ1IjoibW9yaWJhaGFhIiwiYSI6ImNtaXp0MzM5NjAxamgzZXB0dnI3MTl4dzIifQ.sHnu6-JSac2YGSwEhkK8ag</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>We need access to your camera to take photos for AI location recognition.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We need your location to find great places near you.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to find great places near you.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need permission to save QR code images to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photo library to let you select images for AI location recognition.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
@@ -40,48 +77,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need access to your photo library to let you select images for AI location recognition.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>We need permission to save QR code images to your photo library.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>We need access to your camera to take photos for AI location recognition.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>We need your location to find great places near you.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>We need your location to find great places near you.</string>
-	<key>MBXAccessToken</key>
-	<string>pk.eyJ1IjoibW9yaWJhaGFhIiwiYSI6ImNtaXp0MzM5NjAxamgzZXB0dnI3MTl4dzIifQ.sHnu6-JSac2YGSwEhkK8ag</string>
-	<!-- App Transport Security - 允许本地 HTTP 连接 -->
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<!-- Google Sign-In 配置 -->
-	<key>GIDClientID</key>
-	<string>791447495976-rd5pp61vq7t61hp8sn2i3421kq7b18qi.apps.googleusercontent.com</string>
-	<!-- URL Schemes 用于 Google 登录回调和 Supabase 深度链接 -->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<!-- 反转的 Client ID 格式：com.googleusercontent.apps.[client-id] -->
-				<string>com.googleusercontent.apps.791447495976-rd5pp61vq7t61hp8sn2i3421kq7b18qi</string>
-				<!-- Supabase 深度链接 -->
-				<string>io.supabase.wanderlog</string>
-			</array>
-		</dict>
 	</array>
 </dict>
 </plist>

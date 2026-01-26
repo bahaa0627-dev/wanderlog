@@ -391,7 +391,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     super.initState();
     _isOverlayInstance = widget.onExitFullscreen != null;
     _isFullscreen = widget.startFullscreen;
-    _selectedCity = widget.initialSnapshot?.selectedCity ?? '';
+    _selectedCity = widget.initialSnapshot?.selectedCity ?? 'Paris';  // 默认值改为 Paris
     _selectedSpot = widget.initialSnapshot?.selectedSpot;
     _selectedTags.addAll(widget.initialSnapshot?.selectedTags ?? <String>{});
     _currentMapCenter = widget.initialSnapshot?.currentCenter;
@@ -1911,7 +1911,8 @@ class _MapPageState extends ConsumerState<MapPage> {
   ) {
     // 1. 如果已经有选中的城市（来自 snapshot 或用户选择），优先保持
     //    即使该城市暂时没有数据，也保持选择（数据会后续加载）
-    if (_selectedCity.isNotEmpty) {
+    //    但要排除空字符串
+    if (_selectedCity.isNotEmpty && _selectedCity != '') {
       return _selectedCity;
     }
     
@@ -1926,22 +1927,17 @@ class _MapPageState extends ConsumerState<MapPage> {
     if ((nextSpotsByCity[_defaultCity] ?? const <Spot>[]).isNotEmpty) {
       return _defaultCity;
     }
-    
-    // 4. 使用第一个有数据的城市
-    if ((nextSpotsByCity[_defaultCity] ?? const <Spot>[]).isNotEmpty) {
-      return _defaultCity;
-    }
     if (citiesWithSpots.contains(_defaultCity)) {
       return _defaultCity;
     }
     
-    // Otherwise, pick the first city with spots
+    // 4. 使用第一个有数据的城市
     for (final city in citiesWithSpots) {
       if ((nextSpotsByCity[city] ?? const <Spot>[]).isNotEmpty) {
         return city;
       }
     }
-    return citiesWithSpots.isNotEmpty ? citiesWithSpots.first : '';
+    return citiesWithSpots.isNotEmpty ? citiesWithSpots.first : _defaultCity;
   }
 
   Spot? _resolveSelectedSpot(
@@ -2304,9 +2300,10 @@ class _CountryCityPickerSheetState extends ConsumerState<_CountryCityPickerSheet
   
   void _updateSelectedCountry() {
     final statsState = ref.read(countriesCitiesStatsProvider);
-    if (statsState.hasData) {
-      final country = _findCountryForCity(widget.selectedCity, statsState);
-      if (country != null && country != _selectedCountry) {
+    if (statsState.hasData && statsState.countries.isNotEmpty) {
+      // 只在 _selectedCountry 为 null 时设置默认值
+      if (_selectedCountry == null) {
+        final country = _findCountryForCity(widget.selectedCity, statsState);
         setState(() {
           _selectedCountry = country;
         });
@@ -2320,6 +2317,7 @@ class _CountryCityPickerSheetState extends ConsumerState<_CountryCityPickerSheet
         return country.name;
       }
     }
+    // 如果找不到，返回第一个国家（而不是 null）
     return statsState.countries.isNotEmpty 
         ? statsState.countries.first.name 
         : null;
@@ -2329,9 +2327,17 @@ class _CountryCityPickerSheetState extends ConsumerState<_CountryCityPickerSheet
   Widget build(BuildContext context) {
     final statsState = ref.watch(countriesCitiesStatsProvider);
     
-    // 如果选中的国家还没设置，尝试设置
-    if (_selectedCountry == null && statsState.hasData) {
-      _selectedCountry = _findCountryForCity(widget.selectedCity, statsState);
+    // 延迟初始化，避免在 build 中调用 setState
+    // 只在第一次有数据且 _selectedCountry 为 null 时设置
+    if (_selectedCountry == null && statsState.hasData && statsState.countries.isNotEmpty) {
+      // 使用 WidgetsBinding 避免在 build 过程中调用 setState
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedCountry == null) {
+          setState(() {
+            _selectedCountry = _findCountryForCity(widget.selectedCity, statsState);
+          });
+        }
+      });
     }
     
     return DraggableScrollableSheet(
@@ -2378,10 +2384,14 @@ class _CountryCityPickerSheetState extends ConsumerState<_CountryCityPickerSheet
   /// 国家城市两列选择
   Widget _buildCountryCityColumns(ScrollController scrollController, CountriesCitiesStatsState statsState) {
     final countries = statsState.countries;
+    print('🗺️ [MapPage] 构建国家城市选择器: ${countries.length} 个国家, 当前选中国家: $_selectedCountry');
+    
     // 过滤掉地点数量 < 5 的城市
     final citiesForCountry = _selectedCountry != null 
         ? statsState.getCities(_selectedCountry!).where((c) => c.placeCount >= 5).toList()
         : <CityStats>[];
+    
+    print('🗺️ [MapPage] 当前国家的城市: ${citiesForCountry.length} 个 - ${citiesForCountry.map((c) => c.name).join(", ")}');
     
     return Row(
       children: [
@@ -2401,6 +2411,7 @@ class _CountryCityPickerSheetState extends ConsumerState<_CountryCityPickerSheet
                 final isSelected = country.name == _selectedCountry;
                 return GestureDetector(
                   onTap: () {
+                    print('🗺️ [MapPage] 点击切换国家: ${country.name}');
                     setState(() {
                       _selectedCountry = country.name;
                     });

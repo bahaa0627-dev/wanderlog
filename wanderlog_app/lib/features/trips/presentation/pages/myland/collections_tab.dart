@@ -177,14 +177,59 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
         final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
         // 使用 API 返回的 spotCount，如果没有则使用 collectionSpots 数组长度
         final count = collection['spotCount'] as int? ?? spots.length;
-        // 兼容 place 和 spot 两种字段名
-        final firstSpot = spots.isNotEmpty
-            ? (spots.first['spot'] as Map<String, dynamic>? ?? 
-               spots.first['place'] as Map<String, dynamic>?)
-            : null;
-        final city = (firstSpot?['city'] as String?)?.isNotEmpty ?? false
-            ? firstSpot!['city'] as String
-            : 'Multi-city';
+        
+        // 智能计算城市名称：统计所有地点的城市，找出出现最多的城市
+        String city = 'Multi-city';
+        if (spots.isNotEmpty) {
+          final Map<String, List<Map<String, dynamic>>> cityToPlaces = {};
+          
+          for (final spot in spots) {
+            // 兼容 place 和 spot 两种字段名
+            final place = spot['spot'] as Map<String, dynamic>? ?? 
+                         spot['place'] as Map<String, dynamic>?;
+            final placeCity = place?['city'] as String?;
+            
+            if (placeCity != null && placeCity.isNotEmpty) {
+              if (!cityToPlaces.containsKey(placeCity)) {
+                cityToPlaces[placeCity] = [];
+              }
+              cityToPlaces[placeCity]!.add(place!);
+            }
+          }
+          
+          if (cityToPlaces.isNotEmpty) {
+            // 找出出现次数最多的城市数量
+            final maxCount = cityToPlaces.values.map((list) => list.length).reduce((a, b) => a > b ? a : b);
+            
+            // 找出所有出现最多次数的城市
+            final topCities = cityToPlaces.entries
+                .where((entry) => entry.value.length == maxCount)
+                .toList();
+            
+            if (topCities.length == 1) {
+              // 只有一个城市出现最多次，直接使用
+              city = topCities.first.key;
+            } else {
+              // 多个城市出现次数相同，选择评分人数最多的城市
+              String selectedCity = topCities.first.key;
+              int maxUserRatingsTotal = 0;
+              
+              for (final entry in topCities) {
+                final places = entry.value;
+                final totalUserRatingsTotal = places
+                    .map((p) => (p['userRatingsTotal'] as int?) ?? 0)
+                    .reduce((a, b) => a + b);
+                
+                if (totalUserRatingsTotal > maxUserRatingsTotal) {
+                  maxUserRatingsTotal = totalUserRatingsTotal;
+                  selectedCity = entry.key;
+                }
+              }
+              
+              city = selectedCity;
+            }
+          }
+        }
         // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
         final List<dynamic> tagsList = [];
         for (final spot in spots) {
@@ -239,6 +284,12 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
             .take(3)
             .map((e) => '#$e')
             .toList();
+        
+        // 获取第一个地点用于封面图（如果合集没有设置封面图的话）
+        final firstSpot = spots.isNotEmpty
+            ? (spots.first['spot'] as Map<String, dynamic>? ?? 
+               spots.first['place'] as Map<String, dynamic>?)
+            : null;
         final cover = collection['coverImage'] as String? ??
             (firstSpot?['coverImage'] as String? ??
                 'https://via.placeholder.com/400x600');
@@ -299,20 +350,19 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
 
   Widget _buildUnauthenticatedState(BuildContext context) => Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.collections_bookmark_outlined,
-              size: 64,
-              color: Colors.grey.shade400,
+            Image.asset(
+              'assets/images/no_data.png',
+              fit: BoxFit.contain,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Text(
               'To find more collections',
               style: AppTheme.bodyMedium(context).copyWith(
-                color: AppTheme.mediumGray,
+                color: AppTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -349,20 +399,19 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
 
   Widget _buildEmptyState() => Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.collections_bookmark_outlined,
-              size: 64,
-              color: Colors.grey.shade400,
+            Image.asset(
+              'assets/images/no_data.png',
+              fit: BoxFit.contain,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Text(
               'To find more collections',
               style: AppTheme.bodyMedium(context).copyWith(
-                color: AppTheme.mediumGray,
+                color: AppTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),

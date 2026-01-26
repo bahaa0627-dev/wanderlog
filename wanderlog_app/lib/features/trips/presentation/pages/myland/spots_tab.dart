@@ -1563,20 +1563,19 @@ class _UnauthenticatedState extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.symmetric(horizontal: 40),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.cloud_off_outlined,
-                size: 64,
-                color: AppTheme.mediumGray,
+              Image.asset(
+                'assets/images/no_data.png',
+                fit: BoxFit.contain,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               Text(
                 'To find your interested spots',
                 style: AppTheme.bodyMedium(context).copyWith(
-                  color: AppTheme.mediumGray,
+                  color: AppTheme.textSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),

@@ -133,6 +133,46 @@ class CollectionRecommendationController {
         _count: true,
       });
 
+      // 获取每个合集的地点数据（用于计算主要城市）
+      const collectionSpots = await prisma.collectionSpot.findMany({
+        where: { collectionId: { in: collectionIds } },
+        include: {
+          place: {
+            select: {
+              city: true,
+              country: true,
+            }
+          }
+        }
+      });
+
+      // 计算每个合集的主要城市
+      const mainCityMap = new Map<string, string>();
+      collectionIds.forEach(collectionId => {
+        const spots = collectionSpots.filter(s => s.collectionId === collectionId);
+        const cityCount = new Map<string, number>();
+        
+        spots.forEach(spot => {
+          const city = spot.place?.city;
+          if (city) {
+            cityCount.set(city, (cityCount.get(city) || 0) + 1);
+          }
+        });
+
+        if (cityCount.size > 0) {
+          // 找出出现次数最多的城市
+          let mainCity = '';
+          let maxCount = 0;
+          cityCount.forEach((count, city) => {
+            if (count > maxCount) {
+              maxCount = count;
+              mainCity = city;
+            }
+          });
+          mainCityMap.set(collectionId, mainCity);
+        }
+      });
+
       // 构建查找映射
       const itemCountMap = new Map(itemCounts.map(i => [i.recommendationId, i._count]));
       const spotCountMap = new Map(spotCounts.map(s => [s.collectionId, s._count]));
@@ -146,6 +186,7 @@ class CollectionRecommendationController {
           collection: {
             ...item.collection,
             spotCount: spotCountMap.get(item.collectionId) || 0,
+            mainCity: mainCityMap.get(item.collectionId) || null,
           }
         });
       });

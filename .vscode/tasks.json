@@ -22,8 +22,8 @@
       "options": {
         "cwd": "${workspaceFolder}/wanderlog_api",
         "env": {
-          "http_proxy": "http://127.0.0.1:7890",
-          "https_proxy": "http://127.0.0.1:7890"
+          "http_proxy": "http://127.0.0.1:7893",
+          "https_proxy": "http://127.0.0.1:7893"
         }
       },
       "problemMatcher": [],
@@ -118,8 +118,8 @@
       "options": {
         "cwd": "${workspaceFolder}/wanderlog_api",
         "env": {
-          "http_proxy": "http://127.0.0.1:7890",
-          "https_proxy": "http://127.0.0.1:7890"
+          "http_proxy": "http://127.0.0.1:7893",
+          "https_proxy": "http://127.0.0.1:7893"
         }
       },
       "problemMatcher": [],

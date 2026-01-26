@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/supabase/services/image_service.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
@@ -331,22 +333,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                         index: _selectedTab,
                         children: [
                           // Tab 0: Collection
-                          if (_isLoadingRecommendations) const Center(child: CircularProgressIndicator()) else _recommendations.isEmpty
-                                  ? Center(
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const Text('No recommendations available'),
-                                          const SizedBox(height: 16),
-                                          Text('Loaded: ${_recommendations.length} recommendations'),
-                                          TextButton(
-                                            onPressed: _loadRecommendations,
-                                            child: const Text('Retry'),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : ListView.builder(
+                          if (_isLoadingRecommendations)
+                            const Center(child: CircularProgressIndicator())
+                          else if (_recommendations.isEmpty)
+                            const Center(
+                              child: Text('No recommendations available'),
+                            )
+                          else
+                            ListView.builder(
                                   padding: const EdgeInsets.only(bottom: 80), // 底部 padding（底部导航栏高度约82px + 安全区域）
                                   cacheExtent: 500, // 优化性能：减少预加载范围
                                   itemCount: _recommendations.length,
@@ -401,42 +395,71 @@ class _HomePageState extends ConsumerState<HomePage> {
                                             ),
                                           ),
                                           const SizedBox(height: 8), // 合集标题距离合集卡片 8px
-                                          // 横向滚动的合集列表 - 增加高度以容纳阴影和底部间距
+                                          // 横向滚动的合集列表 - 高度 = 卡片高度 224 + 底部间距 8
                                           SizedBox(
-                                            height: 270, // 卡片高度 250px + 阴影偏移 4px + 边距 16px（确保卡片完全显示）
+                                            height: 232, // 卡片高度 224px + 底部间距 8px
                                             child: ListView.builder(
                                               scrollDirection: Axis.horizontal,
                                               clipBehavior: Clip.none,
                                               cacheExtent: 200, // 优化性能：减少横向预加载范围
-                                              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+                                              padding: const EdgeInsets.only(left: 16, right: 16),
                                               itemCount: displayItems.length,
                                               itemBuilder: (context, itemIndex) {
                                                 final item = displayItems[itemIndex];
                                                 final collection = item['collection'] as Map<String, dynamic>? ?? {};
                                                 final collectionId = collection['id'] as String?;
+                                                final collectionName = collection['name'] as String? ?? 'Collection';
+                                                
+                                                // 调试：查看数据结构
+                                                print('🔍 合集: $collectionName');
+                                                print('🔍 item结构: ${item.keys}');
+                                                print('🔍 collection.spotCount: ${collection['spotCount']}');
                                                 
                                                 // 获取合集的地点信息
                                                 final collectionSpots = collection['collectionSpots'] as List<dynamic>? ?? [];
-                                                final firstSpot = collectionSpots.isNotEmpty 
-                                                    ? (collectionSpots.first['place'] as Map<String, dynamic>?)
-                                                    : null;
                                                 
-                            final city = (firstSpot?['city'] as String?)?.isNotEmpty ?? false
-                                ? firstSpot!['city'] as String
-                                : 'Multi-city';
+                                                // 使用 API 返回的 spotCount，如果没有则使用 collectionSpots 数组长度
+                                                final count = collection['spotCount'] as int? ?? collectionSpots.length;
+                                                print('🔍 最终count: $count');
                                                 
-                            // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
-                            final List<dynamic> tagsList = [];
-                            for (final spot in collectionSpots) {
-                              final place = spot['place'] as Map<String, dynamic>?;
-                              if (place == null) continue;
-                              
-                              // 尝试获取 tags
-                              final dynamic tagsValue = place['tags'];
-                              if (tagsValue != null) {
-                                if (tagsValue is List) {
-                                  tagsList.addAll(tagsValue);
-                                } else if (tagsValue is String) {
+                                                // 优先使用 API 返回的主要城市
+                                                String city = collection['mainCity'] as String? ?? 'Multi-city';
+                                                
+                                                // 如果 API 没有返回主要城市，尝试从合集名称中提取
+                                                if (city == 'Multi-city' || city.isEmpty) {
+                                                  // 尝试从合集名称中提取城市
+                                                  final namePatterns = {
+                                                    'Copenhagen': ['Copenhagen'],
+                                                    'Tokyo': ['Tokyo', 'Japan', '🇯🇵'],
+                                                    'Paris': ['Paris', '🇫🇷'],
+                                                    'London': ['London', '🇬🇧'],
+                                                    'New York': ['New York', 'NYC'],
+                                                    'Seoul': ['Seoul', '🇰🇷', 'Korea'],
+                                                  };
+                                                  
+                                                  for (final entry in namePatterns.entries) {
+                                                    for (final pattern in entry.value) {
+                                                      if (collectionName.contains(pattern)) {
+                                                        city = entry.key;
+                                                        break;
+                                                      }
+                                                    }
+                                                    if (city != 'Multi-city') break;
+                                                  }
+                                                }
+                                                
+                                                // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
+                                                final List<dynamic> tagsList = [];
+                                                for (final spot in collectionSpots) {
+                                                  final place = spot['place'] as Map<String, dynamic>?;
+                                                  if (place == null) continue;
+                                                  
+                                                  // 尝试获取 tags
+                                                  final dynamic tagsValue = place['tags'];
+                                                  if (tagsValue != null) {
+                                                    if (tagsValue is List) {
+                                                      tagsList.addAll(tagsValue);
+                                                    } else if (tagsValue is String) {
                                   try {
                                     final decoded = jsonDecode(tagsValue) as List<dynamic>?;
                                     if (decoded != null) tagsList.addAll(decoded);
@@ -474,8 +497,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 .map((e) => '#$e')
                                 .toList();
                                                 
-                                                final collectionName = collection['name'] as String? ?? 'Collection';
-                                                
                                                 // 辅助函数：检查 URL 是否是有效的图片 URL
                                                 bool isValidImageUrl(String? url) {
                                                   if (url == null || url.isEmpty) return false;
@@ -506,15 +527,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                   coverImage = 'https://via.placeholder.com/400x600';
                                                 }
                                                 
-                                                final count = collectionSpots.length;
-                                                
                                                 return Padding(
                                                   padding: EdgeInsets.only(
                                                     right: itemIndex < displayItems.length - 1 ? 12 : 0,
                                                   ),
                                                   child: SizedBox(
-                                                    width: 167,
-                                                    height: 250,
+                                                    width: 168,
+                                                    height: 224,
                                                     child: _TripCard(
                               city: city,
                               count: count,
@@ -1030,15 +1049,9 @@ class _TripCardState extends State<_TripCard> {
   }
 
   /// 构建封面图片，处理加载状态
-  /// 使用 4:3 竖向比例（3:4 宽高比），自动裁剪中间部分
+  /// 图片完全填充卡片区域
   Widget _buildCoverImage() {
-    // 使用 AspectRatio 确保 4:3 竖向比例（宽:高 = 3:4）
-    return AspectRatio(
-      aspectRatio: 3 / 4, // 竖向 4:3，即宽:高 = 3:4
-      child: ClipRect(
-        child: _buildImageContent(),
-      ),
-    );
+    return _buildImageContent();
   }
 
   /// 构建图片内容（支持 base64 和网络图片）
@@ -1089,8 +1102,8 @@ class _TripCardState extends State<_TripCard> {
   }
 }
 
-/// 网络图片组件，在加载完成前完全隐藏
-class _NetworkImageWithPlaceholder extends StatefulWidget {
+/// 网络图片组件，使用缓存避免重复加载
+class _NetworkImageWithPlaceholder extends StatelessWidget {
   const _NetworkImageWithPlaceholder({
     required this.imageUrl,
     this.onLoaded,
@@ -1100,79 +1113,39 @@ class _NetworkImageWithPlaceholder extends StatefulWidget {
   final VoidCallback? onLoaded;
 
   @override
-  State<_NetworkImageWithPlaceholder> createState() => _NetworkImageWithPlaceholderState();
-}
-
-class _NetworkImageWithPlaceholderState extends State<_NetworkImageWithPlaceholder> {
-  bool _loaded = false;
-  bool _error = false;
-  ImageStream? _imageStream;
-  ImageStreamListener? _listener;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadImage();
-  }
-
-  @override
-  void didUpdateWidget(_NetworkImageWithPlaceholder oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl != widget.imageUrl) {
-      _removeListener();
-      setState(() {
-        _loaded = false;
-        _error = false;
-      });
-      _loadImage();
-    }
-  }
-
-  @override
-  void dispose() {
-    _removeListener();
-    super.dispose();
-  }
-
-  void _removeListener() {
-    if (_listener != null && _imageStream != null) {
-      _imageStream!.removeListener(_listener!);
-    }
-    _listener = null;
-    _imageStream = null;
-  }
-
-  void _loadImage() {
-    final imageProvider = NetworkImage(widget.imageUrl);
-    _imageStream = imageProvider.resolve(const ImageConfiguration());
-    _listener = ImageStreamListener(
-      (info, synchronousCall) {
-        if (mounted && !_loaded) {
-          setState(() => _loaded = true);
-          widget.onLoaded?.call();
-        }
-      },
-      onError: (exception, stackTrace) {
-        if (mounted && !_error) {
-          setState(() => _error = true);
-        }
-      },
-    );
-    _imageStream!.addListener(_listener!);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // 加载中或出错时不显示任何内容，让底层占位符显示
-    if (!_loaded || _error) {
-      return const SizedBox.shrink();
-    }
-
-    return Image.network(
-      widget.imageUrl,
+    // 使用优化后的图片 URL（400x300，质量80）
+    final optimizedUrl = ImageService.getListImageUrl(imageUrl);
+    
+    return CachedNetworkImage(
+      imageUrl: optimizedUrl,
       fit: BoxFit.cover,
-      gaplessPlayback: true,
-      filterQuality: FilterQuality.low,
+      fadeInDuration: const Duration(milliseconds: 200),
+      placeholder: (context, url) => const SizedBox.shrink(),
+      errorWidget: (context, url, error) {
+        // 优化 URL 失败时尝试原始 URL
+        if (url == optimizedUrl && url != imageUrl) {
+          return CachedNetworkImage(
+            imageUrl: imageUrl,
+            fit: BoxFit.cover,
+            fadeInDuration: const Duration(milliseconds: 200),
+            placeholder: (context, url) => const SizedBox.shrink(),
+            errorWidget: (context, url, error) => const SizedBox.shrink(),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+      imageBuilder: (context, imageProvider) {
+        // 图片加载成功后调用回调
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          onLoaded?.call();
+        });
+        return Image(
+          image: imageProvider,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        );
+      },
     );
   }
 }

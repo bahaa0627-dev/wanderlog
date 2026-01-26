@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:wanderlog/core/supabase/supabase_config.dart';
 
 /// 图片上传服务 (Cloudflare R2)
@@ -37,7 +38,29 @@ class ImageService {
 
   /// 上传图片到 R2
   static Future<String> _uploadImage(File file, String path) async {
-    final bytes = await file.readAsBytes();
+    Uint8List bytes = await file.readAsBytes();
+    
+    // 压缩图片（800px 宽，质量 85）
+    try {
+      final compressedBytes = await FlutterImageCompress.compressWithList(
+        bytes,
+        minWidth: 800,
+        minHeight: 800,
+        quality: 85,
+        format: CompressFormat.jpeg,
+      );
+      
+      if (compressedBytes.isNotEmpty) {
+        final originalSize = bytes.length / 1024; // KB
+        final compressedSize = compressedBytes.length / 1024; // KB
+        final ratio = ((1 - compressedSize / originalSize) * 100).toStringAsFixed(1);
+        print('✅ Image compressed: ${originalSize.toStringAsFixed(1)}KB → ${compressedSize.toStringAsFixed(1)}KB (${ratio}% reduction)');
+        bytes = compressedBytes;
+      }
+    } catch (e) {
+      print('⚠️ Compression failed, using original image: $e');
+    }
+    
     final token = await _getUploadToken();
 
     final response = await http.put(
@@ -150,10 +173,36 @@ class ImageService {
         return null;
       }
 
-      final bytes = response.bodyBytes;
+      Uint8List bytes = response.bodyBytes;
       if (bytes.isEmpty) {
         print('⚠️ Downloaded image is empty');
         return null;
+      }
+
+      // 压缩图片
+      // 封面图：1200px 宽，质量 85
+      // 其他图片：800px 宽，质量 80
+      final int maxWidth = index == 0 ? 1200 : 800;
+      final int quality = index == 0 ? 85 : 80;
+      
+      try {
+        final compressedBytes = await FlutterImageCompress.compressWithList(
+          bytes,
+          minWidth: maxWidth,
+          minHeight: maxWidth, // 保持比例
+          quality: quality,
+          format: CompressFormat.jpeg,
+        );
+        
+        if (compressedBytes.isNotEmpty) {
+          final originalSize = bytes.length / 1024; // KB
+          final compressedSize = compressedBytes.length / 1024; // KB
+          final ratio = ((1 - compressedSize / originalSize) * 100).toStringAsFixed(1);
+          print('✅ Image compressed: ${originalSize.toStringAsFixed(1)}KB → ${compressedSize.toStringAsFixed(1)}KB (${ratio}% reduction)');
+          bytes = compressedBytes;
+        }
+      } catch (e) {
+        print('⚠️ Compression failed, using original image: $e');
       }
 
       // 生成文件名

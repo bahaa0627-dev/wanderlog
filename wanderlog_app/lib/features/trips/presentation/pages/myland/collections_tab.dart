@@ -51,58 +51,84 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
 
   Future<void> _loadCollections() async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
-    try {
-      // 先尝试从缓存加载
-      final cacheState = ref.read(collectionsCacheProvider);
-      
-      if (cacheState.hasData && !cacheState.isStale) {
-        final cachedCollections = cacheState.collectionsById.values.toList();
-        print('💾 [CollectionsTab] Using ${cachedCollections.length} cached collections');
-        if (mounted) {
-          setState(() {
-            _allCollections
-              ..clear()
-              ..addAll(cachedCollections);
-            _filterCollections();
-            _isLoading = false;
-          });
-        }
+
+    // Step 1: 立即从缓存加载并显示（即使缓存过期）
+    final cacheState = ref.read(collectionsCacheProvider);
+    if (cacheState.hasData) {
+      final cachedCollections = cacheState.collectionsById.values.toList();
+      print(
+          '💾 [CollectionsTab] Showing ${cachedCollections.length} cached collections instantly');
+      if (mounted) {
+        setState(() {
+          _allCollections
+            ..clear()
+            ..addAll(cachedCollections);
+          _filterCollections();
+          _isLoading = false; // 立即显示缓存数据，不显示 loading
+        });
+      }
+
+      // 如果缓存还新鲜（1小时内），就不需要刷新了
+      if (!cacheState.isStale) {
+        print('✅ [CollectionsTab] Cache is fresh, no need to refresh');
         return;
       }
-      
+    } else {
+      // 没有缓存，显示 loading
+      setState(() => _isLoading = true);
+    }
+
+    // Step 2: 后台静默刷新数据
+    try {
       final repo = ref.read(collectionRepositoryProvider);
-      print('📡 [CollectionsTab] Loading collections for myland...');
+      print('📡 [CollectionsTab] Background refresh collections...');
       final loadStart = DateTime.now();
-      
+
       // 减少超时时间到 15 秒，提高响应速度
       final data = await repo.listCollections().timeout(
         const Duration(seconds: 15),
         onTimeout: () {
           print('⏱️ [CollectionsTab] Request timed out after 15 seconds');
-          throw TimeoutException('Request timed out. Please check your connection.');
+          throw TimeoutException(
+              'Request timed out. Please check your connection.');
         },
       );
-      
+
       final loadTime = DateTime.now().difference(loadStart).inMilliseconds;
-      print('📦 [CollectionsTab] Loaded ${data.length} collections in ${loadTime}ms');
-      
+      print(
+          '📦 [CollectionsTab] Background loaded ${data.length} collections in ${loadTime}ms');
+
       if (mounted) {
         setState(() {
           _allCollections
             ..clear()
             ..addAll(data);
           _filterCollections();
+          _isLoading = false;
         });
-        print('✅ [CollectionsTab] Filtered to ${_filteredCollections.length} collections');
+        print(
+            '✅ [CollectionsTab] Updated to ${_filteredCollections.length} collections');
       }
+
+      // 更新缓存
+      ref.read(collectionsCacheProvider.notifier).updateCollectionsList(data);
     } catch (e, stackTrace) {
       print('❌ [CollectionsTab] Error loading collections: $e');
       print('📋 [CollectionsTab] Stack trace: $stackTrace');
+
+      // 如果有缓存数据，就继续使用缓存，不显示错误
+      if (_allCollections.isNotEmpty) {
+        print('ℹ️ [CollectionsTab] Using cached data despite error');
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      // 没有缓存数据时才显示错误
       if (mounted) {
         setState(() {
           _allCollections.clear();
           _filteredCollections = [];
+          _isLoading = false;
         });
         // 显示错误toast
         ScaffoldMessenger.of(context).showSnackBar(
@@ -115,8 +141,6 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
           ),
         );
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -135,14 +159,15 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
         // 检查合集中是否有任何地点属于当前城市
         return spots.any((cs) {
           // 兼容 place 和 spot 两种字段名
-          final spot = cs['spot'] as Map<String, dynamic>? ?? 
-                      cs['place'] as Map<String, dynamic>?;
+          final spot = cs['spot'] as Map<String, dynamic>? ??
+              cs['place'] as Map<String, dynamic>?;
           final spotCity = (spot?['city'] as String?)?.toLowerCase().trim();
           return spotCity == city;
         });
       }).toList();
     }
-    print('🔍 Filtered collections: ${_filteredCollections.length} out of ${_allCollections.length}');
+    print(
+        '🔍 Filtered collections: ${_filteredCollections.length} out of ${_allCollections.length}');
     if (mounted) setState(() {});
   }
 
@@ -150,7 +175,7 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
   Widget build(BuildContext context) {
     // Check authentication status
     final authState = ref.watch(authProvider);
-    
+
     // If not authenticated, show login prompt
     if (!authState.isAuthenticated) {
       return _buildUnauthenticatedState(context);
@@ -177,18 +202,18 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
         final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
         // 使用 API 返回的 spotCount，如果没有则使用 collectionSpots 数组长度
         final count = collection['spotCount'] as int? ?? spots.length;
-        
+
         // 智能计算城市名称：统计所有地点的城市，找出出现最多的城市
         String city = 'Multi-city';
         if (spots.isNotEmpty) {
           final Map<String, List<Map<String, dynamic>>> cityToPlaces = {};
-          
+
           for (final spot in spots) {
             // 兼容 place 和 spot 两种字段名
-            final place = spot['spot'] as Map<String, dynamic>? ?? 
-                         spot['place'] as Map<String, dynamic>?;
+            final place = spot['spot'] as Map<String, dynamic>? ??
+                spot['place'] as Map<String, dynamic>?;
             final placeCity = place?['city'] as String?;
-            
+
             if (placeCity != null && placeCity.isNotEmpty) {
               if (!cityToPlaces.containsKey(placeCity)) {
                 cityToPlaces[placeCity] = [];
@@ -196,16 +221,18 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
               cityToPlaces[placeCity]!.add(place!);
             }
           }
-          
+
           if (cityToPlaces.isNotEmpty) {
             // 找出出现次数最多的城市数量
-            final maxCount = cityToPlaces.values.map((list) => list.length).reduce((a, b) => a > b ? a : b);
-            
+            final maxCount = cityToPlaces.values
+                .map((list) => list.length)
+                .reduce((a, b) => a > b ? a : b);
+
             // 找出所有出现最多次数的城市
             final topCities = cityToPlaces.entries
                 .where((entry) => entry.value.length == maxCount)
                 .toList();
-            
+
             if (topCities.length == 1) {
               // 只有一个城市出现最多次，直接使用
               city = topCities.first.key;
@@ -213,19 +240,19 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
               // 多个城市出现次数相同，选择评分人数最多的城市
               String selectedCity = topCities.first.key;
               int maxUserRatingsTotal = 0;
-              
+
               for (final entry in topCities) {
                 final places = entry.value;
                 final totalUserRatingsTotal = places
                     .map((p) => (p['userRatingsTotal'] as int?) ?? 0)
                     .reduce((a, b) => a + b);
-                
+
                 if (totalUserRatingsTotal > maxUserRatingsTotal) {
                   maxUserRatingsTotal = totalUserRatingsTotal;
                   selectedCity = entry.key;
                 }
               }
-              
+
               city = selectedCity;
             }
           }
@@ -234,10 +261,10 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
         final List<dynamic> tagsList = [];
         for (final spot in spots) {
           // 兼容 place 和 spot 两种字段名
-          final spotData = spot['spot'] as Map<String, dynamic>? ?? 
-                          spot['place'] as Map<String, dynamic>?;
+          final spotData = spot['spot'] as Map<String, dynamic>? ??
+              spot['place'] as Map<String, dynamic>?;
           if (spotData == null) continue;
-          
+
           // 尝试获取 tags
           final dynamic tagsValue = spotData['tags'];
           final List<dynamic> currentSpotTags = [];
@@ -253,7 +280,7 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
               }
             }
           }
-          
+
           // 如果这个 spot 没有 tags，尝试使用 aiTags
           if (currentSpotTags.isEmpty) {
             final dynamic aiTagsValue = spotData['aiTags'];
@@ -270,30 +297,27 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
               }
             }
           }
-          
+
           // 添加到总列表
           tagsList.addAll(currentSpotTags);
-          
+
           // 如果已经收集到足够的标签，可以提前退出
           if (tagsList.length >= 3) break;
         }
-        
+
         // 去重并取前3个
         final uniqueTags = tagsList.toSet().toList();
-        final tags = uniqueTags
-            .take(3)
-            .map((e) => '#$e')
-            .toList();
-        
+        final tags = uniqueTags.take(3).map((e) => '#$e').toList();
+
         // 获取第一个地点用于封面图（如果合集没有设置封面图的话）
         final firstSpot = spots.isNotEmpty
-            ? (spots.first['spot'] as Map<String, dynamic>? ?? 
-               spots.first['place'] as Map<String, dynamic>?)
+            ? (spots.first['spot'] as Map<String, dynamic>? ??
+                spots.first['place'] as Map<String, dynamic>?)
             : null;
         final cover = collection['coverImage'] as String? ??
             (firstSpot?['coverImage'] as String? ??
                 'https://via.placeholder.com/400x600');
-        
+
         return _CollectionCard(
           name: collection['name'] as String? ?? 'Collection',
           city: city,
@@ -305,13 +329,16 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
               MaterialPageRoute<dynamic>(
                 builder: (_) => CollectionSpotsMapPage(
                   city: city,
-                  collectionTitle: collection['name'] as String? ?? 'Collection',
+                  collectionTitle:
+                      collection['name'] as String? ?? 'Collection',
                   collectionId: collection['id'] as String?,
                   initialIsFavorited: collection['isFavorited'] as bool?,
                   description: collection['description'] as String?,
                   coverImage: collection['coverImage'] as String?,
-                  people: LinkItem.parseList(collection['people'], isPeople: true),
-                  works: LinkItem.parseList(collection['works'], isPeople: false),
+                  people:
+                      LinkItem.parseList(collection['people'], isPeople: true),
+                  works:
+                      LinkItem.parseList(collection['works'], isPeople: false),
                 ),
               ),
             );
@@ -329,7 +356,8 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
                 _filteredCollections[index]['isFavorited'] = latestFav;
                 // 同步更新 _allCollections 中对应的记录
                 final collectionId = _filteredCollections[index]['id'];
-                final allIndex = _allCollections.indexWhere((c) => c['id'] == collectionId);
+                final allIndex =
+                    _allCollections.indexWhere((c) => c['id'] == collectionId);
                 if (allIndex != -1) {
                   _allCollections[allIndex]['isFavorited'] = latestFav;
                 }
@@ -349,102 +377,104 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
   }
 
   Widget _buildUnauthenticatedState(BuildContext context) => Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/no_data.png',
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'To find more collections',
-              style: AppTheme.bodyMedium(context).copyWith(
-                color: AppTheme.textSecondary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/images/no_data.png',
+                fit: BoxFit.contain,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            GestureDetector(
-              onTap: () => context.go('/home'),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryYellow,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.black, width: 2.5),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppTheme.black,
-                      offset: Offset(4, 4),
-                      blurRadius: 0,
-                    ),
-                  ],
+              const SizedBox(height: 24),
+              Text(
+                'To find more collections',
+                style: AppTheme.bodyMedium(context).copyWith(
+                  color: AppTheme.textSecondary,
                 ),
-                child: Text(
-                  'To explore',
-                  style: AppTheme.labelLarge(context).copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.black,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              GestureDetector(
+                onTap: () => context.go('/home'),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryYellow,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.black, width: 2.5),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppTheme.black,
+                        offset: Offset(4, 4),
+                        blurRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    'To explore',
+                    style: AppTheme.labelLarge(context).copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.black,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
 
   Widget _buildEmptyState() => Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/no_data.png',
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'To find more collections',
-              style: AppTheme.bodyMedium(context).copyWith(
-                color: AppTheme.textSecondary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/images/no_data.png',
+                fit: BoxFit.contain,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            GestureDetector(
-              onTap: () => context.go('/home'),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryYellow,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.black, width: 2.5),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppTheme.black,
-                      offset: Offset(4, 4),
-                      blurRadius: 0,
-                    ),
-                  ],
+              const SizedBox(height: 24),
+              Text(
+                'To find more collections',
+                style: AppTheme.bodyMedium(context).copyWith(
+                  color: AppTheme.textSecondary,
                 ),
-                child: Text(
-                  'To explore',
-                  style: AppTheme.labelLarge(context).copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.black,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              GestureDetector(
+                onTap: () => context.go('/home'),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryYellow,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.black, width: 2.5),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppTheme.black,
+                        offset: Offset(4, 4),
+                        blurRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    'To explore',
+                    style: AppTheme.labelLarge(context).copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.black,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
 }
 
 /// 合集卡片组件
@@ -502,7 +532,7 @@ class _CollectionCardState extends State<_CollectionCard> {
 
   Future<void> _extractDominantColor() async {
     if (widget.image.isEmpty) return;
-    
+
     try {
       final ImageProvider imageProvider;
       if (widget.image.startsWith('data:image/')) {
@@ -510,13 +540,13 @@ class _CollectionCardState extends State<_CollectionCard> {
       } else {
         imageProvider = NetworkImage(widget.image);
       }
-      
+
       final paletteGenerator = await PaletteGenerator.fromImageProvider(
         imageProvider,
         size: const Size(100, 100),
         maximumColorCount: 5,
       );
-      
+
       if (mounted) {
         setState(() {
           _dominantColor = paletteGenerator.dominantColor?.color ??
@@ -626,26 +656,32 @@ class _CollectionCardState extends State<_CollectionCard> {
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       );
-                      
+
                       // 计算城市名称需要的宽度
                       final cityTextPainter = TextPainter(
                         text: TextSpan(text: widget.city, style: textStyle),
                         maxLines: 1,
                         textDirection: TextDirection.ltr,
                       )..layout();
-                      
+
                       // 计算地点数量需要的宽度
                       final countTextPainter = TextPainter(
-                        text: TextSpan(text: widget.spotsCount.toString(), style: textStyle),
+                        text: TextSpan(
+                            text: widget.spotsCount.toString(),
+                            style: textStyle),
                         maxLines: 1,
                         textDirection: TextDirection.ltr,
                       )..layout();
-                      
-                      final cityTagWidth = cityTextPainter.width + 24; // padding 12*2
-                      final countTagWidth = countTextPainter.width + 20 + 12; // padding 10*2 + icon 10 + spacing 2
+
+                      final cityTagWidth =
+                          cityTextPainter.width + 24; // padding 12*2
+                      final countTagWidth = countTextPainter.width +
+                          20 +
+                          12; // padding 10*2 + icon 10 + spacing 2
                       const spacing = 8.0;
-                      final totalNeeded = cityTagWidth + countTagWidth + spacing;
-                      
+                      final totalNeeded =
+                          cityTagWidth + countTagWidth + spacing;
+
                       // 如果空间不够，隐藏地点数量
                       final showSpots = totalNeeded <= constraints.maxWidth;
 
@@ -668,7 +704,8 @@ class _CollectionCardState extends State<_CollectionCard> {
                                 children: [
                                   Text(
                                     widget.spotsCount.toString(),
-                                    style: AppTheme.labelSmall(context).copyWith(
+                                    style:
+                                        AppTheme.labelSmall(context).copyWith(
                                       fontSize: 10,
                                       color: AppTheme.black,
                                       fontWeight: FontWeight.bold,
@@ -744,7 +781,8 @@ class _CollectionCardState extends State<_CollectionCard> {
                                 .map(
                                   (tag) => Text(
                                     tag,
-                                    style: AppTheme.labelSmall(context).copyWith(
+                                    style:
+                                        AppTheme.labelSmall(context).copyWith(
                                       fontSize: 12,
                                       color: AppTheme.white.withOpacity(0.9),
                                     ),

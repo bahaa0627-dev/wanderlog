@@ -3,7 +3,6 @@ import 'package:wanderlog/features/collections/providers/collection_providers.da
 
 /// 合集数据缓存状态
 class CollectionsCacheState {
-
   const CollectionsCacheState({
     this.collectionsById = const {},
     this.isLoading = false,
@@ -20,27 +19,43 @@ class CollectionsCacheState {
     bool? isLoading,
     String? error,
     DateTime? lastLoadedAt,
-  }) => CollectionsCacheState(
-      collectionsById: collectionsById ?? this.collectionsById,
-      isLoading: isLoading ?? this.isLoading,
-      error: error,
-      lastLoadedAt: lastLoadedAt ?? this.lastLoadedAt,
-    );
+  }) =>
+      CollectionsCacheState(
+        collectionsById: collectionsById ?? this.collectionsById,
+        isLoading: isLoading ?? this.isLoading,
+        error: error,
+        lastLoadedAt: lastLoadedAt ?? this.lastLoadedAt,
+      );
 
   bool get hasData => collectionsById.isNotEmpty;
-  
-  /// 检查缓存是否过期（10分钟）
+
+  /// 检查缓存是否过期（1小时）
   bool get isStale {
     if (lastLoadedAt == null) return true;
-    return DateTime.now().difference(lastLoadedAt!).inMinutes > 10;
+    return DateTime.now().difference(lastLoadedAt!).inHours > 1;
   }
 }
 
 /// 合集数据缓存 Notifier
 class CollectionsCacheNotifier extends StateNotifier<CollectionsCacheState> {
-
   CollectionsCacheNotifier(this._ref) : super(const CollectionsCacheState());
   final Ref _ref;
+
+  /// 轻量级更新：只保存列表数据（不加载详情）
+  void updateCollectionsList(List<Map<String, dynamic>> collections) {
+    final Map<String, Map<String, dynamic>> collectionsById = {};
+    for (final col in collections) {
+      final id = col['id']?.toString();
+      if (id != null) {
+        collectionsById[id] = col;
+      }
+    }
+    state = state.copyWith(
+      collectionsById: collectionsById,
+      lastLoadedAt: DateTime.now(),
+      isLoading: false,
+    );
+  }
 
   /// 预加载所有合集数据（含地点）
   Future<void> preloadCollections({bool force = false}) async {
@@ -51,18 +66,18 @@ class CollectionsCacheNotifier extends StateNotifier<CollectionsCacheState> {
 
     try {
       final repository = _ref.read(collectionRepositoryProvider);
-      
+
       // 获取所有合集列表
       final collections = await repository.listCollections();
-      
+
       // 并行加载所有合集详情（含地点）
       final Map<String, Map<String, dynamic>> collectionsById = {};
-      
+
       await Future.wait(
         collections.map((col) async {
           final id = col['id']?.toString();
           if (id == null) return;
-          
+
           try {
             final detail = await repository.getCollection(id);
             collectionsById[id] = detail;
@@ -77,7 +92,7 @@ class CollectionsCacheNotifier extends StateNotifier<CollectionsCacheState> {
         isLoading: false,
         lastLoadedAt: DateTime.now(),
       );
-      
+
       print('✅ Preloaded ${collectionsById.length} collections with spots');
     } catch (e) {
       print('❌ Error preloading collections: $e');
@@ -96,4 +111,6 @@ class CollectionsCacheNotifier extends StateNotifier<CollectionsCacheState> {
 }
 
 /// 全局合集缓存 Provider
-final collectionsCacheProvider = StateNotifierProvider<CollectionsCacheNotifier, CollectionsCacheState>((ref) => CollectionsCacheNotifier(ref));
+final collectionsCacheProvider =
+    StateNotifierProvider<CollectionsCacheNotifier, CollectionsCacheState>(
+        (ref) => CollectionsCacheNotifier(ref));

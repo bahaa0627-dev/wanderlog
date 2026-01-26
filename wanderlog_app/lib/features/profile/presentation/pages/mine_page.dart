@@ -13,9 +13,11 @@ import 'package:wanderlog/features/auth/presentation/pages/login_page.dart';
 import 'package:wanderlog/features/profile/providers/mine_page_provider.dart';
 import 'package:wanderlog/features/profile/presentation/widgets/settings_sheet.dart';
 import 'package:wanderlog/features/profile/presentation/widgets/photo_wall.dart';
-import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page;
+import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart'
+    as map_page;
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 
 /// Mine page - displays user's visited places and check-in photos
@@ -39,7 +41,7 @@ class _MinePageState extends ConsumerState<MinePage> {
   Widget build(BuildContext context) {
     // Check authentication status
     final authState = ref.watch(authProvider);
-    
+
     // If not authenticated, show login page
     if (!authState.isAuthenticated) {
       return const Scaffold(
@@ -52,86 +54,61 @@ class _MinePageState extends ConsumerState<MinePage> {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: mineDataAsync.when(
-          loading: () => _buildLoadingState(context),
-          error: (error, stack) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 48, color: AppTheme.error),
-                const SizedBox(height: 16),
-                Text(
-                  'Failed to load data',
-                  style: AppTheme.bodyMedium(context),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => ref.refresh(minePageDataProvider),
-                  child: const Text('Retry'),
-                ),
-              ],
+      body: mineDataAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(),
+        ),
+        error: (error, stack) {
+          print('❌ [MinePage] Display error: $error');
+          return SafeArea(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline,
+                      size: 48, color: AppTheme.error),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load data',
+                    style: AppTheme.bodyMedium(context),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      error.toString(),
+                      style: AppTheme.bodySmall(context)
+                          .copyWith(color: AppTheme.textSecondary),
+                      textAlign: TextAlign.center,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => ref.refresh(minePageDataProvider),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             ),
-          ),
-          data: (data) => _buildContent(context, data),
+          );
+        },
+        data: (data) => SafeArea(
+          child: _buildContent(context, data),
         ),
       ),
     );
   }
 
-  Widget _buildLoadingState(BuildContext context) {
-    return CustomScrollView(
-      controller: _scrollController,
-      slivers: [
-        // Header
-        SliverToBoxAdapter(
-          child: _buildHeader(context),
-        ),
-        // Loading skeleton
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                // Globe map skeleton
-                Container(
-                  height: 300,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                    border: Border.all(
-                      color: AppTheme.black,
-                      width: AppTheme.borderMedium,
-                    ),
-                  ),
-                  child: const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // Photo wall skeleton
-                Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'Loading your check-ins...',
-                      style: TextStyle(color: AppTheme.mediumGray),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildContent(BuildContext context, MinePageData data) {
+    // 调试：打印数据状态
+    print('🎨 [MinePage] Building content with:');
+    print('  - countries: ${data.countriesCount}, cities: ${data.citiesCount}');
+    print('  - photos: ${data.photos.length}');
+    print('  - markers: ${data.mapMarkers.length}');
+    print('  - visitedSpots: ${data.visitedSpots.length}');
+
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
@@ -208,7 +185,8 @@ class _MinePageState extends ConsumerState<MinePage> {
   void _openFullscreenMap(BuildContext context, MinePageData data) {
     // Convert visited spots to map_page.Spot format with cover images
     // Note: visitedSpots is already sorted by visitDate (newest first) in the provider
-    final spots = data.visitedSpots.where((ts) => ts.spot != null).map((tripSpot) {
+    final spots =
+        data.visitedSpots.where((ts) => ts.spot != null).map((tripSpot) {
       final spot = tripSpot.spot!;
       // Get cover image from user photos or spot images
       String coverImage = '';
@@ -217,7 +195,7 @@ class _MinePageState extends ConsumerState<MinePage> {
       } else if (spot.images.isNotEmpty) {
         coverImage = spot.images.first;
       }
-      
+
       return map_page.Spot(
         id: spot.id,
         name: spot.name,
@@ -242,30 +220,30 @@ class _MinePageState extends ConsumerState<MinePage> {
     // Calculate center from all markers
     Position? center;
     double zoom = 3.0;
-    
+
     if (data.mapMarkers.isNotEmpty) {
       double minLat = double.infinity;
       double maxLat = -double.infinity;
       double minLng = double.infinity;
       double maxLng = -double.infinity;
-      
+
       for (final marker in data.mapMarkers) {
         minLat = math.min(minLat, marker.latitude);
         maxLat = math.max(maxLat, marker.latitude);
         minLng = math.min(minLng, marker.longitude);
         maxLng = math.max(maxLng, marker.longitude);
       }
-      
+
       center = Position(
         (minLng + maxLng) / 2,
         (minLat + maxLat) / 2,
       );
-      
+
       // Calculate appropriate zoom level based on bounds
       final latDiff = maxLat - minLat;
       final lngDiff = maxLng - minLng;
       final maxDiff = math.max(latDiff, lngDiff);
-      
+
       if (maxDiff > 100) {
         zoom = 1.0;
       } else if (maxDiff > 50) {
@@ -312,6 +290,11 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
   @override
   Widget build(BuildContext context) {
     // Convert visited spots to Spot list (limit to 10 most recent)
+    print(
+        '🗺️ [GlobeMap] Total visitedSpots: ${widget.data.visitedSpots.length}');
+    print(
+        '🗺️ [GlobeMap] Spots with place: ${widget.data.visitedSpots.where((ts) => ts.spot != null).length}');
+
     final previewSpots = widget.data.visitedSpots
         .where((ts) => ts.spot != null)
         .take(10)
@@ -323,6 +306,9 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
       } else if (spot.images.isNotEmpty) {
         coverImage = spot.images.first;
       }
+
+      print(
+          '🗺️ [GlobeMap] Adding spot to previewSpots: ${spot.name} at (${spot.latitude}, ${spot.longitude})');
 
       return map_page.Spot(
         id: spot.id,
@@ -344,54 +330,57 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
         openingHours: spot.openingHours,
       );
     }).toList();
-    
+
     print('🗺️ [GlobeMap] Preview spots count: ${previewSpots.length}');
-    
+
     // Calculate center and zoom from preview spots (10 most recent)
     Position center = Position(10, 48); // Default: Europe
     double zoom = 3.0;
-    
+
     if (previewSpots.isNotEmpty) {
       // Priority: center on the most recent check-in (first spot)
       final latestSpot = previewSpots.first;
       center = Position(latestSpot.longitude, latestSpot.latitude);
-      
+
       // Calculate bounds from all preview spots for zoom
       double minLat = double.infinity;
       double maxLat = -double.infinity;
       double minLng = double.infinity;
       double maxLng = -double.infinity;
-      
+
       for (final spot in previewSpots) {
         minLat = math.min(minLat, spot.latitude);
         maxLat = math.max(maxLat, spot.latitude);
         minLng = math.min(minLng, spot.longitude);
         maxLng = math.max(maxLng, spot.longitude);
       }
-      
+
       // Calculate appropriate zoom level
       final latDiff = maxLat - minLat;
       final lngDiff = maxLng - minLng;
       final maxDiff = math.max(latDiff, lngDiff);
-      
-      print('🗺️ [GlobeMap] Latest spot: ${latestSpot.name} at (${latestSpot.latitude}, ${latestSpot.longitude})');
-      print('🗺️ [GlobeMap] Bounds: lat=[$minLat, $maxLat] (diff=$latDiff), lng=[$minLng, $maxLng] (diff=$lngDiff)');
-      
+
+      print(
+          '🗺️ [GlobeMap] Latest spot: ${latestSpot.name} at (${latestSpot.latitude}, ${latestSpot.longitude})');
+      print(
+          '🗺️ [GlobeMap] Bounds: lat=[$minLat, $maxLat] (diff=$latDiff), lng=[$minLng, $maxLng] (diff=$lngDiff)');
+
       if (maxDiff > 100) {
-        zoom = 1.5;
+        zoom = 2.5; // 提高基础 zoom
       } else if (maxDiff > 50) {
-        zoom = 2.5;
-      } else if (maxDiff > 20) {
         zoom = 3.5;
-      } else if (maxDiff > 10) {
+      } else if (maxDiff > 20) {
         zoom = 4.5;
+      } else if (maxDiff > 10) {
+        zoom = 5.0; // 提高以便看到更多标记
       } else if (maxDiff > 5) {
-        zoom = 5.5;
+        zoom = 6.0;
       } else {
-        zoom = 6.5;
+        zoom = 7.0;
       }
-      
-      print('🗺️ [GlobeMap] Calculated center (latest spot): (${center.lng}, ${center.lat}), zoom: $zoom');
+
+      print(
+          '🗺️ [GlobeMap] Calculated center (latest spot): (${center.lng}, ${center.lat}), zoom: $zoom');
     }
 
     return Container(
@@ -405,68 +394,36 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge - 2),
-        child: Stack(
-          children: [
-            // Map with check-in markers
-            MapboxSpotMap(
-              key: const ValueKey('mine-globe-map'),
-              spots: previewSpots,
-              initialCenter: center,
-              initialZoom: zoom,
-              selectedSpot: null,
-              onSpotTap: (_) {},
-              markerMode: MapboxMarkerMode.checkIn,
-              onMapCreated: () {},
-            ),
-
-            // Top-left badge (countries & cities count) - Neo Brutalism style
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: AppTheme.black,
-                    width: AppTheme.borderMedium,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: AppTheme.black,
-                      offset: Offset(2, 2),
-                      blurRadius: 0,
-                    ),
-                  ],
-                ),
-                child: Text(
-                  '${widget.data.countriesCount} countries, ${widget.data.citiesCount} cities',
-                  style: AppTheme.labelSmall(context).copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.black,
-                    fontSize: 12,
-                  ),
-                ),
+        child: GestureDetector(
+          // 让地图的手势优先，不被外层拦截
+          behavior: HitTestBehavior.opaque,
+          onPanDown: (_) {}, // 占位，让手势传递到地图
+          child: Stack(
+            children: [
+              // Map with check-in markers
+              MapboxSpotMap(
+                key: const ValueKey('mine-globe-map'),
+                spots: previewSpots,
+                initialCenter: center,
+                initialZoom: zoom,
+                selectedSpot: null,
+                onSpotTap: (_) {},
+                markerMode: MapboxMarkerMode.checkIn,
+                onMapCreated: () {},
               ),
-            ),
 
-            // Top-right expand button - circular, same height as left badge
-            Positioned(
-              top: 12,
-              right: 12,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onExpandTap,
+              // Top-left badge (countries & cities count) - Neo Brutalism style
+              Positioned(
+                top: 12,
+                left: 12,
                 child: Container(
-                  width: 36,
-                  height: 36,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.white,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(24),
                     border: Border.all(
                       color: AppTheme.black,
                       width: AppTheme.borderMedium,
@@ -479,17 +436,54 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
                       ),
                     ],
                   ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.crop_free,
-                      size: 18,
+                  child: Text(
+                    '${widget.data.countriesCount} countries, ${widget.data.citiesCount} cities',
+                    style: AppTheme.labelSmall(context).copyWith(
+                      fontWeight: FontWeight.w600,
                       color: AppTheme.black,
+                      fontSize: 12,
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+
+              // Top-right expand button - circular, same height as left badge
+              Positioned(
+                top: 12,
+                right: 12,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onExpandTap,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTheme.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppTheme.black,
+                        width: AppTheme.borderMedium,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppTheme.black,
+                          offset: Offset(2, 2),
+                          blurRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.crop_free,
+                        size: 18,
+                        color: AppTheme.black,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -499,7 +493,7 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
 }
 
 /// Fullscreen map page for visited spots
-class _FullscreenVisitedMap extends StatefulWidget {
+class _FullscreenVisitedMap extends ConsumerStatefulWidget {
   const _FullscreenVisitedMap({
     required this.spots,
     required this.initialCenter,
@@ -511,14 +505,14 @@ class _FullscreenVisitedMap extends StatefulWidget {
   final double initialZoom;
 
   @override
-  State<_FullscreenVisitedMap> createState() => _FullscreenVisitedMapState();
+  ConsumerState<_FullscreenVisitedMap> createState() => _FullscreenVisitedMapState();
 }
 
-class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
+class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
   final GlobalKey<MapboxSpotMapState> _mapKey = GlobalKey<MapboxSpotMapState>();
   final TextEditingController _searchController = TextEditingController();
   late final PageController _carouselController;
-  
+
   map_page.Spot? _selectedSpot;
   List<map_page.Spot> _filteredSpots = [];
   String? _selectedCity;
@@ -526,6 +520,10 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
   final Set<String> _selectedTags = {};
   int _currentCardIndex = 0;
   bool _isExiting = false; // 标记是否正在退出
+
+  // 防抖字段
+  String? _lastClickedSpotId;
+  DateTime? _lastClickTime;
 
   // Get dynamic tags from filtered spots
   List<String> get _dynamicTagOptions {
@@ -572,7 +570,7 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
 
   void _applyFilters() {
     final query = _searchController.text.toLowerCase().trim();
-    
+
     setState(() {
       _filteredSpots = widget.spots.where((spot) {
         // Search filter
@@ -581,21 +579,21 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
             return false;
           }
         }
-        
+
         // City filter
         if (_selectedCity != null && _selectedCity != 'All') {
           if (spot.city != _selectedCity) {
             return false;
           }
         }
-        
+
         // Country filter
         if (_selectedCountry != null && _selectedCountry != 'All') {
           if (spot.country != _selectedCountry) {
             return false;
           }
         }
-        
+
         // Tag filter
         if (_selectedTags.isNotEmpty) {
           final spotTags = <String>{
@@ -606,14 +604,14 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
             return false;
           }
         }
-        
+
         return true;
       }).toList();
-      
+
       _selectedSpot = _filteredSpots.isNotEmpty ? _filteredSpots.first : null;
       _currentCardIndex = 0;
     });
-    
+
     // Jump to first card
     if (_carouselController.hasClients) {
       _carouselController.jumpToPage(0);
@@ -640,32 +638,54 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
 
   bool _isInvalidTag(String tag) {
     const invalidTags = {
-      'point_of_interest', 'establishment', 'premise', 'route',
-      'street_address', 'political', 'locality', 'sublocality',
+      'point_of_interest',
+      'establishment',
+      'premise',
+      'route',
+      'street_address',
+      'political',
+      'locality',
+      'sublocality',
     };
     return invalidTags.contains(tag.toLowerCase());
   }
 
   String _tagEmoji(String tag) {
     switch (tag.toLowerCase()) {
-      case 'cafe': case 'coffee': return '☕';
-      case 'restaurant': case 'food': return '🍽️';
-      case 'museum': return '🏛️';
-      case 'architecture': return '🏛️';
-      case 'park': case 'nature': return '🌳';
-      case 'bakery': return '🥐';
-      case 'bar': return '🍸';
-      case 'shop': case 'store': return '🛍️';
-      case 'landmark': return '📍';
-      case 'historical': case 'history': return '📜';
-      default: return '📍';
+      case 'cafe':
+      case 'coffee':
+        return '☕';
+      case 'restaurant':
+      case 'food':
+        return '🍽️';
+      case 'museum':
+        return '🏛️';
+      case 'architecture':
+        return '🏛️';
+      case 'park':
+      case 'nature':
+        return '🌳';
+      case 'bakery':
+        return '🥐';
+      case 'bar':
+        return '🍸';
+      case 'shop':
+      case 'store':
+        return '🛍️';
+      case 'landmark':
+        return '📍';
+      case 'historical':
+      case 'history':
+        return '📜';
+      default:
+        return '📍';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final carouselSpots = _filteredSpots;
-    
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: Stack(
@@ -766,7 +786,7 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
                 },
               ),
             ),
-            
+
           // Empty state
           if (carouselSpots.isEmpty)
             Positioned(
@@ -847,7 +867,8 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
         decoration: BoxDecoration(
           color: AppTheme.white,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+          border:
+              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
           boxShadow: AppTheme.searchBoxShadow,
         ),
         child: Row(
@@ -892,7 +913,7 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
   Widget _buildTagBar() {
     final tags = _dynamicTagOptions;
     if (tags.isEmpty) return const SizedBox.shrink();
-    
+
     return SizedBox(
       height: 38,
       child: ListView.separated(
@@ -935,7 +956,80 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
     );
   }
 
-  void _onSpotTap(map_page.Spot spot) {
+  void _onSpotTap(map_page.Spot spot) async {
+    final now = DateTime.now();
+    
+    // 防抖：如果是同一个地点且点击间隔小于1秒，则忽略
+    if (_lastClickedSpotId == spot.id && 
+        _lastClickTime != null && 
+        now.difference(_lastClickTime!).inMilliseconds < 1000) {
+      print('🔧 [mine_page.dart] Debouncing rapid clicks for ${spot.name}');
+      return;
+    }
+    
+    _lastClickedSpotId = spot.id;
+    _lastClickTime = now;
+    
+    // 添加调试日志
+    print('🔧 [mine_page.dart] _onSpotTap for spot: ${spot.name}');
+    
+    // 加载地点的状态信息（包括 check-in 数据）
+    bool? isSaved;
+    bool? isMustGo;
+    bool? isTodaysPlan;
+    bool? isVisited;
+    DateTime? visitDate;
+    int? userRating;
+    String? userNotes;
+    List<String>? userPhotos;
+    String? destinationId;
+
+    try {
+      final authState = ref.read(authProvider);
+      if (authState.isAuthenticated) {
+        final tripRepo = ref.read(tripRepositoryProvider);
+        final trips = await tripRepo.getMyTrips();
+
+        // 查找包含这个 spot 的 trip
+        for (final trip in trips) {
+          final tripDetail = await tripRepo.getTripById(trip.id);
+          final tripSpots = tripDetail.tripSpots ?? [];
+
+          for (final ts in tripSpots) {
+            if (ts.spot?.id == spot.id) {
+              isSaved = ts.isSaved;
+              isMustGo = ts.isMustGo;
+              isTodaysPlan = ts.isTodaysPlan;
+              isVisited = ts.isVisited;
+              visitDate = ts.visitDate;
+              userRating = ts.userRating;
+              userNotes = ts.userNotes;
+              userPhotos = ts.userPhotos;
+              destinationId = trip.id;
+              break;
+            }
+          }
+          if (isSaved != null) break;
+        }
+      }
+    } catch (e) {
+      // 静默失败，使用默认值
+    }
+
+    // 添加调试日志
+    print('🔧 [mine_page.dart] Data loaded for ${spot.name}:');
+    print('🔧 [mine_page.dart] isSaved: $isSaved');
+    print('🔧 [mine_page.dart] isMustGo: $isMustGo');
+    print('🔧 [mine_page.dart] isTodaysPlan: $isTodaysPlan');
+    print('🔧 [mine_page.dart] isVisited: $isVisited');
+    print('🔧 [mine_page.dart] visitDate: $visitDate');
+    print('🔧 [mine_page.dart] userRating: $userRating');
+    print('🔧 [mine_page.dart] userNotes: $userNotes');
+    print('🔧 [mine_page.dart] userPhotos: ${userPhotos?.length ?? 0} photos');
+    print('🔧 [mine_page.dart] destinationId: $destinationId');
+
+    if (!mounted) return;
+
     // Show spot detail modal
     showModalBottomSheet<void>(
       context: context,
@@ -943,6 +1037,15 @@ class _FullscreenVisitedMapState extends State<_FullscreenVisitedMap> {
       backgroundColor: Colors.transparent,
       builder: (context) => UnifiedSpotDetailModal(
         spot: spot,
+        initialIsSaved: isSaved,
+        initialIsMustGo: isMustGo,
+        initialIsTodaysPlan: isTodaysPlan,
+        initialIsVisited: isVisited,
+        initialVisitDate: visitDate,
+        initialUserRating: userRating,
+        initialUserNotes: userNotes,
+        initialUserPhotos: userPhotos,
+        initialDestinationId: destinationId,
       ),
     );
   }
@@ -968,7 +1071,7 @@ class _CityPickerSheet extends StatefulWidget {
 
 class _CityPickerSheetState extends State<_CityPickerSheet> {
   String? _tempCountry;
-  
+
   // Build country -> cities map from spots
   Map<String, List<String>> get _countryCitiesMap {
     final map = <String, Set<String>>{};
@@ -996,13 +1099,15 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
   @override
   void initState() {
     super.initState();
-    _tempCountry = widget.selectedCountry ?? (_countries.isNotEmpty ? _countries.first : null);
+    _tempCountry = widget.selectedCountry ??
+        (_countries.isNotEmpty ? _countries.first : null);
   }
 
   @override
   Widget build(BuildContext context) {
-    final isAllSelected = widget.selectedCity == null && widget.selectedCountry == null;
-    
+    final isAllSelected =
+        widget.selectedCity == null && widget.selectedCountry == null;
+
     return SafeArea(
       child: Container(
         height: 420,
@@ -1020,10 +1125,11 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
               },
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 decoration: BoxDecoration(
-                  color: isAllSelected 
-                      ? AppTheme.primaryYellow.withOpacity(0.2) 
+                  color: isAllSelected
+                      ? AppTheme.primaryYellow.withOpacity(0.2)
                       : Colors.transparent,
                   border: const Border(
                     bottom: BorderSide(color: AppTheme.border, width: 1),
@@ -1034,12 +1140,14 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                     Text(
                       'All (Global Search)',
                       style: AppTheme.bodyMedium(context).copyWith(
-                        fontWeight: isAllSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight:
+                            isAllSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                     const Spacer(),
                     if (isAllSelected)
-                      const Icon(Icons.check, size: 18, color: AppTheme.primaryYellow),
+                      const Icon(Icons.check,
+                          size: 18, color: AppTheme.primaryYellow),
                   ],
                 ),
               ),
@@ -1070,21 +1178,28 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                               });
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                              color: isSelected ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 14),
+                              color: isSelected
+                                  ? AppTheme.primaryYellow.withOpacity(0.2)
+                                  : Colors.transparent,
                               child: Row(
                                 children: [
                                   Expanded(
                                     child: Text(
                                       country,
-                                      style: AppTheme.bodyMedium(context).copyWith(
-                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      style:
+                                          AppTheme.bodyMedium(context).copyWith(
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   if (isSelected)
-                                    const Icon(Icons.chevron_right, size: 18, color: AppTheme.mediumGray),
+                                    const Icon(Icons.chevron_right,
+                                        size: 18, color: AppTheme.mediumGray),
                                 ],
                               ),
                             ),
@@ -1100,28 +1215,36 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                       itemCount: _citiesForCountry.length,
                       itemBuilder: (context, index) {
                         final city = _citiesForCountry[index];
-                        final isSelected = city == widget.selectedCity && _tempCountry == widget.selectedCountry;
+                        final isSelected = city == widget.selectedCity &&
+                            _tempCountry == widget.selectedCountry;
                         return GestureDetector(
                           onTap: () {
                             widget.onSelected(_tempCountry, city);
                             Navigator.pop(context);
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                            color: isSelected ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 14),
+                            color: isSelected
+                                ? AppTheme.primaryYellow.withOpacity(0.2)
+                                : Colors.transparent,
                             child: Row(
                               children: [
                                 Expanded(
                                   child: Text(
                                     city,
-                                    style: AppTheme.bodyMedium(context).copyWith(
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    style:
+                                        AppTheme.bodyMedium(context).copyWith(
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 if (isSelected)
-                                  const Icon(Icons.check, size: 18, color: AppTheme.primaryYellow),
+                                  const Icon(Icons.check,
+                                      size: 18, color: AppTheme.primaryYellow),
                               ],
                             ),
                           ),
@@ -1216,7 +1339,7 @@ class _VerticalSpotCardState extends State<_VerticalSpotCard> {
 
   Future<void> _extractDominantColor() async {
     if (widget.spot.coverImage.isEmpty) return;
-    
+
     try {
       final ImageProvider imageProvider;
       if (widget.spot.coverImage.startsWith('data:')) {
@@ -1226,13 +1349,13 @@ class _VerticalSpotCardState extends State<_VerticalSpotCard> {
       } else {
         imageProvider = NetworkImage(widget.spot.coverImage);
       }
-      
+
       final paletteGenerator = await PaletteGenerator.fromImageProvider(
         imageProvider,
         size: const ui.Size(100, 100),
         maximumColorCount: 5,
       );
-      
+
       if (mounted) {
         setState(() {
           _dominantColor = paletteGenerator.dominantColor?.color ??

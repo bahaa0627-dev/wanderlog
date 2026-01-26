@@ -101,6 +101,8 @@ import searchV2Routes from './routes/searchV2Routes';
 console.log('  ✅ searchV2Routes loaded');
 import uploadRoutes from './routes/uploadRoutes';
 console.log('  ✅ uploadRoutes loaded');
+import mineRoutes from './routes/mineRoutes';
+console.log('  ✅ mineRoutes loaded');
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -117,6 +119,8 @@ app.use('/api/places/ai', searchV2Routes);
 console.log('✅ Search V2 routes registered');
 app.use('/api/upload', uploadRoutes);
 console.log('✅ Upload routes registered');
+app.use('/api/mine', mineRoutes);
+console.log('✅ Mine routes registered');
 // app.use('/api/trips', tripRoutes);
 // app.use('/api/spots', spotRoutes);
 

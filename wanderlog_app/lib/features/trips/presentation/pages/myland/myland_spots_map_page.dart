@@ -19,6 +19,8 @@ import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
@@ -90,6 +92,10 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     'country',
     'postal_code',
   };
+
+  // 防抖字段
+  String? _lastClickedSpotId;
+  DateTime? _lastClickTime;
 
   /// 检查是否为无效标签
   static bool _isInvalidTag(String tag) {
@@ -385,6 +391,19 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
   }
 
   void _showSpotDetail(map_page.Spot spot) async {
+    final now = DateTime.now();
+    
+    // 防抖：如果是同一个地点且点击间隔小于1秒，则忽略
+    if (_lastClickedSpotId == spot.id && 
+        _lastClickTime != null && 
+        now.difference(_lastClickTime!).inMilliseconds < 1000) {
+      print('🔧 [myland_spots_map_page.dart] Debouncing rapid clicks for ${spot.name}');
+      return;
+    }
+    
+    _lastClickedSpotId = spot.id;
+    _lastClickTime = now;
+    
     // Provide optimistic initial state to avoid flicker; modal will reconcile with API.
     final isMustGo = widget.tabLabel == 'MustGo';
     final isTodaysPlan = widget.tabLabel == "Today's Plan";
@@ -401,6 +420,55 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     } catch (e) {
       // 静默失败
     }
+
+    // 加载完整的状态信息（包括 check-in 数据）
+    bool? isSaved = true;
+    bool? isVisited;
+    DateTime? visitDate;
+    int? userRating;
+    String? userNotes;
+    List<String>? userPhotos;
+    String? destinationId;
+
+    try {
+      final authState = ref.read(authProvider);
+      if (authState.isAuthenticated) {
+        final tripRepo = ref.read(tripRepositoryProvider);
+        final trips = await tripRepo.getMyTrips();
+
+        // 查找包含这个 spot 的 trip
+        for (final trip in trips) {
+          final tripDetail = await tripRepo.getTripById(trip.id);
+          final tripSpots = tripDetail.tripSpots ?? [];
+
+          for (final ts in tripSpots) {
+            if (ts.spot?.id == spot.id) {
+              isSaved = ts.isSaved;
+              isVisited = ts.isVisited;
+              visitDate = ts.visitDate;
+              userRating = ts.userRating;
+              userNotes = ts.userNotes;
+              userPhotos = ts.userPhotos;
+              destinationId = trip.id;
+              
+              // 调试日志
+              print('📍 [MyLandSpotsMap] Found spot status for ${spot.name}:');
+              print('  - isVisited: $isVisited');
+              print('  - visitDate: $visitDate');
+              print('  - userRating: $userRating');
+              print('  - userNotes: $userNotes');
+              print('  - userPhotos: ${userPhotos?.length ?? 0} photos');
+              
+              break;
+            }
+          }
+          if (isSaved != null && destinationId != null) break;
+        }
+      }
+    } catch (e) {
+      print('❌ [MyLandSpotsMap] Error loading spot status: $e');
+      // 静默失败，使用默认值
+    }
     
     if (!mounted) return;
 
@@ -410,9 +478,15 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => UnifiedSpotDetailModal(
         spot: spot,
-        initialIsSaved: true,
+        initialIsSaved: isSaved,
         initialIsMustGo: isMustGo,
         initialIsTodaysPlan: isTodaysPlan,
+        initialIsVisited: isVisited,
+        initialVisitDate: visitDate,
+        initialUserRating: userRating,
+        initialUserNotes: userNotes,
+        initialUserPhotos: userPhotos,
+        initialDestinationId: destinationId,
         linkedCollection: linkedCollection,
       ),
     ).then((hasChanged) {

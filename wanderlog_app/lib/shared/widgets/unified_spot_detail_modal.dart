@@ -424,6 +424,19 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   @override
   void initState() {
     super.initState();
+    
+    // 添加调试日志
+    print('🔧 [UnifiedSpotDetailModal] initState for spot: ${_spotName}');
+    print('🔧 [UnifiedSpotDetailModal] initialIsSaved: ${widget.initialIsSaved}');
+    print('🔧 [UnifiedSpotDetailModal] initialIsMustGo: ${widget.initialIsMustGo}');
+    print('🔧 [UnifiedSpotDetailModal] initialIsTodaysPlan: ${widget.initialIsTodaysPlan}');
+    print('🔧 [UnifiedSpotDetailModal] initialIsVisited: ${widget.initialIsVisited}');
+    print('🔧 [UnifiedSpotDetailModal] initialVisitDate: ${widget.initialVisitDate}');
+    print('🔧 [UnifiedSpotDetailModal] initialUserRating: ${widget.initialUserRating}');
+    print('🔧 [UnifiedSpotDetailModal] initialUserNotes: ${widget.initialUserNotes}');
+    print('🔧 [UnifiedSpotDetailModal] initialUserPhotos: ${widget.initialUserPhotos?.length ?? 0} photos');
+    print('🔧 [UnifiedSpotDetailModal] initialDestinationId: ${widget.initialDestinationId}');
+    
     if (widget.initialIsSaved != null) {
       // 使用传入的初始状态，不需要从服务器加载
       _isWishlist = widget.initialIsSaved!;
@@ -436,6 +449,8 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       _userPhotos = widget.initialUserPhotos ?? [];
       _destinationId = widget.initialDestinationId;
       _isLoadingCheckInData = false;
+      
+      print('✅ [UnifiedSpotDetailModal] Using provided initial data - no server reload needed');
       
       // 如果 spot.id 是 UUID，设置 _actualPlaceId
       // 这样后续操作会使用正确的 UUID
@@ -456,6 +471,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       }
       // 不再在后台加载数据，避免状态闪烁
     } else {
+      print('⚠️ [UnifiedSpotDetailModal] No initial data provided - will load from server/cache');
       // 没有初始数据，从缓存同步读取收藏状态，避免闪烁
       _loadWishlistStatusFromCache();
       // 异步加载详细状态

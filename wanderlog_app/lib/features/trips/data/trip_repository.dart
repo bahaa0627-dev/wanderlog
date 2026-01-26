@@ -9,10 +9,24 @@ class TripRepository {
 
   Future<List<Trip>> getMyTrips() async {
     try {
+      print('🚀 [TripRepository] Starting API request to /destinations...');
+      final apiStartTime = DateTime.now();
+      
       final response = await _dio.get<List<dynamic>>('/destinations');
+      final apiDuration = DateTime.now().difference(apiStartTime).inMilliseconds;
+      print('🚀 [TripRepository] API request completed in ${apiDuration}ms');
+      
+      final parseStartTime = DateTime.now();
       final List<dynamic> data = response.data as List<dynamic>;
-      return data.map((json) => Trip.fromJson(json as Map<String, dynamic>)).toList();
+      final trips = data.map((json) => Trip.fromJson(json as Map<String, dynamic>)).toList();
+      final parseDuration = DateTime.now().difference(parseStartTime).inMilliseconds;
+      
+      print('🚀 [TripRepository] Parsed ${trips.length} trips in ${parseDuration}ms');
+      print('🚀 [TripRepository] Total time: ${apiDuration + parseDuration}ms');
+      
+      return trips;
     } on DioException catch (e) {
+      print('❌ [TripRepository] API error: ${e.message}');
       throw _handleError(e);
     }
   }

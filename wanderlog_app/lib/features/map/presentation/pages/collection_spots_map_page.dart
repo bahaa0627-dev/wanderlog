@@ -18,6 +18,7 @@ import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as 
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
@@ -70,6 +71,10 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
   bool _isExiting = false; // 标记是否正在退出页面
   Position? _initialCenter; // 从第一个地点计算的初始中心点
   bool _hasInitialCenter = false; // 是否已经确定了初始中心点（避免显示哥本哈根再跳转）
+
+  // 防抖字段
+  String? _lastClickedSpotId;
+  DateTime? _lastClickTime;
 
   bool? _extractIsFavorited(dynamic collection) {
     if (collection is Map<String, dynamic>) {
@@ -884,12 +889,97 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
     }
   }
 
-  void _showSpotDetail(map_page.Spot spot) {
+  void _showSpotDetail(map_page.Spot spot) async {
+    final now = DateTime.now();
+    
+    // 防抖：如果是同一个地点且点击间隔小于1秒，则忽略
+    if (_lastClickedSpotId == spot.id && 
+        _lastClickTime != null && 
+        now.difference(_lastClickTime!).inMilliseconds < 1000) {
+      print('🔧 [collection_spots_map_page.dart] Debouncing rapid clicks for ${spot.name}');
+      return;
+    }
+    
+    _lastClickedSpotId = spot.id;
+    _lastClickTime = now;
+    
+    // 添加调试日志
+    print('🔧 [collection_spots_map_page.dart] _showSpotDetail for spot: ${spot.name}');
+    
+    // 加载地点的状态信息（包括 check-in 数据）
+    bool? isSaved;
+    bool? isMustGo;
+    bool? isTodaysPlan;
+    bool? isVisited;
+    DateTime? visitDate;
+    int? userRating;
+    String? userNotes;
+    List<String>? userPhotos;
+    String? destinationId;
+
+    try {
+      final authState = ref.read(authProvider);
+      if (authState.isAuthenticated) {
+        final tripRepo = ref.read(tripRepositoryProvider);
+        final trips = await tripRepo.getMyTrips();
+
+        // 查找包含这个 spot 的 trip
+        for (final trip in trips) {
+          final tripDetail = await tripRepo.getTripById(trip.id);
+          final tripSpots = tripDetail.tripSpots ?? [];
+
+          for (final ts in tripSpots) {
+            if (ts.spot?.id == spot.id) {
+              isSaved = ts.isSaved;
+              isMustGo = ts.isMustGo;
+              isTodaysPlan = ts.isTodaysPlan;
+              isVisited = ts.isVisited;
+              visitDate = ts.visitDate;
+              userRating = ts.userRating;
+              userNotes = ts.userNotes;
+              userPhotos = ts.userPhotos;
+              destinationId = trip.id;
+              break;
+            }
+          }
+          if (isSaved != null) break;
+        }
+      }
+    } catch (e) {
+      // 静默失败，使用默认值
+    }
+
+    // 添加调试日志
+    print('🔧 [collection_spots_map_page.dart] Data loaded for ${spot.name}:');
+    print('🔧 [collection_spots_map_page.dart] isSaved: $isSaved');
+    print('🔧 [collection_spots_map_page.dart] isMustGo: $isMustGo');
+    print('🔧 [collection_spots_map_page.dart] isTodaysPlan: $isTodaysPlan');
+    print('🔧 [collection_spots_map_page.dart] isVisited: $isVisited');
+    print('🔧 [collection_spots_map_page.dart] visitDate: $visitDate');
+    print('🔧 [collection_spots_map_page.dart] userRating: $userRating');
+    print('🔧 [collection_spots_map_page.dart] userNotes: $userNotes');
+    print('🔧 [collection_spots_map_page.dart] userPhotos: ${userPhotos?.length ?? 0} photos');
+    print('🔧 [collection_spots_map_page.dart] destinationId: $destinationId');
+
+    if (!mounted) return;
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => UnifiedSpotDetailModal(spot: spot, hideCollectionEntry: true),
+      builder: (_) => UnifiedSpotDetailModal(
+        spot: spot,
+        hideCollectionEntry: true,
+        initialIsSaved: isSaved,
+        initialIsMustGo: isMustGo,
+        initialIsTodaysPlan: isTodaysPlan,
+        initialIsVisited: isVisited,
+        initialVisitDate: visitDate,
+        initialUserRating: userRating,
+        initialUserNotes: userNotes,
+        initialUserPhotos: userPhotos,
+        initialDestinationId: destinationId,
+      ),
     );
   }
 

@@ -15,6 +15,7 @@ import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistan
 import 'package:wanderlog/features/trips/presentation/widgets/trips_bottom_nav.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
+import 'package:wanderlog/features/collections/providers/recommendations_cache_provider.dart';
 import 'package:wanderlog/features/map/providers/places_cache_provider.dart';
 import 'package:wanderlog/features/search/presentation/widgets/search_menu_sheet.dart';
 import 'package:wanderlog/features/search/presentation/pages/search_results_map_page.dart';
@@ -43,10 +44,11 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _showSearchMenu = false;
   List<Map<String, dynamic>> _recommendations = [];
   bool _isLoadingRecommendations = false;
+  String? _recommendationsError; // 添加错误信息
   int _mapResetKey = 0;
-  
+
   final GlobalKey _searchBoxKey = GlobalKey();
-  
+
   // 搜索相关状态
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -64,12 +66,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.initState();
     _selectedIndex = widget.initialTabIndex;
     _selectedTab = widget.initialHomeTab;
-    
+
     // 延迟加载推荐数据，让页面先显示，提升感知性能
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadRecommendations();
     });
-    
+
     // 使用 addPostFrameCallback 延迟预加载，避免在 widget 构建期间修改 provider
     // 进一步延迟预加载，避免阻塞初始渲染
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -81,13 +83,13 @@ class _HomePageState extends ConsumerState<HomePage> {
         ref.read(countriesCitiesStatsProvider.notifier).load();
       }
     });
-    
+
     // 监听搜索框变化
     _searchController.addListener(() {
       setState(() {});
     });
   }
-  
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -97,12 +99,15 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Future<void> _loadRecommendations() async {
     if (!mounted) return;
-    setState(() => _isLoadingRecommendations = true);
+    setState(() {
+      _isLoadingRecommendations = true;
+      _recommendationsError = null;
+    });
     try {
-      final repo = ref.read(collectionRepositoryProvider);
-      final data = await repo.listRecommendations();
+      // 使用缓存 provider
+      final cacheNotifier = ref.read(recommendationsCacheProvider.notifier);
+      final data = await cacheNotifier.loadRecommendations();
       print('✅ Loaded ${data.length} recommendations');
-      print('📦 Recommendations data: $data');
       if (mounted) {
         setState(() => _recommendations = data);
       }
@@ -110,7 +115,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       print('❌ Error loading recommendations: $e');
       print('📋 Stack trace: $stackTrace');
       if (mounted) {
-        setState(() => _recommendations = []);
+        setState(() {
+          _recommendations = [];
+          _recommendationsError = e.toString();
+        });
       }
     } finally {
       if (mounted) {
@@ -121,7 +129,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   void _onNavItemTapped(int index) {
     if (_selectedIndex == index) return;
-    
+
     if (index == 1) {
       // MyLand - 跳转到独立页面
       context.go('/myland');
@@ -137,7 +145,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
     setState(() => _isMapFullscreen = isFullscreen);
   }
-  
+
   void _toggleSearchMenu() {
     print('📍 Filter button tapped! _showSearchMenu: $_showSearchMenu');
     // 收起键盘
@@ -146,17 +154,17 @@ class _HomePageState extends ConsumerState<HomePage> {
       _showSearchMenu = !_showSearchMenu;
     });
   }
-  
+
   /// 执行搜索 - 全局搜索地点
   Future<void> _performSearch() async {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
-    
+
     // 收起键盘
     _searchFocusNode.unfocus();
-    
+
     print('🔍 [HomePage] 搜索: "$query"');
-    
+
     // 导航到搜索结果页面，让它处理搜索逻辑
     if (mounted) {
       await Navigator.of(context).push<void>(
@@ -177,18 +185,18 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     }
   }
-  
+
   /// 清除搜索
   void _clearSearch() {
     _searchController.clear();
     setState(() {});
   }
-  
+
   /// 构建搜索框
   Widget _buildSearchBox() {
     const double height = 48.0;
     const double radius = 24.0;
-    
+
     return Container(
       key: _searchBoxKey,
       height: height,
@@ -326,7 +334,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                           });
                         },
                       ),
-                      const SizedBox(height: 12), // collection 切换底部距离合集推荐标题 12px
+                      const SizedBox(
+                          height: 12), // collection 切换底部距离合集推荐标题 12px
                     ],
                     Expanded(
                       child: IndexedStack(
@@ -335,232 +344,379 @@ class _HomePageState extends ConsumerState<HomePage> {
                           // Tab 0: Collection
                           if (_isLoadingRecommendations)
                             const Center(child: CircularProgressIndicator())
+                          else if (_recommendationsError != null)
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(32.0),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.cloud_off_outlined,
+                                      size: 64,
+                                      color: AppTheme.mediumGray,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Failed to load recommendations',
+                                      style: AppTheme.bodyLarge(context),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Please check your connection and try again',
+                                      style:
+                                          AppTheme.bodySmall(context).copyWith(
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 24),
+                                    PrimaryButton(
+                                      text: 'Retry',
+                                      onPressed: _loadRecommendations,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
                           else if (_recommendations.isEmpty)
                             const Center(
                               child: Text('No recommendations available'),
                             )
                           else
                             ListView.builder(
-                                  padding: const EdgeInsets.only(bottom: 80), // 底部 padding（底部导航栏高度约82px + 安全区域）
-                                  cacheExtent: 500, // 优化性能：减少预加载范围
-                                  itemCount: _recommendations.length,
-                                  itemBuilder: (context, recommendationIndex) {
-                                    final recommendation = _recommendations[recommendationIndex];
-                                    final items = recommendation['items'] as List<dynamic>? ?? [];
-                                    final recommendationName = recommendation['name'] as String? ?? '';
-                                    final hasMore = items.length > 5;
-                                    final displayItems = items.take(5).toList();
-                                    
-                                    return Padding(
-                                      padding: EdgeInsets.only(
-                                        bottom: recommendationIndex < _recommendations.length - 1 ? 16 : 16, // 合集推荐之间间距 16px，最后一个合集底部也留 16px
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          // 推荐标题行 - 不要黄色竖杠
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                                            child: Row(
-                                              children: [
-                                                // 推荐名称 - 直接展示
-                                                Expanded(
-                                                  child: Text(
-                                                    recommendationName,
-                                                    style: AppTheme.headlineLarge(context).copyWith(
-                                                      fontSize: 18,
-                                                    ),
+                              padding: const EdgeInsets.only(
+                                  bottom:
+                                      80), // 底部 padding（底部导航栏高度约82px + 安全区域）
+                              cacheExtent: 500, // 优化性能：减少预加载范围
+                              itemCount: _recommendations.length,
+                              itemBuilder: (context, recommendationIndex) {
+                                final recommendation =
+                                    _recommendations[recommendationIndex];
+                                final items =
+                                    recommendation['items'] as List<dynamic>? ??
+                                        [];
+                                final recommendationName =
+                                    recommendation['name'] as String? ?? '';
+                                final hasMore = items.length > 5;
+                                final displayItems = items.take(5).toList();
+
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: recommendationIndex <
+                                            _recommendations.length - 1
+                                        ? 16
+                                        : 16, // 合集推荐之间间距 16px，最后一个合集底部也留 16px
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // 推荐标题行 - 不要黄色竖杠
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16),
+                                        child: Row(
+                                          children: [
+                                            // 推荐名称 - 直接展示
+                                            Expanded(
+                                              child: Text(
+                                                recommendationName,
+                                                style: AppTheme.headlineLarge(
+                                                        context)
+                                                    .copyWith(
+                                                  fontSize: 18,
+                                                ),
+                                              ),
+                                            ),
+                                            // More 按钮（超过5个时显示）
+                                            if (hasMore)
+                                              GestureDetector(
+                                                onTap: () {
+                                                  final recommendationId =
+                                                      recommendation['id']
+                                                          as String?;
+                                                  if (recommendationId !=
+                                                      null) {
+                                                    context.push(
+                                                      '/recommendation/$recommendationId?name=${Uri.encodeComponent(recommendationName)}',
+                                                    );
+                                                  }
+                                                },
+                                                child: Text(
+                                                  'more >',
+                                                  style: AppTheme.labelSmall(
+                                                          context)
+                                                      .copyWith(
+                                                    fontWeight: FontWeight.w400,
+                                                    color:
+                                                        AppTheme.textSecondary,
                                                   ),
                                                 ),
-                                                // More 按钮（超过5个时显示）
-                                                if (hasMore)
-                                                  GestureDetector(
-                                                    onTap: () {
-                                                      final recommendationId = recommendation['id'] as String?;
-                                                      if (recommendationId != null) {
-                                                        context.push(
-                                                          '/recommendation/$recommendationId?name=${Uri.encodeComponent(recommendationName)}',
-                                                        );
-                                                      }
-                                                    },
-                                                    child: Text(
-                                                      'more >',
-                                                      style: AppTheme.labelSmall(context).copyWith(
-                                                        fontWeight: FontWeight.w400,
-                                                        color: AppTheme.textSecondary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8), // 合集标题距离合集卡片 8px
-                                          // 横向滚动的合集列表 - 高度 = 卡片高度 224 + 底部间距 8
-                                          SizedBox(
-                                            height: 232, // 卡片高度 224px + 底部间距 8px
-                                            child: ListView.builder(
-                                              scrollDirection: Axis.horizontal,
-                                              clipBehavior: Clip.none,
-                                              cacheExtent: 200, // 优化性能：减少横向预加载范围
-                                              padding: const EdgeInsets.only(left: 16, right: 16),
-                                              itemCount: displayItems.length,
-                                              itemBuilder: (context, itemIndex) {
-                                                final item = displayItems[itemIndex];
-                                                final collection = item['collection'] as Map<String, dynamic>? ?? {};
-                                                final collectionId = collection['id'] as String?;
-                                                final collectionName = collection['name'] as String? ?? 'Collection';
-                                                
-                                                // 调试：查看数据结构
-                                                print('🔍 合集: $collectionName');
-                                                print('🔍 item结构: ${item.keys}');
-                                                print('🔍 collection.spotCount: ${collection['spotCount']}');
-                                                
-                                                // 获取合集的地点信息
-                                                final collectionSpots = collection['collectionSpots'] as List<dynamic>? ?? [];
-                                                
-                                                // 使用 API 返回的 spotCount，如果没有则使用 collectionSpots 数组长度
-                                                final count = collection['spotCount'] as int? ?? collectionSpots.length;
-                                                print('🔍 最终count: $count');
-                                                
-                                                // 优先使用 API 返回的主要城市
-                                                String city = collection['mainCity'] as String? ?? 'Multi-city';
-                                                
-                                                // 如果 API 没有返回主要城市，尝试从合集名称中提取
-                                                if (city == 'Multi-city' || city.isEmpty) {
-                                                  // 尝试从合集名称中提取城市
-                                                  final namePatterns = {
-                                                    'Copenhagen': ['Copenhagen'],
-                                                    'Tokyo': ['Tokyo', 'Japan', '🇯🇵'],
-                                                    'Paris': ['Paris', '🇫🇷'],
-                                                    'London': ['London', '🇬🇧'],
-                                                    'New York': ['New York', 'NYC'],
-                                                    'Seoul': ['Seoul', '🇰🇷', 'Korea'],
-                                                  };
-                                                  
-                                                  for (final entry in namePatterns.entries) {
-                                                    for (final pattern in entry.value) {
-                                                      if (collectionName.contains(pattern)) {
-                                                        city = entry.key;
-                                                        break;
-                                                      }
-                                                    }
-                                                    if (city != 'Multi-city') break;
-                                                  }
-                                                }
-                                                
-                                                // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
-                                                final List<dynamic> tagsList = [];
-                                                for (final spot in collectionSpots) {
-                                                  final place = spot['place'] as Map<String, dynamic>?;
-                                                  if (place == null) continue;
-                                                  
-                                                  // 尝试获取 tags
-                                                  final dynamic tagsValue = place['tags'];
-                                                  if (tagsValue != null) {
-                                                    if (tagsValue is List) {
-                                                      tagsList.addAll(tagsValue);
-                                                    } else if (tagsValue is String) {
-                                  try {
-                                    final decoded = jsonDecode(tagsValue) as List<dynamic>?;
-                                    if (decoded != null) tagsList.addAll(decoded);
-                                  } catch (e) {
-                                    // 忽略解析错误
-                                  }
-                                }
-                              }
-                              
-                              // 如果还没有标签，尝试使用 aiTags
-                              if (tagsList.isEmpty) {
-                                final dynamic aiTagsValue = place['aiTags'];
-                                if (aiTagsValue != null) {
-                                  if (aiTagsValue is List) {
-                                    tagsList.addAll(aiTagsValue);
-                                  } else if (aiTagsValue is String) {
-                                    try {
-                                      final decoded = jsonDecode(aiTagsValue) as List<dynamic>?;
-                                      if (decoded != null) tagsList.addAll(decoded);
-                                    } catch (e) {
-                                      // 忽略解析错误
-                                    }
-                                  }
-                                }
-                              }
-                              
-                              // 如果已经收集到足够的标签，可以提前退出
-                              if (tagsList.length >= 3) break;
-                            }
-                            
-                            // 去重并取前3个
-                            final uniqueTags = tagsList.toSet().toList();
-                            final tags = uniqueTags
-                                .take(3)
-                                .map((e) => '#$e')
-                                .toList();
-                                                
-                                                // 辅助函数：检查 URL 是否是有效的图片 URL
-                                                bool isValidImageUrl(String? url) {
-                                                  if (url == null || url.isEmpty) return false;
-                                                  if (url.contains('example.com')) return false;
-                                                  if (url.contains('placeholder')) return false;
-                                                  return true;
-                                                }
-                                                
-                                                // 获取封面图：优先使用 collection 的 coverImage，否则遍历所有地点找第一个有效图片
-                                                String coverImage = '';
-                                                final collectionCoverImage = collection['coverImage'] as String?;
-                                                if (isValidImageUrl(collectionCoverImage)) {
-                                                  coverImage = collectionCoverImage!;
-                                                } else {
-                                                  // 遍历所有地点找第一个有效的封面图
-                                                  for (final spot in collectionSpots) {
-                                                    final place = spot['place'] as Map<String, dynamic>?;
-                                                    if (place == null) continue;
-                                                    final placeCoverImage = place['coverImage'] as String?;
-                                                    if (isValidImageUrl(placeCoverImage)) {
-                                                      coverImage = placeCoverImage!;
-                                                      break;
-                                                    }
-                                                  }
-                                                }
-                                                // 如果还是没有图片，使用占位图
-                                                if (coverImage.isEmpty) {
-                                                  coverImage = 'https://via.placeholder.com/400x600';
-                                                }
-                                                
-                                                return Padding(
-                                                  padding: EdgeInsets.only(
-                                                    right: itemIndex < displayItems.length - 1 ? 12 : 0,
-                                                  ),
-                                                  child: SizedBox(
-                                                    width: 168,
-                                                    height: 224,
-                                                    child: _TripCard(
-                              city: city,
-                              count: count,
-                                                      title: collectionName,
-                              tags: tags,
-                                                      imageUrl: coverImage,
-                              onTap: () async {
-                                final result = await Navigator.of(context).push<dynamic>(
-                                  MaterialPageRoute<dynamic>(
-                                    builder: (context) => CollectionSpotsMapPage(
-                                      city: city,
-                                                          collectionTitle: collectionName,
-                                                          collectionId: collectionId,
-                                                          initialIsFavorited: false,
-                                                          description: collection['description'] as String?,
-                                                          coverImage: collection['coverImage'] as String?,
-                                                          people: LinkItem.parseList(collection['people'], isPeople: true),
-                                                          works: LinkItem.parseList(collection['works'], isPeople: false),
-                                    ),
-                                  ),
-                                );
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(
+                                          height: 8), // 合集标题距离合集卡片 8px
+                                      // 横向滚动的合集列表 - 高度 = 卡片高度 224 + 底部间距 8
+                                      SizedBox(
+                                        height: 232, // 卡片高度 224px + 底部间距 8px
+                                        child: ListView.builder(
+                                          scrollDirection: Axis.horizontal,
+                                          clipBehavior: Clip.none,
+                                          cacheExtent: 200, // 优化性能：减少横向预加载范围
+                                          padding: const EdgeInsets.only(
+                                              left: 16, right: 16),
+                                          itemCount: displayItems.length,
+                                          itemBuilder: (context, itemIndex) {
+                                            final item =
+                                                displayItems[itemIndex];
+                                            final collection = item[
+                                                        'collection']
+                                                    as Map<String, dynamic>? ??
+                                                {};
+                                            final collectionId =
+                                                collection['id'] as String?;
+                                            final collectionName =
+                                                collection['name'] as String? ??
+                                                    'Collection';
 
-                                                    if (result != null && mounted) {
-                                                      if ((result is Map && result['shouldRefresh'] == true) ||
-                                                          (result is bool && result)) {
+                                            // 调试：查看数据结构
+                                            print('🔍 合集: $collectionName');
+                                            print('🔍 item结构: ${item.keys}');
+                                            print(
+                                                '🔍 collection.spotCount: ${collection['spotCount']}');
+
+                                            // 获取合集的地点信息
+                                            final collectionSpots =
+                                                collection['collectionSpots']
+                                                        as List<dynamic>? ??
+                                                    [];
+
+                                            // 使用 API 返回的 spotCount，如果没有则使用 collectionSpots 数组长度
+                                            final count =
+                                                collection['spotCount']
+                                                        as int? ??
+                                                    collectionSpots.length;
+                                            print('🔍 最终count: $count');
+
+                                            // 优先使用 API 返回的主要城市
+                                            String city = collection['mainCity']
+                                                    as String? ??
+                                                'Multi-city';
+
+                                            // 如果 API 没有返回主要城市，尝试从合集名称中提取
+                                            if (city == 'Multi-city' ||
+                                                city.isEmpty) {
+                                              // 尝试从合集名称中提取城市
+                                              final namePatterns = {
+                                                'Copenhagen': ['Copenhagen'],
+                                                'Tokyo': [
+                                                  'Tokyo',
+                                                  'Japan',
+                                                  '🇯🇵'
+                                                ],
+                                                'Paris': ['Paris', '🇫🇷'],
+                                                'London': ['London', '🇬🇧'],
+                                                'New York': ['New York', 'NYC'],
+                                                'Seoul': [
+                                                  'Seoul',
+                                                  '🇰🇷',
+                                                  'Korea'
+                                                ],
+                                              };
+
+                                              for (final entry
+                                                  in namePatterns.entries) {
+                                                for (final pattern
+                                                    in entry.value) {
+                                                  if (collectionName
+                                                      .contains(pattern)) {
+                                                    city = entry.key;
+                                                    break;
+                                                  }
+                                                }
+                                                if (city != 'Multi-city') break;
+                                              }
+                                            }
+
+                                            // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
+                                            final List<dynamic> tagsList = [];
+                                            for (final spot
+                                                in collectionSpots) {
+                                              final place = spot['place']
+                                                  as Map<String, dynamic>?;
+                                              if (place == null) continue;
+
+                                              // 尝试获取 tags
+                                              final dynamic tagsValue =
+                                                  place['tags'];
+                                              if (tagsValue != null) {
+                                                if (tagsValue is List) {
+                                                  tagsList.addAll(tagsValue);
+                                                } else if (tagsValue
+                                                    is String) {
+                                                  try {
+                                                    final decoded =
+                                                        jsonDecode(tagsValue)
+                                                            as List<dynamic>?;
+                                                    if (decoded != null)
+                                                      tagsList.addAll(decoded);
+                                                  } catch (e) {
+                                                    // 忽略解析错误
+                                                  }
+                                                }
+                                              }
+
+                                              // 如果还没有标签，尝试使用 aiTags
+                                              if (tagsList.isEmpty) {
+                                                final dynamic aiTagsValue =
+                                                    place['aiTags'];
+                                                if (aiTagsValue != null) {
+                                                  if (aiTagsValue is List) {
+                                                    tagsList
+                                                        .addAll(aiTagsValue);
+                                                  } else if (aiTagsValue
+                                                      is String) {
+                                                    try {
+                                                      final decoded =
+                                                          jsonDecode(
+                                                                  aiTagsValue)
+                                                              as List<dynamic>?;
+                                                      if (decoded != null)
+                                                        tagsList
+                                                            .addAll(decoded);
+                                                    } catch (e) {
+                                                      // 忽略解析错误
+                                                    }
+                                                  }
+                                                }
+                                              }
+
+                                              // 如果已经收集到足够的标签，可以提前退出
+                                              if (tagsList.length >= 3) break;
+                                            }
+
+                                            // 去重并取前3个
+                                            final uniqueTags =
+                                                tagsList.toSet().toList();
+                                            final tags = uniqueTags
+                                                .take(3)
+                                                .map((e) => '#$e')
+                                                .toList();
+
+                                            // 辅助函数：检查 URL 是否是有效的图片 URL
+                                            bool isValidImageUrl(String? url) {
+                                              if (url == null || url.isEmpty)
+                                                return false;
+                                              if (url.contains('example.com'))
+                                                return false;
+                                              if (url.contains('placeholder'))
+                                                return false;
+                                              return true;
+                                            }
+
+                                            // 获取封面图：优先使用 collection 的 coverImage，否则遍历所有地点找第一个有效图片
+                                            String coverImage = '';
+                                            final collectionCoverImage =
+                                                collection['coverImage']
+                                                    as String?;
+                                            if (isValidImageUrl(
+                                                collectionCoverImage)) {
+                                              coverImage =
+                                                  collectionCoverImage!;
+                                            } else {
+                                              // 遍历所有地点找第一个有效的封面图
+                                              for (final spot
+                                                  in collectionSpots) {
+                                                final place = spot['place']
+                                                    as Map<String, dynamic>?;
+                                                if (place == null) continue;
+                                                final placeCoverImage =
+                                                    place['coverImage']
+                                                        as String?;
+                                                if (isValidImageUrl(
+                                                    placeCoverImage)) {
+                                                  coverImage = placeCoverImage!;
+                                                  break;
+                                                }
+                                              }
+                                            }
+                                            // 如果还是没有图片，使用占位图
+                                            if (coverImage.isEmpty) {
+                                              coverImage =
+                                                  'https://via.placeholder.com/400x600';
+                                            }
+
+                                            return Padding(
+                                              padding: EdgeInsets.only(
+                                                right: itemIndex <
+                                                        displayItems.length - 1
+                                                    ? 12
+                                                    : 0,
+                                              ),
+                                              child: SizedBox(
+                                                width: 168,
+                                                height: 224,
+                                                child: _TripCard(
+                                                  city: city,
+                                                  count: count,
+                                                  title: collectionName,
+                                                  tags: tags,
+                                                  imageUrl: coverImage,
+                                                  onTap: () async {
+                                                    final result =
+                                                        await Navigator.of(
+                                                                context)
+                                                            .push<dynamic>(
+                                                      MaterialPageRoute<
+                                                          dynamic>(
+                                                        builder: (context) =>
+                                                            CollectionSpotsMapPage(
+                                                          city: city,
+                                                          collectionTitle:
+                                                              collectionName,
+                                                          collectionId:
+                                                              collectionId,
+                                                          initialIsFavorited:
+                                                              false,
+                                                          description: collection[
+                                                                  'description']
+                                                              as String?,
+                                                          coverImage: collection[
+                                                                  'coverImage']
+                                                              as String?,
+                                                          people: LinkItem
+                                                              .parseList(
+                                                                  collection[
+                                                                      'people'],
+                                                                  isPeople:
+                                                                      true),
+                                                          works: LinkItem
+                                                              .parseList(
+                                                                  collection[
+                                                                      'works'],
+                                                                  isPeople:
+                                                                      false),
+                                                        ),
+                                                      ),
+                                                    );
+
+                                                    if (result != null &&
+                                                        mounted) {
+                                                      if ((result is Map &&
+                                                              result['shouldRefresh'] ==
+                                                                  true) ||
+                                                          (result is bool &&
+                                                              result)) {
                                                         // 同时刷新缓存，确保下次进入详情页时获取最新数据
-                                                        ref.read(collectionsCacheProvider.notifier).refresh();
+                                                        ref
+                                                            .read(
+                                                                collectionsCacheProvider
+                                                                    .notifier)
+                                                            .refresh();
                                                         _loadRecommendations();
                                                       }
                                                     }
@@ -573,9 +729,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       ),
                                     ],
                                   ),
-                            );
-                          },
-                        ),
+                                );
+                              },
+                            ),
                           // Tab 1: Map - 添加底部 padding 为底部导航栏留空间
                           Padding(
                             padding: const EdgeInsets.only(bottom: 38),
@@ -620,74 +776,74 @@ class _Header extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center, // 垂直居中
-        children: [
-          // 左侧标题和描述
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Text(
-                  'VAGO',
-                  style: AppTheme.displayLarge(context).copyWith(
-                    fontSize: 48,
-                    height: 1.0,
-                    fontWeight: FontWeight.w700, // 改细一档
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Your own personalized flaneur guide',
-                  style: AppTheme.bodySmall(context).copyWith(
-                    fontSize: 16,
-                    color: AppTheme.mediumGray,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // 右上角 ask AI 按钮 - emoji 和文字分开，下划线只在文字下方
-          GestureDetector(
-            onTap: onAskAITap,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Text('✨', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 4),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'ask AI',
-                      style: AppTheme.labelSmall(context).copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.black,
-                        fontSize: 14,
-                      ),
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center, // 垂直居中
+          children: [
+            // 左侧标题和描述
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Text(
+                    'VAGO',
+                    style: AppTheme.displayLarge(context).copyWith(
+                      fontSize: 48,
+                      height: 1.0,
+                      fontWeight: FontWeight.w700, // 改细一档
                     ),
-                    const SizedBox(height: 2),
-                    // 黄色下划线 - 只在文字下方
-                    Container(
-                      height: 2,
-                      width: 38, // 仅文字宽度
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryYellow,
-                        borderRadius: BorderRadius.circular(1),
-                      ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Your own personalized flaneur guide',
+                    style: AppTheme.bodySmall(context).copyWith(
+                      fontSize: 16,
+                      color: AppTheme.mediumGray,
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
+            // 右上角 ask AI 按钮 - emoji 和文字分开，下划线只在文字下方
+            GestureDetector(
+              onTap: onAskAITap,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text('✨', style: TextStyle(fontSize: 14)),
+                  const SizedBox(width: 4),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'ask AI',
+                        style: AppTheme.labelSmall(context).copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.black,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      // 黄色下划线 - 只在文字下方
+                      Container(
+                        height: 2,
+                        width: 38, // 仅文字宽度
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryYellow,
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _TabSwitcher extends StatelessWidget {
@@ -733,24 +889,24 @@ class _PillTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? AppTheme.primaryYellow : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: AppTheme.bodyMedium(context).copyWith(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: active ? AppTheme.black : AppTheme.mediumGray,
+        behavior: HitTestBehavior.translucent,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: active ? AppTheme.primaryYellow : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            label,
+            style: AppTheme.bodyMedium(context).copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: active ? AppTheme.black : AppTheme.mediumGray,
+            ),
           ),
         ),
-      ),
-    );
+      );
 }
 
 class _TripCard extends StatefulWidget {
@@ -802,7 +958,7 @@ class _TripCardState extends State<_TripCard> {
 
   Future<void> _extractDominantColor() async {
     if (widget.imageUrl.isEmpty) return;
-    
+
     try {
       final ImageProvider imageProvider;
       if (widget.imageUrl.startsWith('data:image/')) {
@@ -810,13 +966,13 @@ class _TripCardState extends State<_TripCard> {
       } else {
         imageProvider = NetworkImage(widget.imageUrl);
       }
-      
+
       final paletteGenerator = await PaletteGenerator.fromImageProvider(
         imageProvider,
         size: const Size(100, 100), // 使用小尺寸提高性能
         maximumColorCount: 5,
       );
-      
+
       if (mounted) {
         setState(() {
           // 优先使用主色，如果没有则使用暗色调或默认灰色
@@ -866,180 +1022,188 @@ class _TripCardState extends State<_TripCard> {
                 // 底层占位符 - 始终显示
                 const VagoPlaceholderSmall(),
                 // 背景图片 - 支持 DataURL (base64) 和网络图片
-                if (widget.imageUrl.isNotEmpty && !widget.imageUrl.contains('placeholder'))
+                if (widget.imageUrl.isNotEmpty &&
+                    !widget.imageUrl.contains('placeholder'))
                   _buildCoverImage(),
 
                 // 底部渐变蒙层 - 只在图片加载成功后显示
                 if (_imageLoaded)
                   Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    height: 125, // 卡片高度 250 的一半
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          _dominantColor.withOpacity(0.3),
-                          _dominantColor.withOpacity(0.6),
-                          _dominantColor.withOpacity(0.85),
-                        ],
-                        stops: const [0.0, 0.3, 0.6, 1.0],
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      height: 125, // 卡片高度 250 的一半
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            _dominantColor.withOpacity(0.3),
+                            _dominantColor.withOpacity(0.6),
+                            _dominantColor.withOpacity(0.85),
+                          ],
+                          stops: const [0.0, 0.3, 0.6, 1.0],
+                        ),
                       ),
                     ),
                   ),
-                ),
 
                 // 内容层 - 顶部标签（只在图片加载成功后显示）
                 if (_imageLoaded)
                   Positioned(
-                  left: 12,
-                  right: 12,
-                  top: 12,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final textStyle = AppTheme.labelSmall(context).copyWith(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      );
-                      
-                      // 计算城市名称需要的宽度
-                      final cityTextPainter = TextPainter(
-                        text: TextSpan(text: widget.city, style: textStyle),
-                        maxLines: 1,
-                        textDirection: TextDirection.ltr,
-                      )..layout();
-                      
-                      // 计算地点数量需要的宽度
-                      final countTextPainter = TextPainter(
-                        text: TextSpan(text: widget.count.toString(), style: textStyle),
-                        maxLines: 1,
-                        textDirection: TextDirection.ltr,
-                      )..layout();
-                      
-                      final cityTagWidth = cityTextPainter.width + 24; // padding 12*2
-                      final countTagWidth = countTextPainter.width + 20 + 12; // padding 10*2 + icon 10 + spacing 2
-                      const spacing = 8.0;
-                      final totalNeeded = cityTagWidth + countTagWidth + spacing;
-                      
-                      // 如果空间不够，隐藏地点数量；如果还不够，城市名用省略号
-                      final showCount = totalNeeded <= constraints.maxWidth;
-                      
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          if (showCount) ...[
-                            // 地点数量 - 64% 白色背景，黑色文字
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.white.withOpacity(0.64),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    widget.count.toString(),
-                                    style: AppTheme.labelSmall(context).copyWith(
-                                      fontSize: 10,
-                                      color: AppTheme.black,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 2),
-                                  const Icon(
-                                    Icons.location_on,
-                                    size: 10,
-                                    color: AppTheme.black,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          // 城市名称 - 白色背景，黑色文字
-                          Flexible(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.white,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                widget.city,
-                                style: AppTheme.labelSmall(context).copyWith(
-                                  fontSize: 10,
-                                  color: AppTheme.black,
-                                  fontWeight: FontWeight.bold,
+                    left: 12,
+                    right: 12,
+                    top: 12,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final textStyle = AppTheme.labelSmall(context).copyWith(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        );
+
+                        // 计算城市名称需要的宽度
+                        final cityTextPainter = TextPainter(
+                          text: TextSpan(text: widget.city, style: textStyle),
+                          maxLines: 1,
+                          textDirection: TextDirection.ltr,
+                        )..layout();
+
+                        // 计算地点数量需要的宽度
+                        final countTextPainter = TextPainter(
+                          text: TextSpan(
+                              text: widget.count.toString(), style: textStyle),
+                          maxLines: 1,
+                          textDirection: TextDirection.ltr,
+                        )..layout();
+
+                        final cityTagWidth =
+                            cityTextPainter.width + 24; // padding 12*2
+                        final countTagWidth = countTextPainter.width +
+                            20 +
+                            12; // padding 10*2 + icon 10 + spacing 2
+                        const spacing = 8.0;
+                        final totalNeeded =
+                            cityTagWidth + countTagWidth + spacing;
+
+                        // 如果空间不够，隐藏地点数量；如果还不够，城市名用省略号
+                        final showCount = totalNeeded <= constraints.maxWidth;
+
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (showCount) ...[
+                              // 地点数量 - 64% 白色背景，黑色文字
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.white.withOpacity(0.64),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      widget.count.toString(),
+                                      style:
+                                          AppTheme.labelSmall(context).copyWith(
+                                        fontSize: 10,
+                                        color: AppTheme.black,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    const Icon(
+                                      Icons.location_on,
+                                      size: 10,
+                                      color: AppTheme.black,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            // 城市名称 - 白色背景，黑色文字
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  widget.city,
+                                  style: AppTheme.labelSmall(context).copyWith(
+                                    fontSize: 10,
+                                    color: AppTheme.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
 
                 // 底部标题和标签层 - 固定在底部（只在图片加载成功后显示）
                 if (_imageLoaded)
                   Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: 12,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.title,
-                        style: AppTheme.headlineMedium(context).copyWith(
-                          fontSize: 16,
-                          color: AppTheme.white,
-                          shadows: [
-                            const Shadow(
-                              color: Colors.black,
-                              blurRadius: 4,
-                            ),
-                          ],
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.title,
+                          style: AppTheme.headlineMedium(context).copyWith(
+                            fontSize: 16,
+                            color: AppTheme.white,
+                            shadows: [
+                              const Shadow(
+                                color: Colors.black,
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (widget.tags.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: widget.tags
-                              .take(2)
-                              .map(
-                                (tag) => Text(
-                                  tag,
-                                  style: AppTheme.labelSmall(context).copyWith(
-                                    fontSize: 12,
-                                    color: AppTheme.white.withOpacity(0.9),
+                        if (widget.tags.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: widget.tags
+                                .take(2)
+                                .map(
+                                  (tag) => Text(
+                                    tag,
+                                    style:
+                                        AppTheme.labelSmall(context).copyWith(
+                                      fontSize: 12,
+                                      color: AppTheme.white.withOpacity(0.9),
+                                    ),
                                   ),
-                                ),
-                              )
-                              .toList(),
-                        ),
+                                )
+                                .toList(),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -1090,7 +1254,7 @@ class _TripCardState extends State<_TripCard> {
       },
     );
   }
-  
+
   // 解码 base64 图片
   static Uint8List _decodeBase64Image(String dataUrl) {
     try {
@@ -1116,12 +1280,21 @@ class _NetworkImageWithPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     // 使用优化后的图片 URL（400x300，质量80）
     final optimizedUrl = ImageService.getListImageUrl(imageUrl);
-    
+
     return CachedNetworkImage(
       imageUrl: optimizedUrl,
       fit: BoxFit.cover,
       fadeInDuration: const Duration(milliseconds: 200),
-      placeholder: (context, url) => const SizedBox.shrink(),
+      placeholder: (context, url) => Container(
+        color: AppTheme.lightGray,
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
       errorWidget: (context, url, error) {
         // 优化 URL 失败时尝试原始 URL
         if (url == optimizedUrl && url != imageUrl) {
@@ -1129,11 +1302,38 @@ class _NetworkImageWithPlaceholder extends StatelessWidget {
             imageUrl: imageUrl,
             fit: BoxFit.cover,
             fadeInDuration: const Duration(milliseconds: 200),
-            placeholder: (context, url) => const SizedBox.shrink(),
-            errorWidget: (context, url, error) => const SizedBox.shrink(),
+            placeholder: (context, url) => Container(
+              color: AppTheme.lightGray,
+              child: const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+            errorWidget: (context, url, error) => Container(
+              color: AppTheme.lightGray,
+              child: const Center(
+                child: Icon(
+                  Icons.image_outlined,
+                  size: 40,
+                  color: AppTheme.mediumGray,
+                ),
+              ),
+            ),
           );
         }
-        return const SizedBox.shrink();
+        return Container(
+          color: AppTheme.lightGray,
+          child: const Center(
+            child: Icon(
+              Icons.image_outlined,
+              size: 40,
+              color: AppTheme.mediumGray,
+            ),
+          ),
+        );
       },
       imageBuilder: (context, imageProvider) {
         // 图片加载成功后调用回调

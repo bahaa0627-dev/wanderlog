@@ -307,13 +307,13 @@ class SupabaseCollectionRepository {
     };
   }
 
-  /// 获取合集推荐列表 - 优化版本：只加载封面数据，不加载完整的 spots
+  /// 获取合集推荐列表 - 优化版本：包含 spot count
   Future<List<Map<String, dynamic>>> listRecommendations() async {
     try {
       print('📡 [Fast] Fetching recommendations from Supabase');
       final startTime = DateTime.now();
       
-      // 一次性获取所有需要的数据，只查询必要字段
+      // 一次性获取所有需要的数据，包括 spot count
       final items = await _client
           .from('collection_recommendation_items')
           .select('''
@@ -328,7 +328,8 @@ class SupabaseCollectionRepository {
               cover_image,
               is_published,
               created_at,
-              updated_at
+              updated_at,
+              collection_spots(count)
             )
           ''')
           .order('sort_order', ascending: true);
@@ -356,7 +357,7 @@ class SupabaseCollectionRepository {
         }
       }
 
-      // 构建结果 - 不需要转换字段名，只返回简化数据
+      // 构建结果 - 包含 spotCount
       final result = <Map<String, dynamic>>[];
       for (final rec in recommendations) {
         final recId = rec['id'] as String;
@@ -369,6 +370,12 @@ class SupabaseCollectionRepository {
             'order': rec['sort_order'],
             'items': recItems.map((item) {
               final collection = item['collection'] as Map<String, dynamic>;
+              // 获取 spot count
+              final collectionSpots = collection['collection_spots'] as List<dynamic>?;
+              final spotCount = collectionSpots?.isNotEmpty == true 
+                  ? (collectionSpots!.first['count'] as int?) ?? 0
+                  : 0;
+              
               return {
                 'id': item['id'],
                 'collection': {
@@ -379,6 +386,7 @@ class SupabaseCollectionRepository {
                   'isPublished': collection['is_published'],
                   'createdAt': collection['created_at'],
                   'updatedAt': collection['updated_at'],
+                  'spotCount': spotCount,
                 },
               };
             }).toList(),

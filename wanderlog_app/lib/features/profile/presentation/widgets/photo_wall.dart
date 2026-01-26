@@ -57,20 +57,20 @@ class PhotoWall extends StatelessWidget {
         // Photo grid
         if (photos.isEmpty)
           Padding(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
             child: Center(
               child: Column(
                 children: [
-                  const Icon(
-                    Icons.photo_library_outlined,
-                    size: 48,
-                    color: AppTheme.mediumGray,
+                  Image.asset(
+                    'assets/images/photo_wall.png',
+                    fit: BoxFit.contain,
+                    width: 280,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 24),
                   Text(
                     'No photos yet',
                     style: AppTheme.bodyMedium(context).copyWith(
-                      color: AppTheme.mediumGray,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),

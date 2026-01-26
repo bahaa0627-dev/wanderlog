@@ -92,8 +92,10 @@ export const getMyTrips = async (req: Request, res: Response) => {
   const prismaAny = prisma as any;
   try {
     const userId = req.user.id;
+    const startTime = Date.now();
     
     // Step 1: Get all trips with spot count in a single query
+    const step1Start = Date.now();
     const trips = await prismaAny.$queryRaw`
       SELECT t.*, 
              COALESCE((SELECT COUNT(*) FROM trip_spots ts WHERE ts.trip_id = t.id), 0) as spot_count
@@ -101,8 +103,10 @@ export const getMyTrips = async (req: Request, res: Response) => {
       WHERE t.user_id = ${userId}::uuid
       ORDER BY t.updated_at DESC
     `;
+    logger.info(`⏱️  [getMyTrips] Step 1 (Get trips): ${Date.now() - step1Start}ms`);
 
     if (!trips || trips.length === 0) {
+      logger.info(`⏱️  [getMyTrips] No trips found, total: ${Date.now() - startTime}ms`);
       return res.json([]);
     }
 
@@ -110,6 +114,7 @@ export const getMyTrips = async (req: Request, res: Response) => {
     const tripIds = trips.map((t: any) => t.id);
     
     // Step 3: Get all trip_spots for all trips in a single query
+    const step3Start = Date.now();
     const allTripSpots = await prismaAny.$queryRaw`
       SELECT ts.*, p.*,
              ts.id as trip_spot_id,
@@ -134,8 +139,10 @@ export const getMyTrips = async (req: Request, res: Response) => {
       WHERE ts.trip_id = ANY(${tripIds}::uuid[])
       ORDER BY ts.created_at DESC
     `;
+    logger.info(`⏱️  [getMyTrips] Step 3 (Get trip_spots): ${Date.now() - step3Start}ms, count: ${allTripSpots.length}`);
 
     // Step 4: Group trip_spots by trip_id
+    const step4Start = Date.now();
     const tripSpotsMap = new Map<string, any[]>();
     for (const ts of allTripSpots as any[]) {
       const tripId = ts.ts_trip_id;
@@ -205,13 +212,19 @@ export const getMyTrips = async (req: Request, res: Response) => {
         spot: normalizedPlace,
       });
     }
+    logger.info(`⏱️  [getMyTrips] Step 4 (Group & normalize): ${Date.now() - step4Start}ms`);
 
     // Step 5: Build result
+    const step5Start = Date.now();
     const result = trips.map((t: any) => ({
       ...toCamelCase(t),
       _count: { tripSpots: Number(t.spot_count) || 0 },
       tripSpots: tripSpotsMap.get(t.id) || [],
     }));
+    logger.info(`⏱️  [getMyTrips] Step 5 (Build result): ${Date.now() - step5Start}ms`);
+
+    const totalTime = Date.now() - startTime;
+    logger.info(`⏱️  [getMyTrips] ✅ TOTAL TIME: ${totalTime}ms (${trips.length} trips, ${allTripSpots.length} spots)`);
 
     return res.json(JSON.parse(JSON.stringify(result, (_, v) => typeof v === 'bigint' ? Number(v) : v)));
   } catch (error) {

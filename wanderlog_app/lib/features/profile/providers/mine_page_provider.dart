@@ -1,8 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/utils/category_emoji.dart';
-import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/core/providers/dio_provider.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
+import 'package:wanderlog/shared/models/spot_model.dart';
 
 /// Data model for a check-in photo with associated metadata
 class CheckInPhoto {
@@ -97,43 +100,90 @@ class MinePageData {
 /// Uses keepAlive to cache data and improve performance
 final minePageDataProvider = FutureProvider<MinePageData>((ref) async {
   try {
-    print('🏠 [MinePageProvider] Loading trips data...');
+    print('🏠 [MinePageProvider] Loading mine summary data...');
     final startTime = DateTime.now();
-    
-    final tripsAsync = await ref.watch(tripsProvider.future);
-    print('🏠 [MinePageProvider] Loaded ${tripsAsync.length} trips in ${DateTime.now().difference(startTime).inMilliseconds}ms');
-    
-    // Log trips details
-    for (var trip in tripsAsync) {
-      final spots = trip.tripSpots ?? [];
-      final visitedCount = spots.where((s) => s.isVisited).length;
-      print('🏠   Trip "${trip.name}": ${spots.length} spots, $visitedCount visited');
+
+    // 检查认证状态
+    final authState = ref.watch(authProvider);
+    print(
+        '🏠 [MinePageProvider] Auth state: isAuthenticated=${authState.isAuthenticated}');
+
+    if (!authState.isAuthenticated) {
+      print(
+          '⚠️ [MinePageProvider] User not authenticated, returning empty data');
+      return MinePageData.empty;
     }
-    
+
+    // 使用新的 /api/mine/summary 端点，只获取已访问的 spots
+    final dio = ref.watch(dioProvider);
+    final baseUrl = dio.options.baseUrl;
+    final fullUrl = '$baseUrl/mine/summary';
+    print('🏠 [MinePageProvider] Calling GET $fullUrl...');
+
+    final response = await dio.get('/mine/summary');
+    final apiDuration = DateTime.now().difference(startTime).inMilliseconds;
+    print('🏠 [MinePageProvider] API request completed in ${apiDuration}ms');
+    print('🏠 [MinePageProvider] Response status: ${response.statusCode}');
+    print(
+        '🏠 [MinePageProvider] Response data type: ${response.data.runtimeType}');
+
+    if (response.data == null) {
+      print('❌ [MinePageProvider] Response data is null!');
+      return MinePageData.empty;
+    }
+
+    final List<dynamic> data;
+    if (response.data is List) {
+      data = response.data as List<dynamic>;
+    } else {
+      print(
+          '❌ [MinePageProvider] Expected List but got ${response.data.runtimeType}');
+      print('🔍 Response data: ${response.data}');
+      return MinePageData.empty;
+    }
+
+    print('🏠 [MinePageProvider] Received ${data.length} visited spots');
+
+    if (data.isEmpty) {
+      print('⚠️ [MinePageProvider] No data returned from server');
+      return MinePageData.empty;
+    }
+
     final processStart = DateTime.now();
-    final result = _processMinePageData(tripsAsync);
+    final result = _processMineRawData(data);
     final processTime = DateTime.now().difference(processStart).inMilliseconds;
-    
+
     print('🏠 [MinePageProvider] Processed in ${processTime}ms:');
-    print('🏠   - ${result.countriesCount} countries, ${result.citiesCount} cities');
+    print(
+        '🏠   - ${result.countriesCount} countries, ${result.citiesCount} cities');
     print('🏠   - ${result.mapMarkers.length} markers');
     print('🏠   - ${result.photos.length} photos');
     print('🏠   - ${result.visitedSpots.length} visited spots');
     print('🏠   - ${result.topCategories.length} top categories');
-    
+    print('🏠 [MinePageProvider] Total time: ${apiDuration + processTime}ms');
+
     // Keep data alive to avoid unnecessary reloads
     ref.keepAlive();
-    
+
     return result;
   } catch (e, stack) {
-    print('🏠 [MinePageProvider] Error: $e');
-    print('🏠 [MinePageProvider] Stack: $stack');
+    print('❌ [MinePageProvider] Error loading mine data:');
+    print('   Error type: ${e.runtimeType}');
+    print('   Error message: $e');
+    if (e is DioException) {
+      print('   Dio error type: ${e.type}');
+      print('   Dio response: ${e.response?.data}');
+      print('   Dio status code: ${e.response?.statusCode}');
+    }
+    print('   Stack trace: $stack');
     rethrow;
   }
 });
 
-/// Process trips data into MinePageData
-MinePageData _processMinePageData(List<Trip> trips) {
+/// Process raw mine data from /api/mine/summary
+MinePageData _processMineRawData(List<dynamic> rawData) {
+  print('🔧 [MinePageProvider] Processing ${rawData.length} raw items...');
+
   final Set<String> countries = {};
   final Set<String> cities = {};
   final List<VisitedSpotMarker> markers = [];
@@ -141,100 +191,148 @@ MinePageData _processMinePageData(List<Trip> trips) {
   final Map<String, int> categoryCounts = {};
   final List<TripSpot> visitedSpots = [];
 
-  for (final trip in trips) {
+  for (final item in rawData) {
     try {
-      final tripSpots = trip.tripSpots ?? [];
-      
-      for (final tripSpot in tripSpots) {
-        try {
-          // Only process visited spots
-          if (!tripSpot.isVisited) continue;
-          
-          visitedSpots.add(tripSpot);
-          
-          final spot = tripSpot.spot;
-          if (spot == null) continue;
+      final itemMap = item as Map<String, dynamic>;
 
-          // Track countries and cities
-          final country = spot.country ?? '';
-          final city = spot.city ?? '';
-          if (country.isNotEmpty) countries.add(country);
-          if (city.isNotEmpty) cities.add(city);
+      // 调试：打印第一个 item 的结构
+      if (visitedSpots.isEmpty) {
+        print('🔍 [MinePageProvider] First item structure:');
+        print('  - Keys: ${itemMap.keys.toList()}');
+        print('  - Has place: ${itemMap.containsKey('place')}');
+        if (itemMap.containsKey('place')) {
+          final placeMap = itemMap['place'] as Map<String, dynamic>?;
+          print('  - Place keys: ${placeMap?.keys.toList()}');
+        }
+      }
 
-          // Create marker with visit date
-          final visitDate = tripSpot.visitDate ?? tripSpot.createdAt ?? DateTime.now();
-          markers.add(VisitedSpotMarker(
-            id: spot.id,
-            name: spot.name,
-            latitude: spot.latitude,
-            longitude: spot.longitude,
-            city: city,
-            country: country,
+      final placeMap = itemMap['place'] as Map<String, dynamic>?;
+
+      if (placeMap == null) {
+        print('⚠️ [MinePageProvider] Skipping item with null place');
+        continue;
+      }
+
+      // 构建 Spot 对象
+      final coverImageUrl = placeMap['coverImage'] as String?;
+
+      // 处理 tags - 可能是 List 或 Map
+      List<String> tags = [];
+      final tagsRaw = placeMap['tags'];
+      if (tagsRaw is List) {
+        tags = tagsRaw.map((e) => e.toString()).toList();
+      } else if (tagsRaw is Map) {
+        // 如果是 Map，可能是空对象 {}，转为空数组
+        tags = [];
+      }
+
+      // 处理 aiTags - 可能是 List 或 Map
+      List<String> aiTags = [];
+      final aiTagsRaw = placeMap['aiTags'];
+      if (aiTagsRaw is List) {
+        aiTags = aiTagsRaw.map((e) => e.toString()).toList();
+      } else if (aiTagsRaw is Map) {
+        // 如果是 Map，可能是空对象 {}，转为空数组
+        aiTags = [];
+      }
+
+      final spot = Spot(
+        id: placeMap['id'] as String,
+        name: placeMap['name'] as String,
+        latitude: (placeMap['latitude'] as num).toDouble(),
+        longitude: (placeMap['longitude'] as num).toDouble(),
+        city: placeMap['city'] as String? ?? '',
+        country: placeMap['country'] as String? ?? '',
+        category: placeMap['category'] as String? ?? 'other',
+        tags: tags,
+        aiTags: aiTags,
+        images: coverImageUrl != null ? [coverImageUrl] : [], // 封面图作为第一张图片
+      );
+
+      // 构建 TripSpot 对象
+      final visitDateStr = itemMap['visitDate'] as String?;
+      final updatedAtStr = itemMap['updatedAt'] as String?;
+      final visitDate =
+          visitDateStr != null ? DateTime.parse(visitDateStr) : null;
+      final updatedAt =
+          updatedAtStr != null ? DateTime.parse(updatedAtStr) : null;
+
+      final userPhotos = (itemMap['userPhotos'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
+
+      final tripSpot = TripSpot(
+        id: itemMap['id'] as String,
+        tripId: '', // 不需要 tripId
+        spotId: spot.id,
+        spot: spot,
+        isVisited: true,
+        visitDate: visitDate,
+        updatedAt: updatedAt,
+        userPhotos: userPhotos,
+        userNotes: itemMap['userNotes'] as String?,
+        userRating: itemMap['userRating'] as int?,
+      );
+
+      visitedSpots.add(tripSpot);
+
+      // Track countries and cities
+      if (spot.country != null && spot.country!.isNotEmpty)
+        countries.add(spot.country!);
+      if (spot.city != null && spot.city!.isNotEmpty) cities.add(spot.city!);
+
+      // Create marker with visit date
+      final markerDate = visitDate ?? updatedAt ?? DateTime.now();
+      markers.add(VisitedSpotMarker(
+        id: spot.id,
+        name: spot.name,
+        latitude: spot.latitude,
+        longitude: spot.longitude,
+        city: spot.city ?? '',
+        country: spot.country ?? '',
+        category: spot.category ?? 'other',
+        visitDate: markerDate,
+      ));
+
+      // Count categories
+      _countCategories(
+        categoryCounts,
+        spot.category,
+        spot.tags,
+        spot.aiTags,
+      );
+
+      // Collect photos
+      final photoDate = visitDate ?? updatedAt ?? DateTime.now();
+      for (final photoUrl in userPhotos) {
+        if (photoUrl.isNotEmpty) {
+          photos.add(CheckInPhoto(
+            photoUrl: photoUrl,
+            spotId: spot.id,
+            spotName: spot.name,
+            city: spot.city ?? '',
+            country: spot.country ?? '',
+            visitDate: photoDate,
+            userNotes: tripSpot.userNotes,
             category: spot.category ?? 'other',
-            visitDate: visitDate,
+            tags: spot.tags,
           ));
-
-          // Count categories from category, tags, and aiTags
-          _countCategories(
-            categoryCounts,
-            spot.category,
-            spot.tags,
-            spot.aiTags,
-          );
-
-          // Collect photos - use updatedAt as it reflects when photos were added
-          final userPhotos = tripSpot.userPhotos ?? [];
-          // Use the most recent date available: updatedAt > visitDate > createdAt
-          final photoDate = tripSpot.updatedAt ?? tripSpot.visitDate ?? tripSpot.createdAt ?? DateTime.now();
-          for (final photoUrl in userPhotos) {
-            if (photoUrl.isNotEmpty) {
-              photos.add(CheckInPhoto(
-                photoUrl: photoUrl,
-                spotId: spot.id,
-                spotName: spot.name,
-                city: city,
-                country: country,
-                visitDate: photoDate,
-                userNotes: tripSpot.userNotes,
-                category: spot.category ?? 'other',
-                tags: spot.tags,
-              ));
-            }
-          }
-        } catch (e) {
-          print('⚠️ [MinePageProvider] Error processing tripSpot: $e');
-          continue;
         }
       }
     } catch (e) {
-      print('⚠️ [MinePageProvider] Error processing trip: $e');
+      print('🏠 [MinePageProvider] Error processing item: $e');
       continue;
     }
   }
 
   // Sort photos by visit date (newest first)
   photos.sort((a, b) => b.visitDate.compareTo(a.visitDate));
-  
-  // Debug: print photo order
-  print('📸 [MinePageProvider] Photos sorted (newest first):');
-  for (int i = 0; i < photos.length && i < 5; i++) {
-    print('  ${i + 1}. ${photos[i].spotName} - ${photos[i].visitDate}');
-  }
-
-  // Sort markers by visit date (newest first) for preview display
-  markers.sort((a, b) => b.visitDate.compareTo(a.visitDate));
-
-  // Sort visited spots by visit date (newest first)
-  visitedSpots.sort((a, b) {
-    final aDate = a.visitDate ?? a.createdAt ?? DateTime.now();
-    final bDate = b.visitDate ?? b.createdAt ?? DateTime.now();
-    return bDate.compareTo(aDate);
-  });
 
   // Get top 4 categories
   final sortedCategories = categoryCounts.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
-  
+
   final topCategories = sortedCategories.take(4).map((entry) {
     return CategoryCount(
       category: entry.key,

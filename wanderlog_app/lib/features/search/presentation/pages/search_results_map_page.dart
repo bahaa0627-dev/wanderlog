@@ -14,6 +14,8 @@ import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/features/search/data/search_repository.dart';
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/map/presentation/widgets/tag_type_filter_bar.dart';
@@ -74,6 +76,10 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   // 所有地点的标签统计
   Map<String, int> _allTagsCounts = {};
   Set<String> _activeFilterTags = {};
+  
+  // 防抖字段
+  String? _lastClickedSpotId;
+  DateTime? _lastClickTime;
   
   /// 获取搜索显示文本（用于显示在搜索框中）
   String get _searchDisplayText {
@@ -373,6 +379,22 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   }
 
   void _showSpotDetail(Spot spot) async {
+    final now = DateTime.now();
+    
+    // 防抖：如果是同一个地点且点击间隔小于1秒，则忽略
+    if (_lastClickedSpotId == spot.id && 
+        _lastClickTime != null && 
+        now.difference(_lastClickTime!).inMilliseconds < 1000) {
+      print('🔧 [search_results_map_page.dart] Debouncing rapid clicks for ${spot.name}');
+      return;
+    }
+    
+    _lastClickedSpotId = spot.id;
+    _lastClickTime = now;
+    
+    // 添加调试日志
+    print('🔧 [search_results_map_page.dart] _showSpotDetail for spot: ${spot.name}');
+    
     // 先加载合集数据
     Map<String, dynamic>? linkedCollection;
     try {
@@ -385,6 +407,61 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     } catch (e) {
       // 静默失败
     }
+
+    // 加载地点的状态信息（包括 check-in 数据）
+    bool? isSaved;
+    bool? isMustGo;
+    bool? isTodaysPlan;
+    bool? isVisited;
+    DateTime? visitDate;
+    int? userRating;
+    String? userNotes;
+    List<String>? userPhotos;
+    String? destinationId;
+
+    try {
+      final authState = ref.read(authProvider);
+      if (authState.isAuthenticated) {
+        final tripRepo = ref.read(tripRepositoryProvider);
+        final trips = await tripRepo.getMyTrips();
+
+        // 查找包含这个 spot 的 trip
+        for (final trip in trips) {
+          final tripDetail = await tripRepo.getTripById(trip.id);
+          final tripSpots = tripDetail.tripSpots ?? [];
+
+          for (final ts in tripSpots) {
+            if (ts.spot?.id == spot.id) {
+              isSaved = ts.isSaved;
+              isMustGo = ts.isMustGo;
+              isTodaysPlan = ts.isTodaysPlan;
+              isVisited = ts.isVisited;
+              visitDate = ts.visitDate;
+              userRating = ts.userRating;
+              userNotes = ts.userNotes;
+              userPhotos = ts.userPhotos;
+              destinationId = trip.id;
+              break;
+            }
+          }
+          if (isSaved != null) break;
+        }
+      }
+    } catch (e) {
+      // 静默失败，使用默认值
+    }
+    
+    // 添加调试日志
+    print('🔧 [search_results_map_page.dart] Data loaded for ${spot.name}:');
+    print('🔧 [search_results_map_page.dart] isSaved: $isSaved');
+    print('🔧 [search_results_map_page.dart] isMustGo: $isMustGo');
+    print('🔧 [search_results_map_page.dart] isTodaysPlan: $isTodaysPlan');
+    print('🔧 [search_results_map_page.dart] isVisited: $isVisited');
+    print('🔧 [search_results_map_page.dart] visitDate: $visitDate');
+    print('🔧 [search_results_map_page.dart] userRating: $userRating');
+    print('🔧 [search_results_map_page.dart] userNotes: $userNotes');
+    print('🔧 [search_results_map_page.dart] userPhotos: ${userPhotos?.length ?? 0} photos');
+    print('🔧 [search_results_map_page.dart] destinationId: $destinationId');
     
     if (!mounted) return;
     
@@ -395,6 +472,15 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
       builder: (context) => UnifiedSpotDetailModal(
         spot: spot,
         linkedCollection: linkedCollection,
+        initialIsSaved: isSaved,
+        initialIsMustGo: isMustGo,
+        initialIsTodaysPlan: isTodaysPlan,
+        initialIsVisited: isVisited,
+        initialVisitDate: visitDate,
+        initialUserRating: userRating,
+        initialUserNotes: userNotes,
+        initialUserPhotos: userPhotos,
+        initialDestinationId: destinationId,
       ),
     );
   }

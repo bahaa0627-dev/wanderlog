@@ -1117,51 +1117,52 @@ class _MapPageState extends ConsumerState<MapPage> {
                 ),
               ),
             ),
-            // Ask AI entry
-            GestureDetector(
-              onTap: () {
-                Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (context) => const AIAssistantPage(),
-                  ),
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.auto_awesome,
-                      size: 14,
-                      color: AppTheme.primaryYellow,
+            // Ask AI entry - 只在搜索框为空时显示
+            if (_searchController.text.isEmpty)
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const AIAssistantPage(),
                     ),
-                    const SizedBox(width: 4),
-                    RichText(
-                      text: TextSpan(
-                        style: AppTheme.bodySmall(context).copyWith(
-                          color: AppTheme.black,
-                          fontSize: 12,
-                        ),
-                        children: [
-                          const TextSpan(text: 'ask '),
-                          TextSpan(
-                            text: 'AI',
-                            style: AppTheme.bodySmall(context).copyWith(
-                              color: AppTheme.black,
-                              fontSize: 12,
-                              decoration: TextDecoration.underline,
-                              decorationColor: AppTheme.primaryYellow,
-                              decorationThickness: 2,
-                            ),
-                          ),
-                        ],
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome,
+                        size: 14,
+                        color: AppTheme.primaryYellow,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      RichText(
+                        text: TextSpan(
+                          style: AppTheme.bodySmall(context).copyWith(
+                            color: AppTheme.black,
+                            fontSize: 12,
+                          ),
+                          children: [
+                            const TextSpan(text: 'ask '),
+                            TextSpan(
+                              text: 'AI',
+                              style: AppTheme.bodySmall(context).copyWith(
+                                color: AppTheme.black,
+                                fontSize: 12,
+                                decoration: TextDecoration.underline,
+                                decorationColor: AppTheme.primaryYellow,
+                                decorationThickness: 2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             if (_searchController.text.isNotEmpty)
               GestureDetector(
                 onTap: _clearSearch,
@@ -1492,85 +1493,11 @@ class _MapPageState extends ConsumerState<MapPage> {
     
     print('🗺️ [MapPageNew] _showSpotDetail called for spot: ${spot.name}');
     
-    // 优化：只在需要时才加载合集数据
-    Map<String, dynamic>? linkedCollection;
-    try {
-      final repo = ref.read(collectionRepositoryProvider);
-      final collections = await repo.getCollectionsForPlace(spot.id);
-      if (collections.isNotEmpty) {
-        final random = math.Random();
-        linkedCollection = collections[random.nextInt(collections.length)];
-      }
-    } catch (e) {
-      print('⚠️ [map_page_new.dart] Failed to load collections: $e');
-      // 静默失败
-    }
-
-    // 加载地点的状态信息（isSaved, isMustGo, isTodaysPlan, isVisited 等）
-    bool? isSaved;
-    bool? isMustGo;
-    bool? isTodaysPlan;
-    bool? isVisited;
-    DateTime? visitDate;
-    int? userRating;
-    String? userNotes;
-    List<String>? userPhotos;
-    String? destinationId;
-
-    try {
-      final authState = ref.read(authProvider);
-      if (authState.isAuthenticated) {
-        final tripRepo = ref.read(tripRepositoryProvider);
-        final trips = await tripRepo.getMyTrips();
-
-        // 查找包含这个 spot 的 trip
-        for (final trip in trips) {
-          final tripDetail = await tripRepo.getTripById(trip.id);
-          final tripSpots = tripDetail.tripSpots ?? [];
-
-          for (final ts in tripSpots) {
-            if (ts.spot?.id == spot.id) {
-              isSaved = ts.isSaved;
-              isMustGo = ts.isMustGo;
-              isTodaysPlan = ts.isTodaysPlan;
-              isVisited = ts.isVisited;
-              visitDate = ts.visitDate;
-              userRating = ts.userRating;
-              userNotes = ts.userNotes;
-              userPhotos = ts.userPhotos;
-              destinationId = trip.id;
-              
-              // 调试日志：打印找到的 check-in 数据
-              print('📍 [MapPage] Found spot status for ${spot.name}:');
-              print('  - isVisited: $isVisited');
-              print('  - visitDate: $visitDate');
-              print('  - userRating: $userRating');
-              print('  - userNotes: $userNotes');
-              print('  - userPhotos: ${userPhotos?.length ?? 0} photos');
-              
-              break;
-            }
-          }
-          if (isSaved != null) break;
-        }
-      }
-    } catch (e) {
-      // 静默失败，使用默认值
-    }
-
+    // 立即显示详情页，不等待状态加载
+    // 状态由详情页自己异步加载，避免阻塞 UI
     if (!mounted) return;
     
-    // 调试日志 - 显示即将传递给详情页的数据
-    print('🗺️ [MapPageNew] Showing detail modal with data:');
-    print('  - isSaved: $isSaved');
-    print('  - isMustGo: $isMustGo');
-    print('  - isTodaysPlan: $isTodaysPlan');
-    print('  - isVisited: $isVisited');
-    print('  - visitDate: $visitDate');
-    print('  - userRating: $userRating');
-    print('  - userNotes: ${userNotes != null ? "\"${userNotes.substring(0, math.min(50, userNotes.length))}...\"" : "null"}');
-    print('  - userPhotos: ${userPhotos?.length ?? 0} photos');
-    print('  - destinationId: $destinationId');
+    print('🗺️ [MapPageNew] Showing detail modal immediately for: ${spot.name}');
 
     showModalBottomSheet<void>(
       context: context,
@@ -1578,19 +1505,14 @@ class _MapPageState extends ConsumerState<MapPage> {
       backgroundColor: Colors.transparent,
       builder: (context) => UnifiedSpotDetailModal(
         spot: spot,
-        linkedCollection: linkedCollection,
-        initialIsSaved: isSaved,
-        initialIsMustGo: isMustGo,
-        initialIsTodaysPlan: isTodaysPlan,
-        initialIsVisited: isVisited,
-        initialVisitDate: visitDate,
-        initialUserRating: userRating,
-        initialUserNotes: userNotes,
-        initialUserPhotos: userPhotos,
-        initialDestinationId: destinationId,
+        // 不传递初始状态，让详情页自己加载
+        // 这样可以避免阻塞 UI
       ),
     );
   }
+
+  // 以下是被移除的旧代码的占位注释
+  // 状态加载已移至 UnifiedSpotDetailModal 内部
 
   Future<void> _loadPublicPlaces() async {
     print('📍 [MapPage] _loadPublicPlaces 开始');

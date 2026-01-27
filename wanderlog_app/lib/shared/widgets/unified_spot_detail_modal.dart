@@ -475,7 +475,12 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
       // 没有初始数据，从缓存同步读取收藏状态，避免闪烁
       _loadWishlistStatusFromCache();
       // 异步加载详细状态
-      _loadWishlistStatus();
+      print('⚠️ [UnifiedSpotDetailModal] About to call _loadWishlistStatus()...');
+      _loadWishlistStatus().then((_) {
+        print('⚠️ [UnifiedSpotDetailModal] _loadWishlistStatus() completed');
+      }).catchError((e) {
+        print('❌ [UnifiedSpotDetailModal] _loadWishlistStatus() error: $e');
+      });
     }
     
     // 处理合集入口数据
@@ -594,7 +599,7 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   }
 
   void _viewUserPhotoFullScreen(String imageUrl) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
@@ -851,80 +856,126 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
   }
 
   Future<void> _loadWishlistStatus() async {
-    final auth = ref.read(authProvider);
-    if (!auth.isAuthenticated) return;
+    // 注意：不再检查 authProvider.isAuthenticated，因为可能存在 keychain 同步问题
+    // 让 API 请求自己处理认证，如果没有权限会返回空数据或错误
+    print('🔍 [UnifiedSpotDetailModal] _loadWishlistStatus started for: $_spotName');
+    print('🔍 [UnifiedSpotDetailModal] _originalSpotId: $_originalSpotId');
     try {
       final repo = ref.read(tripRepositoryProvider);
       // 强制从服务器获取最新数据，不使用缓存
       // 这确保编辑 check-in 后能看到最新数据
+      print('🔍 [UnifiedSpotDetailModal] Calling repo.getMyTrips()...');
       final trips = await repo.getMyTrips();
       
-      if (trips.isEmpty) return;
+      print('📋 [UnifiedSpotDetailModal] Got ${trips.length} trips');
+      if (trips.isEmpty) {
+        print('⚠️ [UnifiedSpotDetailModal] No trips found, returning');
+        if (mounted) setState(() => _isLoadingCheckInData = false);
+        return;
+      }
       
       for (final t in trips) {
         try {
+          print('📍 [UnifiedSpotDetailModal] Fetching trip detail for "${t.name}" (${t.id})...');
           final detail = await repo.getTripById(t.id);
-          final tripSpot = detail.tripSpots?.firstWhere(
+          final tripSpots = detail.tripSpots ?? [];
+          print('📍 [UnifiedSpotDetailModal] Trip "${t.name}" has ${tripSpots.length} tripSpots');
+          
+          // 打印所有 tripSpots 的基本信息以便调试
+          for (int i = 0; i < tripSpots.length && i < 10; i++) {
+            final ts = tripSpots[i];
+            print('   [$i] spotId=${ts.spotId}, name="${ts.spot?.name ?? "unknown"}", googlePlaceId=${ts.spot?.googlePlaceId}');
+          }
+          
+          final tripSpot = tripSpots.firstWhere(
             (ts) {
               // 匹配 spotId（UUID）或 googlePlaceId
-              if (ts.spotId == _originalSpotId) return true;
+              final matchBySpotId = ts.spotId == _originalSpotId;
               // 也检查 spot 的 googlePlaceId
               final spotGoogleId = ts.spot?.googlePlaceId;
-              if (spotGoogleId != null && spotGoogleId == _originalSpotId) return true;
+              final matchByGooglePlaceId = spotGoogleId != null && spotGoogleId == _originalSpotId;
+              
+              // 详细日志 - 对名称相似的地点输出比较信息
+              final tsSpotName = ts.spot?.name ?? '';
+              final searchPrefix = _spotName.length >= 5 ? _spotName.toLowerCase().substring(0, 5) : _spotName.toLowerCase();
+              if (tsSpotName.toLowerCase().contains(searchPrefix)) {
+                print('🔍 [UnifiedSpotDetailModal] Comparing "$tsSpotName":');
+                print('    ts.spotId=${ts.spotId}, _originalSpotId=$_originalSpotId, match=$matchBySpotId');
+                print('    ts.spot.googlePlaceId=$spotGoogleId, match=$matchByGooglePlaceId');
+                print('    ts.isSaved=${ts.isSaved}, ts.isVisited=${ts.isVisited}');
+              }
+              
+              if (matchBySpotId) return true;
+              if (matchByGooglePlaceId) return true;
               return false;
             },
             orElse: () => throw StateError('not found'),
           );
-          if (tripSpot != null) {
-            _destinationId = detail.id;
-            // 保存实际的 place UUID，用于后续操作
-            _actualPlaceId = tripSpot.spotId;
-            if (mounted) {
-              setState(() {
-                // 使用新的布尔字段
-                _isWishlist = tripSpot.isSaved;
-                _isMustGo = tripSpot.isMustGo;
-                _isTodaysPlan = tripSpot.isTodaysPlan;
-                _isVisited = tripSpot.isVisited;
-                _visitDate = tripSpot.visitDate;
-                _userRating = tripSpot.userRating;
-                _userNotes = tripSpot.userNotes;
-                _userPhotos = tripSpot.userPhotos ?? [];
-                _isLoadingCheckInData = false; // 加载完成
-              });
-            }
-            // 更新缓存，使用 UUID 和 googlePlaceId 两个键，确保下次打开时能正确读取
-            final uuid = tripSpot.spotId;
-            final googlePlaceId = tripSpot.spot?.googlePlaceId;
+          // tripSpot 匹配成功
+          _destinationId = detail.id;
+          // 保存实际的 place UUID，用于后续操作
+          _actualPlaceId = tripSpot.spotId;
+          print('🎯 [UnifiedSpotDetailModal] Before setState: mounted=$mounted, _isWishlist=$_isWishlist');
+          print('🎯 [UnifiedSpotDetailModal] tripSpot.isSaved=${tripSpot.isSaved}, tripSpot.isVisited=${tripSpot.isVisited}');
+          
+          // 直接更新状态变量
+          _isWishlist = tripSpot.isSaved;
+          _isMustGo = tripSpot.isMustGo;
+          _isTodaysPlan = tripSpot.isTodaysPlan;
+          _isVisited = tripSpot.isVisited;
+          _visitDate = tripSpot.visitDate;
+          _userRating = tripSpot.userRating;
+          _userNotes = tripSpot.userNotes;
+          _userPhotos = tripSpot.userPhotos ?? [];
+          _isLoadingCheckInData = false;
+          
+          // 使用 addPostFrameCallback 确保 setState 在正确的时机执行
+          if (mounted) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  print('🎯 [UnifiedSpotDetailModal] Inside setState callback: _isWishlist=$_isWishlist, _isVisited=$_isVisited');
+                });
+              }
+            });
+          }
+          print('✅ [UnifiedSpotDetailModal] After setting values: _isWishlist=$_isWishlist, _isVisited=$_isVisited');
+          // 更新缓存，使用 UUID 和 googlePlaceId 两个键，确保下次打开时能正确读取
+          final uuid = tripSpot.spotId;
+          final googlePlaceId = tripSpot.spot?.googlePlaceId;
+          WishlistStatusCache.updateFullStatus(
+            uuid,
+            destinationId: detail.id,
+            isMustGo: tripSpot.isMustGo,
+            isTodaysPlan: tripSpot.isTodaysPlan,
+            isVisited: tripSpot.isVisited,
+          );
+          // 如果 googlePlaceId 存在且与 UUID 不同，也更新缓存
+          if (googlePlaceId != null && googlePlaceId != uuid) {
             WishlistStatusCache.updateFullStatus(
-              uuid,
+              googlePlaceId,
               destinationId: detail.id,
               isMustGo: tripSpot.isMustGo,
               isTodaysPlan: tripSpot.isTodaysPlan,
               isVisited: tripSpot.isVisited,
             );
-            // 如果 googlePlaceId 存在且与 UUID 不同，也更新缓存
-            if (googlePlaceId != null && googlePlaceId != uuid) {
-              WishlistStatusCache.updateFullStatus(
-                googlePlaceId,
-                destinationId: detail.id,
-                isMustGo: tripSpot.isMustGo,
-                isTodaysPlan: tripSpot.isTodaysPlan,
-                isVisited: tripSpot.isVisited,
-              );
-            }
-            return;
           }
-        } catch (_) {}
+          return;
+        } catch (tripError) {
+          // 这个 trip 中没有找到匹配的 tripSpot，继续查找下一个 trip
+          print('⚠️ [UnifiedSpotDetailModal] Trip "${t.name}" error or no match: $tripError');
+        }
       }
       
       // 如果没有找到数据，也要清除加载状态
+      print('❌ [UnifiedSpotDetailModal] No matching tripSpot found in any trip');
       if (mounted) {
         setState(() {
           _isLoadingCheckInData = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      print('❌ [UnifiedSpotDetailModal] Error loading wishlist status: $e');
       if (mounted) {
         setState(() {
           _isLoadingCheckInData = false;
@@ -935,9 +986,20 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
 
   /// 加载地点关联的合集（随机选择一个展示）
   Future<void> _loadLinkedCollection() async {
+    // 只有当 spotId 是有效的 UUID 时才调用 API
+    // 如果是 googlePlaceId 格式，跳过加载（会在 _loadWishlistStatus 后再尝试）
+    final currentSpotId = _spotId;
+    if (!_isValidUUID(currentSpotId)) {
+      print('⚠️ [UnifiedSpotDetailModal] Skipping collection load - spotId is not UUID: $currentSpotId');
+      setState(() {
+        _isCollectionLoaded = true;
+      });
+      return;
+    }
+    
     try {
       final repo = ref.read(collectionRepositoryProvider);
-      final collections = await repo.getCollectionsForPlace(_spotId);
+      final collections = await repo.getCollectionsForPlace(currentSpotId);
       
       if (mounted) {
         if (collections.isNotEmpty) {
@@ -2127,22 +2189,10 @@ class _UnifiedSpotDetailModalState extends ConsumerState<UnifiedSpotDetailModal>
 
   @override
   Widget build(BuildContext context) {
-    // 如果需要显示合集入口但数据还没加载完，显示加载态
-    if (!widget.hideCollectionEntry && !_isCollectionLoaded) {
-      return Container(
-        height: MediaQuery.of(context).size.height * 0.85,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: AppTheme.black, width: 2),
-        ),
-        child: const Center(
-          child: CircularProgressIndicator(
-            color: AppTheme.primaryYellow,
-          ),
-        ),
-      );
-    }
+    // Debug: 打印当前状态
+    print('🏗️ [UnifiedSpotDetailModal] build() called: _isWishlist=$_isWishlist, _isVisited=$_isVisited, _isMustGo=$_isMustGo');
+    
+    // 不再阻塞加载：立即显示详情内容，合集入口会在加载完成后出现
     
     return Stack(
     clipBehavior: Clip.none,

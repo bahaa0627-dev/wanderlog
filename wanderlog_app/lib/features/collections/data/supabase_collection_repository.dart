@@ -602,6 +602,16 @@ class SupabaseCollectionRepository {
   /// 获取地点关联的合集列表（只返回已发布的合集）
   /// 用于在地点详情页显示合集入口，同时预加载合集详情数据
   Future<List<Map<String, dynamic>>> getCollectionsForPlace(String placeId) async {
+    // 验证 placeId 是有效的 UUID 格式
+    final uuidRegex = RegExp(
+      r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+      caseSensitive: false,
+    );
+    if (!uuidRegex.hasMatch(placeId)) {
+      print('⚠️ [getCollectionsForPlace] Invalid UUID format, skipping: $placeId');
+      return [];
+    }
+    
     try {
       // 查询 collection_spots 表，获取包含该地点的所有合集，同时获取合集的完整信息
       final response = await _client

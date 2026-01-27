@@ -43,7 +43,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _isMapFullscreen = false;
   bool _showSearchMenu = false;
   List<Map<String, dynamic>> _recommendations = [];
-  bool _isLoadingRecommendations = false;
+  bool _isLoadingRecommendations = true; // 初始为 true，首次加载时显示加载态
   String? _recommendationsError; // 添加错误信息
   int _mapResetKey = 0;
 

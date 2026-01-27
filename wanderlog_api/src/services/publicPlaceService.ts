@@ -1677,8 +1677,20 @@ class PublicPlaceService {
     return result;
   }
 
+  // 国家城市统计数据缓存（有效期 1 小时）
+  private _countriesCitiesStatsCache: {
+    data: Record<string, { placeCount: number; cities: { name: string; placeCount: number }[] }> | null;
+    timestamp: number;
+    ttl: number;
+  } = {
+    data: null,
+    timestamp: 0,
+    ttl: 60 * 60 * 1000, // 1 小时
+  };
+
   /**
    * 获取国家和城市列表（带地点数量统计，用于地图首页下拉）
+   * 使用内存缓存，有效期 1 小时
    * 
    * 筛选规则：
    * 1. 国家内地点数量 > 100 才显示该国家
@@ -1690,6 +1702,19 @@ class PublicPlaceService {
     minCityPlaces?: number;     // 城市最小地点数，默认 5
     minCitiesPerCountry?: number; // 每个国家最少显示城市数，默认 3 (reserved for future use)
   }) {
+    // 检查缓存是否有效（使用默认参数时）
+    const useDefaultParams = !options?.minCountryPlaces && !options?.minCityPlaces && !options?.minCitiesPerCountry;
+    if (useDefaultParams && this._countriesCitiesStatsCache.data) {
+      const now = Date.now();
+      if (now - this._countriesCitiesStatsCache.timestamp < this._countriesCitiesStatsCache.ttl) {
+        console.log('✅ [PublicPlaceService] 使用缓存的国家城市统计数据');
+        return this._countriesCitiesStatsCache.data;
+      }
+    }
+
+    console.log('📍 [PublicPlaceService] 重新计算国家城市统计数据...');
+    const startTime = Date.now();
+
     const minCountryPlaces = options?.minCountryPlaces ?? 100;
     const minCityPlaces = options?.minCityPlaces ?? 5;  // 改为 5，少于 5 个地点的城市不显示
     void options?.minCitiesPerCountry; // Reserved for future use
@@ -1801,6 +1826,17 @@ class PublicPlaceService {
     const sortedCountries = Object.keys(result).sort();
     for (const country of sortedCountries) {
       sortedResult[country] = result[country];
+    }
+
+    // 保存到缓存（仅当使用默认参数时）
+    if (useDefaultParams) {
+      this._countriesCitiesStatsCache = {
+        data: sortedResult,
+        timestamp: Date.now(),
+        ttl: 60 * 60 * 1000, // 1 小时
+      };
+      const duration = Date.now() - startTime;
+      console.log(`✅ [PublicPlaceService] 国家城市统计数据计算完成，耗时 ${duration}ms，已缓存 1 小时`);
     }
 
     return sortedResult;

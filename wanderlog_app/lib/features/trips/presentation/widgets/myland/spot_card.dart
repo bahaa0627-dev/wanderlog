@@ -5,6 +5,7 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
+import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 
 /// 地点卡片组件 - 用于 MyLand 页面展示地点信息
 class SpotCard extends StatelessWidget {
@@ -251,23 +252,26 @@ class SpotCard extends StatelessWidget {
       }
     }
     // Handle regular network URLs
-    return Image.network(
-      imageSource,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 占位图层 - 始终显示在底层
+        _buildPlaceholder(),
+        // 图片层 - 加载完成后覆盖占位图
+        Image.network(
+          imageSource,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return const SizedBox.shrink(); // 加载中显示底层占位图
+          },
+          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+        ),
+      ],
     );
   }
 
-  Widget _buildPlaceholder() => ColoredBox(
-      color: AppTheme.background,
-      child: const Center(
-        child: Icon(
-          Icons.image_outlined,
-          size: 40,
-          color: Colors.grey,
-        ),
-      ),
-    );
+  Widget _buildPlaceholder() => const VagoPlaceholderSmall();
 
   Widget _buildFavoriteButton() => GestureDetector(
         onTap: onToggleMustGo,

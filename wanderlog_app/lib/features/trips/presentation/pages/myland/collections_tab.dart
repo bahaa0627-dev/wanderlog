@@ -30,7 +30,7 @@ class CollectionsTab extends ConsumerStatefulWidget {
 class _CollectionsTabState extends ConsumerState<CollectionsTab> {
   final List<Map<String, dynamic>> _allCollections = [];
   List<Map<String, dynamic>> _filteredCollections = [];
-  bool _isLoading = false;
+  bool _isLoading = true; // 初始为 true，首次加载时显示转圈
 
   @override
   void initState() {
@@ -755,32 +755,33 @@ class _CollectionCardState extends State<_CollectionCard> {
                     },
                   ),
                 ),
-                // 底部标题和标签层 - 只在图片加载成功后显示
-                if (_imageLoaded)
-                  Positioned(
-                    left: 12,
-                    right: 12,
-                    bottom: 12,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.name,
-                          style: AppTheme.headlineMedium(context).copyWith(
-                            fontSize: 16,
-                            color: AppTheme.white,
-                            shadows: [
-                              const Shadow(
-                                color: Colors.black,
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                // 底部标题和标签层 - 始终显示，确保用户能看到文字内容
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.name,
+                        style: AppTheme.headlineMedium(context).copyWith(
+                          fontSize: 16,
+                          color: _imageLoaded ? AppTheme.white : AppTheme.black,
+                          shadows: _imageLoaded
+                              ? [
+                                  const Shadow(
+                                    color: Colors.black,
+                                    blurRadius: 4,
+                                  ),
+                                ]
+                              : null,
                         ),
-                        if (widget.tags.isNotEmpty) ...[
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (widget.tags.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           Wrap(
                             spacing: 6,
@@ -793,7 +794,9 @@ class _CollectionCardState extends State<_CollectionCard> {
                                     style:
                                         AppTheme.labelSmall(context).copyWith(
                                       fontSize: 12,
-                                      color: AppTheme.white.withOpacity(0.9),
+                                      color: _imageLoaded
+                                          ? AppTheme.white.withOpacity(0.9)
+                                          : AppTheme.textSecondary,
                                     ),
                                   ),
                                 )

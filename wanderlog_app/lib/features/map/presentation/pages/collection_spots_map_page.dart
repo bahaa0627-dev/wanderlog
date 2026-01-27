@@ -930,7 +930,13 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
           final tripSpots = tripDetail.tripSpots ?? [];
 
           for (final ts in tripSpots) {
-            if (ts.spot?.id == spot.id) {
+            // 匹配逻辑：比较 UUID 或 googlePlaceId
+            // spot.id 在 map_page.Spot 中实际上是 googlePlaceId
+            final tsSpot = ts.spot;
+            final matchById = tsSpot?.id == spot.id;
+            final matchByGooglePlaceId = tsSpot?.googlePlaceId == spot.id;
+            
+            if (matchById || matchByGooglePlaceId) {
               isSaved = ts.isSaved;
               isMustGo = ts.isMustGo;
               isTodaysPlan = ts.isTodaysPlan;

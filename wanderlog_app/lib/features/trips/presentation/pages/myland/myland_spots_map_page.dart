@@ -409,18 +409,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     final isMustGo = widget.tabLabel == 'MustGo';
     final isTodaysPlan = widget.tabLabel == "Today's Plan";
 
-    // 先加载合集数据
-    Map<String, dynamic>? linkedCollection;
-    try {
-      final repo = ref.read(collectionRepositoryProvider);
-      final collections = await repo.getCollectionsForPlace(spot.id);
-      if (collections.isNotEmpty) {
-        final random = math.Random();
-        linkedCollection = collections[random.nextInt(collections.length)];
-      }
-    } catch (e) {
-      // 静默失败
-    }
+    // 注意：不再预加载合集数据，让详情页立即显示，合集数据由详情页自己异步加载
 
     // 加载完整的状态信息（包括 check-in 数据）
     bool? isSaved = true;
@@ -443,7 +432,13 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
           final tripSpots = tripDetail.tripSpots ?? [];
 
           for (final ts in tripSpots) {
-            if (ts.spot?.id == spot.id) {
+            // 匹配逻辑：比较 UUID 或 googlePlaceId
+            // spot.id 在 map_page.Spot 中实际上是 googlePlaceId
+            final tsSpot = ts.spot;
+            final matchById = tsSpot?.id == spot.id;
+            final matchByGooglePlaceId = tsSpot?.googlePlaceId == spot.id;
+            
+            if (matchById || matchByGooglePlaceId) {
               isSaved = ts.isSaved;
               isVisited = ts.isVisited;
               visitDate = ts.visitDate;
@@ -454,6 +449,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
               
               // 调试日志
               print('📍 [MyLandSpotsMap] Found spot status for ${spot.name}:');
+              print('  - matched by: ${matchById ? "id" : "googlePlaceId"}');
               print('  - isVisited: $isVisited');
               print('  - visitDate: $visitDate');
               print('  - userRating: $userRating');
@@ -488,7 +484,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         initialUserNotes: userNotes,
         initialUserPhotos: userPhotos,
         initialDestinationId: destinationId,
-        linkedCollection: linkedCollection,
+        // linkedCollection 不再预加载，由详情页自己异步加载
       ),
     ).then((hasChanged) {
       // Only refresh if status actually changed

@@ -259,7 +259,7 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
     // 后台管理：保留 tags 字段
     result = {
       ...place,
-      placeId: place.placeId || place.googlePlaceId || place.id,
+      placeId: place.id, // 始终使用 UUID
       images,
       coverImage,
       category,
@@ -279,7 +279,7 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
     
     result = {
       ...placeWithoutTags,
-      placeId: place.placeId || place.googlePlaceId || place.id,
+      placeId: place.id, // 始终使用 UUID
       images,
       coverImage,
       category,

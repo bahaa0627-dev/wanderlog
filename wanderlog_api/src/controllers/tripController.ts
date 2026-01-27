@@ -109,6 +109,8 @@ export const getMyTrips = async (req: Request, res: Response) => {
       logger.info(`⏱️  [getMyTrips] No trips found, total: ${Date.now() - startTime}ms`);
       return res.json([]);
     }
+    
+    logger.info(`⏱️  [getMyTrips] Found ${trips.length} trips, proceeding to Step 2...`);
 
     // Step 2: Get all trip IDs
     const tripIds = trips.map((t: any) => t.id);

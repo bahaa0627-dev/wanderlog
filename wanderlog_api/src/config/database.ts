@@ -30,10 +30,7 @@ const globalForPrisma = globalThis as unknown as {
 let connectionUrl = databaseUrl;
 if (connectionUrl && !connectionUrl.includes('connection_limit')) {
   const separator = connectionUrl.includes('?') ? '&' : '?';
-  // connection_limit: max connections in pool
-  // pool_timeout: seconds to wait for a connection
-  // connect_timeout: seconds to wait for initial connection
-  connectionUrl = `${connectionUrl}${separator}connection_limit=10&pool_timeout=30&connect_timeout=30`;
+  connectionUrl = `${connectionUrl}${separator}connection_limit=20&pool_timeout=30&connect_timeout=30`;
 }
 
 const prisma = globalForPrisma.prisma ?? new PrismaClient({

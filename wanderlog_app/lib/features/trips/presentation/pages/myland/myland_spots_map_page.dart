@@ -21,6 +21,7 @@ import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
@@ -1393,14 +1394,7 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
   }
 
   Widget _buildCover() {
-    const placeholder = ColoredBox(
-      color: AppTheme.lightGray,
-      child: const Icon(
-        Icons.place,
-        size: 52,
-        color: AppTheme.mediumGray,
-      ),
-    );
+    const placeholder = VagoPlaceholderSmall();
 
     if (widget.spot.coverImage.isEmpty) return placeholder;
     if (widget.spot.coverImage.startsWith('data:image/')) {

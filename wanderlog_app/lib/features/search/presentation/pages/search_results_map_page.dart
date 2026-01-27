@@ -22,6 +22,7 @@ import 'package:wanderlog/features/map/presentation/widgets/tag_type_filter_bar.
 import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
+import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 
 /// 搜索结果地图页面
 class SearchResultsMapPage extends ConsumerStatefulWidget {
@@ -1228,10 +1229,7 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
   }
 
   Widget _buildCover() {
-    const placeholder = ColoredBox(
-      color: AppTheme.lightGray,
-      child: const Icon(Icons.place, size: 52, color: AppTheme.mediumGray),
-    );
+    const placeholder = VagoPlaceholderSmall();
 
     if (widget.spot.coverImage.isEmpty) return placeholder;
 

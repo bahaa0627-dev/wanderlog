@@ -711,13 +711,15 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                                   true) ||
                                                           (result is bool &&
                                                               result)) {
-                                                        // 同时刷新缓存，确保下次进入详情页时获取最新数据
+                                                        // 后台静默刷新缓存，不影响当前页面显示
+                                                        // 使用 unawaited 让刷新在后台进行
                                                         ref
                                                             .read(
                                                                 collectionsCacheProvider
                                                                     .notifier)
                                                             .refresh();
-                                                        _loadRecommendations();
+                                                        // recommendations 使用现有缓存显示，不重新加载
+                                                        // 缓存会在下次打开页面时自动刷新（如果过期）
                                                       }
                                                     }
                                                   },
@@ -1285,16 +1287,7 @@ class _NetworkImageWithPlaceholder extends StatelessWidget {
       imageUrl: optimizedUrl,
       fit: BoxFit.cover,
       fadeInDuration: const Duration(milliseconds: 200),
-      placeholder: (context, url) => Container(
-        color: AppTheme.lightGray,
-        child: const Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      ),
+      placeholder: (context, url) => const VagoPlaceholderSmall(),
       errorWidget: (context, url, error) {
         // 优化 URL 失败时尝试原始 URL
         if (url == optimizedUrl && url != imageUrl) {
@@ -1302,38 +1295,11 @@ class _NetworkImageWithPlaceholder extends StatelessWidget {
             imageUrl: imageUrl,
             fit: BoxFit.cover,
             fadeInDuration: const Duration(milliseconds: 200),
-            placeholder: (context, url) => Container(
-              color: AppTheme.lightGray,
-              child: const Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            ),
-            errorWidget: (context, url, error) => Container(
-              color: AppTheme.lightGray,
-              child: const Center(
-                child: Icon(
-                  Icons.image_outlined,
-                  size: 40,
-                  color: AppTheme.mediumGray,
-                ),
-              ),
-            ),
+            placeholder: (context, url) => const VagoPlaceholderSmall(),
+            errorWidget: (context, url, error) => const VagoPlaceholderSmall(),
           );
         }
-        return Container(
-          color: AppTheme.lightGray,
-          child: const Center(
-            child: Icon(
-              Icons.image_outlined,
-              size: 40,
-              color: AppTheme.mediumGray,
-            ),
-          ),
-        );
+        return const VagoPlaceholderSmall();
       },
       imageBuilder: (context, imageProvider) {
         // 图片加载成功后调用回调

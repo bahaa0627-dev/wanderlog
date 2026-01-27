@@ -124,19 +124,18 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    await ensureAuthTablesExist();
     const { email, password } = req.body;
 
-    // 管理员登录（简单验证，用于后台管理）
+    // 管理员登录（简单验证，用于后台管理）- 优先检查，避免数据库操作
     const adminEmail = process.env.ADMIN_EMAIL;
     const adminPassword = process.env.ADMIN_PASSWORD;
     
     if (adminEmail && adminPassword && email === adminEmail && password === adminPassword) {
-      // 生成管理员 token
+      // 生成管理员 token (延长到90天，避免频繁过期)
       const token = jwt.sign(
         { id: 'admin', email: adminEmail, role: 'admin' },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: '90d' }
       );
       return res.json({
         token,
@@ -150,6 +149,9 @@ export const login = async (req: Request, res: Response) => {
     }
 
     // 普通用户登录 - 请使用 Supabase Auth（Flutter 端直接调用）
+    // 对于普通用户，才需要检查数据库表
+    await ensureAuthTablesExist();
+    
     return res.status(400).json({ 
       message: 'Please use Supabase Auth for user login. The app should call Supabase directly.',
       hint: 'Use supabase.auth.signInWithPassword() in Flutter'

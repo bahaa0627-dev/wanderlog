@@ -20,11 +20,7 @@
       "type": "shell",
       "command": "npm run dev",
       "options": {
-        "cwd": "${workspaceFolder}/wanderlog_api",
-        "env": {
-          "http_proxy": "http://127.0.0.1:7893",
-          "https_proxy": "http://127.0.0.1:7893"
-        }
+        "cwd": "${workspaceFolder}/wanderlog_api"
       },
       "problemMatcher": [],
       "presentation": {

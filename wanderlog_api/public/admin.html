@@ -3936,12 +3936,26 @@
 
             if (!response.ok) {
                 const error = await response.json().catch(() => ({ message: '上传失败' }));
+                
+                // 如果是token过期或无效，提示用户重新登录
+                if (response.status === 401 || error.error === 'TOKEN_INVALID') {
+                    // 清除过期的token
+                    localStorage.removeItem('adminToken');
+                    setAdminToken('');
+                    
+                    // 显示友好的提示
+                    throw new Error('登录已过期，请重新登录后再上传图片');
+                }
+                
                 throw new Error(error.message || `上传失败: ${response.status}`);
             }
 
             const data = await response.json();
+            console.log('Upload response:', data);
+            
             if (!data.success || !data.url) {
-                throw new Error(data.message || '上传失败：未返回图片 URL');
+                console.error('Upload failed:', data);
+                throw new Error(data.message || data.error || '上传失败：未返回图片 URL');
             }
 
             return data.url;
@@ -3984,6 +3998,17 @@
 
                 if (!response.ok) {
                     const error = await response.json().catch(() => ({ message: '上传失败' }));
+                    
+                    // 如果是token过期或无效，提示用户重新登录
+                    if (response.status === 401 || error.error === 'TOKEN_INVALID') {
+                        // 清除过期的token
+                        localStorage.removeItem('adminToken');
+                        setAdminToken('');
+                        
+                        // 显示友好的提示
+                        throw new Error('登录已过期，请重新登录后再上传图片');
+                    }
+                    
                     throw new Error(error.message || `上传失败: ${response.status}`);
                 }
 

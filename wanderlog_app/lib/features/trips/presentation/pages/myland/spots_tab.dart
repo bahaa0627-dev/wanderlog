@@ -28,6 +28,7 @@ import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart'
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
+import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/services/spot_cache_service.dart';
@@ -3140,14 +3141,7 @@ class _SpotCarouselCard extends StatelessWidget {
 
   /// Build image widget that handles both data URIs and network URLs
   Widget _buildImageWidget(String imageSource) {
-    const placeholder = ColoredBox(
-      color: AppTheme.lightGray,
-      child: const Icon(
-        Icons.photo,
-        size: 48,
-        color: AppTheme.mediumGray,
-      ),
-    );
+    const placeholder = VagoPlaceholderSmall();
 
     // Handle data URI format (data:image/jpeg;base64,...)
     if (imageSource.startsWith('data:')) {
@@ -3685,16 +3679,7 @@ class _VisitedSpotCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholder() => ColoredBox(
-        color: AppTheme.background,
-        child: const Center(
-          child: Icon(
-            Icons.image_outlined,
-            size: 40,
-            color: Colors.grey,
-          ),
-        ),
-      );
+  Widget _buildPlaceholder() => const VagoPlaceholderSmall();
 
   Widget _buildFavoriteButton() => GestureDetector(
         onTap: () => onToggleMustGo(entry.spot),

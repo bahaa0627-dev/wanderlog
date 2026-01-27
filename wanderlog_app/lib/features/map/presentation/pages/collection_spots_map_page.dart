@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/core/l10n/app_localizations.dart';
@@ -1376,14 +1377,7 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
       );
 
   Widget _buildCover() {
-    const placeholder = ColoredBox(
-      color: AppTheme.lightGray,
-      child: const Icon(
-        Icons.place,
-        size: 52,
-        color: AppTheme.mediumGray,
-      ),
-    );
+    const placeholder = VagoPlaceholderSmall();
 
     if (widget.spot.coverImage.isEmpty) {
       return placeholder;

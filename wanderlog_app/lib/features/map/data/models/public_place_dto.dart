@@ -70,6 +70,14 @@ class PublicPlaceDto {
     final aiTags = _parseAiTags(json['ai_tags']);
     final structuredTags = _parseStructuredTags(json['tags']);
     
+    // Debug logging for Luxembourg or Jardin
+    if (name.toLowerCase().contains('luxembourg') || 
+        name.toLowerCase().contains('jardin')) {
+      print('🖼️ [fromSupabase] Processing: $name');
+      print('🖼️ [fromSupabase] cover_image field: ${json['cover_image']}');
+      print('🖼️ [fromSupabase] images field: ${json['images']}');
+    }
+    
     // Debug logging for Sydney Opera House
     if (name.toLowerCase().contains('opera')) {
       print('🔍 [fromSupabase] Processing: $name');

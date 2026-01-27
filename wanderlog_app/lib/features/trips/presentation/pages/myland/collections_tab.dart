@@ -352,23 +352,32 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
             }
 
             if (latestFav != null && mounted) {
-              setState(() {
-                _filteredCollections[index]['isFavorited'] = latestFav;
-                // 同步更新 _allCollections 中对应的记录
-                final collectionId = _filteredCollections[index]['id'];
-                final allIndex =
-                    _allCollections.indexWhere((c) => c['id'] == collectionId);
-                if (allIndex != -1) {
-                  _allCollections[allIndex]['isFavorited'] = latestFav;
-                }
-              });
+              final collectionId = _filteredCollections[index]['id'];
+
+              if (latestFav == false) {
+                // 取消收藏：立即从本地列表中移除，快速响应
+                setState(() {
+                  _filteredCollections.removeAt(index);
+                  _allCollections.removeWhere((c) => c['id'] == collectionId);
+                });
+              } else {
+                // 收藏：更新状态
+                setState(() {
+                  _filteredCollections[index]['isFavorited'] = latestFav;
+                  final allIndex = _allCollections
+                      .indexWhere((c) => c['id'] == collectionId);
+                  if (allIndex != -1) {
+                    _allCollections[allIndex]['isFavorited'] = latestFav;
+                  }
+                });
+              }
             }
 
-            // 如果返回 true，表示需要刷新列表（取消或重新收藏了）
+            // 如果返回 true，后台静默刷新缓存（不阻塞 UI）
             if (needRefresh && mounted) {
-              // 同时刷新缓存，确保下次进入详情页时获取最新数据
+              // 后台静默刷新缓存，不影响当前页面显示
               ref.read(collectionsCacheProvider.notifier).refresh();
-              _loadCollections();
+              // 不调用 _loadCollections()，因为本地列表已经更新了
             }
           },
         );

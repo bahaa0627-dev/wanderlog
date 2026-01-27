@@ -295,6 +295,8 @@ export class R2ImageService {
             'Content-Length': imageBuffer.length,
             'Cache-Control': 'public, max-age=31536000, immutable',
           },
+          // 绕过全局代理 - R2应该直连
+          agent: false,
         };
 
         const req = https.request(options, (res) => {

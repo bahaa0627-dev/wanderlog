@@ -18,6 +18,7 @@ import 'package:wanderlog/features/map/data/supabase_place_repository.dart';
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 import 'package:wanderlog/features/map/providers/places_cache_provider.dart';
+import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 import 'package:wanderlog/features/search/data/search_repository.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
@@ -2183,10 +2184,23 @@ class _MapPageState extends ConsumerState<MapPage> {
   }
 
   Spot? _mapPublicPlaceToSpot(String fallbackCity, PublicPlaceDto place) {
+    // Debug logging for Luxembourg
+    if (place.name.toLowerCase().contains('luxembourg') || 
+        place.name.toLowerCase().contains('jardin')) {
+      print('🖼️ [_mapPublicPlaceToSpot] Processing: ${place.name}');
+      print('🖼️ [_mapPublicPlaceToSpot] place.coverImage: ${place.coverImage}');
+      print('🖼️ [_mapPublicPlaceToSpot] place.images: ${place.images}');
+    }
+    
     final images = _dedupeImages([
       if ((place.coverImage ?? '').isNotEmpty) place.coverImage!,
       ...place.images,
     ]);
+
+    if (place.name.toLowerCase().contains('luxembourg') || 
+        place.name.toLowerCase().contains('jardin')) {
+      print('🖼️ [_mapPublicPlaceToSpot] Final images: $images');
+    }
 
     if (place.latitude.isNaN || place.longitude.isNaN) {
       return null;
@@ -2194,6 +2208,10 @@ class _MapPageState extends ConsumerState<MapPage> {
 
     // 过滤没有有效图片的地点
     if (images.isEmpty) {
+      if (place.name.toLowerCase().contains('luxembourg') || 
+          place.name.toLowerCase().contains('jardin')) {
+        print('🖼️ [_mapPublicPlaceToSpot] Filtered out due to no images!');
+      }
       return null;
     }
 
@@ -2720,14 +2738,7 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
 
   /// Build image widget that handles both data URIs and network URLs
   Widget _buildCover() {
-    const placeholder = ColoredBox(
-      color: AppTheme.lightGray,
-      child: const Icon(
-        Icons.place,
-        size: 52,
-        color: AppTheme.mediumGray,
-      ),
-    );
+    const placeholder = VagoPlaceholderSmall();
 
     if (widget.spot.coverImage.isEmpty) return placeholder;
 

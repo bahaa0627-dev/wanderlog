@@ -7,7 +7,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { uploadImage, uploadMultipleImages } from '../controllers/uploadController';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateTokenIfPresent } from '../middleware/auth';
 
 const router = Router();
 
@@ -28,8 +28,8 @@ const upload = multer({
   },
 });
 
-// All upload routes require authentication
-router.use(authenticateToken);
+// Use optional authentication (允许管理后台和已认证用户上传)
+router.use(authenticateTokenIfPresent);
 
 // Single image upload
 router.post('/image', upload.single('image'), uploadImage);

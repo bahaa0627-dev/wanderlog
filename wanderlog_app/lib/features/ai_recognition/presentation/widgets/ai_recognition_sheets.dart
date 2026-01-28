@@ -537,6 +537,7 @@ class _SpotRecognitionCardState extends State<SpotRecognitionCard> {
             spot: widget.spot,
             keepOpenOnAction: true,
             hideCollectionEntry: true,
+            initialIsSaved: _isInWishlist,
           ),
         );
       },

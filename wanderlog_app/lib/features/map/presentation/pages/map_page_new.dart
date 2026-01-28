@@ -379,7 +379,7 @@ class _MapPageState extends ConsumerState<MapPage> {
   int _currentCardIndex = 0;
   Position? _currentMapCenter;
   double _currentZoom = 13.0;
-  
+
   // 防抖控制，避免快速重复点击
   String? _lastClickedSpotId;
   DateTime? _lastClickTime;
@@ -436,6 +436,24 @@ class _MapPageState extends ConsumerState<MapPage> {
     _searchController.addListener(_onSearchTextChanged);
 
     _loadPublicPlaces();
+
+    // 预加载用户收藏状态到缓存
+    _preloadWishlistStatus();
+  }
+
+  /// 预加载用户收藏状态，填充 WishlistStatusCache
+  Future<void> _preloadWishlistStatus() async {
+    final authState = ref.read(authProvider);
+    if (!authState.isAuthenticated) return;
+
+    try {
+      // 触发 wishlistStatusProvider 加载，它会自动填充 WishlistStatusCache
+      await ref.read(wishlistStatusProvider.future);
+      // 触发重建以更新卡片状态显示
+      if (mounted) setState(() {});
+    } catch (e) {
+      print('⚠️ [MapPage] Failed to preload wishlist status: $e');
+    }
   }
 
   void _onSearchTextChanged() {
@@ -1479,25 +1497,55 @@ class _MapPageState extends ConsumerState<MapPage> {
 
   void _showSpotDetail(Spot spot) async {
     final now = DateTime.now();
-    
+
     // 防抖：如果是同一个地点且点击间隔小于1秒，则忽略
-    if (_lastClickedSpotId == spot.id && 
-        _lastClickTime != null && 
+    if (_lastClickedSpotId == spot.id &&
+        _lastClickTime != null &&
         now.difference(_lastClickTime!).inMilliseconds < 1000) {
       print('🔧 [map_page_new.dart] Debouncing rapid clicks for ${spot.name}');
       return;
     }
-    
+
     _lastClickedSpotId = spot.id;
     _lastClickTime = now;
-    
+
     print('🗺️ [MapPageNew] _showSpotDetail called for spot: ${spot.name}');
-    
-    // 立即显示详情页，不等待状态加载
-    // 状态由详情页自己异步加载，避免阻塞 UI
+
     if (!mounted) return;
-    
-    print('🗺️ [MapPageNew] Showing detail modal immediately for: ${spot.name}');
+
+    // 检查用户是否登录，预加载状态
+    final authState = ref.read(authProvider);
+    bool? initialIsSaved;
+    bool? initialIsMustGo;
+    bool? initialIsTodaysPlan;
+    bool? initialIsVisited;
+    String? initialDestinationId;
+
+    if (authState.isAuthenticated) {
+      // 从缓存获取状态
+      final fullStatus = WishlistStatusCache.getFullStatus(spot.id);
+      if (fullStatus != null) {
+        initialIsSaved = true;
+        initialIsMustGo = fullStatus.isMustGo;
+        initialIsTodaysPlan = fullStatus.isTodaysPlan;
+        initialIsVisited = fullStatus.isVisited;
+        initialDestinationId = fullStatus.destinationId;
+      } else {
+        final (isInCache, destId) = WishlistStatusCache.check(spot.id);
+        if (isInCache) {
+          initialIsSaved = true;
+          initialDestinationId = destId;
+        } else {
+          initialIsSaved = false;
+        }
+      }
+    } else {
+      // 未登录用户显示默认状态
+      initialIsSaved = false;
+    }
+
+    print(
+        '🗺️ [MapPageNew] Showing detail modal with preloaded status: isSaved=$initialIsSaved, isVisited=$initialIsVisited');
 
     showModalBottomSheet<void>(
       context: context,
@@ -1505,8 +1553,11 @@ class _MapPageState extends ConsumerState<MapPage> {
       backgroundColor: Colors.transparent,
       builder: (context) => UnifiedSpotDetailModal(
         spot: spot,
-        // 不传递初始状态，让详情页自己加载
-        // 这样可以避免阻塞 UI
+        initialIsSaved: initialIsSaved,
+        initialIsMustGo: initialIsMustGo,
+        initialIsTodaysPlan: initialIsTodaysPlan,
+        initialIsVisited: initialIsVisited,
+        initialDestinationId: initialDestinationId,
       ),
     );
   }
@@ -2107,19 +2158,20 @@ class _MapPageState extends ConsumerState<MapPage> {
 
   Spot? _mapPublicPlaceToSpot(String fallbackCity, PublicPlaceDto place) {
     // Debug logging for Luxembourg
-    if (place.name.toLowerCase().contains('luxembourg') || 
+    if (place.name.toLowerCase().contains('luxembourg') ||
         place.name.toLowerCase().contains('jardin')) {
       print('🖼️ [_mapPublicPlaceToSpot] Processing: ${place.name}');
-      print('🖼️ [_mapPublicPlaceToSpot] place.coverImage: ${place.coverImage}');
+      print(
+          '🖼️ [_mapPublicPlaceToSpot] place.coverImage: ${place.coverImage}');
       print('🖼️ [_mapPublicPlaceToSpot] place.images: ${place.images}');
     }
-    
+
     final images = _dedupeImages([
       if ((place.coverImage ?? '').isNotEmpty) place.coverImage!,
       ...place.images,
     ]);
 
-    if (place.name.toLowerCase().contains('luxembourg') || 
+    if (place.name.toLowerCase().contains('luxembourg') ||
         place.name.toLowerCase().contains('jardin')) {
       print('🖼️ [_mapPublicPlaceToSpot] Final images: $images');
     }
@@ -2130,7 +2182,7 @@ class _MapPageState extends ConsumerState<MapPage> {
 
     // 过滤没有有效图片的地点
     if (images.isEmpty) {
-      if (place.name.toLowerCase().contains('luxembourg') || 
+      if (place.name.toLowerCase().contains('luxembourg') ||
           place.name.toLowerCase().contains('jardin')) {
         print('🖼️ [_mapPublicPlaceToSpot] Filtered out due to no images!');
       }
@@ -2594,7 +2646,7 @@ class _CountryCityPickerSheetState
 }
 
 /// 底部地点卡片组件 - 全图+渐变覆盖样式（无收藏按钮，收藏在详情页）
-class _BottomSpotCard extends StatefulWidget {
+class _BottomSpotCard extends ConsumerStatefulWidget {
   const _BottomSpotCard({
     required this.spot,
     required this.onTap,
@@ -2604,11 +2656,40 @@ class _BottomSpotCard extends StatefulWidget {
   final VoidCallback onTap;
 
   @override
-  State<_BottomSpotCard> createState() => _BottomSpotCardState();
+  ConsumerState<_BottomSpotCard> createState() => _BottomSpotCardState();
 }
 
-class _BottomSpotCardState extends State<_BottomSpotCard> {
+class _BottomSpotCardState extends ConsumerState<_BottomSpotCard> {
   Color _dominantColor = Colors.black;
+
+  /// 获取用户状态（收藏、已访问等）
+  /// 返回 (isSaved, isVisited, isMustGo)
+  (bool, bool, bool) _getUserStatus() {
+    // 首先检查用户是否登录
+    final authState = ref.watch(authProvider);
+    if (!authState.isAuthenticated) {
+      return (false, false, false);
+    }
+
+    // 监听 wishlistStatusProvider 以便在缓存更新时重建
+    // 这会触发 _BottomSpotCard 在缓存加载完成后自动重建
+    ref.watch(wishlistStatusProvider);
+
+    // 从缓存获取状态
+    final spotId = widget.spot.id;
+    final fullStatus = WishlistStatusCache.getFullStatus(spotId);
+    if (fullStatus != null) {
+      return (true, fullStatus.isVisited, fullStatus.isMustGo);
+    }
+
+    // 回退到基础缓存检查
+    final (isInCache, _) = WishlistStatusCache.check(spotId);
+    if (isInCache) {
+      return (true, false, false);
+    }
+
+    return (false, false, false);
+  }
 
   @override
   void initState() {
@@ -2687,77 +2768,135 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
   }
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border:
-                Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildCover(),
-                // 底部渐变蒙层 - 使用提取的主色
+  Widget build(BuildContext context) {
+    final (isSaved, isVisited, isMustGo) = _getUserStatus();
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border:
+              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildCover(),
+              // 右上角状态图标
+              if (isSaved || isVisited)
                 Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    height: 140, // 卡片高度 280 的一半
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          _dominantColor.withOpacity(0.3),
-                          _dominantColor.withOpacity(0.6),
-                          _dominantColor.withOpacity(0.85),
-                        ],
-                        stops: const [0.0, 0.3, 0.6, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
+                  top: 10,
+                  right: 10,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        widget.spot.name,
-                        style: AppTheme.bodyLarge(context).copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          height: 1.2,
+                      if (isVisited)
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryYellow,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.check,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                        )
+                      else if (isSaved)
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border:
+                                Border.all(color: AppTheme.black, width: 1.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.favorite,
+                            color: AppTheme.primaryYellow,
+                            size: 14,
+                          ),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (widget.spot.rating > 0 ||
-                          widget.spot.ratingCount > 0) ...[
-                        const SizedBox(height: 8),
-                        _RatingRow(
-                          rating: widget.spot.rating,
-                          ratingCount: widget.spot.ratingCount,
-                        ),
-                      ],
                     ],
                   ),
                 ),
-              ],
-            ),
+              // 底部渐变蒙层 - 使用提取的主色
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  height: 140, // 卡片高度 280 的一半
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        _dominantColor.withOpacity(0.3),
+                        _dominantColor.withOpacity(0.6),
+                        _dominantColor.withOpacity(0.85),
+                      ],
+                      stops: const [0.0, 0.3, 0.6, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      widget.spot.name,
+                      style: AppTheme.bodyLarge(context).copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (widget.spot.rating > 0 ||
+                        widget.spot.ratingCount > 0) ...[
+                      const SizedBox(height: 8),
+                      _RatingRow(
+                        rating: widget.spot.rating,
+                        ratingCount: widget.spot.ratingCount,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _RatingRow extends StatelessWidget {

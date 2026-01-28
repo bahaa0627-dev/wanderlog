@@ -396,19 +396,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     // 添加调试日志
     print('🔧 [search_results_map_page.dart] _showSpotDetail for spot: ${spot.name}');
     
-    // 先加载合集数据
-    Map<String, dynamic>? linkedCollection;
-    try {
-      final repo = ref.read(collectionRepositoryProvider);
-      final collections = await repo.getCollectionsForPlace(spot.id);
-      if (collections.isNotEmpty) {
-        final random = math.Random();
-        linkedCollection = collections[random.nextInt(collections.length)];
-      }
-    } catch (e) {
-      // 静默失败
-    }
-
     // 加载地点的状态信息（包括 check-in 数据）
     bool? isSaved;
     bool? isMustGo;
@@ -419,36 +406,93 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     String? userNotes;
     List<String>? userPhotos;
     String? destinationId;
+    Map<String, dynamic>? linkedCollection;
 
     try {
       final authState = ref.read(authProvider);
       if (authState.isAuthenticated) {
-        final tripRepo = ref.read(tripRepositoryProvider);
-        final trips = await tripRepo.getMyTrips();
-
-        // 查找包含这个 spot 的 trip
-        for (final trip in trips) {
-          final tripDetail = await tripRepo.getTripById(trip.id);
-          final tripSpots = tripDetail.tripSpots ?? [];
-
-          for (final ts in tripSpots) {
-            if (ts.spot?.id == spot.id) {
-              isSaved = ts.isSaved;
-              isMustGo = ts.isMustGo;
-              isTodaysPlan = ts.isTodaysPlan;
-              isVisited = ts.isVisited;
-              visitDate = ts.visitDate;
-              userRating = ts.userRating;
-              userNotes = ts.userNotes;
-              userPhotos = ts.userPhotos;
-              destinationId = trip.id;
-              break;
+        // 先显示loading indicator
+        if (mounted) {
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryYellow),
+            ),
+          );
+        }
+        
+        // 并行加载合集数据和状态数据
+        final futures = await Future.wait([
+          // 加载合集数据
+          Future(() async {
+            try {
+              final repo = ref.read(collectionRepositoryProvider);
+              final collections = await repo.getCollectionsForPlace(spot.id);
+              if (collections.isNotEmpty) {
+                final random = math.Random();
+                return collections[random.nextInt(collections.length)];
+              }
+            } catch (e) {
+              print('❌ [search_results_map_page.dart] Error loading collections: $e');
             }
-          }
-          if (isSaved != null) break;
+            return null;
+          }),
+          // 加载状态数据
+          Future(() async {
+            final tripRepo = ref.read(tripRepositoryProvider);
+            final trips = await tripRepo.getMyTrips();
+            
+            for (final trip in trips) {
+              final tripDetail = await tripRepo.getTripById(trip.id);
+              final tripSpots = tripDetail.tripSpots ?? [];
+
+              for (final ts in tripSpots) {
+                if (ts.spot?.id == spot.id) {
+                  return {
+                    'isSaved': ts.isSaved == true,
+                    'isMustGo': ts.isMustGo == true,
+                    'isTodaysPlan': ts.isTodaysPlan == true,
+                    'isVisited': ts.isVisited == true,
+                    'visitDate': ts.visitDate,
+                    'userRating': ts.userRating,
+                    'userNotes': ts.userNotes,
+                    'userPhotos': ts.userPhotos?.cast<String>(),
+                    'destinationId': trip.id,
+                  };
+                }
+              }
+            }
+            return null;
+          }),
+        ]);
+        
+        linkedCollection = futures[0] as Map<String, dynamic>?;
+        final statusData = futures[1] as Map<String, dynamic>?;
+        
+        if (statusData != null) {
+          isSaved = statusData['isSaved'] as bool?;
+          isMustGo = statusData['isMustGo'] as bool?;
+          isTodaysPlan = statusData['isTodaysPlan'] as bool?;
+          isVisited = statusData['isVisited'] as bool?;
+          visitDate = statusData['visitDate'] as DateTime?;
+          userRating = statusData['userRating'] as int?;
+          userNotes = statusData['userNotes'] as String?;
+          userPhotos = statusData['userPhotos'] as List<String>?;
+          destinationId = statusData['destinationId'] as String?;
+        }
+        
+        // 关闭loading dialog
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
         }
       }
     } catch (e) {
+      print('❌ [search_results_map_page.dart] Error loading data: $e');
+      // 关闭loading dialog
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
       // 静默失败，使用默认值
     }
     

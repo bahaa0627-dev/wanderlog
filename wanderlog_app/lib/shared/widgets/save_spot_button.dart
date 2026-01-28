@@ -31,9 +31,12 @@ class SaveSpotButton extends StatefulWidget {
 
 class _SaveSpotButtonState extends State<SaveSpotButton> {
   Future<void> _handleSaveTap() async {
+    print('🔘🔘🔘 [SaveSpotButton._handleSaveTap] isSaved=${widget.isSaved}');
     if (widget.isSaved) {
+      print('🔘🔘🔘 [SaveSpotButton._handleSaveTap] Calling onUnsave');
       await widget.onUnsave();
     } else {
+      print('🔘🔘🔘 [SaveSpotButton._handleSaveTap] Calling onSave');
       await widget.onSave();
     }
   }
@@ -63,7 +66,7 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: widget.isSaved ? AppTheme.primaryYellow : AppTheme.white,
+          color: AppTheme.primaryYellow,
           shape: BoxShape.circle,
           border: Border.all(
             color: AppTheme.black,
@@ -73,7 +76,7 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
         ),
         child: Icon(
           widget.isSaved ? Icons.favorite : Icons.favorite_border,
-          color: AppTheme.black,
+          color: AppTheme.white,
           size: 24,
         ),
       ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
     // 自定义灰色和文字色
-    static const Color markerGray = Color(0xFFCCCCCC); // #cccccc
+    static const Color markerGray = Color(0xFFE8E8E8); // #e8e8e8 - lighter gray
     static const Color markerLabelGray = Color(0xFF8D8D8D); // #8d8d8d
   // 主题色 - 明亮黄色系列
   static const Color primaryYellow = Color(0xFFFFE500); // 用于实心按钮、tab、标签等

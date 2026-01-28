@@ -23,6 +23,7 @@ import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_prov
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' show Spot, SpotSource;
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/core/providers/locale_provider.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
@@ -623,15 +624,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   void _showPlaceDetail(PlaceResult place) async {
     debugPrint('🔍 [AIAssistant] _showPlaceDetail for: ${place.name}');
 
-    // 获取当前收藏状态
-    final spotId = place.id ?? place.name;
-    bool isInWishlist = false;
-    final statusAsync = ref.read(wishlistStatusProvider);
-    statusAsync.whenData((statusMap) {
-      final (inWishlist, _) = checkWishlistStatus(statusMap, spotId);
-      isInWishlist = inWishlist;
-    });
-
     final placeId = place.id;
     final isAiGeneratedPlace = (place.source == PlaceSource.ai) || (placeId?.startsWith('ai_') ?? false);
     final isUuid = placeId != null && RegExp(
@@ -657,12 +649,116 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           placeId: place.id!,
           fallbackPlace: place,
           placeResultToSpot: _placeResultToSpot,
-          initialIsSaved: isInWishlist,
         ),
       );
     } else {
-      // 已有详情数据，直接显示
+      // 已有详情数据，从服务器加载最新状态
       final spot = _placeResultToSpot(place);
+      final spotId = spot.id;
+      
+      bool? initialIsSaved;
+      bool? initialIsMustGo;
+      bool? initialIsTodaysPlan;
+      bool? initialIsVisited;
+      DateTime? initialVisitDate;
+      int? initialUserRating;
+      String? initialUserNotes;
+      List<String>? initialUserPhotos;
+      String? initialDestinationId;
+      
+      try {
+        final authState = ref.read(authProvider);
+        if (authState.isAuthenticated) {
+          // 显示loading indicator
+          if (mounted) {
+            showDialog<void>(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => const Center(
+                child: CircularProgressIndicator(color: AppTheme.primaryYellow),
+              ),
+            );
+          }
+          
+          final tripRepo = ref.read(tripRepositoryProvider);
+          final trips = await tripRepo.getMyTrips().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => <Trip>[],
+          ).timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => <Trip>[],
+          );
+          
+          for (final trip in trips) {
+            final tripDetail = await tripRepo.getTripById(trip.id);
+            final tripSpots = tripDetail.tripSpots ?? [];
+            
+            for (final ts in tripSpots) {
+              bool isMatch = false;
+              if (ts.spot?.id == spotId) {
+                isMatch = true;
+              } else if (ts.spot?.name == spot.name && spot.name.isNotEmpty) {
+                isMatch = true;
+              } else if (ts.spot?.googlePlaceId != null && ts.spot?.googlePlaceId == spotId) {
+                isMatch = true;
+              }
+              
+              if (isMatch) {
+                initialIsSaved = ts.isSaved == true;
+                initialIsMustGo = ts.isMustGo == true;
+                initialIsTodaysPlan = ts.isTodaysPlan == true;
+                initialIsVisited = ts.isVisited == true;
+                initialVisitDate = ts.visitDate;
+                initialUserRating = ts.userRating;
+                initialUserNotes = ts.userNotes;
+                initialUserPhotos = ts.userPhotos?.cast<String>();
+                initialDestinationId = trip.id;
+                break;
+              }
+            }
+            if (initialDestinationId != null) break;
+          }
+          
+          // 💾 保存到缓存供后续使用
+          WishlistStatusCache.updateFullStatus(
+            spotId,
+            destinationId: initialDestinationId,
+            isSaved: initialIsSaved ?? false,
+            isMustGo: initialIsMustGo,
+            isTodaysPlan: initialIsTodaysPlan,
+            isVisited: initialIsVisited,
+            visitDate: initialVisitDate,
+            userRating: initialUserRating,
+            userNotes: initialUserNotes,
+            userPhotos: initialUserPhotos,
+          );
+          
+          // 关闭loading dialog
+          if (mounted && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+        }
+      } catch (e) {
+        debugPrint('❌ [AIAssistant] Error loading status: $e');
+        // 关闭loading dialog
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+        // 回退到缓存
+        final fullStatus = WishlistStatusCache.getFullStatus(spotId);
+        initialIsSaved = fullStatus?.isSaved ?? fullStatus?.destinationId != null;
+        initialIsMustGo = fullStatus?.isMustGo;
+        initialIsTodaysPlan = fullStatus?.isTodaysPlan;
+        initialIsVisited = fullStatus?.isVisited;
+        initialVisitDate = fullStatus?.visitDate;
+        initialUserRating = fullStatus?.userRating;
+        initialUserNotes = fullStatus?.userNotes;
+        initialUserPhotos = fullStatus?.userPhotos;
+        initialDestinationId = fullStatus?.destinationId;
+      }
+      
+      if (!mounted) return;
+      
       showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
@@ -670,7 +766,15 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         builder: (context) => UnifiedSpotDetailModal(
           spot: spot,
           keepOpenOnAction: true,
-          initialIsSaved: isInWishlist,
+          initialIsSaved: initialIsSaved,
+          initialIsMustGo: initialIsMustGo,
+          initialIsTodaysPlan: initialIsTodaysPlan,
+          initialIsVisited: initialIsVisited,
+          initialVisitDate: initialVisitDate,
+          initialUserRating: initialUserRating,
+          initialUserNotes: initialUserNotes,
+          initialUserPhotos: initialUserPhotos,
+          initialDestinationId: initialDestinationId,
         ),
       );
     }
@@ -1846,14 +1950,114 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
     });
 
     return GestureDetector(
-      onTap: () => showModalBottomSheet<void>(
-        context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
-        builder: (context) => UnifiedSpotDetailModal(
-          spot: widget.spot, 
-          keepOpenOnAction: true,
-          initialIsSaved: _isInWishlist,
-        ),
-      ),
+      onTap: () async {
+        final spotId = widget.spot.id;
+        
+        bool? initialIsSaved;
+        bool? initialIsMustGo;
+        bool? initialIsTodaysPlan;
+        bool? initialIsVisited;
+        DateTime? initialVisitDate;
+        int? initialUserRating;
+        String? initialUserNotes;
+        List<String>? initialUserPhotos;
+        String? initialDestinationId;
+        
+        try {
+          final authState = ref.read(authProvider);
+          if (authState.isAuthenticated) {
+            // 显示loading indicator
+            if (context.mounted) {
+              showDialog<void>(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(color: AppTheme.primaryYellow),
+                ),
+              );
+            }
+            
+            final tripRepo = ref.read(tripRepositoryProvider);
+            final trips = await tripRepo.getMyTrips().timeout(
+              const Duration(seconds: 2),
+              onTimeout: () => <Trip>[],
+            );
+            
+            for (final trip in trips) {
+              final tripDetail = await tripRepo.getTripById(trip.id);
+              final tripSpots = tripDetail.tripSpots ?? [];
+              
+              for (final ts in tripSpots) {
+                bool isMatch = false;
+                if (ts.spot?.id == spotId) {
+                  isMatch = true;
+                } else if (ts.spot?.name == widget.spot.name && widget.spot.name.isNotEmpty) {
+                  isMatch = true;
+                } else if (ts.spot?.googlePlaceId != null && ts.spot?.googlePlaceId == spotId) {
+                  isMatch = true;
+                }
+                
+                if (isMatch) {
+                  initialIsSaved = ts.isSaved == true;
+                  initialIsMustGo = ts.isMustGo == true;
+                  initialIsTodaysPlan = ts.isTodaysPlan == true;
+                  initialIsVisited = ts.isVisited == true;
+                  initialVisitDate = ts.visitDate;
+                  initialUserRating = ts.userRating;
+                  initialUserNotes = ts.userNotes;
+                  initialUserPhotos = ts.userPhotos?.cast<String>();
+                  initialDestinationId = trip.id;
+                  break;
+                }
+              }
+              if (initialDestinationId != null) break;
+            }
+            
+            // 关闭loading dialog
+            if (context.mounted && Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+          }
+        } catch (e) {
+          debugPrint('❌ [_PlaceCard] Error loading status: $e');
+          // 关闭loading dialog
+          if (context.mounted && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+          // 回退到缓存
+          final fullStatus = WishlistStatusCache.getFullStatus(spotId);
+          initialIsSaved = fullStatus?.isSaved ?? fullStatus?.destinationId != null;
+          initialIsMustGo = fullStatus?.isMustGo;
+          initialIsTodaysPlan = fullStatus?.isTodaysPlan;
+          initialIsVisited = fullStatus?.isVisited;
+          initialVisitDate = fullStatus?.visitDate;
+          initialUserRating = fullStatus?.userRating;
+          initialUserNotes = fullStatus?.userNotes;
+          initialUserPhotos = fullStatus?.userPhotos;
+          initialDestinationId = fullStatus?.destinationId ?? _destinationId;
+        }
+        
+        if (!context.mounted) return;
+        
+        showModalBottomSheet<void>(
+          context: context, 
+          isScrollControlled: true, 
+          backgroundColor: Colors.transparent,
+          builder: (context) => UnifiedSpotDetailModal(
+            spot: widget.spot, 
+            keepOpenOnAction: true,
+            initialIsSaved: initialIsSaved,
+            initialIsMustGo: initialIsMustGo,
+            initialIsTodaysPlan: initialIsTodaysPlan,
+            initialIsVisited: initialIsVisited,
+            initialVisitDate: initialVisitDate,
+            initialUserRating: initialUserRating,
+            initialUserNotes: initialUserNotes,
+            initialUserPhotos: initialUserPhotos,
+            initialDestinationId: initialDestinationId,
+          ),
+        );
+      },
       child: AspectRatio(
         aspectRatio: 4 / 3,
         child: Container(
@@ -1960,27 +2164,36 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
 
 
 /// 地点详情加载器 - 从后端获取完整数据后显示详情
-class _PlaceDetailLoader extends StatefulWidget {
+class _PlaceDetailLoader extends ConsumerStatefulWidget {
   const _PlaceDetailLoader({
     required this.placeId,
     required this.fallbackPlace,
     required this.placeResultToSpot,
-    this.initialIsSaved,
   });
 
   final String placeId;
   final PlaceResult fallbackPlace;
   final Spot Function(PlaceResult) placeResultToSpot;
-  final bool? initialIsSaved;
 
   @override
-  State<_PlaceDetailLoader> createState() => _PlaceDetailLoaderState();
+  ConsumerState<_PlaceDetailLoader> createState() => _PlaceDetailLoaderState();
 }
 
-class _PlaceDetailLoaderState extends State<_PlaceDetailLoader> {
+class _PlaceDetailLoaderState extends ConsumerState<_PlaceDetailLoader> {
   bool _isLoading = true;
   Spot? _spot;
   String? _error;
+  
+  // User status fields
+  bool? _initialIsSaved;
+  bool? _initialIsMustGo;
+  bool? _initialIsTodaysPlan;
+  bool? _initialIsVisited;
+  DateTime? _initialVisitDate;
+  int? _initialUserRating;
+  String? _initialUserNotes;
+  List<String>? _initialUserPhotos;
+  String? _initialDestinationId;
 
   @override
   void initState() {
@@ -1990,54 +2203,118 @@ class _PlaceDetailLoaderState extends State<_PlaceDetailLoader> {
 
   Future<void> _fetchPlaceDetails() async {
     try {
+      Spot? tempSpot;
+      
       // AI 生成的 placeId（ai_xxx）不是数据库 UUID，直接用 fallback 数据展示。
       if (widget.placeId.startsWith('ai_')) {
-        if (!mounted) return;
-        setState(() {
-          _spot = widget.placeResultToSpot(widget.fallbackPlace);
-          _isLoading = false;
-        });
-        return;
-      }
-
-      final dio = Dio();
-      final apiBaseUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000/api';
-      
-      final response = await dio.get<Map<String, dynamic>>(
-        '$apiBaseUrl/spots/${widget.placeId}',
-        options: Options(
-          sendTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
-        ),
-      );
-
-      if (!mounted) return;
-
-      final data = response.data;
-      if (data != null) {
-        // 将后端返回的数据转换为 PlaceResult
-        final enrichedPlace = widget.fallbackPlace.copyWith(
-          address: data['address'] as String?,
-          phoneNumber: data['phoneNumber'] as String?,
-          website: data['website'] as String?,
-          openingHours: data['openingHours'] is String 
-              ? data['openingHours'] as String
-              : data['openingHours'] != null 
-                  ? jsonEncode(data['openingHours'])
-                  : null,
-        );
-        
-        setState(() {
-          _spot = widget.placeResultToSpot(enrichedPlace);
-          _isLoading = false;
-        });
+        tempSpot = widget.placeResultToSpot(widget.fallbackPlace);
       } else {
-        // 使用 fallback 数据
-        setState(() {
-          _spot = widget.placeResultToSpot(widget.fallbackPlace);
-          _isLoading = false;
-        });
+        final dio = Dio();
+        final apiBaseUrl = dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000/api';
+        
+        final response = await dio.get<Map<String, dynamic>>(
+          '$apiBaseUrl/spots/${widget.placeId}',
+          options: Options(
+            sendTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 10),
+          ),
+        );
+
+        final data = response.data;
+        if (data != null) {
+          // 将后端返回的数据转换为 PlaceResult
+          final enrichedPlace = widget.fallbackPlace.copyWith(
+            address: data['address'] as String?,
+            phoneNumber: data['phoneNumber'] as String?,
+            website: data['website'] as String?,
+            openingHours: data['openingHours'] is String 
+                ? data['openingHours'] as String
+                : data['openingHours'] != null 
+                    ? jsonEncode(data['openingHours'])
+                    : null,
+          );
+          
+          tempSpot = widget.placeResultToSpot(enrichedPlace);
+        } else {
+          tempSpot = widget.placeResultToSpot(widget.fallbackPlace);
+        }
       }
+      
+      // 加载用户状态数据
+      try {
+        final authState = ref.read(authProvider);
+        if (authState.isAuthenticated) {
+          final tripRepo = ref.read(tripRepositoryProvider);
+          final trips = await tripRepo.getMyTrips().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => <Trip>[],
+          );
+          
+          for (final trip in trips) {
+            final tripDetail = await tripRepo.getTripById(trip.id);
+            final tripSpots = tripDetail.tripSpots ?? [];
+            
+            for (final ts in tripSpots) {
+              bool isMatch = false;
+              if (ts.spot?.id == tempSpot.id) {
+                isMatch = true;
+              } else if (ts.spot?.name == tempSpot.name && tempSpot.name.isNotEmpty) {
+                isMatch = true;
+              } else if (ts.spot?.googlePlaceId != null && ts.spot?.googlePlaceId == tempSpot.id) {
+                isMatch = true;
+              }
+              
+              if (isMatch) {
+                _initialIsSaved = ts.isSaved == true;
+                _initialIsMustGo = ts.isMustGo == true;
+                _initialIsTodaysPlan = ts.isTodaysPlan == true;
+                _initialIsVisited = ts.isVisited == true;
+                _initialVisitDate = ts.visitDate;
+                _initialUserRating = ts.userRating;
+                _initialUserNotes = ts.userNotes;
+                _initialUserPhotos = ts.userPhotos?.cast<String>();
+                _initialDestinationId = trip.id;
+                break;
+              }
+            }
+            if (_initialDestinationId != null) break;
+          }
+          
+          // 💾 保存到缓存供后续使用
+          WishlistStatusCache.updateFullStatus(
+            tempSpot.id,
+            destinationId: _initialDestinationId,
+            isSaved: _initialIsSaved ?? false,
+            isMustGo: _initialIsMustGo,
+            isTodaysPlan: _initialIsTodaysPlan,
+            isVisited: _initialIsVisited,
+            visitDate: _initialVisitDate,
+            userRating: _initialUserRating,
+            userNotes: _initialUserNotes,
+            userPhotos: _initialUserPhotos,
+          );
+        }
+      } catch (e) {
+        debugPrint('❌ [PlaceDetailLoader] Error loading user status: $e');
+        // 回退到缓存
+        final fullStatus = WishlistStatusCache.getFullStatus(tempSpot.id);
+        _initialIsSaved = fullStatus?.isSaved ?? fullStatus?.destinationId != null;
+        _initialIsMustGo = fullStatus?.isMustGo;
+        _initialIsTodaysPlan = fullStatus?.isTodaysPlan;
+        _initialIsVisited = fullStatus?.isVisited;
+        _initialVisitDate = fullStatus?.visitDate;
+        _initialUserRating = fullStatus?.userRating;
+        _initialUserNotes = fullStatus?.userNotes;
+        _initialUserPhotos = fullStatus?.userPhotos;
+        _initialDestinationId = fullStatus?.destinationId;
+      }
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _spot = tempSpot;
+        _isLoading = false;
+      });
     } catch (e) {
       debugPrint('❌ [PlaceDetailLoader] Error fetching place: $e');
       if (!mounted) return;
@@ -2082,11 +2359,19 @@ class _PlaceDetailLoaderState extends State<_PlaceDetailLoader> {
         ),
       );
     }
-
+    
     return UnifiedSpotDetailModal(
       spot: _spot!,
       keepOpenOnAction: true,
-      initialIsSaved: widget.initialIsSaved,
+      initialIsSaved: _initialIsSaved,
+      initialIsMustGo: _initialIsMustGo,
+      initialIsTodaysPlan: _initialIsTodaysPlan,
+      initialIsVisited: _initialIsVisited,
+      initialVisitDate: _initialVisitDate,
+      initialUserRating: _initialUserRating,
+      initialUserNotes: _initialUserNotes,
+      initialUserPhotos: _initialUserPhotos,
+      initialDestinationId: _initialDestinationId,
     );
   }
 }

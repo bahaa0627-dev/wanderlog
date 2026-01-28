@@ -21,9 +21,11 @@ import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
+import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 
 /// MyLand 地点地图页面 - 展示 MustGo 或 Today's Plan 中的地点
 class MyLandSpotsMapPage extends ConsumerStatefulWidget {
@@ -145,6 +147,10 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
 
   @override
   void dispose() {
+    // Hide bottom cards to prevent showing during exit transition
+    setState(() {
+      _mapSpots = [];
+    });
     _cardPageController.removeListener(_onCardPageChanged);
     _cardPageController.dispose();
     _searchController.dispose();
@@ -423,8 +429,22 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     try {
       final authState = ref.read(authProvider);
       if (authState.isAuthenticated) {
+        // 先显示loading indicator
+        if (mounted) {
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryYellow),
+            ),
+          );
+        }
+        
         final tripRepo = ref.read(tripRepositoryProvider);
-        final trips = await tripRepo.getMyTrips();
+        final trips = await tripRepo.getMyTrips().timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => <Trip>[],
+        );
 
         // 查找包含这个 spot 的 trip
         for (final trip in trips) {
@@ -439,12 +459,12 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
             final matchByGooglePlaceId = tsSpot?.googlePlaceId == spot.id;
             
             if (matchById || matchByGooglePlaceId) {
-              isSaved = ts.isSaved;
-              isVisited = ts.isVisited;
+              isSaved = ts.isSaved == true;
+              isVisited = ts.isVisited == true;
               visitDate = ts.visitDate;
               userRating = ts.userRating;
               userNotes = ts.userNotes;
-              userPhotos = ts.userPhotos;
+              userPhotos = ts.userPhotos?.cast<String>();
               destinationId = trip.id;
               
               // 调试日志
@@ -456,15 +476,44 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
               print('  - userNotes: $userNotes');
               print('  - userPhotos: ${userPhotos?.length ?? 0} photos');
               
+              // 💾 保存到缓存
+              WishlistStatusCache.updateFullStatus(
+                spot.id,
+                destinationId: destinationId,
+                isSaved: isSaved,
+                isVisited: isVisited,
+                visitDate: visitDate,
+                userRating: userRating,
+                userNotes: userNotes,
+                userPhotos: userPhotos,
+              );
+              
               break;
             }
           }
           if (isSaved != null && destinationId != null) break;
         }
+        
+        // 关闭loading dialog
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       print('❌ [MyLandSpotsMap] Error loading spot status: $e');
-      // 静默失败，使用默认值
+      // 关闭loading dialog
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      // 失败时使用缓存
+      final fullStatus = WishlistStatusCache.getFullStatus(spot.id);
+      isSaved = fullStatus?.isSaved ?? fullStatus?.destinationId != null;
+      isVisited = fullStatus?.isVisited;
+      visitDate = fullStatus?.visitDate;
+      userRating = fullStatus?.userRating;
+      userNotes = fullStatus?.userNotes;
+      userPhotos = fullStatus?.userPhotos;
+      destinationId = fullStatus?.destinationId;
     }
     
     if (!mounted) return;
@@ -1220,16 +1269,10 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
                   height: cardHeight,
                   child: _BottomSpotCard(
                     spot: spot,
+                    isVisited: widget.visitedSpots?[spot.id] ?? false,
                     onTap: () {
-                      if (index == _currentCardIndex) {
-                        _showSpotDetail(spot);
-                      } else {
-                        _cardPageController.animateToPage(
-                          index,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
+                      // Always show detail page on tap
+                      _showSpotDetail(spot);
                     },
                   ),
                 ),
@@ -1246,10 +1289,12 @@ class _BottomSpotCard extends StatefulWidget {
   const _BottomSpotCard({
     required this.spot,
     required this.onTap,
+    this.isVisited = false,
   });
 
   final map_page.Spot spot;
   final VoidCallback onTap;
+  final bool isVisited;
 
   @override
   State<_BottomSpotCard> createState() => _BottomSpotCardState();
@@ -1334,6 +1379,30 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
             fit: StackFit.expand,
             children: [
               _buildCover(),
+              // Check-in indicator badge
+              if (widget.isVisited)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppTheme.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppTheme.black,
+                        width: 2,
+                      ),
+                      boxShadow: AppTheme.cardShadow,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: AppTheme.primaryYellow,
+                      size: 18,
+                    ),
+                  ),
+                ),
               // 底部渐变蒙层 - 使用提取的主色
               Positioned(
                 left: 0,

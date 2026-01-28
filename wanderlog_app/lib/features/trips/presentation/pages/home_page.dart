@@ -22,6 +22,8 @@ import 'package:wanderlog/features/search/presentation/pages/search_results_map_
 import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/features/profile/presentation/pages/mine_page.dart';
+import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({
@@ -81,6 +83,8 @@ class _HomePageState extends ConsumerState<HomePage> {
         ref.read(countriesCitiesProvider.notifier).preload();
         // 预加载城市选择器数据（带统计信息），避免打开时加载慢
         ref.read(countriesCitiesStatsProvider.notifier).load();
+        // 预加载用户收藏和 check-in 状态，确保进入 map 页面时状态已经准备好
+        _preloadWishlistStatus();
       }
     });
 
@@ -124,6 +128,23 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (mounted) {
         setState(() => _isLoadingRecommendations = false);
       }
+    }
+  }
+
+  /// 预加载用户收藏和 check-in 状态，填充 WishlistStatusCache
+  /// 这样进入 map 页面时状态就已经准备好，避免空白状态闪烁
+  Future<void> _preloadWishlistStatus() async {
+    final authState = ref.read(authProvider);
+    if (!authState.isAuthenticated) return;
+
+    try {
+      print('🔄 [HomePage] 预加载用户收藏和 check-in 状态...');
+      // 触发 wishlistStatusProvider 加载，它会自动填充 WishlistStatusCache
+      await ref.read(wishlistStatusProvider.future);
+      print('✅ [HomePage] 用户状态预加载完成');
+    } catch (e) {
+      print('⚠️ [HomePage] 预加载用户状态失败: $e');
+      // 静默失败，不影响用户体验
     }
   }
 

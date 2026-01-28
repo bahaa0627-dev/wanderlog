@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show File;
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -23,19 +22,12 @@ import 'package:wanderlog/features/search/data/search_repository.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
-import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
-import 'package:wanderlog/shared/models/trip_spot_model.dart';
-import 'package:wanderlog/shared/utils/destination_utils.dart';
-import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
-import 'package:wanderlog/shared/widgets/custom_toast.dart';
-import 'package:wanderlog/shared/widgets/save_spot_button.dart';
-import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_dialog.dart';
-import 'package:wanderlog/shared/models/spot_model.dart' as spot_model;
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
-import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/shared/models/trip_model.dart';
 
 /// 地点来源枚举
 enum SpotSource {
@@ -434,6 +426,16 @@ class _MapPageState extends ConsumerState<MapPage> {
 
     // 监听搜索框变化，用于显示/隐藏清除按钮
     _searchController.addListener(_onSearchTextChanged);
+    
+    // 监听 wishlistStatusProvider 变化，实时更新地图卡片状态
+    ref.listenManual(wishlistStatusProvider, (previous, next) {
+      print('🔄 [MapPage] wishlistStatusProvider changed, updating UI...');
+      if (mounted) {
+        setState(() {
+          // 触发 UI 更新，卡片会从缓存读取最新状态
+        });
+      }
+    });
 
     _loadPublicPlaces();
 
@@ -1521,20 +1523,150 @@ class _MapPageState extends ConsumerState<MapPage> {
     bool? initialIsVisited;
     String? initialDestinationId;
 
+    // 预加载 check-in 详细数据
+    DateTime? initialVisitDate;
+    int? initialUserRating;
+    String? initialUserNotes;
+    List<String>? initialUserPhotos;
+
     if (authState.isAuthenticated) {
-      // 从缓存获取状态
-      final fullStatus = WishlistStatusCache.getFullStatus(spot.id);
-      if (fullStatus != null) {
-        initialIsSaved = true;
-        initialIsMustGo = fullStatus.isMustGo;
-        initialIsTodaysPlan = fullStatus.isTodaysPlan;
-        initialIsVisited = fullStatus.isVisited;
-        initialDestinationId = fullStatus.destinationId;
-      } else {
-        final (isInCache, destId) = WishlistStatusCache.check(spot.id);
-        if (isInCache) {
-          initialIsSaved = true;
-          initialDestinationId = destId;
+      print('🗺️ [MapPageNew] User authenticated, loading full status from server...');
+      
+      try {
+        // 先显示一个简单的loading indicator
+        if (mounted) {
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryYellow),
+            ),
+          );
+        }
+        
+        // 从服务器获取最新的完整状态 - 2秒超时
+        final tripRepo = ref.read(tripRepositoryProvider);
+        final trips = await tripRepo.getMyTrips().timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => <Trip>[],
+        );
+        
+        print('�🚨🚨 [SPOT_DETAIL_DEBUG] Loading status for spot:');
+        print('🚨 spot.id: ${spot.id}');
+        print('🚨 spot.name: ${spot.name}');
+        print('🚨 trips count: ${trips.length}');
+        
+        // 查找包含这个 spot 的 trip
+        for (final trip in trips) {
+          try {
+            final tripDetail = await tripRepo.getTripById(trip.id);
+            final tripSpots = tripDetail.tripSpots ?? [];
+            
+            print('� [SPOT_DETAIL_DEBUG] Checking trip: ${trip.name} (${tripSpots.length} spots)');
+            
+            for (final ts in tripSpots) {
+              // 尝试匹配 spot（通过 id、name 或 googlePlaceId）
+              bool isMatch = false;
+              String matchType = '';
+              
+              if (ts.spot?.id == spot.id) {
+                isMatch = true;
+                matchType = 'by id';
+              } else if (ts.spot?.name == spot.name && spot.name.isNotEmpty) {
+                isMatch = true;
+                matchType = 'by name';
+              } else if (ts.spot?.googlePlaceId != null && 
+                         ts.spot?.googlePlaceId == spot.id) {
+                isMatch = true;
+                matchType = 'by googlePlaceId';
+              }
+              
+              if (isMatch) {
+                print('🚨✅ [SPOT_DETAIL_DEBUG] MATCH FOUND in trip ${trip.name} ($matchType)');
+                print('🚨   ts.spot.id: ${ts.spot?.id}');
+                print('🚨   ts.spot.googlePlaceId: ${ts.spot?.googlePlaceId}');
+                print('🚨   ts.isSaved: ${ts.isSaved}');
+                print('🚨   ts.isMustGo: ${ts.isMustGo}');
+                print('🚨   ts.isVisited: ${ts.isVisited}');
+                
+                initialIsSaved = ts.isSaved == true;
+                initialIsMustGo = ts.isMustGo == true;
+                initialIsTodaysPlan = ts.isTodaysPlan == true;
+                initialIsVisited = ts.isVisited == true;
+                initialDestinationId = trip.id;
+                initialVisitDate = ts.visitDate;
+                initialUserRating = ts.userRating;
+                initialUserNotes = ts.userNotes;
+                initialUserPhotos = ts.userPhotos?.cast<String>();
+                break;
+              }
+            }
+            if (initialDestinationId != null) break;
+          } catch (e) {
+            print('⚠️ [MapPageNew] Error loading trip ${trip.name}: $e');
+          }
+        }
+        
+        if (initialDestinationId == null) {
+          print('ℹ️ [MapPageNew] Spot not found in any trip (not saved)');
+          initialIsSaved = false;
+        }
+        
+        // 💾 保存到缓存供后续使用
+        WishlistStatusCache.updateFullStatus(
+          spot.id,
+          destinationId: initialDestinationId,
+          isSaved: initialIsSaved ?? false,
+          isMustGo: initialIsMustGo,
+          isTodaysPlan: initialIsTodaysPlan,
+          isVisited: initialIsVisited,
+          visitDate: initialVisitDate,
+          userRating: initialUserRating,
+          userNotes: initialUserNotes,
+          userPhotos: initialUserPhotos,
+        );
+        
+        // 关闭loading dialog
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+        
+        print('🗺️ [MapPageNew] Server data loaded: isSaved=$initialIsSaved, isVisited=$initialIsVisited');
+      } catch (e) {
+        print('❌ [MapPageNew] Failed to load status from server: $e');
+        // 关闭loading dialog
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+        // 失败时回退到缓存
+        print('🗺️ [MapPageNew] Falling back to cache...');
+        SpotStatusData? fullStatus = WishlistStatusCache.getFullStatus(spot.id);
+        if (fullStatus == null && spot.name.isNotEmpty) {
+          fullStatus = WishlistStatusCache.getFullStatus(spot.name);
+        }
+        initialIsSaved = fullStatus?.isSaved ?? fullStatus?.destinationId != null;
+        initialIsMustGo = fullStatus?.isMustGo;
+        initialIsTodaysPlan = fullStatus?.isTodaysPlan;
+        initialIsVisited = fullStatus?.isVisited;
+        initialVisitDate = fullStatus?.visitDate;
+        initialUserRating = fullStatus?.userRating;
+        initialUserNotes = fullStatus?.userNotes;
+        initialUserPhotos = fullStatus?.userPhotos;
+        initialDestinationId = fullStatus?.destinationId;
+        if (fullStatus == null && spot.name.isNotEmpty) {
+          fullStatus = WishlistStatusCache.getFullStatus(spot.name);
+        }
+        
+        if (fullStatus != null) {
+          initialIsSaved = fullStatus.isSaved;
+          initialIsMustGo = fullStatus.isMustGo;
+          initialIsTodaysPlan = fullStatus.isTodaysPlan;
+          initialIsVisited = fullStatus.isVisited;
+          initialDestinationId = fullStatus.destinationId;
+          initialVisitDate = fullStatus.visitDate;
+          initialUserRating = fullStatus.userRating;
+          initialUserNotes = fullStatus.userNotes;
+          initialUserPhotos = fullStatus.userPhotos;
         } else {
           initialIsSaved = false;
         }
@@ -1544,8 +1676,10 @@ class _MapPageState extends ConsumerState<MapPage> {
       initialIsSaved = false;
     }
 
+    if (!mounted) return;
+
     print(
-        '🗺️ [MapPageNew] Showing detail modal with preloaded status: isSaved=$initialIsSaved, isVisited=$initialIsVisited');
+        '🗺️ [MapPageNew] Showing detail modal with accurate status: isSaved=$initialIsSaved, isVisited=$initialIsVisited');
 
     showModalBottomSheet<void>(
       context: context,
@@ -1558,6 +1692,14 @@ class _MapPageState extends ConsumerState<MapPage> {
         initialIsTodaysPlan: initialIsTodaysPlan,
         initialIsVisited: initialIsVisited,
         initialDestinationId: initialDestinationId,
+        initialVisitDate: initialVisitDate,
+        initialUserRating: initialUserRating,
+        initialUserNotes: initialUserNotes,
+        initialUserPhotos: initialUserPhotos,
+        onStatusChanged: (spotId, {isMustGo, isTodaysPlan, isVisited, isRemoved, needsReload}) {
+          // 状态变更后，invalidate provider 触发卡片刷新
+          ref.invalidate(wishlistStatusProvider);
+        },
       ),
     );
   }
@@ -1607,7 +1749,7 @@ class _MapPageState extends ConsumerState<MapPage> {
       late final ProviderSubscription<PlacesCacheState> subscription;
 
       Timer? timeoutTimer;
-      timeoutTimer = Timer(const Duration(seconds: 30), () {
+      timeoutTimer = Timer(const Duration(seconds: 10), () {
         if (!completer.isCompleted) {
           print('📍 [MapPage] 等待缓存超时');
           subscription.close();
@@ -1654,7 +1796,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     late final ProviderSubscription<PlacesCacheState> subscription;
 
     Timer? timeoutTimer;
-    timeoutTimer = Timer(const Duration(seconds: 30), () {
+    timeoutTimer = Timer(const Duration(seconds: 10), () {
       if (!completer.isCompleted) {
         print('📍 [MapPage] 预加载超时');
         subscription.close();
@@ -2802,7 +2944,7 @@ class _BottomSpotCardState extends ConsumerState<_BottomSpotCard> {
                           decoration: BoxDecoration(
                             color: AppTheme.primaryYellow,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                            border: Border.all(color: AppTheme.black, width: 1),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.2),
@@ -2813,7 +2955,7 @@ class _BottomSpotCardState extends ConsumerState<_BottomSpotCard> {
                           ),
                           child: const Icon(
                             Icons.check,
-                            color: Colors.white,
+                            color: AppTheme.white,
                             size: 14,
                           ),
                         )
@@ -2821,10 +2963,9 @@ class _BottomSpotCardState extends ConsumerState<_BottomSpotCard> {
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppTheme.primaryYellow,
                             shape: BoxShape.circle,
-                            border:
-                                Border.all(color: AppTheme.black, width: 1.5),
+                            border: Border.all(color: AppTheme.black, width: 1),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.2),
@@ -2835,7 +2976,7 @@ class _BottomSpotCardState extends ConsumerState<_BottomSpotCard> {
                           ),
                           child: const Icon(
                             Icons.favorite,
-                            color: AppTheme.primaryYellow,
+                            color: AppTheme.white,
                             size: 14,
                           ),
                         ),
@@ -2940,805 +3081,3 @@ class _RatingRow extends StatelessWidget {
   }
 }
 
-class SpotDetailModal extends ConsumerStatefulWidget {
-  const SpotDetailModal({
-    required this.spot,
-    this.initialIsSaved,
-    this.initialIsMustGo,
-    this.initialIsTodaysPlan,
-    super.key,
-  });
-
-  final Spot spot;
-
-  /// If provided, skip async loading and use these initial values
-  final bool? initialIsSaved;
-  final bool? initialIsMustGo;
-  final bool? initialIsTodaysPlan;
-
-  @override
-  ConsumerState<SpotDetailModal> createState() => _SpotDetailModalState();
-}
-
-class _SpotDetailModalState extends ConsumerState<SpotDetailModal> {
-  final PageController _imagePageController = PageController();
-  int _currentImageIndex = 0;
-  bool _isWishlist = false;
-  bool _isMustGo = false;
-  bool _isTodaysPlan = false;
-  bool _isVisited = false; // Check-in status
-  String? _destinationId;
-  bool _hasStatusChanged = false; // Track if any status changed
-
-  @override
-  void initState() {
-    super.initState();
-    // If caller passes initial values, use them for first paint to avoid flicker.
-    // Still fetch latest status/destinationId afterwards to stay in sync.
-    if (widget.initialIsSaved != null) {
-      _isWishlist = widget.initialIsSaved!;
-      _isMustGo = widget.initialIsMustGo ?? false;
-      _isTodaysPlan = widget.initialIsTodaysPlan ?? false;
-    }
-    // Always load authoritative status in background.
-    _loadWishlistStatus();
-  }
-
-  /// Load only the destinationId without updating wishlist status
-  Future<void> _loadDestinationId() async {
-    final auth = ref.read(authProvider);
-    if (!auth.isAuthenticated) return;
-    try {
-      final repo = ref.read(tripRepositoryProvider);
-      final trips = await repo.getMyTrips();
-      for (final t in trips) {
-        try {
-          final detail = await repo.getTripById(t.id);
-          final tripSpot = detail.tripSpots?.firstWhere(
-            _matchesTripSpot,
-            orElse: () => throw StateError('not found'),
-          );
-          if (tripSpot != null) {
-            _destinationId = detail.id;
-            return;
-          }
-        } catch (_) {
-          // ignore this trip
-        }
-      }
-      // Fallback: get/create destination by city
-      final city = widget.spot.city.trim();
-      if (city.isEmpty) return;
-      _destinationId = await ensureDestinationForCity(ref, city);
-    } catch (_) {
-      // ignore errors
-    }
-  }
-
-  List<String> _effectiveTags() {
-    final List<String> result = [];
-    final Set<String> seen = {};
-
-    final category = widget.spot.category.trim();
-    if (category.isNotEmpty) {
-      result.add(category);
-      seen.add(category.toLowerCase());
-    }
-
-    for (final raw in widget.spot.tags) {
-      final tag = raw.toString().trim();
-      if (tag.isEmpty) continue;
-      final key = tag.toLowerCase();
-      if (seen.add(key)) {
-        result.add(tag);
-      }
-    }
-
-    return result;
-  }
-
-  /// Build placeholder widget for missing images
-  Widget _buildPlaceholder() => Container(
-        decoration: const BoxDecoration(
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(24),
-          ),
-          color: AppTheme.lightGray,
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.image_outlined,
-            size: 64,
-            color: AppTheme.mediumGray,
-          ),
-        ),
-      );
-
-  @override
-  void dispose() {
-    _imagePageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Container(
-        height: MediaQuery.of(context).size.height * 0.85,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(24),
-          ),
-          border:
-              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-        ),
-        child: Column(
-          children: [
-            Stack(
-              children: [
-                SizedBox(
-                  height: 300,
-                  child: widget.spot.images.isNotEmpty
-                      ? PageView.builder(
-                          controller: _imagePageController,
-                          onPageChanged: (index) {
-                            setState(() {
-                              _currentImageIndex = index;
-                            });
-                          },
-                          itemCount: widget.spot.images.length,
-                          itemBuilder: (context, index) {
-                            final imageSource = widget.spot.images[index];
-                            // Handle data URI images
-                            if (imageSource.startsWith('data:')) {
-                              try {
-                                final base64Data = imageSource.split(',').last;
-                                final bytes = base64Decode(base64Data);
-                                return ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(24),
-                                  ),
-                                  child: Image.memory(
-                                    bytes,
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    errorBuilder: (_, __, ___) =>
-                                        _buildPlaceholder(),
-                                  ),
-                                );
-                              } catch (e) {
-                                return _buildPlaceholder();
-                              }
-                            }
-                            // Handle network URLs
-                            return Container(
-                              decoration: BoxDecoration(
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(24),
-                                ),
-                                image: DecorationImage(
-                                  image: NetworkImage(imageSource),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            );
-                          },
-                        )
-                      : _buildPlaceholder(),
-                ),
-                if (widget.spot.images.length > 1)
-                  Positioned(
-                    bottom: 12,
-                    left: 0,
-                    right: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        widget.spot.images.length,
-                        (index) => Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: index == _currentImageIndex
-                                ? AppTheme.primaryYellow
-                                : Colors.white.withOpacity(0.5),
-                            border: Border.all(color: AppTheme.black, width: 1),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  top: 16,
-                  right: 16,
-                  child: IconButtonCustom(
-                    icon: Icons.close,
-                    onPressed: () => Navigator.pop(context, _hasStatusChanged),
-                    backgroundColor: Colors.white,
-                  ),
-                ),
-                // Check-in button in bottom right corner
-                Positioned(
-                  bottom: 16,
-                  right: 16,
-                  child: _buildCheckInButton(),
-                ),
-              ],
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _effectiveTags()
-                          .map(
-                            (tag) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryYellow.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radiusSmall,
-                                ),
-                                border: Border.all(
-                                  color: AppTheme.black,
-                                  width: AppTheme.borderMedium,
-                                ),
-                              ),
-                              child: Text(
-                                tag,
-                                style: AppTheme.labelMedium(context),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      widget.spot.name,
-                      style: AppTheme.headlineLarge(context),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 16),
-                    if (widget.spot.aiSummary != null) ...[
-                      Text(
-                        widget.spot.aiSummary!,
-                        style: AppTheme.bodyLarge(context).copyWith(
-                          color: AppTheme.darkGray,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    Row(
-                      children: [
-                        Text(
-                          '${widget.spot.rating}',
-                          style: AppTheme.headlineMedium(context).copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ...List.generate(
-                          5,
-                          (index) => Icon(
-                            index < widget.spot.rating.floor()
-                                ? Icons.star
-                                : (index < widget.spot.rating
-                                    ? Icons.star_half
-                                    : Icons.star_border),
-                            color: AppTheme.primaryYellow,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          formatRatingCount(widget.spot.ratingCount),
-                          style: AppTheme.bodyMedium(context).copyWith(
-                            color: AppTheme.mediumGray,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    // 根据收藏状态显示不同的按钮
-                    if (!_isWishlist)
-                      // 未收藏状态：显示大的收藏按钮
-                      GestureDetector(
-                        onTap: () async {
-                          // Optimistic UI: update state immediately
-                          setState(() {
-                            _isWishlist = true;
-                            _hasStatusChanged = true;
-                          });
-                          CustomToast.showSuccess(context, 'Saved');
-                          // Then do API call in background
-                          final success = await _handleAddWishlist();
-                          if (!success && mounted) {
-                            // Revert on failure
-                            setState(() {
-                              _isWishlist = false;
-                              _hasStatusChanged = true;
-                            });
-                            CustomToast.showError(context, 'Failed to save');
-                          }
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow,
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusSmall),
-                            border: Border.all(color: AppTheme.black, width: 2),
-                            boxShadow: AppTheme.cardShadow,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.favorite_border,
-                                color: AppTheme.black,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Save',
-                                style: AppTheme.labelLarge(context).copyWith(
-                                  color: AppTheme.black,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      // 已收藏状态：显示完整的 SaveSpotButton
-                      SaveSpotButton(
-                        isSaved: true,
-                        isMustGo: _isMustGo,
-                        isTodaysPlan: _isTodaysPlan,
-                        isClosed: _isSpotClosed,
-                        onSave: () async => true,
-                        onUnsave: () async {
-                          // Optimistic UI: update state immediately
-                          final prevMustGo = _isMustGo;
-                          final prevTodaysPlan = _isTodaysPlan;
-                          setState(() {
-                            _isWishlist = false;
-                            _isMustGo = false;
-                            _isTodaysPlan = false;
-                            _hasStatusChanged = true;
-                          });
-                          CustomToast.showSuccess(context, 'Removed');
-                          // Then do API call in background
-                          final ok = await _handleRemoveWishlist();
-                          if (!ok && mounted) {
-                            // Revert on failure
-                            setState(() {
-                              _isWishlist = true;
-                              _isMustGo = prevMustGo;
-                              _isTodaysPlan = prevTodaysPlan;
-                              _hasStatusChanged = true;
-                            });
-                            CustomToast.showError(context, 'Failed to remove');
-                          }
-                          return ok;
-                        },
-                        onToggleMustGo: (isChecked) async {
-                          // Optimistic UI: update state immediately
-                          setState(() {
-                            _isMustGo = isChecked;
-                            _hasStatusChanged = true;
-                          });
-                          CustomToast.showSuccess(
-                            context,
-                            isChecked
-                                ? 'Added to MustGo'
-                                : 'Removed from MustGo',
-                          );
-                          // Then do API call in background
-                          final ok = await _handleToggleMustGo(isChecked);
-                          if (!ok && mounted) {
-                            // Revert on failure
-                            setState(() {
-                              _isMustGo = !isChecked;
-                              _hasStatusChanged = true;
-                            });
-                            CustomToast.showError(context, 'Failed to update');
-                          }
-                          return ok;
-                        },
-                        onToggleTodaysPlan: (isChecked) async {
-                          // Optimistic UI: update state immediately
-                          setState(() {
-                            _isTodaysPlan = isChecked;
-                            _hasStatusChanged = true;
-                          });
-                          CustomToast.showSuccess(
-                            context,
-                            isChecked
-                                ? "Added to Today's Plan"
-                                : "Removed from Today's Plan",
-                          );
-                          // Then do API call in background
-                          final ok = await _handleToggleTodaysPlan(isChecked);
-                          if (!ok && mounted) {
-                            // Revert on failure
-                            setState(() {
-                              _isTodaysPlan = !isChecked;
-                              _hasStatusChanged = true;
-                            });
-                            CustomToast.showError(context, 'Failed to update');
-                          }
-                          return ok;
-                        },
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Future<bool> _handleAddWishlist() async {
-    try {
-      final authed = await requireAuth(context, ref);
-      if (!authed) return false;
-      final destId = await ensureDestinationForCity(ref, widget.spot.city);
-      if (destId == null) {
-        _showError('Failed to create destination');
-        return false;
-      }
-      _destinationId = destId;
-      await ref.read(tripRepositoryProvider).manageTripSpot(
-            tripId: destId,
-            spotId: widget.spot.id,
-            status: TripSpotStatus.wishlist,
-            spotPayload: _spotPayload(),
-          );
-      // 立即更新同步缓存，避免下次打开时闪烁
-      WishlistStatusCache.update(widget.spot.id, destId);
-      ref.invalidate(tripsProvider);
-      ref.invalidate(wishlistStatusProvider);
-      return true;
-    } catch (e) {
-      _showError('Error: $e');
-      return false;
-    }
-  }
-
-  Future<bool> _handleRemoveWishlist() async {
-    try {
-      final authed = await requireAuth(context, ref);
-      if (!authed) return false;
-
-      final destId = _destinationId ??
-          await ensureDestinationForCity(ref, widget.spot.city);
-      if (destId == null) {
-        _showError('Failed to load destination');
-        return false;
-      }
-
-      await ref.read(tripRepositoryProvider).manageTripSpot(
-            tripId: destId,
-            spotId: widget.spot.id,
-            remove: true,
-          );
-      // 立即更新同步缓存，避免下次打开时闪烁
-      WishlistStatusCache.update(widget.spot.id, null);
-      ref.invalidate(tripsProvider);
-      ref.invalidate(wishlistStatusProvider);
-      return true;
-    } catch (e) {
-      _showError('Error: $e');
-      return false;
-    }
-  }
-
-  Future<void> _handleAddStatus({
-    required TripSpotStatus status,
-    SpotPriority? priority,
-  }) async {
-    try {
-      final authed = await requireAuth(context, ref);
-      if (!authed) return;
-      final destId = _destinationId ??
-          await ensureDestinationForCity(ref, widget.spot.city);
-      if (destId == null) {
-        _showError('Failed to create destination');
-        return;
-      }
-      _destinationId = destId;
-      await ref.read(tripRepositoryProvider).manageTripSpot(
-            tripId: destId,
-            spotId: widget.spot.id,
-            status: status,
-            priority: priority,
-            spotPayload: _spotPayload(),
-          );
-      if (mounted) {
-        CustomToast.showSuccess(
-          context,
-          status == TripSpotStatus.todaysPlan
-              ? "Added to Today's Plan"
-              : 'Added to MustGo',
-        );
-      }
-    } catch (e) {
-      _showError('Error: $e');
-    }
-  }
-
-  Future<bool> _handleToggleMustGo(bool isChecked) async {
-    try {
-      final authed = await requireAuth(context, ref);
-      if (!authed) return false;
-
-      final destId = _destinationId ??
-          await ensureDestinationForCity(ref, widget.spot.city);
-      if (destId == null) {
-        _showError('Failed to create destination');
-        return false;
-      }
-      _destinationId = destId;
-
-      await ref.read(tripRepositoryProvider).manageTripSpot(
-            tripId: destId,
-            spotId: widget.spot.id,
-            status: TripSpotStatus.wishlist,
-            priority: isChecked ? SpotPriority.mustGo : SpotPriority.optional,
-            spotPayload: _spotPayload(),
-          );
-
-      ref.invalidate(tripsProvider);
-      return true;
-    } catch (e) {
-      _showError('Error: $e');
-      return false;
-    }
-  }
-
-  Future<bool> _handleToggleTodaysPlan(bool isChecked) async {
-    try {
-      final authed = await requireAuth(context, ref);
-      if (!authed) return false;
-
-      final destId = _destinationId ??
-          await ensureDestinationForCity(ref, widget.spot.city);
-      if (destId == null) {
-        _showError('Failed to create destination');
-        return false;
-      }
-      _destinationId = destId;
-
-      await ref.read(tripRepositoryProvider).manageTripSpot(
-            tripId: destId,
-            spotId: widget.spot.id,
-            status:
-                isChecked ? TripSpotStatus.todaysPlan : TripSpotStatus.wishlist,
-            spotPayload: _spotPayload(),
-          );
-
-      ref.invalidate(tripsProvider);
-      return true;
-    } catch (e) {
-      _showError('Error: $e');
-      return false;
-    }
-  }
-
-  /// Check if a TripSpot matches the current spot by googlePlaceId or name
-  bool _matchesTripSpot(TripSpot ts) {
-    final spot = ts.spot;
-    if (spot == null) return false;
-    // Compare by googlePlaceId (widget.spot.id is the googlePlaceId in this context)
-    if (spot.googlePlaceId == widget.spot.id) return true;
-    // Fallback: compare by name (case-insensitive)
-    if (spot.name.toLowerCase() == widget.spot.name.toLowerCase()) return true;
-    return false;
-  }
-
-  /// 检查地点当前是否关门
-  bool get _isSpotClosed {
-    final raw = widget.spot.openingHours;
-    if (raw == null) return false;
-
-    final eval = OpeningHoursUtils.evaluate(
-      raw,
-      country: null,
-      longitude: widget.spot.longitude,
-    );
-    if (eval == null) return false;
-
-    return !eval.isOpen;
-  }
-
-  Future<void> _loadWishlistStatus() async {
-    final auth = ref.read(authProvider);
-    if (!auth.isAuthenticated) return;
-    try {
-      void updateFromTripSpot(TripSpot ts) {
-        if (!mounted) return;
-        setState(() {
-          // 使用新的布尔字段
-          _isWishlist = ts.isSaved;
-          _isMustGo = ts.isMustGo;
-          _isTodaysPlan = ts.isTodaysPlan;
-          _isVisited = ts.isVisited;
-        });
-      }
-
-      // 如果已有 destinationId，先查一次
-      if (_destinationId != null) {
-        final trip =
-            await ref.read(tripRepositoryProvider).getTripById(_destinationId!);
-        final tripSpot = trip.tripSpots?.firstWhere(
-          _matchesTripSpot,
-          orElse: () => throw StateError('not found'),
-        );
-        if (tripSpot != null) {
-          _destinationId = trip.id;
-          updateFromTripSpot(tripSpot);
-          return;
-        }
-      }
-
-      // 遍历所有 trips，查找包含该 spot 的记录
-      final repo = ref.read(tripRepositoryProvider);
-      final trips = await repo.getMyTrips();
-      for (final t in trips) {
-        try {
-          final detail = await repo.getTripById(t.id);
-          final tripSpot = detail.tripSpots?.firstWhere(
-            _matchesTripSpot,
-            orElse: () => throw StateError('not found'),
-          );
-          if (tripSpot != null) {
-            _destinationId = detail.id;
-            updateFromTripSpot(tripSpot);
-            return;
-          }
-        } catch (_) {
-          // ignore this trip
-        }
-      }
-
-      // 最后再按城市兜底创建/获取 destination
-      final city = widget.spot.city.trim();
-      if (city.isEmpty) return;
-      final destId = await ensureDestinationForCity(ref, city);
-      if (destId == null) return;
-      _destinationId = destId;
-      final trip = await ref.read(tripRepositoryProvider).getTripById(destId);
-      final tripSpot = trip.tripSpots?.firstWhere(
-        _matchesTripSpot,
-        orElse: () => throw StateError('not found'),
-      );
-      if (tripSpot != null && mounted) {
-        updateFromTripSpot(tripSpot);
-      }
-    } catch (_) {
-      // ignore preload errors
-    }
-  }
-
-  Widget _buildCheckInButton() => GestureDetector(
-        onTap: _isVisited ? null : _handleCheckIn,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: _isVisited ? AppTheme.background : AppTheme.primaryYellow,
-            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-            border: Border.all(
-              color: AppTheme.black,
-              width: AppTheme.borderMedium,
-            ),
-            boxShadow: _isVisited ? null : AppTheme.cardShadow,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_isVisited) ...[
-                const Text('✓', style: TextStyle(fontSize: 16)),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                _isVisited ? 'Checked in' : 'Check in',
-                style: AppTheme.labelMedium(context).copyWith(
-                  color: AppTheme.black,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-
-  Future<void> _handleCheckIn() async {
-    // Check authentication first
-    final authed = await requireAuth(context, ref);
-    if (!authed) return; // User not logged in, already navigated to login page
-
-    // User is logged in, show check-in dialog
-    if (!context.mounted) return;
-
-    // Convert Spot to spot_model.Spot for CheckInDialog
-    final now = DateTime.now();
-    final spotModel = spot_model.Spot(
-      id: widget.spot.id,
-      googlePlaceId: widget.spot.id,
-      name: widget.spot.name,
-      city: widget.spot.city,
-      latitude: widget.spot.latitude,
-      longitude: widget.spot.longitude,
-      tags: widget.spot.tags,
-      images: widget.spot.images,
-      rating: widget.spot.rating,
-      ratingCount: widget.spot.ratingCount,
-      category: widget.spot.category,
-      createdAt: now,
-      updatedAt: now,
-    );
-
-    showDialog<void>(
-      context: context,
-      builder: (context) => CheckInDialog(
-        spot: spotModel,
-        onCheckIn: (visitDate, rating, notes,
-            {List<File>? newImages, List<String>? existingPhotos}) async {
-          // TODO: Implement check-in API call with image upload
-          if (mounted) {
-            setState(() {
-              _isVisited = true;
-            });
-            CustomToast.showSuccess(
-                context, 'Checked in to ${widget.spot.name}');
-          }
-        },
-      ),
-    );
-  }
-
-  void _showError(String message) {
-    if (!mounted) return;
-    CustomToast.showError(context, message);
-  }
-
-  Map<String, dynamic> _spotPayload() => {
-        'name': widget.spot.name,
-        'city': widget.spot.city,
-        'country': widget.spot.city,
-        'latitude': widget.spot.latitude,
-        'longitude': widget.spot.longitude,
-        'address': null,
-        'description': widget.spot.aiSummary,
-        'openingHours': null,
-        'rating': widget.spot.rating,
-        'ratingCount': widget.spot.ratingCount,
-        'category': widget.spot.category,
-        'aiSummary': widget.spot.aiSummary,
-        'tags': widget.spot.tags.isNotEmpty ? widget.spot.tags : <String>[],
-        'coverImage': widget.spot.coverImage,
-        'images':
-            widget.spot.images.isNotEmpty ? widget.spot.images : <String>[],
-        'priceLevel': null,
-        'website': null,
-        'phoneNumber': null,
-        'googlePlaceId': widget.spot.id, // 添加 googlePlaceId 用于匹配
-        'source': 'app_wishlist',
-      };
-}

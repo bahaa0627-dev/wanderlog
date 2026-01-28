@@ -20,6 +20,7 @@ import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
@@ -27,6 +28,7 @@ import 'package:wanderlog/features/trips/providers/spots_provider.dart';
 import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
+import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
 import 'package:wanderlog/shared/widgets/share_bottom_sheet.dart';
 
@@ -921,8 +923,22 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
     try {
       final authState = ref.read(authProvider);
       if (authState.isAuthenticated) {
+        // 先显示loading indicator
+        if (mounted) {
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryYellow),
+            ),
+          );
+        }
+        
         final tripRepo = ref.read(tripRepositoryProvider);
-        final trips = await tripRepo.getMyTrips();
+        final trips = await tripRepo.getMyTrips().timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => <Trip>[],
+        );
 
         // 查找包含这个 spot 的 trip
         for (final trip in trips) {
@@ -937,23 +953,57 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
             final matchByGooglePlaceId = tsSpot?.googlePlaceId == spot.id;
             
             if (matchById || matchByGooglePlaceId) {
-              isSaved = ts.isSaved;
-              isMustGo = ts.isMustGo;
-              isTodaysPlan = ts.isTodaysPlan;
-              isVisited = ts.isVisited;
+              isSaved = ts.isSaved == true;
+              isMustGo = ts.isMustGo == true;
+              isTodaysPlan = ts.isTodaysPlan == true;
+              isVisited = ts.isVisited == true;
               visitDate = ts.visitDate;
               userRating = ts.userRating;
               userNotes = ts.userNotes;
-              userPhotos = ts.userPhotos;
+              userPhotos = ts.userPhotos?.cast<String>();
               destinationId = trip.id;
               break;
             }
           }
           if (isSaved != null) break;
         }
+        
+        // 💾 保存到缓存供后续使用
+        WishlistStatusCache.updateFullStatus(
+          spot.id,
+          destinationId: destinationId,
+          isSaved: isSaved ?? false,
+          isMustGo: isMustGo,
+          isTodaysPlan: isTodaysPlan,
+          isVisited: isVisited,
+          visitDate: visitDate,
+          userRating: userRating,
+          userNotes: userNotes,
+          userPhotos: userPhotos,
+        );
+        
+        // 关闭loading dialog
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
-      // 静默失败，使用默认值
+      print('❌ [collection_spots_map_page.dart] Error loading status: $e');
+      // 关闭loading dialog
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      // 失败时使用缓存
+      final fullStatus = WishlistStatusCache.getFullStatus(spot.id);
+      isSaved = fullStatus?.isSaved ?? fullStatus?.destinationId != null;
+      isMustGo = fullStatus?.isMustGo;
+      isTodaysPlan = fullStatus?.isTodaysPlan;
+      isVisited = fullStatus?.isVisited;
+      visitDate = fullStatus?.visitDate;
+      userRating = fullStatus?.userRating;
+      userNotes = fullStatus?.userNotes;
+      userPhotos = fullStatus?.userPhotos;
+      destinationId = fullStatus?.destinationId;
     }
 
     // 添加调试日志
@@ -986,6 +1036,10 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         initialUserNotes: userNotes,
         initialUserPhotos: userPhotos,
         initialDestinationId: destinationId,
+        onStatusChanged: (spotId, {isMustGo, isTodaysPlan, isVisited, isRemoved, needsReload}) {
+          // 标记需要刷新合集数据
+          _shouldRefreshCollections = true;
+        },
       ),
     );
   }

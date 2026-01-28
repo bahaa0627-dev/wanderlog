@@ -314,9 +314,18 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         _pendingSelectedSlug = savedSlug;
       }
     }
-    // 延迟加载数据，让页面先显示
+    
+    // 监听 tripsProvider 变化，实时刷新数据
+    ref.listenManual(tripsProvider, (previous, next) {
+      print('🔄 [SpotsTab] tripsProvider changed, refreshing...');
+      if (mounted && !_isLoadingDestinations) {
+        unawaited(_loadDestinationsFromServer());
+      }
+    });
+    
+    // 立即开始加载数据（不等待）
+    unawaited(_loadDestinationsFromServer());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_loadDestinationsFromServer());
       _notifyCityChanged();
       _notifyCityOptionsChanged();
     });
@@ -500,14 +509,37 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     // 优化：只在需要时才加载合集数据
     Map<String, dynamic>? linkedCollection;
     try {
+      // 显示loading indicator
+      if (mounted) {
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(color: AppTheme.primaryYellow),
+          ),
+        );
+      }
+      
       final repo = ref.read(collectionRepositoryProvider);
-      final collections = await repo.getCollectionsForPlace(entry.spot.id);
+      final collections = await repo.getCollectionsForPlace(entry.spot.id).timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => <Map<String, dynamic>>[],
+      );
       if (collections.isNotEmpty) {
         final random = math.Random();
         linkedCollection = collections[random.nextInt(collections.length)];
       }
+      
+      // 关闭loading dialog
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
     } catch (e) {
       print('⚠️ [spots_tab.dart] Failed to load collections: $e');
+      // 关闭loading dialog
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
       // 静默失败，不影响主流程
     }
 
@@ -815,13 +847,25 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   List<String> _getAvailableCitiesForCurrentTab() {
     final Set<String> cities = {};
     for (final entry in _entries) {
-      // MustGo tab
-      if (_selectedSubTab == 1 && entry.isMustGo) {
-        final city = entry.city.trim();
-        if (city.isNotEmpty) cities.add(city);
+      bool includeEntry = false;
+      
+      // 根据 tab 判断是否包含此 entry
+      switch (_selectedSubTab) {
+        case 0: // All tab - include all entries
+          includeEntry = true;
+          break;
+        case 1: // MustGo tab
+          includeEntry = entry.isMustGo;
+          break;
+        case 2: // Today's Plan tab
+          includeEntry = entry.isTodaysPlan;
+          break;
+        case 3: // Visited tab
+          includeEntry = entry.isVisited;
+          break;
       }
-      // Today's Plan tab
-      if (_selectedSubTab == 2 && entry.isTodaysPlan) {
+      
+      if (includeEntry) {
         final city = entry.city.trim();
         if (city.isNotEmpty) cities.add(city);
       }
@@ -838,15 +882,25 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   Map<String, List<Spot>> _getAllSpotsByCityForCurrentTab() {
     final Map<String, List<Spot>> result = {};
     for (final entry in _entries) {
-      // MustGo tab
-      if (_selectedSubTab == 1 && entry.isMustGo) {
-        final city = entry.city.trim();
-        if (city.isNotEmpty) {
-          result.putIfAbsent(city, () => []).add(entry.spot);
-        }
+      bool includeEntry = false;
+      
+      // 根据 tab 判断是否包含此 entry
+      switch (_selectedSubTab) {
+        case 0: // All tab
+          includeEntry = true;
+          break;
+        case 1: // MustGo tab
+          includeEntry = entry.isMustGo;
+          break;
+        case 2: // Today's Plan tab
+          includeEntry = entry.isTodaysPlan;
+          break;
+        case 3: // Visited tab
+          includeEntry = entry.isVisited;
+          break;
       }
-      // Today's Plan tab
-      if (_selectedSubTab == 2 && entry.isTodaysPlan) {
+      
+      if (includeEntry) {
         final city = entry.city.trim();
         if (city.isNotEmpty) {
           result.putIfAbsent(city, () => []).add(entry.spot);
@@ -860,17 +914,25 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   Map<String, Map<String, List<Spot>>> _getSpotsByCountryCityForCurrentTab() {
     final Map<String, Map<String, List<Spot>>> result = {};
     for (final entry in _entries) {
-      // MustGo tab
-      if (_selectedSubTab == 1 && entry.isMustGo) {
-        final city = entry.city.trim();
-        final country = entry.spot.country?.trim() ?? 'Unknown';
-        if (city.isNotEmpty) {
-          result.putIfAbsent(country, () => {});
-          result[country]!.putIfAbsent(city, () => []).add(entry.spot);
-        }
+      bool includeEntry = false;
+      
+      // 根据 tab 判断是否包含此 entry
+      switch (_selectedSubTab) {
+        case 0: // All tab
+          includeEntry = true;
+          break;
+        case 1: // MustGo tab
+          includeEntry = entry.isMustGo;
+          break;
+        case 2: // Today's Plan tab
+          includeEntry = entry.isTodaysPlan;
+          break;
+        case 3: // Visited tab
+          includeEntry = entry.isVisited;
+          break;
       }
-      // Today's Plan tab
-      if (_selectedSubTab == 2 && entry.isTodaysPlan) {
+      
+      if (includeEntry) {
         final city = entry.city.trim();
         final country = entry.spot.country?.trim() ?? 'Unknown';
         if (city.isNotEmpty) {
@@ -1069,7 +1131,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
       // Step 2.1: 首先加载基础 destinations 列表（快速）
       final destinations = await repo.getMyTrips().timeout(
-        const Duration(seconds: 30),
+        const Duration(seconds: 10),
         onTimeout: () {
           throw TimeoutException(
               'Request timed out. Please check your connection.');
@@ -1122,7 +1184,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       final limitedDests = relevantDests.take(_maxCachedItems).toList();
       final detailFutures = limitedDests
           .where((d) => d.city?.trim().isNotEmpty ?? false)
-          .map((d) => repo.getTripById(d.id).catchError((_) => d));
+          .map((d) => repo.getTripById(d.id)
+              .timeout(const Duration(seconds: 5))
+              .catchError((_) => d));
       final details = await Future.wait(detailFutures);
 
       print('📋 [SpotsTab] Processing ${details.length} trip details...');
@@ -1580,9 +1644,16 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             ),
           ),
         Expanded(
-          child: Container(
-            color: AppTheme.white,
-            child: AnimatedSwitcher(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              print('🔄 [VAGO] Pull-to-refresh triggered, fetching latest data...');
+              await _loadDestinationsFromServer();
+              print('✅ [VAGO] Pull-to-refresh completed');
+            },
+            color: AppTheme.primaryYellow,
+            child: Container(
+              color: AppTheme.white,
+              child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
               switchInCurve: Curves.easeInOut,
               switchOutCurve: Curves.easeInOut,
@@ -1639,6 +1710,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
                               (_selectedSubTab == 0 || _selectedSubTab == 3) &&
                                   _hasMoreData,
                         ),
+              ),
             ),
           ),
         ),

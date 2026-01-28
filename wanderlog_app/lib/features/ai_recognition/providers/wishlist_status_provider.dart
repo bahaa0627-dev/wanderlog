@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
-import 'package:wanderlog/shared/models/trip_spot_model.dart';
 
 /// 地点状态数据（包含完整的 check-in 详情）
 class SpotStatusData {
   const SpotStatusData({
     this.destinationId,
+    this.isSaved = true,  // 新增：是否已保存到收藏
     this.isMustGo = false,
     this.isTodaysPlan = false,
     this.isVisited = false,
@@ -17,6 +17,7 @@ class SpotStatusData {
   });
 
   final String? destinationId;
+  final bool isSaved;  // 是否已保存（收藏）
   final bool isMustGo;
   final bool isTodaysPlan;
   final bool isVisited;
@@ -28,6 +29,7 @@ class SpotStatusData {
 
   SpotStatusData copyWith({
     String? destinationId,
+    bool? isSaved,
     bool? isMustGo,
     bool? isTodaysPlan,
     bool? isVisited,
@@ -38,6 +40,7 @@ class SpotStatusData {
   }) =>
       SpotStatusData(
         destinationId: destinationId ?? this.destinationId,
+        isSaved: isSaved ?? this.isSaved,
         isMustGo: isMustGo ?? this.isMustGo,
         isTodaysPlan: isTodaysPlan ?? this.isTodaysPlan,
         isVisited: isVisited ?? this.isVisited,
@@ -65,6 +68,7 @@ class WishlistStatusCache {
       final existing = _fullStatusCache[spotId];
       _fullStatusCache[spotId] = SpotStatusData(
         destinationId: destinationId,
+        isSaved: true,  // update方法默认表示已收藏
         isMustGo: existing?.isMustGo ?? false,
         isTodaysPlan: existing?.isTodaysPlan ?? false,
         isVisited: existing?.isVisited ?? false,
@@ -75,10 +79,11 @@ class WishlistStatusCache {
     }
   }
 
-  /// 更新完整状态（包括 MustGo、Today's Plan、Visited 和 Check-in 详情）
+  /// 更新完整状态（包括 Saved、MustGo、Today's Plan、Visited 和 Check-in 详情）
   static void updateFullStatus(
     String spotId, {
     String? destinationId,
+    bool? isSaved,
     bool? isMustGo,
     bool? isTodaysPlan,
     bool? isVisited,
@@ -91,9 +96,16 @@ class WishlistStatusCache {
     final newDestId = destinationId ?? existing?.destinationId;
 
     if (newDestId != null) {
-      _cache[spotId] = newDestId;
+      final effectiveIsSaved = isSaved ?? existing?.isSaved ?? true;
+      // 只有当isSaved=true时才更新_cache（基础缓存代表"已收藏"）
+      if (effectiveIsSaved) {
+        _cache[spotId] = newDestId;
+      } else {
+        _cache.remove(spotId);  // 取消收藏时从基础缓存中移除
+      }
       _fullStatusCache[spotId] = SpotStatusData(
         destinationId: newDestId,
+        isSaved: effectiveIsSaved,
         isMustGo: isMustGo ?? existing?.isMustGo ?? false,
         isTodaysPlan: isTodaysPlan ?? existing?.isTodaysPlan ?? false,
         isVisited: isVisited ?? existing?.isVisited ?? false,
@@ -107,17 +119,19 @@ class WishlistStatusCache {
 
   /// 批量更新缓存
   static void updateAll(Map<String, String?> statusMap) {
-    _cache.clear();
-    _cache.addAll(statusMap);
+    for (final entry in statusMap.entries) {
+      if (entry.value != null) {
+        _cache[entry.key] = entry.value;
+      } else {
+        _cache.remove(entry.key);
+      }
+    }
   }
 
   /// 批量更新完整状态缓存
   static void updateAllFullStatus(Map<String, SpotStatusData> statusMap) {
-    _fullStatusCache.clear();
-    _fullStatusCache.addAll(statusMap);
-    // 同步更新基础缓存
-    _cache.clear();
     for (final entry in statusMap.entries) {
+      _fullStatusCache[entry.key] = entry.value;
       if (entry.value.destinationId != null) {
         _cache[entry.key] = entry.value.destinationId;
       }
@@ -165,12 +179,15 @@ final wishlistStatusProvider =
       final spotId = tripSpot.spotId;
       final destId = trip.id;
 
-      // 基础状态
-      statusMap[spotId] = destId;
+      // 基础状态（只有isSaved=true的才放入statusMap）
+      if (tripSpot.isSaved) {
+        statusMap[spotId] = destId;
+      }
 
-      // 完整状态（包含 check-in 详情）
+      // 完整状态（包含 check-in 详情和isSaved状态）
       final fullStatus = SpotStatusData(
         destinationId: destId,
+        isSaved: tripSpot.isSaved,  // 从后端读取isSaved状态
         isMustGo: tripSpot.isMustGo,
         isTodaysPlan: tripSpot.isTodaysPlan,
         isVisited: tripSpot.isVisited,
@@ -186,13 +203,17 @@ final wishlistStatusProvider =
       if (googlePlaceId != null &&
           googlePlaceId.isNotEmpty &&
           googlePlaceId != spotId) {
-        statusMap[googlePlaceId] = destId;
+        if (tripSpot.isSaved) {
+          statusMap[googlePlaceId] = destId;
+        }
         fullStatusMap[googlePlaceId] = fullStatus;
       }
 
       // 同时使用 spot.name 作为 key，解决 AI 地点 ID 不匹配问题
       if (tripSpot.spot != null && tripSpot.spot!.name.isNotEmpty) {
-        statusMap[tripSpot.spot!.name] = destId;
+        if (tripSpot.isSaved) {
+          statusMap[tripSpot.spot!.name] = destId;
+        }
         fullStatusMap[tripSpot.spot!.name] = fullStatus;
       }
     }

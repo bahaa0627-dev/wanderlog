@@ -21,6 +21,7 @@ import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
@@ -934,6 +935,12 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
           );
         }
         
+        // 等待可能正在进行的收藏/取消收藏操作完成
+        await WishlistStatusCache.awaitPendingOperation(spot.id);
+        if (spot.name.isNotEmpty) {
+          await WishlistStatusCache.awaitPendingOperation(spot.name);
+        }
+
         final tripRepo = ref.read(tripRepositoryProvider);
         final trips = await tripRepo.getMyTrips().timeout(
           const Duration(seconds: 2),
@@ -942,17 +949,34 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
 
         // 查找包含这个 spot 的 trip
         for (final trip in trips) {
-          final tripDetail = await tripRepo.getTripById(trip.id);
-          final tripSpots = tripDetail.tripSpots ?? [];
+          // 优先使用 getMyTrips 已包含的 tripSpots，避免额外请求
+          List<TripSpot> tripSpots = trip.tripSpots ?? [];
+          if (tripSpots.isEmpty) {
+            final tripDetail = await tripRepo.getTripById(trip.id);
+            tripSpots = tripDetail.tripSpots ?? [];
+          }
 
           for (final ts in tripSpots) {
-            // 匹配逻辑：比较 UUID 或 googlePlaceId
-            // spot.id 在 map_page.Spot 中实际上是 googlePlaceId
+            // 匹配逻辑：优先匹配 spotId / googlePlaceId，其次 name+city
             final tsSpot = ts.spot;
-            final matchById = tsSpot?.id == spot.id;
-            final matchByGooglePlaceId = tsSpot?.googlePlaceId == spot.id;
+            bool isMatch = false;
+            if (ts.spotId == spot.id) {
+              isMatch = true;
+            } else if (tsSpot?.id == spot.id) {
+              isMatch = true;
+            } else if (tsSpot?.googlePlaceId != null && tsSpot?.googlePlaceId == spot.id) {
+              isMatch = true;
+            } else if (tsSpot?.name != null && spot.name.isNotEmpty) {
+              final sameName = tsSpot!.name.trim().toLowerCase() ==
+                  spot.name.trim().toLowerCase();
+              final sameCity = (tsSpot.city ?? '').trim().toLowerCase() ==
+                  spot.city.trim().toLowerCase();
+              if (sameName && (spot.city.isEmpty || sameCity)) {
+                isMatch = true;
+              }
+            }
             
-            if (matchById || matchByGooglePlaceId) {
+            if (isMatch) {
               isSaved = ts.isSaved == true;
               isMustGo = ts.isMustGo == true;
               isTodaysPlan = ts.isTodaysPlan == true;
@@ -981,6 +1005,20 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
           userNotes: userNotes,
           userPhotos: userPhotos,
         );
+        if (spot.name.isNotEmpty) {
+          WishlistStatusCache.updateFullStatus(
+            spot.name,
+            destinationId: destinationId,
+            isSaved: isSaved ?? false,
+            isMustGo: isMustGo,
+            isTodaysPlan: isTodaysPlan,
+            isVisited: isVisited,
+            visitDate: visitDate,
+            userRating: userRating,
+            userNotes: userNotes,
+            userPhotos: userPhotos,
+          );
+        }
         
         // 关闭loading dialog
         if (mounted && Navigator.canPop(context)) {
@@ -994,7 +1032,10 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         Navigator.pop(context);
       }
       // 失败时使用缓存
-      final fullStatus = WishlistStatusCache.getFullStatus(spot.id);
+      SpotStatusData? fullStatus = WishlistStatusCache.getFullStatus(spot.id);
+      if (fullStatus == null && spot.name.isNotEmpty) {
+        fullStatus = WishlistStatusCache.getFullStatus(spot.name);
+      }
       isSaved = fullStatus?.isSaved ?? fullStatus?.destinationId != null;
       isMustGo = fullStatus?.isMustGo;
       isTodaysPlan = fullStatus?.isTodaysPlan;

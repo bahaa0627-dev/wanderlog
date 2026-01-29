@@ -30,7 +30,7 @@ import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
-import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpotStatus;
+import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpot, TripSpotStatus;
 
 /// 聊天消息模型
 class _ChatMessage {
@@ -80,7 +80,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   
   // SearchV2 状态
   SearchLoadingState _searchLoadingState = const SearchLoadingState.complete();
-  int _remainingQuota = 10;
 
   @override
   void initState() {
@@ -89,7 +88,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     print('🚀 AIAssistantPage initState called');
     _preloadWishlistStatus();
     _loadHistories();
-    _loadQuota();
     
     // 首次构建完成后滚动到底部
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -101,22 +99,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   Future<void> _preloadWishlistStatus() async {
     // 触发 wishlistStatusProvider 加载
     ref.read(wishlistStatusProvider);
-  }
-
-  Future<void> _loadQuota() async {
-    final user = ref.read(authProvider).user;
-    if (user != null) {
-      try {
-        final quota = await _searchV2Service.getRemainingQuota(user.id);
-        if (mounted && quota > 0) {
-          setState(() => _remainingQuota = quota);
-        }
-        // 如果获取失败或返回0，保持默认值10，让后端来判断
-      } catch (e) {
-        debugPrint('⚠️ Failed to load quota: $e');
-        // 保持默认值，不阻止用户
-      }
-    }
   }
 
   Future<void> _loadHistories() async {
@@ -411,9 +393,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
     if (!mounted) return;
 
-    // 更新配额
-    setState(() => _remainingQuota = result.quotaRemaining);
-
     if (result.error != null) {
       setState(() {
         _messages.add(_ChatMessage(
@@ -680,6 +659,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             );
           }
           
+          // 等待可能正在进行的收藏/取消收藏操作完成
+          await WishlistStatusCache.awaitPendingOperation(spotId);
+          if (spot.name.isNotEmpty) {
+            await WishlistStatusCache.awaitPendingOperation(spot.name);
+          }
+
           final tripRepo = ref.read(tripRepositoryProvider);
           final trips = await tripRepo.getMyTrips().timeout(
             const Duration(seconds: 2),
@@ -690,8 +675,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           );
           
           for (final trip in trips) {
-            final tripDetail = await tripRepo.getTripById(trip.id);
-            final tripSpots = tripDetail.tripSpots ?? [];
+            // 优先使用 getMyTrips 已包含的 tripSpots，避免额外请求
+            List<TripSpot> tripSpots = trip.tripSpots ?? [];
+            if (tripSpots.isEmpty) {
+              final tripDetail = await tripRepo.getTripById(trip.id);
+              tripSpots = tripDetail.tripSpots ?? [];
+            }
             
             for (final ts in tripSpots) {
               bool isMatch = false;
@@ -791,49 +780,15 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: AppTheme.black, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            ref.invalidate(wishlistStatusProvider);
+            ref.invalidate(tripsProvider);
+            Navigator.pop(context);
+          },
         ),
-        title: Text('AI Travel Assistant', style: AppTheme.headlineMedium(context).copyWith(fontSize: 18)),
+        title: Text('VAGO AI', style: AppTheme.headlineMedium(context).copyWith(fontSize: 18)),
         centerTitle: false,
-        actions: [
-          // 显示剩余配额 - Requirements: 13.3, 13.4
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _remainingQuota > 0 
-                      ? AppTheme.primaryYellow.withOpacity(0.2)
-                      : Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _remainingQuota > 0 ? AppTheme.primaryYellow : Colors.red,
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.auto_awesome,
-                      size: 14,
-                      color: _remainingQuota > 0 ? AppTheme.black : Colors.red,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$_remainingQuota/10',
-                      style: AppTheme.bodySmall(context).copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: _remainingQuota > 0 ? AppTheme.black : Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+        actions: const [],
       ),
       body: Column(
         children: [
@@ -1648,6 +1603,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
   
   /// 构建城市地点分组展示（城市名 + 横滑卡片）
+  // ignore: unused_element
   Widget _buildCityPlacesSection(CityPlacesGroup cityGroup) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1842,7 +1798,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
   void _checkWishlistStatus() {
     final statusAsync = ref.read(wishlistStatusProvider);
     statusAsync.whenData((statusMap) {
-      final spotId = widget.spot.id ?? widget.spot.name;
+      final spotId = widget.spot.id;
       final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
       if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
         setState(() {
@@ -1870,7 +1826,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
   }
 
   Future<void> _handleWishlistTap() async {
-    final spotId = widget.spot.id ?? widget.spot.name;
+    final spotId = widget.spot.id;
     
     if (_isInWishlist) {
       // 取消收藏
@@ -1938,7 +1894,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
     // 监听 wishlist 状态变化
     ref.listen<AsyncValue<Map<String, String?>>>(wishlistStatusProvider, (prev, next) {
       next.whenData((statusMap) {
-        final spotId = widget.spot.id ?? widget.spot.name;
+        final spotId = widget.spot.id;
         final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
         if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
           setState(() {
@@ -1977,6 +1933,12 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
               );
             }
             
+            // 等待可能正在进行的收藏/取消收藏操作完成
+            await WishlistStatusCache.awaitPendingOperation(spotId);
+            if (widget.spot.name.isNotEmpty) {
+              await WishlistStatusCache.awaitPendingOperation(widget.spot.name);
+            }
+
             final tripRepo = ref.read(tripRepositoryProvider);
             final trips = await tripRepo.getMyTrips().timeout(
               const Duration(seconds: 2),
@@ -1984,8 +1946,12 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
             );
             
             for (final trip in trips) {
-              final tripDetail = await tripRepo.getTripById(trip.id);
-              final tripSpots = tripDetail.tripSpots ?? [];
+              // 优先使用 getMyTrips 已包含的 tripSpots，避免额外请求
+              List<TripSpot> tripSpots = trip.tripSpots ?? [];
+              if (tripSpots.isEmpty) {
+                final tripDetail = await tripRepo.getTripById(trip.id);
+                tripSpots = tripDetail.tripSpots ?? [];
+              }
               
               for (final ts in tripSpots) {
                 bool isMatch = false;
@@ -2251,8 +2217,12 @@ class _PlaceDetailLoaderState extends ConsumerState<_PlaceDetailLoader> {
           );
           
           for (final trip in trips) {
-            final tripDetail = await tripRepo.getTripById(trip.id);
-            final tripSpots = tripDetail.tripSpots ?? [];
+            // 优先使用 getMyTrips 已包含的 tripSpots，避免额外请求
+            List<TripSpot> tripSpots = trip.tripSpots ?? [];
+            if (tripSpots.isEmpty) {
+              final tripDetail = await tripRepo.getTripById(trip.id);
+              tripSpots = tripDetail.tripSpots ?? [];
+            }
             
             for (final ts in tripSpots) {
               bool isMatch = false;
@@ -2771,6 +2741,7 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
   }
   
   /// 格式化评论数量
+  // ignore: unused_element
   String _formatRatingCount(int count) {
     if (count >= 1000000) {
       return '${(count / 1000000).toStringAsFixed(1)}M';

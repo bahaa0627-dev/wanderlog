@@ -23,6 +23,11 @@ import 'package:wanderlog/features/search/providers/countries_cities_stats_provi
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
 import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
+import 'package:wanderlog/features/map/providers/public_place_providers.dart';
+import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
+import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
+import 'package:wanderlog/shared/models/trip_model.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
 
 /// 搜索结果地图页面
 class SearchResultsMapPage extends ConsumerStatefulWidget {
@@ -70,6 +75,8 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   bool _isLoading = true;
   bool _isAiGenerated = false;
   bool _isAiGenerationFailed = false;
+  bool _isEmptyOverlayDismissed = false;
+  bool _isExiting = false;
   String? _error;
   Position? _currentMapCenter;
   double _currentZoom = 12.0;
@@ -107,6 +114,8 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     _searchQuery = widget.searchQuery;
     _activeFilterTags = Set.from(widget.selectedTags);
     _cardPageController = PageController(viewportFraction: 0.55);
+    _currentMapCenter ??= Position(2.3522, 48.8566);
+    _currentZoom = 12.0;
     
     // 初始化搜索框文本
     if (_searchQuery != null && _searchQuery!.isNotEmpty) {
@@ -127,6 +136,27 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _handleExit() {
+    if (_isExiting) return;
+    setState(() {
+      _isExiting = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
+  void _dismissEmptyOverlay() {
+    if (_isEmptyOverlayDismissed) return;
+    setState(() {
+      _isEmptyOverlayDismissed = true;
+      _currentMapCenter ??= Position(2.3522, 48.8566);
+      _currentZoom = 12.0;
+    });
   }
 
   /// 计算所有地点的标签统计
@@ -172,6 +202,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
       _isLoading = true;
       _error = null;
       _isAiGenerationFailed = false;
+      _isEmptyOverlayDismissed = false;
     });
 
     try {
@@ -189,13 +220,15 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
         );
         print('📍 Keyword search result: ${result.places.length} places');
         
-        // 关键词搜索没有结果时，显示无结果提示
+        // 关键词搜索没有结果时：保持地图页，保留上次结果
         if (result.places.isEmpty) {
           setState(() {
             _isLoading = false;
-            _isAiGenerationFailed = true; // 复用这个状态来显示无结果 UI
-            _currentMapCenter = Position(0, 35); // 默认显示全球视图
-            _currentZoom = 2.0;
+            _isAiGenerationFailed = false;
+            if (_spots.isEmpty) {
+              _currentMapCenter = Position(2.3522, 48.8566);
+              _currentZoom = 12.0;
+            }
           });
           return;
         }
@@ -205,8 +238,8 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
           _isLoading = false;
           _spots = [];
           _cachedFilteredSpots = [];
-          _currentMapCenter = Position(0, 35); // 全球视图
-          _currentZoom = 2.0;
+          _currentMapCenter = Position(2.3522, 48.8566); // 默认巴黎
+          _currentZoom = 12.0;
         });
         return;
       } else {
@@ -265,6 +298,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
         _spots = limitedSpots;
         _isAiGenerated = result.isAiGenerated;
         _isLoading = false;
+        _isEmptyOverlayDismissed = false;
         _computeTagsCounts();
         _updateFilteredSpots(); // 更新过滤后的缓存
         
@@ -396,7 +430,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     // 添加调试日志
     print('🔧 [search_results_map_page.dart] _showSpotDetail for spot: ${spot.name}');
     
-    // 加载地点的状态信息（包括 check-in 数据）
+    // 先从缓存读取状态，作为兜底
     bool? isSaved;
     bool? isMustGo;
     bool? isTodaysPlan;
@@ -407,93 +441,177 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     List<String>? userPhotos;
     String? destinationId;
     Map<String, dynamic>? linkedCollection;
+    Spot detailSpot = spot;
+
+    final cachedStatus = WishlistStatusCache.getFullStatus(spot.id) ??
+        (spot.name.isNotEmpty ? WishlistStatusCache.getFullStatus(spot.name) : null);
+    if (cachedStatus != null) {
+      isSaved = cachedStatus.isSaved;
+      isMustGo = cachedStatus.isMustGo;
+      isTodaysPlan = cachedStatus.isTodaysPlan;
+      isVisited = cachedStatus.isVisited;
+      visitDate = cachedStatus.visitDate;
+      userRating = cachedStatus.userRating;
+      userNotes = cachedStatus.userNotes;
+      userPhotos = cachedStatus.userPhotos;
+      destinationId = cachedStatus.destinationId;
+    }
+
+    // 先显示loading indicator，确保先加载数据再展示
+    if (mounted) {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryYellow),
+        ),
+      );
+    }
 
     try {
       final authState = ref.read(authProvider);
-      if (authState.isAuthenticated) {
-        // 先显示loading indicator
-        if (mounted) {
-          showDialog<void>(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryYellow),
-            ),
-          );
-        }
-        
-        // 并行加载合集数据和状态数据
-        final futures = await Future.wait([
-          // 加载合集数据
-          Future(() async {
-            try {
-              final repo = ref.read(collectionRepositoryProvider);
-              final collections = await repo.getCollectionsForPlace(spot.id);
-              if (collections.isNotEmpty) {
-                final random = math.Random();
-                return collections[random.nextInt(collections.length)];
-              }
-            } catch (e) {
-              print('❌ [search_results_map_page.dart] Error loading collections: $e');
-            }
-            return null;
-          }),
-          // 加载状态数据
-          Future(() async {
-            final tripRepo = ref.read(tripRepositoryProvider);
-            final trips = await tripRepo.getMyTrips();
-            
-            for (final trip in trips) {
-              final tripDetail = await tripRepo.getTripById(trip.id);
-              final tripSpots = tripDetail.tripSpots ?? [];
+      // 等待可能正在进行的收藏/取消收藏操作完成
+      await WishlistStatusCache.awaitPendingOperation(spot.id);
+      if (spot.name.isNotEmpty) {
+        await WishlistStatusCache.awaitPendingOperation(spot.name);
+      }
 
-              for (final ts in tripSpots) {
-                if (ts.spot?.id == spot.id) {
-                  return {
-                    'isSaved': ts.isSaved == true,
-                    'isMustGo': ts.isMustGo == true,
-                    'isTodaysPlan': ts.isTodaysPlan == true,
-                    'isVisited': ts.isVisited == true,
-                    'visitDate': ts.visitDate,
-                    'userRating': ts.userRating,
-                    'userNotes': ts.userNotes,
-                    'userPhotos': ts.userPhotos?.cast<String>(),
-                    'destinationId': trip.id,
-                  };
+      final detailFuture = () async {
+        try {
+          final repo = ref.read(publicPlaceRepositoryProvider);
+          return await repo
+              .getPlaceById(spot.id)
+              .timeout(const Duration(milliseconds: 1200), onTimeout: () => null);
+        } catch (_) {
+          return null;
+        }
+      }();
+
+      final collectionsFuture = () async {
+        try {
+          final repo = ref.read(collectionRepositoryProvider);
+          final collections = await repo
+              .getCollectionsForPlace(spot.id)
+              .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
+          if (collections.isNotEmpty) {
+            final random = math.Random();
+            return collections[random.nextInt(collections.length)];
+          }
+        } catch (e) {
+          print('❌ [search_results_map_page.dart] Error loading collections: $e');
+        }
+        return null;
+      }();
+
+      final statusFuture = () async {
+        if (!authState.isAuthenticated) return null;
+        try {
+          final tripRepo = ref.read(tripRepositoryProvider);
+          final trips = await tripRepo.getMyTrips().timeout(
+            const Duration(milliseconds: 1200),
+            onTimeout: () => <Trip>[],
+          );
+
+          for (final trip in trips) {
+            // 优先使用 getMyTrips 已包含的 tripSpots，避免额外请求
+            List<TripSpot> tripSpots = trip.tripSpots ?? [];
+            final needsDetail = tripSpots.isEmpty || tripSpots.any((ts) => ts.spot == null);
+            if (needsDetail) {
+              final tripDetail = await tripRepo.getTripById(trip.id)
+                  .timeout(const Duration(milliseconds: 1200));
+              tripSpots = tripDetail.tripSpots ?? [];
+            }
+            for (final ts in tripSpots) {
+              bool isMatch = false;
+              if (ts.spotId == spot.id) {
+                isMatch = true;
+              } else if (ts.spot?.id == spot.id) {
+                isMatch = true;
+              } else if (ts.spot?.googlePlaceId != null &&
+                  ts.spot?.googlePlaceId == spot.id) {
+                isMatch = true;
+              } else if (ts.spot?.name != null && spot.name.isNotEmpty) {
+                final sameName = ts.spot!.name.trim().toLowerCase() ==
+                    spot.name.trim().toLowerCase();
+                final sameCity = (ts.spot?.city ?? '').trim().toLowerCase() ==
+                    spot.city.trim().toLowerCase();
+                if (sameName && (spot.city.isEmpty || sameCity)) {
+                  isMatch = true;
                 }
+              } else if (ts.spot?.name == spot.name && spot.name.isNotEmpty) {
+                isMatch = true;
+              }
+              if (isMatch) {
+                return {
+                  'isSaved': ts.isSaved == true,
+                  'isMustGo': ts.isMustGo == true,
+                  'isTodaysPlan': ts.isTodaysPlan == true,
+                  'isVisited': ts.isVisited == true,
+                  'visitDate': ts.visitDate,
+                  'userRating': ts.userRating,
+                  'userNotes': ts.userNotes,
+                  'userPhotos': ts.userPhotos?.cast<String>(),
+                  'destinationId': trip.id,
+                };
               }
             }
-            return null;
-          }),
-        ]);
-        
-        linkedCollection = futures[0] as Map<String, dynamic>?;
-        final statusData = futures[1] as Map<String, dynamic>?;
-        
-        if (statusData != null) {
-          isSaved = statusData['isSaved'] as bool?;
-          isMustGo = statusData['isMustGo'] as bool?;
-          isTodaysPlan = statusData['isTodaysPlan'] as bool?;
-          isVisited = statusData['isVisited'] as bool?;
-          visitDate = statusData['visitDate'] as DateTime?;
-          userRating = statusData['userRating'] as int?;
-          userNotes = statusData['userNotes'] as String?;
-          userPhotos = statusData['userPhotos'] as List<String>?;
-          destinationId = statusData['destinationId'] as String?;
+          }
+        } catch (e) {
+          print('❌ [search_results_map_page.dart] Error loading status: $e');
         }
-        
-        // 关闭loading dialog
-        if (mounted && Navigator.canPop(context)) {
-          Navigator.pop(context);
-        }
+        return null;
+      }();
+
+        final results = await Future.wait([detailFuture, collectionsFuture, statusFuture])
+          .timeout(const Duration(milliseconds: 1500));
+      final detailPlace = results[0] as PublicPlaceDto?;
+      linkedCollection = results[1] as Map<String, dynamic>?;
+      final statusData = results[2] as Map<String, dynamic>?;
+
+      if (detailPlace != null) {
+        detailSpot = _mergeSpotWithPublicPlace(detailSpot, detailPlace);
+      }
+
+      if (statusData != null) {
+        isSaved = statusData['isSaved'] as bool?;
+        isMustGo = statusData['isMustGo'] as bool?;
+        isTodaysPlan = statusData['isTodaysPlan'] as bool?;
+        isVisited = statusData['isVisited'] as bool?;
+        visitDate = statusData['visitDate'] as DateTime?;
+        userRating = statusData['userRating'] as int?;
+        userNotes = statusData['userNotes'] as String?;
+        userPhotos = statusData['userPhotos'] as List<String>?;
+        destinationId = statusData['destinationId'] as String?;
+      } else if (cachedStatus != null) {
+        // 若服务端未返回，使用缓存兜底
+        isSaved = cachedStatus.isSaved;
+        isMustGo = cachedStatus.isMustGo;
+        isTodaysPlan = cachedStatus.isTodaysPlan;
+        isVisited = cachedStatus.isVisited;
+        visitDate = cachedStatus.visitDate;
+        userRating = cachedStatus.userRating;
+        userNotes = cachedStatus.userNotes;
+        userPhotos = cachedStatus.userPhotos;
+        destinationId = cachedStatus.destinationId;
       }
     } catch (e) {
       print('❌ [search_results_map_page.dart] Error loading data: $e');
-      // 关闭loading dialog
+      // 失败时使用缓存兜底
+      if (cachedStatus != null) {
+        isSaved = cachedStatus.isSaved;
+        isMustGo = cachedStatus.isMustGo;
+        isTodaysPlan = cachedStatus.isTodaysPlan;
+        isVisited = cachedStatus.isVisited;
+        visitDate = cachedStatus.visitDate;
+        userRating = cachedStatus.userRating;
+        userNotes = cachedStatus.userNotes;
+        userPhotos = cachedStatus.userPhotos;
+        destinationId = cachedStatus.destinationId;
+      }
+    } finally {
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
-      // 静默失败，使用默认值
     }
     
     // 添加调试日志
@@ -515,7 +633,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => UnifiedSpotDetailModal(
-        spot: spot,
+        spot: detailSpot,
         linkedCollection: linkedCollection,
         initialIsSaved: isSaved,
         initialIsMustGo: isMustGo,
@@ -527,6 +645,39 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
         initialUserPhotos: userPhotos,
         initialDestinationId: destinationId,
       ),
+    );
+  }
+
+  Spot _mergeSpotWithPublicPlace(Spot base, PublicPlaceDto place) {
+    final cover = (place.coverImage != null && place.coverImage!.isNotEmpty)
+        ? place.coverImage!
+        : base.coverImage;
+    final images = place.images.isNotEmpty ? place.images : base.images;
+    final tags = place.displayTagsEn.isNotEmpty ? place.displayTagsEn : base.tags;
+    final displayCategory = place.categoryEn ?? place.category ?? base.category;
+
+    return base.copyWith(
+      name: place.name,
+      city: place.city ?? base.city,
+      country: place.country ?? base.country,
+      category: displayCategory,
+      latitude: place.latitude,
+      longitude: place.longitude,
+      rating: place.rating ?? base.rating,
+      ratingCount: place.ratingCount ?? base.ratingCount,
+      coverImage: cover,
+      images: images,
+      tags: tags,
+      displayTagsEn: place.displayTagsEn.isNotEmpty
+          ? place.displayTagsEn
+          : base.displayTagsEn,
+      description: place.description ?? base.description,
+      aiSummary: place.aiSummary ?? base.aiSummary,
+      address: place.address ?? base.address,
+      phoneNumber: place.phoneNumber ?? base.phoneNumber,
+      website: place.website ?? base.website,
+      openingHours: place.openingHours ?? base.openingHours,
+      customFields: place.customFields ?? base.customFields,
     );
   }
 
@@ -705,28 +856,32 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     final topPadding = mediaQuery.padding.top;
     final filteredSpots = _filteredSpots;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
+    return WillPopScope(
+      onWillPop: () async {
+        _handleExit();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Stack(
+          children: [
           // Map
-          if (!_isLoading && _error == null)
-            Positioned.fill(
-              child: _MapSurface(
-                mapKey: _mapKey,
-                spots: filteredSpots,
-                fallbackCenter: _currentMapCenter ?? Position(0, 0),
-                currentCenter: _currentMapCenter,
-                currentZoom: _currentZoom,
-                selectedSpot: _selectedSpot,
-                onSpotTap: _handleSpotTap,
-                onCameraMove: (center, zoom) {
-                  // 只更新内部状态，不触发 setState 避免重建地图
-                  _currentMapCenter = center;
-                  _currentZoom = zoom;
-                },
-              ),
+          Positioned.fill(
+            child: _MapSurface(
+              mapKey: _mapKey,
+              spots: filteredSpots,
+              fallbackCenter: _currentMapCenter ?? Position(2.3522, 48.8566),
+              currentCenter: _currentMapCenter,
+              currentZoom: _currentZoom,
+              selectedSpot: _selectedSpot,
+              onSpotTap: _handleSpotTap,
+              onCameraMove: (center, zoom) {
+                // 只更新内部状态，不触发 setState 避免重建地图
+                _currentMapCenter = center;
+                _currentZoom = zoom;
+              },
             ),
+          ),
 
           // Top gradient
           Positioned(
@@ -763,7 +918,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                     IconButtonCustom(
                       icon: Icons.arrow_back,
                       size: 36,
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: _handleExit,
                       backgroundColor: Colors.white,
                     ),
                     const SizedBox(width: 8),
@@ -869,7 +1024,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
           ),
 
           // Loading overlay
-          if (_isLoading)
+          if (_isLoading && !_isEmptyOverlayDismissed)
             Positioned.fill(
               child: ColoredBox(
                 color: Colors.white.withOpacity(0.92),
@@ -894,7 +1049,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
             ),
 
           // Error overlay
-          if (_error != null)
+          if (_error != null && !_isEmptyOverlayDismissed)
             Positioned.fill(
               child: Container(
                 color: Colors.white.withOpacity(0.95),
@@ -918,7 +1073,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
               ),
             ),
 
-          if (!_isLoading && _error == null && filteredSpots.isNotEmpty)
+          if (!_isLoading && _error == null && filteredSpots.isNotEmpty && !_isExiting)
             Positioned(
               bottom: 32,
               left: 0,
@@ -978,16 +1133,17 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                     );
                   },
                 ),
-            ),
+              ),
 
           // AI generation failed overlay
-          if (_isAiGenerationFailed)
+          if (_isAiGenerationFailed && !_isEmptyOverlayDismissed)
             _buildAiFailedOverlay(),
 
           // Empty state
           if (!_isLoading && _error == null && filteredSpots.isEmpty && !_isAiGenerationFailed)
             _buildEmptyState(),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1027,7 +1183,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
           final tag = displayTags[index];
           final isSelected = _activeFilterTags.contains(tag);
           final emoji = _tagEmoji(tag);
-          final count = _allTagsCounts[tag];
           
           // 获取显示名称（去掉前缀）
           final displayName = TagTypeFilterBar.getTagDisplayName(tag);
@@ -1063,110 +1218,153 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   }
 
   Widget _buildAiFailedOverlay() => Positioned.fill(
-      child: Container(
-        color: Colors.white,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    IconButtonCustom(
-                      icon: Icons.arrow_back,
-                      onPressed: () => Navigator.of(context).pop(),
-                      backgroundColor: Colors.white,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _searchDisplayText,
-                        style: AppTheme.titleMedium(context),
+        child: Container(
+          color: Colors.white,
+          child: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      IconButtonCustom(
+                        icon: Icons.arrow_back,
+                        onPressed: _handleExit,
+                        backgroundColor: Colors.white,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _searchDisplayText,
+                          style: AppTheme.titleMedium(context),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 200,
-                          height: 200,
-                          decoration: BoxDecoration(
-                            color: AppTheme.lightGray,
-                            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                            border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 200,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              color: AppTheme.lightGray,
+                              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                              border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.auto_awesome_outlined, size: 64, color: AppTheme.mediumGray),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '✨ AI',
+                                  style: AppTheme.titleMedium(context).copyWith(color: AppTheme.mediumGray),
+                                ),
+                              ],
+                            ),
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.auto_awesome_outlined, size: 64, color: AppTheme.mediumGray),
-                              const SizedBox(height: 8),
-                              Text(
-                                '✨ AI',
-                                style: AppTheme.titleMedium(context).copyWith(color: AppTheme.mediumGray),
-                              ),
-                            ],
+                          const SizedBox(height: 24),
+                          Text('AI Generation Failed', style: AppTheme.headlineMedium(context), textAlign: TextAlign.center),
+                          const SizedBox(height: 12),
+                          Text(
+                            _searchQuery != null && _searchQuery!.isNotEmpty
+                                ? 'No results found for "$_searchQuery".\n\nPlease try a different keyword.'
+                                : 'We couldn\'t generate recommendations for "${_userSelectedTags.join(', ')}" in $_currentCity.\n\nPlease try again later or choose different filters.',
+                            style: AppTheme.bodyMedium(context).copyWith(color: AppTheme.mediumGray),
+                            textAlign: TextAlign.center,
                           ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text('AI Generation Failed', style: AppTheme.headlineMedium(context), textAlign: TextAlign.center),
-                        const SizedBox(height: 12),
-                        Text(
-                          _searchQuery != null && _searchQuery!.isNotEmpty
-                            ? 'No results found for "$_searchQuery".\n\nPlease try a different keyword.'
-                            : 'We couldn\'t generate recommendations for "${_userSelectedTags.join(', ')}" in $_currentCity.\n\nPlease try again later or choose different filters.',
-                          style: AppTheme.bodyMedium(context).copyWith(color: AppTheme.mediumGray),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 32),
-                        PrimaryButton(text: 'Go Back', onPressed: () => Navigator.of(context).pop()),
-                      ],
+                          const SizedBox(height: 32),
+                          PrimaryButton(text: 'Go Back', onPressed: _handleExit),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
 
   Widget _buildEmptyState() {
     // 判断是否是 "All" 模式且没有搜索词
     final isAllModeWithoutSearch = _currentCity.isEmpty && (_searchQuery == null || _searchQuery!.isEmpty);
+
+    if (_isEmptyOverlayDismissed) {
+      return const SizedBox.shrink();
+    }
     
     return Positioned.fill(
-      child: Container(
-        color: Colors.white.withOpacity(0.9),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _dismissEmptyOverlay,
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isAllModeWithoutSearch ? Icons.search : Icons.search_off, 
-                size: 64, 
-                color: AppTheme.mediumGray,
+          child: GestureDetector(
+            onTap: () {},
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                border: Border.all(color: AppTheme.black, width: 1),
+                boxShadow: AppTheme.cardShadow,
               ),
-              const SizedBox(height: 16),
-              Text(
-                isAllModeWithoutSearch ? 'Enter a search term' : 'No spots found', 
-                style: AppTheme.headlineMedium(context),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GestureDetector(
+                        onTap: _dismissEmptyOverlay,
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppTheme.black, width: 1),
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            size: 14,
+                            color: AppTheme.black,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Icon(
+                    isAllModeWithoutSearch ? Icons.search : Icons.search_off,
+                    size: 48,
+                    color: AppTheme.mediumGray,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    isAllModeWithoutSearch ? 'Enter a search term' : 'No spots found',
+                    style: AppTheme.headlineMedium(context),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isAllModeWithoutSearch
+                        ? 'Search for places like "Eiffel Tower" or "Tokyo Tower"'
+                        : 'Try to find another place',
+                    style: AppTheme.bodyMedium(context)
+                        .copyWith(color: AppTheme.mediumGray),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                isAllModeWithoutSearch 
-                    ? 'Search for places like "Eiffel Tower" or "Tokyo Tower"'
-                    : 'Try different filters or another city',
-                style: AppTheme.bodyMedium(context).copyWith(color: AppTheme.mediumGray),
-                textAlign: TextAlign.center,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1360,9 +1558,12 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (widget.spot.rating > 0 || widget.spot.ratingCount > 0) ...[
+                  if (widget.spot.rating > 0 && widget.spot.ratingCount > 0) ...[
                     const SizedBox(height: 8),
-                    _RatingRow(rating: widget.spot.rating, ratingCount: widget.spot.ratingCount),
+                    _RatingRow(
+                      rating: widget.spot.rating,
+                      ratingCount: widget.spot.ratingCount,
+                    ),
                   ],
                 ],
               ),
@@ -1483,38 +1684,35 @@ class _SearchCityPickerSheetState extends ConsumerState<_SearchCityPickerSheet> 
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Select City', style: AppTheme.headlineMedium(context)),
-            const SizedBox(height: 16),
-            // "All" 选项
-            GestureDetector(
-              onTap: () => widget.onCitySelected('', null),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                decoration: BoxDecoration(
-                  color: widget.selectedCity.isEmpty 
-                      ? AppTheme.primaryYellow.withOpacity(0.2) 
-                      : Colors.transparent,
-                  border: Border(
-                    bottom: BorderSide(color: AppTheme.border, width: 1),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      'All (Global Search)',
+            Row(
+              children: [
+                Text('Select City', style: AppTheme.headlineMedium(context)),
+                const Spacer(),
+                // "All" 选项（右上角胶囊样式）
+                GestureDetector(
+                  onTap: () => widget.onCitySelected('', null),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: widget.selectedCity.isEmpty
+                          ? AppTheme.primaryYellow.withOpacity(0.3)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.border),
+                    ),
+                    child: Text(
+                      'All',
                       style: AppTheme.bodyMedium(context).copyWith(
-                        fontWeight: widget.selectedCity.isEmpty ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: widget.selectedCity.isEmpty
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                     ),
-                    const Spacer(),
-                    if (widget.selectedCity.isEmpty)
-                      const Icon(Icons.check, size: 18, color: AppTheme.primaryYellow),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Expanded(
               child: statsState.isLoading
                   ? const Center(child: CircularProgressIndicator())

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
-import 'package:wanderlog/features/search/providers/countries_cities_provider.dart';
+import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 import 'package:wanderlog/features/search/presentation/pages/search_results_map_page.dart';
 
 /// 搜索菜单组件 - 从搜索框下方弹出
@@ -22,6 +22,7 @@ class SearchMenuOverlay extends ConsumerStatefulWidget {
 }
 
 class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
+  static const int _minPlaceCount = 5;
   String? _selectedCountry;
   String? _selectedCity;
   final Set<String> _selectedTags = {};
@@ -54,6 +55,14 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
     'restaurant': {'type': 'category', 'values': ['restaurant', 'bar']},
   };
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(countriesCitiesStatsProvider.notifier).load();
+    });
+  }
+
   /// 将前端选中的标签转换为后端查询参数
   static Map<String, List<String>> convertTagsForSearch(Set<String> selectedTags) {
     final categories = <String>{};
@@ -79,16 +88,20 @@ class _SearchMenuOverlayState extends ConsumerState<SearchMenuOverlay> {
   }
 
   List<String> get _countries {
-    final data = ref.watch(countriesCitiesProvider);
-    final countries = data.keys.toList()..sort();
+    final statsState = ref.watch(countriesCitiesStatsProvider);
+    final countries = statsState.countryNames;
     print('🌍 Countries loaded: ${countries.length} - $countries');
     return countries;
   }
 
   List<String> get _availableCities {
     if (_selectedCountry == null) return [];
-    final data = ref.watch(countriesCitiesProvider);
-    return data[_selectedCountry] ?? [];
+    final statsState = ref.watch(countriesCitiesStatsProvider);
+    return statsState
+        .getCities(_selectedCountry!)
+        .where((c) => c.placeCount >= _minPlaceCount)
+        .map((c) => c.name)
+        .toList();
   }
 
   void _toggleTag(String tag) {

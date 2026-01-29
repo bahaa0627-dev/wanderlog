@@ -326,7 +326,10 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
     final Map<String, List<String>> result = {};
     for (final city in widget.cities) {
       if (city == 'All') continue;
-      final country = widget.cityToCountry[city] ?? 'Other';
+      final country = widget.cityToCountry[city];
+      if (country == null || country.isEmpty) {
+        continue;
+      }
       result.putIfAbsent(country, () => []).add(city);
     }
     return result;
@@ -398,7 +401,9 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
               child: _countries.isEmpty
                   ? Center(
                       child: Text(
-                        'No cities yet',
+                        widget.cities.isNotEmpty
+                            ? 'Loading cities...'
+                            : 'No cities yet',
                         style: AppTheme.bodyMedium(context).copyWith(
                           color: AppTheme.mediumGray,
                         ),
@@ -457,6 +462,7 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
                 final country = _countries[index];
                 final isSelected = country == _selectedCountry;
                 return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
                     setState(() {
                       _selectedCountry = country;
@@ -496,6 +502,7 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
               final cityName = _citiesForSelectedCountry[index];
               final isSelected = cityName == widget.selectedCity;
               return GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => widget.onCitySelected(cityName),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),

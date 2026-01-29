@@ -193,6 +193,12 @@ class _UnifiedSpotDetailModalState
     }
   }
 
+  bool get _hasValidRating {
+    final rating = _spotRating;
+    final count = _spotRatingCount ?? 0;
+    return rating != null && rating > 0 && count > 0;
+  }
+
   String? get _spotRecommendationPhrase {
     try {
       return (widget.spot as dynamic).recommendationPhrase as String?;
@@ -262,6 +268,13 @@ class _UnifiedSpotDetailModalState
         userNotes: userNotes,
         userPhotos: userPhotos,
       );
+    }
+  }
+
+  void _trackPendingOperation(Future<void> operation) {
+    final keys = _collectCacheKeys();
+    for (final key in keys) {
+      WishlistStatusCache.trackPendingOperation(key, operation);
     }
   }
 
@@ -1888,11 +1901,15 @@ class _UnifiedSpotDetailModalState
       _isWishlist = true;
       _hasStatusChanged = true;
     });
+
     CustomToast.showSuccess(context, 'Saved');
 
-    // 3. 后台处理 API 调用
-    print('💾 [_handleAddWishlist] Starting background save');
-    _saveToBackend();
+    // 3. 等待 API 调用完成（确保服务器数据更新）
+    print('💾 [_handleAddWishlist] Waiting for API to complete...');
+    final saveFuture = _saveToBackend();
+    _trackPendingOperation(saveFuture);
+    await saveFuture;
+    print('💾 [_handleAddWishlist] API completed successfully');
     return true;
   }
 
@@ -1987,11 +2004,6 @@ class _UnifiedSpotDetailModalState
       widget.onStatusChanged?.call(_spotId, needsReload: true);
       
       print('✅ [_saveToBackend] Save completed successfully');
-      
-      // 显示明确的成功提示
-      if (mounted) {
-        CustomToast.showSuccess(context, '✅ Saved successfully to $destId');
-      }
     } catch (e) {
       // 失败时回滚
       print('❌ [_saveToBackend] Error: $e');
@@ -2018,27 +2030,15 @@ class _UnifiedSpotDetailModalState
       _isTodaysPlan = false;
       _hasStatusChanged = true;
     });
+
     CustomToast.showSuccess(context, 'Removed');
 
-    // 2. 更新缓存（关键：显式设置isSaved=false）
-    if (_isVisited) {
-      print('🗑️ [_handleRemoveWishlist] Has check-in data, keeping visited status');
-      _updateWishlistCache(
-        destinationId: _destinationId,
-        isSaved: false,  // 明确标记为未收藏
-        isMustGo: false,
-        isTodaysPlan: false,
-        isVisited: true,  // 但保留visited状态
-      );
-    } else {
-      print('🗑️ [_handleRemoveWishlist] No check-in data, removing completely');
-      _updateWishlistCache(remove: true);
-    }
-
-    // 3. 通知父组件
+    // 2. 通知父组件
     widget.onStatusChanged?.call(_spotId, isRemoved: !_isVisited, needsReload: true);
 
-    // 4. 后台调用 API
+    // 3. 等待API调用完成
+    final removeCompleter = Completer<void>();
+    _trackPendingOperation(removeCompleter.future);
     if (_destinationId != null) {
       try {
         print('🗑️ [_handleRemoveWishlist] Calling API...');
@@ -2066,10 +2066,26 @@ class _UnifiedSpotDetailModalState
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
         print('✅ [_handleRemoveWishlist] Providers invalidated');
+        
+        // 4. API完成后更新缓存（确保与服务器状态一致）
+        if (_isVisited) {
+          print('🗑️ [_handleRemoveWishlist] Updating cache: isSaved=false, keeping visited');
+          _updateWishlistCache(
+            destinationId: _destinationId,
+            isSaved: false,
+            isMustGo: false,
+            isTodaysPlan: false,
+            isVisited: true,
+          );
+        } else {
+          print('🗑️ [_handleRemoveWishlist] Removing from cache completely');
+          _updateWishlistCache(remove: true);
+        }
       } catch (e, stackTrace) {
         // 失败时回滚
         print('❌ [_handleRemoveWishlist] API FAILED: $e');
         print('❌ [_handleRemoveWishlist] Stack trace: $stackTrace');
+        
         if (mounted) {
           setState(() {
             _isWishlist = prevWishlist;
@@ -2087,10 +2103,18 @@ class _UnifiedSpotDetailModalState
           CustomToast.showError(context, 'Failed to remove: $e');
         }
         return false;
+      } finally {
+        if (!removeCompleter.isCompleted) {
+          removeCompleter.complete();
+        }
       }
     } else {
       print('⚠️ [_handleRemoveWishlist] No destinationId, skipping API call');
     }
+    if (!removeCompleter.isCompleted) {
+      removeCompleter.complete();
+    }
+    
     print('✅ [_handleRemoveWishlist] COMPLETE');
     return true;
   }
@@ -2860,8 +2884,7 @@ class _UnifiedSpotDetailModalState
                       ],
                       // 5. Rating or Recommendation Phrase with Check-in button on the right
                       // For AI-only places or places without valid rating, show recommendation phrase
-                      if (_isAIOnlySpot ||
-                          (_spotRating == null || _spotRating == 0)) ...[
+                      if (_isAIOnlySpot || !_hasValidRating) ...[
                         Row(
                           children: [
                             const Icon(Icons.auto_awesome,
@@ -2882,7 +2905,7 @@ class _UnifiedSpotDetailModalState
                           ],
                         ),
                         const SizedBox(height: 16),
-                      ] else if (_spotRating != null && _spotRating! > 0) ...[
+                      ] else if (_hasValidRating) ...[
                         Row(
                           children: [
                             Text(

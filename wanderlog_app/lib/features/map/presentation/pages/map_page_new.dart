@@ -28,6 +28,7 @@ import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
 
 /// 地点来源枚举
 enum SpotSource {
@@ -1544,6 +1545,12 @@ class _MapPageState extends ConsumerState<MapPage> {
           );
         }
         
+        // 等待可能正在进行的收藏/取消收藏操作完成
+        await WishlistStatusCache.awaitPendingOperation(spot.id);
+        if (spot.name.isNotEmpty) {
+          await WishlistStatusCache.awaitPendingOperation(spot.name);
+        }
+
         // 从服务器获取最新的完整状态 - 2秒超时
         final tripRepo = ref.read(tripRepositoryProvider);
         final trips = await tripRepo.getMyTrips().timeout(
@@ -1559,8 +1566,12 @@ class _MapPageState extends ConsumerState<MapPage> {
         // 查找包含这个 spot 的 trip
         for (final trip in trips) {
           try {
-            final tripDetail = await tripRepo.getTripById(trip.id);
-            final tripSpots = tripDetail.tripSpots ?? [];
+            // 优先使用 getMyTrips 已包含的 tripSpots，避免额外请求
+            List<TripSpot> tripSpots = trip.tripSpots ?? [];
+            if (tripSpots.isEmpty) {
+              final tripDetail = await tripRepo.getTripById(trip.id);
+              tripSpots = tripDetail.tripSpots ?? [];
+            }
             
             print('� [SPOT_DETAIL_DEBUG] Checking trip: ${trip.name} (${tripSpots.length} spots)');
             
@@ -3021,8 +3032,7 @@ class _BottomSpotCardState extends ConsumerState<_BottomSpotCard> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (widget.spot.rating > 0 ||
-                        widget.spot.ratingCount > 0) ...[
+                    if (widget.spot.rating > 0 && widget.spot.ratingCount > 0) ...[
                       const SizedBox(height: 8),
                       _RatingRow(
                         rating: widget.spot.rating,

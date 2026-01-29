@@ -15,6 +15,7 @@ class Spot {
     required this.longitude,
     this.tags = const [],
     this.images = const [],
+    this.coverImage,
     this.createdAt,
     this.updatedAt,
     this.googlePlaceId,
@@ -33,7 +34,17 @@ class Spot {
     this.customFields,
   });
 
-  factory Spot.fromJson(Map<String, dynamic> json) => _$SpotFromJson(json);
+  factory Spot.fromJson(Map<String, dynamic> json) {
+    final spot = _$SpotFromJson(json);
+    final fallbackCover = (json['coverImage'] ?? json['cover_image']) as String?;
+    if (fallbackCover == null || fallbackCover.isEmpty) {
+      return spot;
+    }
+    if (spot.coverImage == fallbackCover) {
+      return spot;
+    }
+    return spot.copyWith(coverImage: fallbackCover);
+  }
   final String id;
   final String? googlePlaceId;
   final String? city;
@@ -47,6 +58,7 @@ class Spot {
   @JsonKey(fromJson: _openingHoursFromJson, toJson: _openingHoursToJson)
   final Map<String, dynamic>? openingHours;
   final List<String> images;
+  final String? coverImage;
   final double? rating;
   final int? ratingCount;
   final int? priceLevel;
@@ -75,6 +87,7 @@ class Spot {
     List<String>? tags,
     Map<String, dynamic>? openingHours,
     List<String>? images,
+    String? coverImage,
     double? rating,
     int? ratingCount,
     int? priceLevel,
@@ -98,6 +111,7 @@ class Spot {
       tags: tags ?? this.tags,
       openingHours: openingHours ?? this.openingHours,
       images: images ?? this.images,
+      coverImage: coverImage ?? this.coverImage,
       rating: rating ?? this.rating,
       ratingCount: ratingCount ?? this.ratingCount,
       priceLevel: priceLevel ?? this.priceLevel,
@@ -109,6 +123,12 @@ class Spot {
       aiTags: aiTags ?? this.aiTags,
       customFields: customFields ?? this.customFields,
     );
+
+  String? get primaryImage {
+    final cover = coverImage;
+    if (cover != null && cover.isNotEmpty) return cover;
+    return images.isNotEmpty ? images.first : null;
+  }
 }
 
 Map<String, dynamic>? _openingHoursFromJson(dynamic value) {

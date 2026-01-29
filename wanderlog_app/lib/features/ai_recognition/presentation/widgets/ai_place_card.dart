@@ -390,10 +390,20 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
 
-        // Force provider refresh by reading the future - ensures UI state is updated
-        await ref.read(wishlistStatusProvider.future);
-        
-        // 清除乐观更新状态，使用真实数据
+        // 立即更新本地缓存，避免退出后状态不同步
+        WishlistStatusCache.updateFullStatus(
+          _spotId,
+          destinationId: destinationId,
+          isSaved: false,
+        );
+        if (widget.place.name.isNotEmpty) {
+          WishlistStatusCache.updateFullStatus(
+            widget.place.name,
+            destinationId: destinationId,
+            isSaved: false,
+          );
+        }
+
         if (mounted) {
           setState(() => _optimisticWishlistState = null);
         }
@@ -455,10 +465,20 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
 
-        // Force provider refresh by reading the future - ensures UI state is updated
-        await ref.read(wishlistStatusProvider.future);
-        
-        // 清除乐观更新状态，使用真实数据
+        // 立即更新本地缓存，避免退出后状态不同步
+        WishlistStatusCache.updateFullStatus(
+          _spotId,
+          destinationId: destId,
+          isSaved: true,
+        );
+        if (widget.place.name.isNotEmpty) {
+          WishlistStatusCache.updateFullStatus(
+            widget.place.name,
+            destinationId: destId,
+            isSaved: true,
+          );
+        }
+
         if (mounted) {
           setState(() => _optimisticWishlistState = null);
         }
@@ -569,22 +589,17 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                               border:
                                   Border.all(color: AppTheme.black, width: 1.5),
                             ),
-                            child: _isSaving
-                                ? const Padding(
-                                    padding: EdgeInsets.all(6),
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          AppTheme.black,),
-                                    ),
-                                  )
-                                : Icon(
-                                    isInWishlist
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    size: 16,
-                                    color: AppTheme.black,
-                                  ),
+                            child: AnimatedOpacity(
+                              opacity: _isSaving ? 0.6 : 1.0,
+                              duration: const Duration(milliseconds: 120),
+                              child: Icon(
+                                isInWishlist
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                size: 16,
+                                color: AppTheme.black,
+                              ),
+                            ),
                           ),
                         ),
                       ),

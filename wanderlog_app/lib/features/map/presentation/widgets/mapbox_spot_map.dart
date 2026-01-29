@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/category_emoji.dart';
@@ -30,6 +31,7 @@ class MapboxSpotMap extends StatefulWidget {
     this.cameraPadding,
     this.visitedSpots,
     this.markerMode = MapboxMarkerMode.bubble,
+    this.gestureRecognizers,
     super.key,
   });
 
@@ -43,6 +45,7 @@ class MapboxSpotMap extends StatefulWidget {
   final MbxEdgeInsets? cameraPadding;
   final Map<String, bool>? visitedSpots; // spotId -> isVisited
   final MapboxMarkerMode markerMode;
+  final Set<Factory<OneSequenceGestureRecognizer>>? gestureRecognizers;
 
   @override
   State<MapboxSpotMap> createState() => MapboxSpotMapState();
@@ -522,7 +525,6 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final path = Path();
     
     // 画上半圆（从左侧底部到右侧底部，180度）
-    final bottomY = circleCenterY + radius;
     path.addArc(
       Rect.fromCircle(
         center: Offset(centerX, circleCenterY),
@@ -1051,6 +1053,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
         onPointerPanZoomEnd: _handlePointerPanZoomEnd,
         child: MapWidget(
           key: const ValueKey('shared-mapbox-widget'),
+          gestureRecognizers: widget.gestureRecognizers,
           cameraOptions: CameraOptions(
             center: Point(coordinates: _currentCenter ?? widget.initialCenter),
             zoom: _currentZoom,

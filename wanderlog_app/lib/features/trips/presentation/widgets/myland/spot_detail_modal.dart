@@ -213,7 +213,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                     color: AppTheme.primaryYellow,
                     size: 20,
                   ),
-                ),
+                ),f
               ],
             ),
           ],
@@ -457,7 +457,9 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                       ),
                       const SizedBox(height: 16),
                     ],
-                    if (widget.spot.rating != null)
+                    if (widget.spot.rating != null &&
+                        (widget.spot.rating ?? 0) > 0 &&
+                        (widget.spot.ratingCount ?? 0) > 0)
                       Row(
                         children: [
                           Text(

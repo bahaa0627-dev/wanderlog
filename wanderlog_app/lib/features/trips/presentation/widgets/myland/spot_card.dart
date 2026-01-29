@@ -61,6 +61,7 @@ class SpotCard extends StatelessWidget {
     final String? openingText = openingEval?.summaryText;
     final bool isClosingSoon = openingEval?.isClosingSoon ?? false;
     final List<String>? tagsLine = _tagsList();
+    final imageUrl = spot.primaryImage;
 
     return GestureDetector(
       onTap: onTap,
@@ -85,8 +86,8 @@ class SpotCard extends StatelessWidget {
               ),
               child: SizedBox(
                 width: 110,
-                child: spot.images.isNotEmpty
-                    ? _buildImageWidget(spot.images.first)
+                child: imageUrl != null
+                    ? _buildImageWidget(imageUrl)
                     : _buildPlaceholder(),
               ),
             ),
@@ -119,7 +120,9 @@ class SpotCard extends StatelessWidget {
                           ],
                         ),
                         // Rating: number + stars + count
-                        if (spot.rating != null) ...[
+                        if (spot.rating != null &&
+                            (spot.rating ?? 0) > 0 &&
+                            (spot.ratingCount ?? 0) > 0) ...[
                           const SizedBox(height: 2),
                           Row(
                             children: [
@@ -228,8 +231,8 @@ class SpotCard extends StatelessWidget {
         ),
         child: AspectRatio(
           aspectRatio: 4 / 5,
-          child: spot.images.isNotEmpty
-              ? _buildImageWidget(spot.images.first)
+          child: spot.primaryImage != null
+              ? _buildImageWidget(spot.primaryImage!)
               : _buildPlaceholder(),
         ),
       ),

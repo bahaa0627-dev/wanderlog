@@ -4,10 +4,14 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
+import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot, SpotSource;
+import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// 推荐结果地图组件
@@ -45,7 +49,56 @@ class RecommendationMapView extends StatefulWidget {
   State<RecommendationMapView> createState() => _RecommendationMapViewState();
 }
 
+map_page.Spot _placeToMapSpot(PlaceResult place) {
+  final spotId = place.id ?? place.name;
+  final tags = place.displayTagsEn ?? place.tags ?? const <String>[];
+  final source = place.source == PlaceSource.ai
+      ? map_page.SpotSource.ai
+      : (place.source == PlaceSource.google
+          ? map_page.SpotSource.google
+          : map_page.SpotSource.cache);
+
+  return map_page.Spot(
+    id: spotId,
+    name: place.name,
+    city: place.city ?? '',
+    country: place.country,
+    category: tags.isNotEmpty ? tags.first : 'poi',
+    latitude: place.latitude,
+    longitude: place.longitude,
+    rating: place.rating ?? 0.0,
+    ratingCount: place.ratingCount ?? 0,
+    coverImage: place.coverImage,
+    images: place.images.isNotEmpty
+        ? place.images
+        : (place.coverImage.isNotEmpty ? [place.coverImage] : const []),
+    tags: tags,
+    displayTagsEn: place.displayTagsEn ?? const [],
+    description: null,
+    aiSummary: place.summary,
+    isFromAI: place.source == PlaceSource.ai,
+    isVerified: place.isVerified,
+    recommendationPhrase: place.recommendationPhrase,
+    source: source,
+    address: place.address,
+    phoneNumber: place.phoneNumber,
+    website: place.website,
+    openingHours: null,
+    customFields: null,
+  );
+}
+
+PlaceResult? _findPlaceBySpot(List<PlaceResult> places, map_page.Spot spot) {
+  for (final place in places) {
+    if ((place.id ?? place.name) == spot.id) {
+      return place;
+    }
+  }
+  return null;
+}
+
 class _RecommendationMapViewState extends State<RecommendationMapView> {
+  final GlobalKey<MapboxSpotMapState> _mapKey = GlobalKey<MapboxSpotMapState>();
   MapboxMap? _mapboxMap;
   PointAnnotationManager? _pointAnnotationManager;
   final Map<String, Uint8List> _markerBitmapCache = {};
@@ -348,6 +401,7 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
   }
 
   /// 启用地图手势
+  // ignore: unused_element
   Future<void> _enableMapGestures() async {
     final map = _mapboxMap;
     if (map == null) return;
@@ -373,6 +427,17 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
   @override
   Widget build(BuildContext context) {
     final (center, zoom) = _calculateCameraPosition();
+    final spots = widget.places.map(_placeToMapSpot).toList();
+    final selectedId = widget.selectedPlace?.id ?? widget.selectedPlace?.name;
+    map_page.Spot? selectedSpot;
+    if (selectedId != null) {
+      for (final spot in spots) {
+        if (spot.id == selectedId) {
+          selectedSpot = spot;
+          break;
+        }
+      }
+    }
 
     return Container(
       height: widget.height,
@@ -387,30 +452,20 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
         child: Stack(
           children: [
             // 地图
-            MapWidget(
-              key: const ValueKey('recommendation-map'),
-              cameraOptions: CameraOptions(
-                center: Point(coordinates: center),
-                zoom: zoom,
-              ),
-              onMapCreated: (mapboxMap) async {
-                _mapboxMap = mapboxMap;
-                _pointAnnotationManager =
-                    await mapboxMap.annotations.createPointAnnotationManager();
-
-                await _enableMapGestures();
-                await _addMarkers();
-
-                // 设置点击监听
-                _pointAnnotationManager?.addOnPointAnnotationClickListener(
-                  _MarkerClickListener(
-                    onMarkerTap: (place) => widget.onPlaceTap?.call(place),
-                    annotationPlaceResolver: (annotationId) =>
-                        _placeByAnnotationId[annotationId],
-                  ),
-                );
-
-                _isMapReady = true;
+            MapboxSpotMap(
+              key: _mapKey,
+              spots: spots,
+              initialCenter: center,
+              initialZoom: zoom,
+              selectedSpot: selectedSpot,
+              onSpotTap: (spot) {
+                final place = _findPlaceBySpot(widget.places, spot);
+                if (place != null) {
+                  widget.onPlaceTap?.call(place);
+                }
+              },
+              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
               },
             ),
             // 地图标题
@@ -499,6 +554,7 @@ class _FullscreenRecommendationMap extends StatefulWidget {
 
 class _FullscreenRecommendationMapState
     extends State<_FullscreenRecommendationMap> {
+  final GlobalKey<MapboxSpotMapState> _mapKey = GlobalKey<MapboxSpotMapState>();
   MapboxMap? _mapboxMap;
   PointAnnotationManager? _pointAnnotationManager;
   final Map<String, Uint8List> _markerBitmapCache = {};
@@ -506,7 +562,8 @@ class _FullscreenRecommendationMapState
   final Map<String, PlaceResult> _placeByAnnotationId = {};
   PlaceResult? _selectedPlace;
   final PageController _cardPageController =
-      PageController(viewportFraction: 0.6);
+      PageController(viewportFraction: 0.55);
+  bool _isExiting = false;
 
   @override
   void initState() {
@@ -524,6 +581,16 @@ class _FullscreenRecommendationMapState
         });
       }
     }
+  }
+
+  void _handleExit() {
+    if (_isExiting) return;
+    setState(() => _isExiting = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+    });
   }
 
   @override
@@ -582,6 +649,7 @@ class _FullscreenRecommendationMapState
     return (Position(centerLng, centerLat), zoom);
   }
 
+  // ignore: unused_element
   Future<void> _addMarkers() async {
     final manager = _pointAnnotationManager;
     if (manager == null) return;
@@ -772,6 +840,7 @@ class _FullscreenRecommendationMapState
     return byteData!.buffer.asUint8List();
   }
 
+  // ignore: unused_element
   Future<void> _enableMapGestures() async {
     final map = _mapboxMap;
     if (map == null) return;
@@ -808,8 +877,8 @@ class _FullscreenRecommendationMapState
           curve: Curves.easeInOut,
         );
       }
-      // 刷新标记样式
-      _addMarkers();
+      final target = Position(place.longitude, place.latitude);
+      _mapKey.currentState?.jumpToPosition(target, zoom: 14.0);
     }
   }
 
@@ -820,15 +889,9 @@ class _FullscreenRecommendationMapState
       setState(() {
         _selectedPlace = place;
       });
-      // 刷新标记样式
-      _addMarkers();
-      // 移动地图到选中的地点
-      _mapboxMap?.flyTo(
-        CameraOptions(
-          center: Point(coordinates: Position(place.longitude, place.latitude)),
-          zoom: 14.0,
-        ),
-        MapAnimationOptions(duration: 500),
+      _mapKey.currentState?.jumpToPosition(
+        Position(place.longitude, place.latitude),
+        zoom: 14.0,
       );
     }
   }
@@ -837,38 +900,47 @@ class _FullscreenRecommendationMapState
   Widget build(BuildContext context) {
     final (center, zoom) = _calculateCameraPosition();
     final topPadding = MediaQuery.of(context).padding.top;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final spots = widget.places.map(_placeToMapSpot).toList();
+    final selectedId = _selectedPlace?.id ?? _selectedPlace?.name;
+    map_page.Spot? selectedSpot;
+    if (selectedId != null) {
+      for (final spot in spots) {
+        if (spot.id == selectedId) {
+          selectedSpot = spot;
+          break;
+        }
+      }
+    }
 
-    // 卡片尺寸 - 和其他地图页保持一致 (3:4 比例)
+    // 卡片尺寸 - 与 home map 页一致 (3:4 比例)
     const cardWidth = 210.0;
     const cardHeight = 280.0;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
+    return WillPopScope(
+      onWillPop: () async {
+        _handleExit();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Stack(
+          clipBehavior: Clip.none,
+          children: [
           // 全屏地图
-          MapWidget(
-            key: const ValueKey('fullscreen-recommendation-map'),
-            cameraOptions: CameraOptions(
-              center: Point(coordinates: center),
-              zoom: zoom,
-            ),
-            onMapCreated: (mapboxMap) async {
-              _mapboxMap = mapboxMap;
-              _pointAnnotationManager =
-                  await mapboxMap.annotations.createPointAnnotationManager();
-
-              await _enableMapGestures();
-              await _addMarkers();
-
-              _pointAnnotationManager?.addOnPointAnnotationClickListener(
-                _MarkerClickListener(
-                  onMarkerTap: _handleMarkerTap,
-                  annotationPlaceResolver: (annotationId) =>
-                      _placeByAnnotationId[annotationId],
-                ),
-              );
+          MapboxSpotMap(
+            key: _mapKey,
+            spots: spots,
+            initialCenter: center,
+            initialZoom: zoom,
+            selectedSpot: selectedSpot,
+            onSpotTap: (spot) {
+              final place = _findPlaceBySpot(widget.places, spot);
+              if (place != null) {
+                _handleMarkerTap(place);
+              }
+            },
+            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+              Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
             },
           ),
           // 顶部返回按钮
@@ -876,7 +948,7 @@ class _FullscreenRecommendationMapState
             top: topPadding + 12,
             left: 16,
             child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
+              onTap: _handleExit,
               child: Container(
                 width: 40,
                 height: 40,
@@ -920,36 +992,45 @@ class _FullscreenRecommendationMapState
             ),
           ),
           // 底部横滑卡片列表 - 和其他地图页保持一致
-          if (widget.places.isNotEmpty)
+          if (widget.places.isNotEmpty && !_isExiting)
             Positioned(
               left: 0,
               right: 0,
-              bottom: bottomPadding + 16,
-              height: cardHeight,
-              child: PageView.builder(
-                controller: _cardPageController,
-                onPageChanged: _onCardPageChanged,
-                itemCount: widget.places.length,
-                itemBuilder: (context, index) {
-                  final place = widget.places[index];
-                  final isSelected = (place.id ?? place.name) ==
-                      (_selectedPlace?.id ?? _selectedPlace?.name);
-                  return AnimatedScale(
-                    scale: isSelected ? 1.0 : 0.9,
-                    duration: const Duration(milliseconds: 200),
-                    child: SizedBox(
-                      width: cardWidth,
-                      height: cardHeight,
-                      child: _BottomPlaceCard(
-                        place: place,
-                        onTap: () => widget.onPlaceTap?.call(place),
+              bottom: 0,
+              height: cardHeight + 16,
+              child: SafeArea(
+                top: false,
+                left: false,
+                right: false,
+                child: PageView.builder(
+                  controller: _cardPageController,
+                  clipBehavior: Clip.none,
+                  onPageChanged: _onCardPageChanged,
+                  itemCount: widget.places.length,
+                  itemBuilder: (context, index) {
+                    final place = widget.places[index];
+                    final isSelected = (place.id ?? place.name) ==
+                        (_selectedPlace?.id ?? _selectedPlace?.name);
+                    return AnimatedScale(
+                      scale: isSelected ? 1.0 : 0.92,
+                      duration: const Duration(milliseconds: 250),
+                      child: Center(
+                        child: SizedBox(
+                          width: cardWidth,
+                          height: cardHeight,
+                          child: _BottomPlaceCard(
+                            place: place,
+                            onTap: () => widget.onPlaceTap?.call(place),
+                          ),
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1158,20 +1239,6 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                             ],
                           ),
 
-                        // AI summary - 显示在卡片下方（最多 2 行）
-                        if (widget.place.summary.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.place.summary,
-                            style: AppTheme.bodySmall(context).copyWith(
-                              color: Colors.white.withOpacity(0.92),
-                              height: 1.2,
-                              fontSize: 12,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
                       ],
                     ),
                   ),
@@ -1184,6 +1251,7 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
 }
 
 /// 标记点击监听器
+// ignore: unused_element
 class _MarkerClickListener extends OnPointAnnotationClickListener {
   _MarkerClickListener({
     required this.onMarkerTap,

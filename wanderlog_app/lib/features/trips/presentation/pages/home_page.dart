@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -24,6 +25,7 @@ import 'package:wanderlog/features/search/providers/countries_cities_stats_provi
 import 'package:wanderlog/features/profile/presentation/pages/mine_page.dart';
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({
@@ -83,6 +85,15 @@ class _HomePageState extends ConsumerState<HomePage> {
         ref.read(countriesCitiesProvider.notifier).preload();
         // 预加载城市选择器数据（带统计信息），避免打开时加载慢
         ref.read(countriesCitiesStatsProvider.notifier).load();
+        // 预加载用户目的地列表，确保城市选择器秒级可用
+        final authState = ref.read(authProvider);
+        if (authState.isAuthenticated) {
+          unawaited(
+            ref.read(tripRepositoryProvider)
+                .getMyTrips()
+                .timeout(const Duration(seconds: 3), onTimeout: () => []),
+          );
+        }
         // 预加载用户收藏和 check-in 状态，确保进入 map 页面时状态已经准备好
         _preloadWishlistStatus();
       }

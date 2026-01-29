@@ -32,6 +32,7 @@ import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/services/spot_cache_service.dart';
+import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
 
 class SpotsTabController {
   _SpotsTabState? _state;
@@ -314,6 +315,16 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         _pendingSelectedSlug = savedSlug;
       }
     }
+
+    // 预加载国家/城市统计，用于国家归类
+    ref.read(countriesCitiesStatsProvider.notifier).load();
+
+    // 监听国家城市统计变化，更新城市映射
+    ref.listenManual(countriesCitiesStatsProvider, (previous, next) {
+      if (mounted && previous?.countries != next.countries) {
+        _notifyCityOptionsChanged();
+      }
+    });
     
     // 监听 tripsProvider 变化，实时刷新数据
     ref.listenManual(tripsProvider, (previous, next) {
@@ -913,6 +924,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   /// 获取当前 tab 下按国家->城市分组的所有地点
   Map<String, Map<String, List<Spot>>> _getSpotsByCountryCityForCurrentTab() {
     final Map<String, Map<String, List<Spot>>> result = {};
+    final cityToCountry = _buildCityToCountryMap();
     for (final entry in _entries) {
       bool includeEntry = false;
       
@@ -934,8 +946,16 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       
       if (includeEntry) {
         final city = entry.city.trim();
-        final country = entry.spot.country?.trim() ?? 'Unknown';
-        if (city.isNotEmpty) {
+        final normalized = _normalizeCityKey(city);
+        final country = cityToCountry[city] ??
+            cityToCountry[normalized] ??
+            entry.spot.country?.trim() ??
+            '';
+        final normalizedCountry = country.trim().toLowerCase();
+        final isInvalidCountry = normalizedCountry.isEmpty ||
+            normalizedCountry == 'other' ||
+            normalizedCountry == 'unknown';
+        if (city.isNotEmpty && !isInvalidCountry) {
           result.putIfAbsent(country, () => {});
           result[country]!.putIfAbsent(city, () => []).add(entry.spot);
         }
@@ -1092,6 +1112,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             _entries.add(entry);
           }
         });
+        _notifyCityOptionsChanged();
       }
     } else {
       // 没有缓存，显示 loading
@@ -1159,6 +1180,11 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           (existing) => existing.toLowerCase() == city.toLowerCase(),
         );
         _userCityHistory.insert(0, city);
+      }
+
+      // 目的地列表已就绪，先更新城市选项（无需等待 tripSpots 详情）
+      if (mounted) {
+        _notifyCityOptionsChanged();
       }
 
       // Step 2.2: 智能分步加载 - 只加载当前选中城市的数据
@@ -1500,15 +1526,40 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     );
   }
 
+  String _normalizeCityKey(String city) {
+    final trimmed = city.trim();
+    if (trimmed.isEmpty) return '';
+    return trimmed.split(',').first.trim().toLowerCase();
+  }
+
   /// 构建城市到国家的映射
   Map<String, String> _buildCityToCountryMap() {
     final Map<String, String> result = {};
+    final statsState = ref.read(countriesCitiesStatsProvider);
+    final Map<String, String> statsCityToCountry = {};
+    for (final country in statsState.countries) {
+      for (final city in country.cities) {
+        final key = _normalizeCityKey(city.name);
+        if (key.isNotEmpty) {
+          statsCityToCountry.putIfAbsent(key, () => country.name);
+        }
+      }
+    }
     for (final entry in _entries) {
       final city = entry.city.trim();
-      final country = entry.spot.country?.trim();
-      if (city.isNotEmpty && country != null && country.isNotEmpty) {
+      final explicitCountry = entry.spot.country?.trim();
+      final fallbackCountry = statsCityToCountry[_normalizeCityKey(city)];
+      final resolvedCountry = (explicitCountry != null && explicitCountry.isNotEmpty)
+          ? explicitCountry
+          : fallbackCountry;
+      final normalizedCountry = resolvedCountry?.trim().toLowerCase();
+      final isInvalidCountry = normalizedCountry == null ||
+          normalizedCountry.isEmpty ||
+          normalizedCountry == 'other' ||
+          normalizedCountry == 'unknown';
+      if (city.isNotEmpty && !isInvalidCountry) {
         // 只保留第一个找到的国家（避免重复覆盖）
-        result.putIfAbsent(city, () => country);
+        result.putIfAbsent(city, () => resolvedCountry!);
       }
     }
     return result;
@@ -3252,8 +3303,7 @@ class _SpotCarouselCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl =
-        entry.spot.images.isNotEmpty ? entry.spot.images.first : null;
+    final imageUrl = entry.spot.primaryImage;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -3714,8 +3764,8 @@ class _VisitedSpotCard extends StatelessWidget {
           ),
           child: AspectRatio(
             aspectRatio: 4 / 5,
-            child: entry.spot.images.isNotEmpty
-                ? _buildImageWidget(entry.spot.images.first)
+            child: entry.spot.primaryImage != null
+                ? _buildImageWidget(entry.spot.primaryImage!)
                 : _buildPlaceholder(),
           ),
         ),
@@ -3961,8 +4011,8 @@ class _VisitedSpotCard extends StatelessWidget {
                     ),
                     child: SizedBox(
                       width: 110,
-                      child: entry.spot.images.isNotEmpty
-                          ? _buildImageWidget(entry.spot.images.first)
+                      child: entry.spot.primaryImage != null
+                          ? _buildImageWidget(entry.spot.primaryImage!)
                           : _buildPlaceholder(),
                     ),
                   ),

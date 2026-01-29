@@ -22,6 +22,7 @@ import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
@@ -73,6 +74,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
   late List<Spot> _currentSpots;
   bool _isSearching = false; // 搜索加载状态
   bool _hasSearchResults = false; // 是否有搜索结果
+  bool _isExiting = false;
 
   // 需要过滤的无效标签（旧的 Google 分类等）
   static const Set<String> _invalidTags = {
@@ -147,15 +149,23 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
 
   @override
   void dispose() {
-    // Hide bottom cards to prevent showing during exit transition
-    setState(() {
-      _mapSpots = [];
-    });
     _cardPageController.removeListener(_onCardPageChanged);
     _cardPageController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _handleExit() {
+    if (_isExiting) return;
+    setState(() {
+      _isExiting = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.of(context).pop();
+      }
+    });
   }
 
   /// 转换 Spot 模型到地图使用的格式
@@ -440,6 +450,12 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
           );
         }
         
+        // 等待可能正在进行的收藏/取消收藏操作完成
+        await WishlistStatusCache.awaitPendingOperation(spot.id);
+        if (spot.name.isNotEmpty) {
+          await WishlistStatusCache.awaitPendingOperation(spot.name);
+        }
+
         final tripRepo = ref.read(tripRepositoryProvider);
         final trips = await tripRepo.getMyTrips().timeout(
           const Duration(seconds: 2),
@@ -448,8 +464,12 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
 
         // 查找包含这个 spot 的 trip
         for (final trip in trips) {
-          final tripDetail = await tripRepo.getTripById(trip.id);
-          final tripSpots = tripDetail.tripSpots ?? [];
+          // 优先使用 getMyTrips 已包含的 tripSpots，避免额外请求
+          List<TripSpot> tripSpots = trip.tripSpots ?? [];
+          if (tripSpots.isEmpty) {
+            final tripDetail = await tripRepo.getTripById(trip.id);
+            tripSpots = tripDetail.tripSpots ?? [];
+          }
 
           for (final ts in tripSpots) {
             // 匹配逻辑：比较 UUID 或 googlePlaceId
@@ -702,9 +722,14 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     final allTags = _getAllUniqueTags();
     final spots = _filteredSpots;
 
-    return Scaffold(
-      body: Stack(
-        children: [
+    return WillPopScope(
+      onWillPop: () async {
+        _handleExit();
+        return false;
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
           // 全屏地图
           MapboxSpotMap(
             key: _mapKey,
@@ -763,7 +788,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
           ),
 
           // 底部地点卡片滑动列表 - 与 map_page_new.dart 保持一致
-          if (spots.isNotEmpty)
+          if (spots.isNotEmpty && !_isExiting)
             Positioned(
               bottom: 32, // 与 map_page_new.dart 保持一致
               left: 0,
@@ -841,7 +866,8 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -894,7 +920,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
           IconButtonCustom(
             icon: Icons.fullscreen_exit,
             size: 36,
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: _handleExit,
             backgroundColor: Colors.white,
           ),
         ],
@@ -1492,7 +1518,7 @@ class _RatingRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 没有评分时不显示任何内容
-    if (rating <= 0 && ratingCount <= 0) {
+    if (rating <= 0 || ratingCount <= 0) {
       return const SizedBox.shrink();
     }
     

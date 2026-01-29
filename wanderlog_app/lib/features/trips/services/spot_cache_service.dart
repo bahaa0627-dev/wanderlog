@@ -86,6 +86,7 @@ class CachedSpotEntry {
       'phoneNumber': spot.phoneNumber,
       'googlePlaceId': spot.googlePlaceId,
       'ratingCount': spot.ratingCount,
+      'coverImage': spot.coverImage,
       'images':
           spot.images.isNotEmpty ? <String>[spot.images.first] : <String>[],
       'tags': spot.tags,
@@ -114,6 +115,7 @@ class CachedSpotEntry {
       phoneNumber: json['phoneNumber'] as String?,
       googlePlaceId: json['googlePlaceId'] as String?,
       ratingCount: json['ratingCount'] as int?,
+      coverImage: json['coverImage'] as String?,
       images: (json['images'] as List?)?.cast<String>() ?? [],
       tags: (json['tags'] as List?)?.cast<String>() ?? [],
       displayTagsEn: (json['displayTagsEn'] as List?)?.cast<String>(),

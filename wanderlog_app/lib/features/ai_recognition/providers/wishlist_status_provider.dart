@@ -60,6 +60,34 @@ class WishlistStatusCache {
   // 完整状态缓存 (spotId -> SpotStatusData)
   static final Map<String, SpotStatusData> _fullStatusCache = {};
 
+  // 进行中的收藏/取消收藏操作 (spotId -> Future)
+  static final Map<String, Future<void>> _pendingOperations = {};
+
+  /// 记录进行中的操作（用于等待服务端更新完成）
+  static void trackPendingOperation(String spotId, Future<void> operation) {
+    _pendingOperations[spotId] = operation;
+    operation.whenComplete(() {
+      // 只清理同一个 Future，避免覆盖
+      if (_pendingOperations[spotId] == operation) {
+        _pendingOperations.remove(spotId);
+      }
+    });
+  }
+
+  /// 等待进行中的操作完成（避免读取到旧的服务端数据）
+  static Future<void> awaitPendingOperation(
+    String spotId, {
+    Duration timeout = const Duration(seconds: 1),
+  }) async {
+    final pending = _pendingOperations[spotId];
+    if (pending == null) return;
+    try {
+      await pending.timeout(timeout);
+    } catch (_) {
+      // 超时或异常不阻塞
+    }
+  }
+
   /// 更新基础收藏状态
   static void update(String spotId, String? destinationId) {
     if (destinationId != null) {
@@ -155,6 +183,7 @@ class WishlistStatusCache {
   static void clear() {
     _cache.clear();
     _fullStatusCache.clear();
+    _pendingOperations.clear();
   }
 }
 

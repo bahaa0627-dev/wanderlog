@@ -19,6 +19,7 @@ import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
+import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 
@@ -1000,6 +1001,12 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
           );
         }
         
+        // 等待可能正在进行的收藏/取消收藏操作完成
+        await WishlistStatusCache.awaitPendingOperation(spot.id);
+        if (spot.name.isNotEmpty) {
+          await WishlistStatusCache.awaitPendingOperation(spot.name);
+        }
+
         final tripRepo = ref.read(tripRepositoryProvider);
         final trips = await tripRepo.getMyTrips().timeout(
           const Duration(seconds: 2),
@@ -1008,8 +1015,12 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
 
         // 查找包含这个 spot 的 trip
         for (final trip in trips) {
-          final tripDetail = await tripRepo.getTripById(trip.id);
-          final tripSpots = tripDetail.tripSpots ?? [];
+          // 优先使用 getMyTrips 已包含的 tripSpots，避免额外请求
+          List<TripSpot> tripSpots = trip.tripSpots ?? [];
+          if (tripSpots.isEmpty) {
+            final tripDetail = await tripRepo.getTripById(trip.id);
+            tripSpots = tripDetail.tripSpots ?? [];
+          }
 
           for (final ts in tripSpots) {
             if (ts.spot?.id == spot.id) {

@@ -1,9 +1,11 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wanderlog/core/utils/category_emoji.dart';
 import 'package:wanderlog/core/providers/dio_provider.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
-import 'package:wanderlog/shared/models/trip_model.dart';
+import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
 
@@ -120,7 +122,7 @@ final minePageDataProvider = FutureProvider<MinePageData>((ref) async {
     final fullUrl = '$baseUrl/mine/summary';
     print('🏠 [MinePageProvider] Calling GET $fullUrl...');
 
-    final response = await dio.get('/mine/summary');
+    final response = await dio.get<List<dynamic>>('/mine/summary');
     final apiDuration = DateTime.now().difference(startTime).inMilliseconds;
     print('🏠 [MinePageProvider] API request completed in ${apiDuration}ms');
     print('🏠 [MinePageProvider] Response status: ${response.statusCode}');
@@ -216,37 +218,75 @@ MinePageData _processMineRawData(List<dynamic> rawData) {
       // 构建 Spot 对象
       final coverImageUrl = placeMap['coverImage'] as String?;
 
-      // 处理 tags - 可能是 List 或 Map
+      // 处理 images - 可能是 List / String(json)
+      List<String> images = [];
+      final imagesRaw = placeMap['images'];
+      if (imagesRaw is List) {
+        images = imagesRaw
+            .map((e) => e.toString())
+            .where((s) => s.isNotEmpty)
+            .toList();
+      } else if (imagesRaw is String && imagesRaw.isNotEmpty) {
+        images = _parseStringList(imagesRaw);
+      }
+      if (images.isEmpty && coverImageUrl != null && coverImageUrl.isNotEmpty) {
+        images = [coverImageUrl];
+      }
+
+      final ratingRaw = placeMap['rating'];
+      final rating = ratingRaw is num ? ratingRaw.toDouble() : null;
+      final ratingCountRaw =
+          placeMap['ratingCount'] ?? placeMap['rating_count'];
+      final ratingCount = ratingCountRaw is num ? ratingCountRaw.toInt() : null;
+
+      final openingHoursRaw =
+          placeMap['openingHours'] ?? placeMap['opening_hours'];
+      final openingHours = _parseOpeningHours(openingHoursRaw);
+
+      // 处理 tags - 可能是 List / Map / String(json)
       List<String> tags = [];
       final tagsRaw = placeMap['tags'];
       if (tagsRaw is List) {
         tags = tagsRaw.map((e) => e.toString()).toList();
       } else if (tagsRaw is Map) {
-        // 如果是 Map，可能是空对象 {}，转为空数组
-        tags = [];
+        tags = _extractTagsFromStructured(Map<String, dynamic>.from(tagsRaw));
+      } else if (tagsRaw is String && tagsRaw.isNotEmpty) {
+        tags = _parseTagsFromString(tagsRaw);
       }
 
-      // 处理 aiTags - 可能是 List 或 Map
-      List<String> aiTags = [];
+      // 处理 aiTags - 可能是 List / String(json)
+      List<dynamic> aiTags = [];
       final aiTagsRaw = placeMap['aiTags'];
       if (aiTagsRaw is List) {
-        aiTags = aiTagsRaw.map((e) => e.toString()).toList();
-      } else if (aiTagsRaw is Map) {
-        // 如果是 Map，可能是空对象 {}，转为空数组
-        aiTags = [];
+        aiTags = List<dynamic>.from(aiTagsRaw);
+      } else if (aiTagsRaw is String && aiTagsRaw.isNotEmpty) {
+        aiTags = _parseDynamicList(aiTagsRaw);
       }
+
+      final customFields = _parseCustomFields(placeMap['customFields']);
 
       final spot = Spot(
         id: placeMap['id'] as String,
         name: placeMap['name'] as String,
         latitude: (placeMap['latitude'] as num).toDouble(),
         longitude: (placeMap['longitude'] as num).toDouble(),
+        googlePlaceId: placeMap['googlePlaceId'] as String? ??
+            placeMap['google_place_id'] as String?,
         city: placeMap['city'] as String? ?? '',
         country: placeMap['country'] as String? ?? '',
         category: placeMap['category'] as String? ?? 'other',
         tags: tags,
         aiTags: aiTags,
-        images: coverImageUrl != null ? [coverImageUrl] : [], // 封面图作为第一张图片
+        coverImage: coverImageUrl,
+        images: images,
+        address: placeMap['address'] as String?,
+        phoneNumber: placeMap['phoneNumber'] as String? ??
+            placeMap['phone_number'] as String?,
+        website: placeMap['website'] as String?,
+        openingHours: openingHours,
+        rating: rating,
+        ratingCount: ratingCount,
+        customFields: customFields,
       );
 
       // 构建 TripSpot 对象
@@ -411,4 +451,98 @@ bool _isInvalidTag(String tag) {
     'postal_code',
   };
   return invalidTags.contains(tag.toLowerCase());
+}
+
+List<String> _parseStringList(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      return decoded
+          .map((e) => e?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+  } catch (_) {}
+  return [];
+}
+
+List<dynamic> _parseDynamicList(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      return decoded;
+    }
+  } catch (_) {}
+  return [];
+}
+
+List<String> _parseTagsFromString(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      return decoded
+          .map((e) => e?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+    if (decoded is Map) {
+      return _extractTagsFromStructured(Map<String, dynamic>.from(decoded));
+    }
+  } catch (_) {}
+  return [];
+}
+
+List<String> _extractTagsFromStructured(Map<String, dynamic> raw) {
+  final result = <String>[];
+  raw.forEach((_, value) {
+    if (value is List) {
+      for (final item in value) {
+        final tag = item?.toString() ?? '';
+        if (tag.isNotEmpty) result.add(tag);
+      }
+    }
+  });
+  return result;
+}
+
+Map<String, dynamic>? _parseOpeningHours(dynamic value) {
+  if (value == null) return null;
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) return Map<String, dynamic>.from(value);
+  if (value is List) {
+    return {'weekday_text': value.map((e) => e.toString()).toList()};
+  }
+  if (value is String && value.trim().isNotEmpty) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      if (decoded is List) {
+        return {'weekday_text': decoded.map((e) => e.toString()).toList()};
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+PlaceCustomFields? _parseCustomFields(dynamic value) {
+  if (value == null) return null;
+  if (value is Map<String, dynamic>) {
+    return PlaceCustomFields.fromJson(value);
+  }
+  if (value is Map) {
+    return PlaceCustomFields.fromJson(Map<String, dynamic>.from(value));
+  }
+  if (value is String && value.trim().isNotEmpty) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is Map<String, dynamic>) {
+        return PlaceCustomFields.fromJson(decoded);
+      }
+      if (decoded is Map) {
+        return PlaceCustomFields.fromJson(Map<String, dynamic>.from(decoded));
+      }
+    } catch (_) {}
+  }
+  return null;
 }

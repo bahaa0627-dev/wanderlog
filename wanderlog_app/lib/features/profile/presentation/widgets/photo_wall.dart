@@ -23,20 +23,8 @@ class PhotoWall extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // "Your favorite" section
+        // Category chips
         if (topCategories.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Your favorite',
-              style: AppTheme.headlineMedium(context).copyWith(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Category chips
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Wrap(
@@ -121,13 +109,29 @@ class _CategoryChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 14)),
-        const SizedBox(width: 3),
-        Text(
-          '$count $label',
-          style: AppTheme.bodySmall(context).copyWith(
-            fontWeight: FontWeight.w500,
-            fontSize: 12,
+        Container(
+          padding: const EdgeInsets.only(bottom: 2),
+          decoration: const BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: AppTheme.black,
+                width: AppTheme.borderThin,
+              ),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 14)),
+              const SizedBox(width: 3),
+              Text(
+                '$count $label',
+                style: AppTheme.bodySmall(context).copyWith(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
         ),
       ],

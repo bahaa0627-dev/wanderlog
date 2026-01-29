@@ -1077,7 +1077,17 @@ class _CollectionSpotsMapPageState extends ConsumerState<CollectionSpotsMapPage>
         initialUserNotes: userNotes,
         initialUserPhotos: userPhotos,
         initialDestinationId: destinationId,
-        onStatusChanged: (spotId, {isMustGo, isTodaysPlan, isVisited, isRemoved, needsReload}) {
+        onStatusChanged: (spotId,
+            {isMustGo,
+            isTodaysPlan,
+            isVisited,
+            isRemoved,
+            needsReload,
+            visitDate,
+            userRating,
+            userNotes,
+            userPhotos,
+            destinationId}) {
           // 标记需要刷新合集数据
           _shouldRefreshCollections = true;
         },

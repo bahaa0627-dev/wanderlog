@@ -16,7 +16,6 @@ import 'package:wanderlog/features/profile/presentation/widgets/photo_wall.dart'
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart'
     as map_page;
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
-import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
@@ -33,6 +32,57 @@ class MinePage extends ConsumerStatefulWidget {
 
 class _MinePageState extends ConsumerState<MinePage> {
   final ScrollController _scrollController = ScrollController();
+
+  void _openSpotDetailFromMineData(map_page.Spot spot, MinePageData data) {
+    TripSpot? ts;
+    for (final item in data.visitedSpots) {
+      if (item.spot?.id == spot.id) {
+        ts = item;
+        break;
+      }
+    }
+
+    final isSaved = ts?.isSaved;
+    final isMustGo = ts?.isMustGo;
+    final isTodaysPlan = ts?.isTodaysPlan;
+    final isVisited = ts?.isVisited;
+    final visitDate = ts?.visitDate;
+    final userRating = ts?.userRating;
+    final userNotes = ts?.userNotes;
+    final userPhotos = ts?.userPhotos?.cast<String>();
+    final destinationId = ts?.tripId;
+
+    WishlistStatusCache.updateFullStatus(
+      spot.id,
+      destinationId: destinationId,
+      isSaved: isSaved ?? false,
+      isMustGo: isMustGo,
+      isTodaysPlan: isTodaysPlan,
+      isVisited: isVisited,
+      visitDate: visitDate,
+      userRating: userRating,
+      userNotes: userNotes,
+      userPhotos: userPhotos,
+    );
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => UnifiedSpotDetailModal(
+        spot: spot,
+        initialIsSaved: isSaved,
+        initialIsMustGo: isMustGo,
+        initialIsTodaysPlan: isTodaysPlan,
+        initialIsVisited: isVisited,
+        initialVisitDate: visitDate,
+        initialUserRating: userRating,
+        initialUserNotes: userNotes,
+        initialUserPhotos: userPhotos,
+        initialDestinationId: destinationId,
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -112,30 +162,70 @@ class _MinePageState extends ConsumerState<MinePage> {
     print('  - markers: ${data.mapMarkers.length}');
     print('  - visitedSpots: ${data.visitedSpots.length}');
 
+    const pinnedHeaderHeight = 72.0;
+    const pinnedStatsHeight = 68.0;
+    const mapHeight = 220.0;
+    const mapPadding = EdgeInsets.fromLTRB(16, 12, 16, 12);
+    const mapSectionMaxExtent = mapHeight + 12 + 12;
+
+    final mapSection = SizedBox(
+      height: mapSectionMaxExtent,
+      child: Padding(
+        padding: mapPadding,
+        child: _GlobeMapSection(
+          data: data,
+          onExpandTap: () => _openFullscreenMap(context, data),
+          onSpotTap: (spot) => _openSpotDetailFromMineData(spot, data),
+        ),
+      ),
+    );
+
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
-        // Header
-        SliverToBoxAdapter(
-          child: _buildHeader(context),
-        ),
-
-        // Globe map section
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            child: _GlobeMapSection(
-              data: data,
-              onExpandTap: () => _openFullscreenMap(context, data),
+        // Pinned header (title + settings)
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _PinnedHeaderDelegate(
+            height: pinnedHeaderHeight,
+            child: Container(
+              color: AppTheme.background,
+              child: _buildHeader(context),
             ),
           ),
         ),
+
+        // Globe map section
+        SliverPersistentHeader(
+          pinned: false,
+          floating: false,
+          delegate: _CollapsibleMapHeaderDelegate(
+            child: mapSection,
+            maxExtentHeight: mapSectionMaxExtent,
+          ),
+        ),
+
+        // Stats card (below map by default; becomes sticky only after map collapses)
+        if (data.topCategories.isNotEmpty)
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _PinnedHeaderDelegate(
+              height: pinnedStatsHeight,
+              child: Container(
+                color: AppTheme.background,
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+                child: _buildCategorySummaryCard(context, data),
+              ),
+            ),
+          )
+        else
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
         // Photo wall section
         SliverToBoxAdapter(
           child: PhotoWall(
             photos: data.photos,
-            topCategories: data.topCategories,
+            topCategories: const [],
           ),
         ),
 
@@ -185,19 +275,91 @@ class _MinePageState extends ConsumerState<MinePage> {
     );
   }
 
+  Widget _buildCategorySummaryCard(BuildContext context, MinePageData data) {
+    return SizedBox(
+      height: 52,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppTheme.lightYellow,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(
+            color: AppTheme.black,
+            width: AppTheme.borderMedium,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: AppTheme.black,
+              offset: Offset(2, 2),
+              blurRadius: 0,
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                for (int i = 0; i < data.topCategories.length; i++) ...[
+                  Text(
+                    '${data.topCategories[i].emoji} ${data.topCategories[i].count} ${_pluralize(data.topCategories[i].category, data.topCategories[i].count)}',
+                    style: AppTheme.bodySmall(context).copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.black,
+                    ),
+                  ),
+                  if (i != data.topCategories.length - 1)
+                    const SizedBox(width: 14),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _pluralize(String word, int count) {
+    final lower = word.toLowerCase();
+    if (count == 1) return lower;
+    if (lower.endsWith('y')) {
+      return '${lower.substring(0, lower.length - 1)}ies';
+    }
+    if (lower.endsWith('s') || lower.endsWith('x') || lower.endsWith('ch')) {
+      return '${lower}es';
+    }
+    return '${lower}s';
+  }
+
   void _openFullscreenMap(BuildContext context, MinePageData data) {
+    // Pre-seed cache with authoritative visited spot status/check-in fields
+    for (final ts in data.visitedSpots) {
+      final spot = ts.spot;
+      if (spot == null) continue;
+      WishlistStatusCache.updateFullStatus(
+        spot.id,
+        destinationId: ts.tripId,
+        isSaved: ts.isSaved,
+        isMustGo: ts.isMustGo,
+        isTodaysPlan: ts.isTodaysPlan,
+        isVisited: ts.isVisited,
+        visitDate: ts.visitDate,
+        userRating: ts.userRating,
+        userNotes: ts.userNotes,
+        userPhotos: ts.userPhotos?.cast<String>(),
+      );
+    }
+
     // Convert visited spots to map_page.Spot format with cover images
     // Note: visitedSpots is already sorted by visitDate (newest first) in the provider
     final spots =
         data.visitedSpots.where((ts) => ts.spot != null).map((tripSpot) {
       final spot = tripSpot.spot!;
-      // Get cover image from user photos or spot images
-      String coverImage = '';
-      if (tripSpot.userPhotos != null && tripSpot.userPhotos!.isNotEmpty) {
-        coverImage = tripSpot.userPhotos!.first;
-      } else if (spot.images.isNotEmpty) {
-        coverImage = spot.images.first;
-      }
+      // Use place cover image (not check-in photos)
+      final coverImage = (spot.coverImage ?? '').isNotEmpty
+          ? spot.coverImage!
+          : (spot.images.isNotEmpty ? spot.images.first : '');
 
       return map_page.Spot(
         id: spot.id,
@@ -222,44 +384,11 @@ class _MinePageState extends ConsumerState<MinePage> {
 
     // Calculate center from all markers
     Position? center;
-    double zoom = 3.0;
+    double zoom = 10.0;
 
-    if (data.mapMarkers.isNotEmpty) {
-      double minLat = double.infinity;
-      double maxLat = -double.infinity;
-      double minLng = double.infinity;
-      double maxLng = -double.infinity;
-
-      for (final marker in data.mapMarkers) {
-        minLat = math.min(minLat, marker.latitude);
-        maxLat = math.max(maxLat, marker.latitude);
-        minLng = math.min(minLng, marker.longitude);
-        maxLng = math.max(maxLng, marker.longitude);
-      }
-
-      center = Position(
-        (minLng + maxLng) / 2,
-        (minLat + maxLat) / 2,
-      );
-
-      // Calculate appropriate zoom level based on bounds
-      final latDiff = maxLat - minLat;
-      final lngDiff = maxLng - minLng;
-      final maxDiff = math.max(latDiff, lngDiff);
-
-      if (maxDiff > 100) {
-        zoom = 1.0;
-      } else if (maxDiff > 50) {
-        zoom = 2.0;
-      } else if (maxDiff > 20) {
-        zoom = 3.0;
-      } else if (maxDiff > 10) {
-        zoom = 4.0;
-      } else if (maxDiff > 5) {
-        zoom = 5.0;
-      } else {
-        zoom = 6.0;
-      }
+    // Default to the most recent check-in spot (newest first)
+    if (spots.isNotEmpty) {
+      center = Position(spots.first.longitude, spots.first.latitude);
     }
 
     // Navigate to fullscreen map
@@ -275,15 +404,89 @@ class _MinePageState extends ConsumerState<MinePage> {
   }
 }
 
+class _CollapsibleMapHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _CollapsibleMapHeaderDelegate({
+    required this.child,
+    required this.maxExtentHeight,
+  });
+
+  final Widget child;
+  final double maxExtentHeight;
+
+  @override
+  double get minExtent => 0;
+
+  @override
+  double get maxExtent => maxExtentHeight;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final remaining = (maxExtent - shrinkOffset).clamp(0.0, maxExtent);
+    final progress = (remaining / maxExtent).clamp(0.0, 1.0);
+
+    return SizedBox(
+      height: remaining,
+      child: ClipRect(
+        child: Opacity(
+          opacity: progress,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _CollapsibleMapHeaderDelegate oldDelegate) {
+    return oldDelegate.child != child ||
+        oldDelegate.maxExtentHeight != maxExtentHeight;
+  }
+}
+
+class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _PinnedHeaderDelegate({
+    required this.child,
+    required this.height,
+  });
+
+  final Widget child;
+  final double height;
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox(
+      height: height,
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
+    return oldDelegate.child != child || oldDelegate.height != height;
+  }
+}
+
 /// Globe map preview section
 class _GlobeMapSection extends StatefulWidget {
   const _GlobeMapSection({
     required this.data,
     required this.onExpandTap,
+    required this.onSpotTap,
   });
 
   final MinePageData data;
   final VoidCallback onExpandTap;
+  final void Function(map_page.Spot) onSpotTap;
 
   @override
   State<_GlobeMapSection> createState() => _GlobeMapSectionState();
@@ -303,12 +506,9 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
         .take(10)
         .map((tripSpot) {
       final spot = tripSpot.spot!;
-      String coverImage = '';
-      if (tripSpot.userPhotos != null && tripSpot.userPhotos!.isNotEmpty) {
-        coverImage = tripSpot.userPhotos!.first;
-      } else if (spot.images.isNotEmpty) {
-        coverImage = spot.images.first;
-      }
+      final coverImage = (spot.coverImage ?? '').isNotEmpty
+          ? spot.coverImage!
+          : (spot.images.isNotEmpty ? spot.images.first : '');
 
       print(
           '🗺️ [GlobeMap] Adding spot to previewSpots: ${spot.name} at (${spot.latitude}, ${spot.longitude})');
@@ -340,10 +540,13 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
     Position center = Position(10, 48); // Default: Europe
     double zoom = 3.0;
 
+    map_page.Spot? selected;
+
     if (previewSpots.isNotEmpty) {
       // Priority: center on the most recent check-in (first spot)
       final latestSpot = previewSpots.first;
       center = Position(latestSpot.longitude, latestSpot.latitude);
+      selected = latestSpot;
 
       // Calculate bounds from all preview spots for zoom
       double minLat = double.infinity;
@@ -382,6 +585,9 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
         zoom = 7.0;
       }
 
+      // Avoid globe-like appearance: keep zoom in a "normal map" range
+      zoom = math.max(zoom, 9.0);
+
       print(
           '🗺️ [GlobeMap] Calculated center (latest spot): (${center.lng}, ${center.lat}), zoom: $zoom');
     }
@@ -394,6 +600,13 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
           color: AppTheme.black,
           width: AppTheme.borderMedium,
         ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppTheme.black,
+            offset: Offset(2, 3),
+            blurRadius: 0,
+          ),
+        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge - 2),
@@ -409,9 +622,9 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
                 spots: previewSpots,
                 initialCenter: center,
                 initialZoom: zoom,
-                selectedSpot: null,
-                onSpotTap: (_) {},
-                markerMode: MapboxMarkerMode.checkIn,
+                selectedSpot: selected,
+                onSpotTap: widget.onSpotTap,
+                markerMode: MapboxMarkerMode.bubble,
                 onMapCreated: () {},
               ),
 
@@ -508,7 +721,8 @@ class _FullscreenVisitedMap extends ConsumerStatefulWidget {
   final double initialZoom;
 
   @override
-  ConsumerState<_FullscreenVisitedMap> createState() => _FullscreenVisitedMapState();
+  ConsumerState<_FullscreenVisitedMap> createState() =>
+      _FullscreenVisitedMapState();
 }
 
 class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
@@ -537,14 +751,15 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
         final cat = _capitalizeTag(spot.category);
         tagCounts[cat] = (tagCounts[cat] ?? 0) + 1;
       }
+
       // Count tags
       for (final tag in spot.tags) {
-        if (tag.isNotEmpty && !_isInvalidTag(tag)) {
-          final t = _capitalizeTag(tag);
-          tagCounts[t] = (tagCounts[t] ?? 0) + 1;
-        }
+        final normalized = _capitalizeTag(tag);
+        if (normalized.isEmpty) continue;
+        tagCounts[normalized] = (tagCounts[normalized] ?? 0) + 1;
       }
     }
+
     // Sort by count and take top tags
     final sorted = tagCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -557,7 +772,17 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
     _carouselController = PageController(viewportFraction: 0.55);
     // widget.spots is already sorted by visitDate (newest first) from the provider
     _filteredSpots = List.from(widget.spots);
+    _selectedSpot = _filteredSpots.isNotEmpty ? _filteredSpots.first : null;
+    _currentCardIndex = 0;
     _searchController.addListener(_onSearchChanged);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final first = _selectedSpot;
+      if (first == null) return;
+      _mapKey.currentState?.jumpToPosition(
+        Position(first.longitude, first.latitude),
+      );
+    });
   }
 
   @override
@@ -637,20 +862,6 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
     final lower = tag.toLowerCase().trim();
     if (lower.isEmpty) return lower;
     return lower[0].toUpperCase() + lower.substring(1);
-  }
-
-  bool _isInvalidTag(String tag) {
-    const invalidTags = {
-      'point_of_interest',
-      'establishment',
-      'premise',
-      'route',
-      'street_address',
-      'political',
-      'locality',
-      'sublocality',
-    };
-    return invalidTags.contains(tag.toLowerCase());
   }
 
   String _tagEmoji(String tag) {
@@ -961,21 +1172,21 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
 
   void _onSpotTap(map_page.Spot spot) async {
     final now = DateTime.now();
-    
+
     // 防抖：如果是同一个地点且点击间隔小于1秒，则忽略
-    if (_lastClickedSpotId == spot.id && 
-        _lastClickTime != null && 
+    if (_lastClickedSpotId == spot.id &&
+        _lastClickTime != null &&
         now.difference(_lastClickTime!).inMilliseconds < 1000) {
       print('🔧 [mine_page.dart] Debouncing rapid clicks for ${spot.name}');
       return;
     }
-    
+
     _lastClickedSpotId = spot.id;
     _lastClickTime = now;
-    
+
     // 添加调试日志
     print('🔧 [mine_page.dart] _onSpotTap for spot: ${spot.name}');
-    
+
     // 加载地点的状态信息（包括 check-in 数据）
     bool? isSaved;
     bool? isMustGo;
@@ -1000,7 +1211,7 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
             ),
           );
         }
-        
+
         // 等待可能正在进行的收藏/取消收藏操作完成
         await WishlistStatusCache.awaitPendingOperation(spot.id);
         if (spot.name.isNotEmpty) {
@@ -1009,9 +1220,9 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
 
         final tripRepo = ref.read(tripRepositoryProvider);
         final trips = await tripRepo.getMyTrips().timeout(
-          const Duration(seconds: 2),
-          onTimeout: () => <Trip>[],
-        );
+              const Duration(seconds: 2),
+              onTimeout: () => <Trip>[],
+            );
 
         // 查找包含这个 spot 的 trip
         for (final trip in trips) {
@@ -1038,7 +1249,7 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
           }
           if (isSaved != null) break;
         }
-        
+
         // 💾 保存到缓存供后续使用
         WishlistStatusCache.updateFullStatus(
           spot.id,
@@ -1052,7 +1263,7 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
           userNotes: userNotes,
           userPhotos: userPhotos,
         );
-        
+
         // 关闭loading dialog
         if (mounted && Navigator.canPop(context)) {
           Navigator.pop(context);
@@ -1075,6 +1286,23 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
       userNotes = fullStatus?.userNotes;
       userPhotos = fullStatus?.userPhotos;
       destinationId = fullStatus?.destinationId;
+    }
+
+    // 无论服务端刷新是否成功，只要缓存里有数据，就用它补齐缺失字段
+    final cachedStatus = WishlistStatusCache.getFullStatus(spot.id) ??
+        (spot.name.isNotEmpty
+            ? WishlistStatusCache.getFullStatus(spot.name)
+            : null);
+    if (cachedStatus != null) {
+      isSaved ??= cachedStatus.isSaved;
+      isMustGo ??= cachedStatus.isMustGo;
+      isTodaysPlan ??= cachedStatus.isTodaysPlan;
+      isVisited ??= cachedStatus.isVisited;
+      visitDate ??= cachedStatus.visitDate;
+      userRating ??= cachedStatus.userRating;
+      userNotes ??= cachedStatus.userNotes;
+      userPhotos ??= cachedStatus.userPhotos;
+      destinationId ??= cachedStatus.destinationId;
     }
 
     // 添加调试日志

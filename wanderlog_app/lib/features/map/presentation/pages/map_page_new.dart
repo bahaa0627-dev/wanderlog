@@ -1707,7 +1707,17 @@ class _MapPageState extends ConsumerState<MapPage> {
         initialUserRating: initialUserRating,
         initialUserNotes: initialUserNotes,
         initialUserPhotos: initialUserPhotos,
-        onStatusChanged: (spotId, {isMustGo, isTodaysPlan, isVisited, isRemoved, needsReload}) {
+        onStatusChanged: (spotId,
+            {isMustGo,
+            isTodaysPlan,
+            isVisited,
+            isRemoved,
+            needsReload,
+            visitDate,
+            userRating,
+            userNotes,
+            userPhotos,
+            destinationId}) {
           // 状态变更后，invalidate provider 触发卡片刷新
           ref.invalidate(wishlistStatusProvider);
         },

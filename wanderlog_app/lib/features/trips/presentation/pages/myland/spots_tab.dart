@@ -425,8 +425,11 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         onCheckIn: (visitDate, rating, notes,
             {List<File>? newImages, List<String>? existingPhotos}) async {
           try {
-            final city = spot.city ?? '';
-            final destId = await ensureDestinationForCity(ref, city);
+            final rawCity = (spot.city ?? '').trim();
+            final rawCountry = (spot.country ?? '').trim();
+            final destinationCity =
+              rawCity.isNotEmpty ? rawCity : (rawCountry.isNotEmpty ? rawCountry : 'Unknown');
+            final destId = await ensureDestinationForCity(ref, destinationCity);
             if (destId == null) {
               if (context.mounted) {
                 CustomToast.showError(context, 'Failed to create destination');
@@ -574,27 +577,51 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         initialDestinationId: entry.destinationId,
         linkedCollection: linkedCollection,
         onStatusChanged: (spotId,
-            {isMustGo, isTodaysPlan, isVisited, isRemoved, needsReload}) {
+            {isMustGo,
+            isTodaysPlan,
+            isVisited,
+            isRemoved,
+            needsReload,
+            visitDate,
+            userRating,
+            userNotes,
+            userPhotos,
+            destinationId}) {
           // 失效缓存
           unawaited(_cacheService.clearCityCache(_selectedCitySlug));
 
           if (needsReload ?? false) {
             // Reload all data from server to get updated check-in info
             unawaited(_loadDestinationsFromServer());
-          } else {
-            _handleStatusChanged(spotId,
-                isMustGo: isMustGo,
-                isTodaysPlan: isTodaysPlan,
-                isVisited: isVisited,
-                isRemoved: isRemoved);
           }
+
+          _handleStatusChanged(
+            spotId,
+            isMustGo: isMustGo,
+            isTodaysPlan: isTodaysPlan,
+            isVisited: isVisited,
+            isRemoved: isRemoved,
+            visitDate: visitDate,
+            userRating: userRating,
+            userNotes: userNotes,
+            userPhotos: userPhotos,
+            destinationId: destinationId,
+          );
         },
       ),
     );
   }
 
   void _handleStatusChanged(String spotId,
-      {bool? isMustGo, bool? isTodaysPlan, bool? isVisited, bool? isRemoved}) {
+      {bool? isMustGo,
+      bool? isTodaysPlan,
+      bool? isVisited,
+      bool? isRemoved,
+      DateTime? visitDate,
+      int? userRating,
+      String? userNotes,
+      List<String>? userPhotos,
+      String? destinationId}) {
     final index = _indexForSpot(spotId);
     if (index == -1) return;
 
@@ -612,6 +639,11 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         isMustGo: isMustGo,
         isTodaysPlan: isTodaysPlan,
         isVisited: isVisited,
+        visitDate: visitDate,
+        userRating: userRating,
+        userNotes: userNotes,
+        userPhotos: userPhotos,
+        destinationId: destinationId,
       );
     });
   }
@@ -1103,7 +1135,10 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
               isMustGo: cachedEntry.isMustGo,
               isTodaysPlan: cachedEntry.isTodaysPlan,
               isVisited: cachedEntry.isVisited,
-              destinationId: cachedEntry.destinationId ?? '',
+              destinationId: (cachedEntry.destinationId != null &&
+                      cachedEntry.destinationId!.trim().isNotEmpty)
+                  ? cachedEntry.destinationId
+                  : null,
               visitDate: cachedEntry.visitDate,
               userRating: cachedEntry.userRating,
               userNotes: cachedEntry.userNotes,
@@ -3454,6 +3489,7 @@ class _SpotEntry {
     int? userRating,
     String? userNotes,
     List<String>? userPhotos,
+    String? destinationId,
   }) {
     final nowMustGo = isMustGo ?? this.isMustGo;
     final nowTodaysPlan = isTodaysPlan ?? this.isTodaysPlan;
@@ -3482,7 +3518,7 @@ class _SpotEntry {
       userRating: userRating ?? this.userRating,
       userNotes: userNotes ?? this.userNotes,
       userPhotos: userPhotos ?? this.userPhotos,
-      destinationId: destinationId,
+      destinationId: destinationId ?? this.destinationId,
     );
   }
 }

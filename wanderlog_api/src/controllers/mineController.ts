@@ -2,6 +2,56 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logger } from '../utils/logger';
 
+// 解析 JSON 字段为数组
+function parseJsonArray(value: any): any[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+// 解析 JSON 字段为对象
+function parseJsonObject(value: any): Record<string, any> | null {
+  if (!value) return null;
+  if (typeof value === 'object') return value as Record<string, any>;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return typeof parsed === 'object' && parsed !== null
+        ? (parsed as Record<string, any>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+// 从结构化 tags 对象中提取标签列表
+function extractTagsFromStructured(tags: Record<string, any> | null): string[] {
+  if (!tags || typeof tags !== 'object') return [];
+
+  const result: string[] = [];
+  for (const key of Object.keys(tags)) {
+    const values = tags[key];
+    if (Array.isArray(values)) {
+      for (const v of values) {
+        if (typeof v === 'string' && v.trim()) {
+          result.push(v.trim());
+        }
+      }
+    }
+  }
+  return result;
+}
+
 /**
  * 获取 Mine 页面摘要数据
  * 只返回已访问的地点和必要字段，优化性能
@@ -36,10 +86,25 @@ export const getMineSummary = async (req: Request, res: Response) => {
         p.country,
         p.latitude,
         p.longitude,
+        p.address,
+        p.description,
+        p.ai_summary,
+        p.opening_hours,
+        p.rating,
+        p.rating_count,
         p.category,
+        p.category_en,
+        p.category_zh,
         p.tags,
         p.ai_tags,
-        p.cover_image
+        p.cover_image,
+        p.images,
+        p.website,
+        p.phone_number,
+        p.google_place_id,
+        p.is_verified,
+        p.custom_fields,
+        p.price_level
       FROM trip_spots ts
       INNER JOIN places p ON ts.place_id = p.id
       INNER JOIN trips t ON ts.trip_id = t.id
@@ -67,7 +132,14 @@ export const getMineSummary = async (req: Request, res: Response) => {
     
     // 转换数据格式
     const processStart = Date.now();
-    const result = visitedSpots.map((row: any) => ({
+    const result = visitedSpots.map((row: any) => {
+      const images = parseJsonArray(row.images);
+      const structuredTags = parseJsonObject(row.tags);
+      const tags = extractTagsFromStructured(structuredTags);
+      const aiTags = parseJsonArray(row.ai_tags);
+      const customFields = parseJsonObject(row.custom_fields);
+
+      return {
       id: row.trip_spot_id,
       visitDate: row.visit_date ? new Date(row.visit_date).toISOString() : null,
       userPhotos: Array.isArray(row.user_photos) ? row.user_photos : [],
@@ -82,11 +154,27 @@ export const getMineSummary = async (req: Request, res: Response) => {
         latitude: row.latitude,
         longitude: row.longitude,
         category: row.category || 'other',
-        tags: row.tags || [],
-        aiTags: row.ai_tags || [],
+        categoryEn: row.category_en,
+        categoryZh: row.category_zh,
+        tags,
+        aiTags,
         coverImage: row.cover_image,
+        images,
+        address: row.address,
+        description: row.description,
+        aiSummary: row.ai_summary,
+        openingHours: row.opening_hours,
+        rating: row.rating,
+        ratingCount: row.rating_count,
+        website: row.website,
+        phoneNumber: row.phone_number,
+        googlePlaceId: row.google_place_id,
+        isVerified: row.is_verified,
+        customFields,
+        priceLevel: row.price_level,
       },
-    }));
+    };
+    });
     
     const processTime = Date.now() - processStart;
     const totalTime = Date.now() - startTime;

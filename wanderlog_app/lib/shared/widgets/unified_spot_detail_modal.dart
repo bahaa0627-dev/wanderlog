@@ -65,7 +65,12 @@ class UnifiedSpotDetailModal extends ConsumerStatefulWidget {
       bool? isTodaysPlan,
       bool? isVisited,
       bool? isRemoved,
-      bool? needsReload})? onStatusChanged;
+      bool? needsReload,
+      DateTime? visitDate,
+      int? userRating,
+      String? userNotes,
+      List<String>? userPhotos,
+      String? destinationId})? onStatusChanged;
   final bool keepOpenOnAction; // If true, don't close modal after actions
   final bool
       hideCollectionEntry; // If true, don't show collection entry card (e.g. when opened from collection page)
@@ -575,7 +580,10 @@ class _UnifiedSpotDetailModalState
       _userRating = widget.initialUserRating;
       _userNotes = widget.initialUserNotes;
       _userPhotos = widget.initialUserPhotos ?? [];
-      _destinationId = widget.initialDestinationId;
+        final initialDest = widget.initialDestinationId;
+        _destinationId = (initialDest != null && initialDest.trim().isNotEmpty)
+          ? initialDest
+          : null;
 
       // 如果 spot.id 是 UUID，设置 _actualPlaceId
       // 这样后续操作会使用正确的 UUID
@@ -1401,13 +1409,16 @@ class _UnifiedSpotDetailModalState
               _userPhotos = [...?existingPhotos];
             });
           }
-          Navigator.of(context).pop(); // Close dialog immediately
           CustomToast.showSuccess(this.context, 'Checked in to $_spotName');
           
           try {
-            final city = _spotCity ?? '';
-            final destId =
-                _destinationId ?? await ensureDestinationForCity(ref, city);
+            final rawCity = (_spotCity ?? '').trim();
+            final rawCountry = (_getCountry() ?? '').trim();
+            final destinationCity =
+              rawCity.isNotEmpty ? rawCity : (rawCountry.isNotEmpty ? rawCountry : 'Unknown');
+            final destId = (_destinationId != null && _destinationId!.trim().isNotEmpty)
+              ? _destinationId
+              : await ensureDestinationForCity(ref, destinationCity);
             if (destId == null) {
               // Revert on error
               if (mounted) {
@@ -1439,7 +1450,7 @@ class _UnifiedSpotDetailModalState
             }
 
             // 使用新的布尔字段，check-in 时保留 isTodaysPlan 状态
-            await ref.read(tripRepositoryProvider).manageTripSpot(
+            final updatedTripSpot = await ref.read(tripRepositoryProvider).manageTripSpot(
                   tripId: destId,
                   spotId: _spotId,
                   isSaved: true,
@@ -1451,6 +1462,20 @@ class _UnifiedSpotDetailModalState
                   userPhotos: allPhotoUrls.isNotEmpty ? allPhotoUrls : null,
                   spotPayload: _spotPayload(),
                 );
+            if (mounted && updatedTripSpot != null) {
+              final returnedSpotId = updatedTripSpot.spotId;
+              if (_isValidUUID(returnedSpotId)) {
+                _actualPlaceId = returnedSpotId;
+              }
+              _destinationId = updatedTripSpot.tripId;
+              setState(() {
+                _isVisited = updatedTripSpot.isVisited;
+                _visitDate = updatedTripSpot.visitDate ?? _visitDate;
+                _userRating = updatedTripSpot.userRating ?? _userRating;
+                _userNotes = updatedTripSpot.userNotes ?? _userNotes;
+                _userPhotos = updatedTripSpot.userPhotos ?? _userPhotos;
+              });
+            }
             // 立即更新同步缓存，避免下次打开时闪烁
             _updateWishlistCache(
               destinationId: destId,
@@ -1466,8 +1491,16 @@ class _UnifiedSpotDetailModalState
             ref.invalidate(tripsProvider);
             ref.invalidate(wishlistStatusProvider);
             // 通知父组件重新加载数据，以确保 visited 列表更新
-            widget.onStatusChanged
-                ?.call(_spotId, isVisited: true, needsReload: true);
+            widget.onStatusChanged?.call(
+              _spotId,
+              isVisited: true,
+              needsReload: true,
+              visitDate: updatedTripSpot?.visitDate ?? visitDate,
+              userRating: updatedTripSpot?.userRating ?? rating.toInt(),
+              userNotes: updatedTripSpot?.userNotes ?? notes,
+              userPhotos: updatedTripSpot?.userPhotos ?? (allPhotoUrls.isNotEmpty ? allPhotoUrls : null),
+              destinationId: updatedTripSpot?.tripId ?? destId,
+            );
           } catch (e) {
             // Revert on error
             if (mounted) {
@@ -1550,7 +1583,7 @@ class _UnifiedSpotDetailModalState
             }
 
             // 3. 在后台同步到服务器 - 使用新的布尔字段
-            await ref.read(tripRepositoryProvider).manageTripSpot(
+            final updatedTripSpot = await ref.read(tripRepositoryProvider).manageTripSpot(
                   tripId: _destinationId!,
                   spotId: _spotId,
                   isVisited: true,
@@ -1560,6 +1593,20 @@ class _UnifiedSpotDetailModalState
                   userNotes: notes,
                   userPhotos: allPhotoUrls.isNotEmpty ? allPhotoUrls : null,
                 );
+            if (mounted && updatedTripSpot != null) {
+              final returnedSpotId = updatedTripSpot.spotId;
+              if (_isValidUUID(returnedSpotId)) {
+                _actualPlaceId = returnedSpotId;
+              }
+              _destinationId = updatedTripSpot.tripId;
+              setState(() {
+                _isVisited = updatedTripSpot.isVisited;
+                _visitDate = updatedTripSpot.visitDate ?? _visitDate;
+                _userRating = updatedTripSpot.userRating ?? _userRating;
+                _userNotes = updatedTripSpot.userNotes ?? _userNotes;
+                _userPhotos = updatedTripSpot.userPhotos ?? _userPhotos;
+              });
+            }
 
             // 4. 同步更新缓存，确保再次进入时展示最新数据
             _updateWishlistCache(
@@ -1579,8 +1626,16 @@ class _UnifiedSpotDetailModalState
             ref.invalidate(wishlistStatusProvider);
 
             // 5. 通知父组件更新，需要重新加载以显示最新数据
-            widget.onStatusChanged
-                ?.call(_spotId, isVisited: true, needsReload: true);
+            widget.onStatusChanged?.call(
+              _spotId,
+              isVisited: true,
+              needsReload: true,
+              visitDate: updatedTripSpot?.visitDate ?? visitDate,
+              userRating: updatedTripSpot?.userRating ?? rating.toInt(),
+              userNotes: updatedTripSpot?.userNotes ?? notes,
+              userPhotos: updatedTripSpot?.userPhotos ?? (allPhotoUrls.isNotEmpty ? allPhotoUrls : null),
+              destinationId: updatedTripSpot?.tripId ?? _destinationId,
+            );
           } catch (e) {
             // 如果服务器同步失败，回滚本地状态
             if (mounted) {
@@ -1674,8 +1729,17 @@ class _UnifiedSpotDetailModalState
             _isWishlist = false;
           });
           CustomToast.showSuccess(context, 'Check-in deleted');
-          widget.onStatusChanged
-              ?.call(_spotId, isVisited: false, isRemoved: true);
+          widget.onStatusChanged?.call(
+            _spotId,
+            isVisited: false,
+            isRemoved: true,
+            needsReload: true,
+            visitDate: null,
+            userRating: null,
+            userNotes: null,
+            userPhotos: const [],
+            destinationId: _destinationId,
+          );
         }
       } catch (e) {
         CustomToast.showError(context, 'Error: $e');
@@ -2275,7 +2339,7 @@ class _UnifiedSpotDetailModalState
     return {
       'name': _spotName,
       'city': _spotCity ?? '',
-      'country': _spotCity ?? '',
+      'country': _getCountry() ?? '',
       'latitude': _getLatitude(),
       'longitude': _getLongitude(),
       'address': _spotAddress,

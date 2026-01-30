@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wanderlog/core/storage/storage_service.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 
 /// 地点状态数据（包含完整的 check-in 详情）
 class SpotStatusData {
   const SpotStatusData({
     this.destinationId,
-    this.isSaved = true,  // 新增：是否已保存到收藏
+    this.isSaved = true, // 新增：是否已保存到收藏
     this.isMustGo = false,
     this.isTodaysPlan = false,
     this.isVisited = false,
@@ -17,7 +19,7 @@ class SpotStatusData {
   });
 
   final String? destinationId;
-  final bool isSaved;  // 是否已保存（收藏）
+  final bool isSaved; // 是否已保存（收藏）
   final bool isMustGo;
   final bool isTodaysPlan;
   final bool isVisited;
@@ -96,7 +98,7 @@ class WishlistStatusCache {
       final existing = _fullStatusCache[spotId];
       _fullStatusCache[spotId] = SpotStatusData(
         destinationId: destinationId,
-        isSaved: true,  // update方法默认表示已收藏
+        isSaved: true, // update方法默认表示已收藏
         isMustGo: existing?.isMustGo ?? false,
         isTodaysPlan: existing?.isTodaysPlan ?? false,
         isVisited: existing?.isVisited ?? false,
@@ -129,7 +131,7 @@ class WishlistStatusCache {
       if (effectiveIsSaved) {
         _cache[spotId] = newDestId;
       } else {
-        _cache.remove(spotId);  // 取消收藏时从基础缓存中移除
+        _cache.remove(spotId); // 取消收藏时从基础缓存中移除
       }
       _fullStatusCache[spotId] = SpotStatusData(
         destinationId: newDestId,
@@ -198,6 +200,12 @@ class WishlistStatusCache {
 final wishlistStatusProvider =
     FutureProvider<Map<String, String?>>((ref) async {
   final trips = await ref.watch(tripsProvider.future);
+  if (trips.isEmpty) {
+    final authState = ref.read(authProvider);
+    final token = await StorageService.instance.getSecure('auth_token');
+    print(
+        '⚠️ [wishlistStatusProvider] trips empty. isAuthenticated=${authState.isAuthenticated}, tokenPresent=${token != null && token.isNotEmpty}');
+  }
 
   final Map<String, String?> statusMap = {};
   final Map<String, SpotStatusData> fullStatusMap = {};
@@ -216,7 +224,7 @@ final wishlistStatusProvider =
       // 完整状态（包含 check-in 详情和isSaved状态）
       final fullStatus = SpotStatusData(
         destinationId: destId,
-        isSaved: tripSpot.isSaved,  // 从后端读取isSaved状态
+        isSaved: tripSpot.isSaved, // 从后端读取isSaved状态
         isMustGo: tripSpot.isMustGo,
         isTodaysPlan: tripSpot.isTodaysPlan,
         isVisited: tripSpot.isVisited,

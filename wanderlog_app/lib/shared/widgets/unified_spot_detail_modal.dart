@@ -101,6 +101,7 @@ class _UnifiedSpotDetailModalState
   // 关联的合集（随机选择一个展示）
   Map<String, dynamic>? _linkedCollection;
   // 合集数据是否已加载完成
+  // ignore: unused_field
   bool _isCollectionLoaded = false;
 
   // 实际的 place UUID（后端返回的，用于后续操作）
@@ -237,7 +238,7 @@ class _UnifiedSpotDetailModalState
 
   void _updateWishlistCache({
     String? destinationId,
-    bool? isSaved,  // 新增：显式传递isSaved状态
+    bool? isSaved, // 新增：显式传递isSaved状态
     bool? isMustGo,
     bool? isTodaysPlan,
     bool? isVisited,
@@ -264,7 +265,7 @@ class _UnifiedSpotDetailModalState
       WishlistStatusCache.updateFullStatus(
         key,
         destinationId: destId,
-        isSaved: isSaved,  // 传递isSaved状态
+        isSaved: isSaved, // 传递isSaved状态
         isMustGo: isMustGo,
         isTodaysPlan: isTodaysPlan,
         isVisited: isVisited,
@@ -450,6 +451,7 @@ class _UnifiedSpotDetailModalState
   }
 
   /// 检查地点当前是否关门
+  // ignore: unused_element
   bool get _isSpotClosed {
     final raw = _spotOpeningHours;
     if (raw == null) return false;
@@ -556,19 +558,19 @@ class _UnifiedSpotDetailModalState
         '🔧 [UnifiedSpotDetailModal] initialDestinationId: ${widget.initialDestinationId}');
 
     final hasInitialCheckInDetails = widget.initialVisitDate != null ||
-      widget.initialUserRating != null ||
-      (widget.initialUserNotes != null &&
-        widget.initialUserNotes!.isNotEmpty) ||
-      (widget.initialUserPhotos != null &&
-        widget.initialUserPhotos!.isNotEmpty);
+        widget.initialUserRating != null ||
+        (widget.initialUserNotes != null &&
+            widget.initialUserNotes!.isNotEmpty) ||
+        (widget.initialUserPhotos != null &&
+            widget.initialUserPhotos!.isNotEmpty);
 
     final shouldLoadStatus = widget.initialIsSaved == null ||
-      (widget.initialIsSaved == false &&
-        widget.initialDestinationId == null &&
-        (widget.initialIsVisited != true) &&
-        widget.initialIsMustGo == null &&
-        widget.initialIsTodaysPlan == null &&
-        !hasInitialCheckInDetails);
+        (widget.initialIsSaved == false &&
+            widget.initialDestinationId == null &&
+            (widget.initialIsVisited != true) &&
+            widget.initialIsMustGo == null &&
+            widget.initialIsTodaysPlan == null &&
+            !hasInitialCheckInDetails);
 
     if (!shouldLoadStatus) {
       // 使用传入的初始状态，不需要从服务器加载
@@ -580,8 +582,8 @@ class _UnifiedSpotDetailModalState
       _userRating = widget.initialUserRating;
       _userNotes = widget.initialUserNotes;
       _userPhotos = widget.initialUserPhotos ?? [];
-        final initialDest = widget.initialDestinationId;
-        _destinationId = (initialDest != null && initialDest.trim().isNotEmpty)
+      final initialDest = widget.initialDestinationId;
+      _destinationId = (initialDest != null && initialDest.trim().isNotEmpty)
           ? initialDest
           : null;
 
@@ -637,7 +639,7 @@ class _UnifiedSpotDetailModalState
       // 同步更新缓存，确保一致性
       _updateWishlistCache(
         destinationId: _destinationId,
-        isSaved: true,  // 有初始数据说明已保存
+        isSaved: true, // 有初始数据说明已保存
         isMustGo: _isMustGo,
         isTodaysPlan: _isTodaysPlan,
         isVisited: _isVisited,
@@ -657,7 +659,8 @@ class _UnifiedSpotDetailModalState
       _loadWishlistStatus().timeout(
         const Duration(seconds: 15),
         onTimeout: () {
-          print('⏰ [UnifiedSpotDetailModal] _loadWishlistStatus() timeout after 15s');
+          print(
+              '⏰ [UnifiedSpotDetailModal] _loadWishlistStatus() timeout after 15s');
           if (mounted) setState(() => _isLoadingCheckInData = false);
         },
       ).then((_) {
@@ -680,7 +683,7 @@ class _UnifiedSpotDetailModalState
       // 需要异步加载
       _loadLinkedCollection();
     }
-    
+
     // 最终状态日志
     print('🔧 [UnifiedSpotDetailModal] initState completed');
     print('🔧 [UnifiedSpotDetailModal] Final _isWishlist: $_isWishlist');
@@ -690,13 +693,16 @@ class _UnifiedSpotDetailModalState
 
   /// 从缓存同步读取收藏状态（立即生效，无需等待）
   void _loadWishlistStatusFromCache() {
-    print('🔍 [_loadWishlistStatusFromCache] Checking cache for spot: $_spotName');
-    print('🔍 [_loadWishlistStatusFromCache] Keys to check: ${_collectCacheKeys()}');
-    
+    print(
+        '🔍 [_loadWishlistStatusFromCache] Checking cache for spot: $_spotName');
+    print(
+        '🔍 [_loadWishlistStatusFromCache] Keys to check: ${_collectCacheKeys()}');
+
     // 1. 首先尝试从同步缓存读取完整状态（最快，无延迟）
     // 尝试使用 _spotId（可能是 UUID 或 googlePlaceId）
     var fullStatus = WishlistStatusCache.getFullStatus(_spotId);
-    print('🔍 [_loadWishlistStatusFromCache] Cache check _spotId=$_spotId: ${fullStatus?.destinationId}');
+    print(
+        '🔍 [_loadWishlistStatusFromCache] Cache check _spotId=$_spotId: ${fullStatus?.destinationId}');
     if (fullStatus != null && fullStatus.destinationId != null) {
       print('✅ [_loadWishlistStatusFromCache] Found in cache by _spotId!');
       // 立即应用缓存数据，包括 check-in 详情
@@ -724,9 +730,11 @@ class _UnifiedSpotDetailModalState
         final googlePlaceId = (widget.spot as dynamic).googlePlaceId as String?;
         if (googlePlaceId != null && googlePlaceId != _spotId) {
           fullStatus = WishlistStatusCache.getFullStatus(googlePlaceId);
-          print('🔍 [_loadWishlistStatusFromCache] Cache check googlePlaceId=$googlePlaceId: ${fullStatus?.destinationId}');
+          print(
+              '🔍 [_loadWishlistStatusFromCache] Cache check googlePlaceId=$googlePlaceId: ${fullStatus?.destinationId}');
           if (fullStatus != null && fullStatus.destinationId != null) {
-            print('✅ [_loadWishlistStatusFromCache] Found in cache by googlePlaceId!');
+            print(
+                '✅ [_loadWishlistStatusFromCache] Found in cache by googlePlaceId!');
             if (mounted) {
               final status = fullStatus; // Capture non-null value
               setState(() {
@@ -751,9 +759,11 @@ class _UnifiedSpotDetailModalState
     // 如果 _spotId 是 googlePlaceId，也尝试使用 UUID 查找（如果 _actualPlaceId 存在）
     if (_actualPlaceId != null && _actualPlaceId != _spotId) {
       fullStatus = WishlistStatusCache.getFullStatus(_actualPlaceId!);
-      print('🔍 [_loadWishlistStatusFromCache] Cache check _actualPlaceId=$_actualPlaceId: ${fullStatus?.destinationId}');
+      print(
+          '🔍 [_loadWishlistStatusFromCache] Cache check _actualPlaceId=$_actualPlaceId: ${fullStatus?.destinationId}');
       if (fullStatus != null && fullStatus.destinationId != null) {
-        print('✅ [_loadWishlistStatusFromCache] Found in cache by _actualPlaceId!');
+        print(
+            '✅ [_loadWishlistStatusFromCache] Found in cache by _actualPlaceId!');
         if (mounted) {
           final status = fullStatus; // Capture non-null value
           setState(() {
@@ -772,10 +782,11 @@ class _UnifiedSpotDetailModalState
         return;
       }
     }
-    
+
     // 也尝试使用名称查找
     fullStatus = WishlistStatusCache.getFullStatus(_spotName);
-    print('🔍 [_loadWishlistStatusFromCache] Cache check name=$_spotName: ${fullStatus?.destinationId}');
+    print(
+        '🔍 [_loadWishlistStatusFromCache] Cache check name=$_spotName: ${fullStatus?.destinationId}');
     if (fullStatus != null && fullStatus.destinationId != null) {
       print('✅ [_loadWishlistStatusFromCache] Found in cache by name!');
       if (mounted) {
@@ -1157,7 +1168,8 @@ class _UnifiedSpotDetailModalState
           final detail = await repo.getTripById(t.id).timeout(
             const Duration(seconds: 3),
             onTimeout: () {
-              print('⏰ [UnifiedSpotDetailModal] getTripById timeout for ${t.name}');
+              print(
+                  '⏰ [UnifiedSpotDetailModal] getTripById timeout for ${t.name}');
               throw TimeoutException('Trip detail timeout');
             },
           );
@@ -1254,7 +1266,7 @@ class _UnifiedSpotDetailModalState
           // 更新缓存，包含完整 check-in 数据，确保下次打开时能正确读取
           _updateWishlistCache(
             destinationId: detail.id,
-            isSaved: tripSpot.isSaved,  // 从后端读取isSaved状态
+            isSaved: tripSpot.isSaved, // 从后端读取isSaved状态
             isMustGo: tripSpot.isMustGo,
             isTodaysPlan: tripSpot.isTodaysPlan,
             isVisited: tripSpot.isVisited,
@@ -1355,7 +1367,8 @@ class _UnifiedSpotDetailModalState
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_isVisited) ...[
-                const Text('✓', style: TextStyle(fontSize: 14, color: AppTheme.black)),
+                const Text('✓',
+                    style: TextStyle(fontSize: 14, color: AppTheme.black)),
                 const SizedBox(width: 4),
               ],
               Text(
@@ -1401,7 +1414,6 @@ class _UnifiedSpotDetailModalState
           // Optimistic update - immediately show checked in state
           if (mounted) {
             setState(() {
-              _isWishlist = true;
               _isVisited = true;
               _visitDate = visitDate;
               _userRating = rating.toInt();
@@ -1410,15 +1422,17 @@ class _UnifiedSpotDetailModalState
             });
           }
           CustomToast.showSuccess(this.context, 'Checked in to $_spotName');
-          
+
           try {
             final rawCity = (_spotCity ?? '').trim();
             final rawCountry = (_getCountry() ?? '').trim();
-            final destinationCity =
-              rawCity.isNotEmpty ? rawCity : (rawCountry.isNotEmpty ? rawCountry : 'Unknown');
-            final destId = (_destinationId != null && _destinationId!.trim().isNotEmpty)
-              ? _destinationId
-              : await ensureDestinationForCity(ref, destinationCity);
+            final destinationCity = rawCity.isNotEmpty
+                ? rawCity
+                : (rawCountry.isNotEmpty ? rawCountry : 'Unknown');
+            final destId =
+                (_destinationId != null && _destinationId!.trim().isNotEmpty)
+                    ? _destinationId
+                    : await ensureDestinationForCity(ref, destinationCity);
             if (destId == null) {
               // Revert on error
               if (mounted) {
@@ -1430,7 +1444,8 @@ class _UnifiedSpotDetailModalState
                   _userPhotos = [];
                 });
               }
-              CustomToast.showError(this.context, 'Failed to create destination');
+              CustomToast.showError(
+                  this.context, 'Failed to create destination');
               return;
             }
             _destinationId = destId;
@@ -1450,18 +1465,19 @@ class _UnifiedSpotDetailModalState
             }
 
             // 使用新的布尔字段，check-in 时保留 isTodaysPlan 状态
-            final updatedTripSpot = await ref.read(tripRepositoryProvider).manageTripSpot(
-                  tripId: destId,
-                  spotId: _spotId,
-                  isSaved: true,
-                  isVisited: true,
-                  // 不修改 isTodaysPlan，保留原状态
-                  visitDate: visitDate,
-                  userRating: rating.toInt(),
-                  userNotes: notes,
-                  userPhotos: allPhotoUrls.isNotEmpty ? allPhotoUrls : null,
-                  spotPayload: _spotPayload(),
-                );
+            final updatedTripSpot =
+                await ref.read(tripRepositoryProvider).manageTripSpot(
+                      tripId: destId,
+                      spotId: _spotId,
+                      isSaved: _isWishlist,
+                      isVisited: true,
+                      // 不修改 isTodaysPlan，保留原状态
+                      visitDate: visitDate,
+                      userRating: rating.toInt(),
+                      userNotes: notes,
+                      userPhotos: allPhotoUrls.isNotEmpty ? allPhotoUrls : null,
+                      spotPayload: _spotPayload(),
+                    );
             if (mounted && updatedTripSpot != null) {
               final returnedSpotId = updatedTripSpot.spotId;
               if (_isValidUUID(returnedSpotId)) {
@@ -1479,7 +1495,7 @@ class _UnifiedSpotDetailModalState
             // 立即更新同步缓存，避免下次打开时闪烁
             _updateWishlistCache(
               destinationId: destId,
-              isSaved: true,  // check-in时必然已保存
+              isSaved: _isWishlist,
               isMustGo: _isMustGo,
               isTodaysPlan: _isTodaysPlan, // 保留原状态
               isVisited: true,
@@ -1498,7 +1514,8 @@ class _UnifiedSpotDetailModalState
               visitDate: updatedTripSpot?.visitDate ?? visitDate,
               userRating: updatedTripSpot?.userRating ?? rating.toInt(),
               userNotes: updatedTripSpot?.userNotes ?? notes,
-              userPhotos: updatedTripSpot?.userPhotos ?? (allPhotoUrls.isNotEmpty ? allPhotoUrls : null),
+              userPhotos: updatedTripSpot?.userPhotos ??
+                  (allPhotoUrls.isNotEmpty ? allPhotoUrls : null),
               destinationId: updatedTripSpot?.tripId ?? destId,
             );
           } catch (e) {
@@ -1583,16 +1600,17 @@ class _UnifiedSpotDetailModalState
             }
 
             // 3. 在后台同步到服务器 - 使用新的布尔字段
-            final updatedTripSpot = await ref.read(tripRepositoryProvider).manageTripSpot(
-                  tripId: _destinationId!,
-                  spotId: _spotId,
-                  isVisited: true,
-                  // 不修改 isTodaysPlan，保留原状态
-                  visitDate: visitDate,
-                  userRating: rating.toInt(),
-                  userNotes: notes,
-                  userPhotos: allPhotoUrls.isNotEmpty ? allPhotoUrls : null,
-                );
+            final updatedTripSpot =
+                await ref.read(tripRepositoryProvider).manageTripSpot(
+                      tripId: _destinationId!,
+                      spotId: _spotId,
+                      isVisited: true,
+                      // 不修改 isTodaysPlan，保留原状态
+                      visitDate: visitDate,
+                      userRating: rating.toInt(),
+                      userNotes: notes,
+                      userPhotos: allPhotoUrls.isNotEmpty ? allPhotoUrls : null,
+                    );
             if (mounted && updatedTripSpot != null) {
               final returnedSpotId = updatedTripSpot.spotId;
               if (_isValidUUID(returnedSpotId)) {
@@ -1611,7 +1629,7 @@ class _UnifiedSpotDetailModalState
             // 4. 同步更新缓存，确保再次进入时展示最新数据
             _updateWishlistCache(
               destinationId: _destinationId,
-              isSaved: true,  // 编辑check-in时必然已保存
+              isSaved: true, // 编辑check-in时必然已保存
               isMustGo: _isMustGo,
               isTodaysPlan: _isTodaysPlan,
               isVisited: true,
@@ -1633,7 +1651,8 @@ class _UnifiedSpotDetailModalState
               visitDate: updatedTripSpot?.visitDate ?? visitDate,
               userRating: updatedTripSpot?.userRating ?? rating.toInt(),
               userNotes: updatedTripSpot?.userNotes ?? notes,
-              userPhotos: updatedTripSpot?.userPhotos ?? (allPhotoUrls.isNotEmpty ? allPhotoUrls : null),
+              userPhotos: updatedTripSpot?.userPhotos ??
+                  (allPhotoUrls.isNotEmpty ? allPhotoUrls : null),
               destinationId: updatedTripSpot?.tripId ?? _destinationId,
             );
           } catch (e) {
@@ -1945,11 +1964,12 @@ class _UnifiedSpotDetailModalState
 
   Future<bool> _handleAddWishlist() async {
     print('💾 [_handleAddWishlist] Starting for: $_spotName');
-    
+
     // 1. 先检查登录状态（同步检查，不阻塞）
     final auth = ref.read(authProvider);
     if (!auth.isAuthenticated) {
-      print('💾 [_handleAddWishlist] User not authenticated, navigating to login');
+      print(
+          '💾 [_handleAddWishlist] User not authenticated, navigating to login');
       // 未登录，跳转登录页
       final result = await context.push('/login');
       if (result != true) {
@@ -1984,14 +2004,15 @@ class _UnifiedSpotDetailModalState
     print('💾 [_saveToBackend] _spotCity: $_spotCity');
     print('💾 [_saveToBackend] _destinationId: $_destinationId');
     print('💾 [_saveToBackend] mounted: $mounted');
-    
+
     try {
       print('💾 [_saveToBackend] Entering try block');
       // 获取或创建 destination
       String? destId = _destinationId;
       if (destId == null) {
         print('💾 [_saveToBackend] destId is null, need to create destination');
-        final cityName = (_spotCity?.isNotEmpty ?? false) ? _spotCity! : 'Saved Places';
+        final cityName =
+            (_spotCity?.isNotEmpty ?? false) ? _spotCity! : 'Saved Places';
         print('💾 [_saveToBackend] cityName: $cityName');
         destId = await ensureDestinationForCity(ref, cityName);
         if (destId == null) {
@@ -2008,7 +2029,8 @@ class _UnifiedSpotDetailModalState
         print('💾 [_saveToBackend] Using existing destId: $destId');
       }
 
-      print('💾 [_saveToBackend] Calling API with destId=$destId, spotId=$_spotId');
+      print(
+          '💾 [_saveToBackend] Calling API with destId=$destId, spotId=$_spotId');
 
       // 调用 API
       final tripSpot = await ref.read(tripRepositoryProvider).manageTripSpot(
@@ -2032,7 +2054,7 @@ class _UnifiedSpotDetailModalState
 
       _updateWishlistCache(
         destinationId: destId,
-        isSaved: true,  // 保存时明确标记为已收藏
+        isSaved: true, // 保存时明确标记为已收藏
         isMustGo: _isMustGo,
         isTodaysPlan: _isTodaysPlan,
         isVisited: _isVisited,
@@ -2050,13 +2072,14 @@ class _UnifiedSpotDetailModalState
       print('🔄 [_saveToBackend] Invalidating providers for immediate sync...');
       ref.invalidate(tripsProvider);
       ref.invalidate(wishlistStatusProvider);
-      
+
       // 强制刷新 tripsProvider 以立即加载最新数据
       try {
         await ref.refresh(tripsProvider.future).timeout(
           const Duration(seconds: 2),
           onTimeout: () {
-            print('⚠️ [_saveToBackend] Provider refresh timeout, continuing anyway');
+            print(
+                '⚠️ [_saveToBackend] Provider refresh timeout, continuing anyway');
             return [];
           },
         );
@@ -2064,9 +2087,9 @@ class _UnifiedSpotDetailModalState
       } catch (e) {
         print('⚠️ [_saveToBackend] Provider refresh error: $e');
       }
-      
+
       widget.onStatusChanged?.call(_spotId, needsReload: true);
-      
+
       print('✅ [_saveToBackend] Save completed successfully');
     } catch (e) {
       // 失败时回滚
@@ -2080,14 +2103,15 @@ class _UnifiedSpotDetailModalState
 
   Future<bool> _handleRemoveWishlist() async {
     print('🗑️ [_handleRemoveWishlist] START - spot: $_spotName');
-    print('🗑️ [_handleRemoveWishlist] _destinationId: $_destinationId, _spotId: $_spotId');
+    print(
+        '🗑️ [_handleRemoveWishlist] _destinationId: $_destinationId, _spotId: $_spotId');
     print('🗑️ [_handleRemoveWishlist] _isVisited: $_isVisited');
-    
+
     // 1. Optimistic update - 立即更新 UI
     final prevWishlist = _isWishlist;
     final prevMustGo = _isMustGo;
     final prevTodaysPlan = _isTodaysPlan;
-    
+
     setState(() {
       _isWishlist = false;
       _isMustGo = false;
@@ -2098,7 +2122,8 @@ class _UnifiedSpotDetailModalState
     CustomToast.showSuccess(context, 'Removed');
 
     // 2. 通知父组件
-    widget.onStatusChanged?.call(_spotId, isRemoved: !_isVisited, needsReload: true);
+    widget.onStatusChanged
+        ?.call(_spotId, isRemoved: !_isVisited, needsReload: true);
 
     // 3. 等待API调用完成
     final removeCompleter = Completer<void>();
@@ -2107,7 +2132,8 @@ class _UnifiedSpotDetailModalState
       try {
         print('🗑️ [_handleRemoveWishlist] Calling API...');
         if (_isVisited) {
-          print('🗑️ [_handleRemoveWishlist] API call: isSaved=false, keeping visited data');
+          print(
+              '🗑️ [_handleRemoveWishlist] API call: isSaved=false, keeping visited data');
           final result = await ref.read(tripRepositoryProvider).manageTripSpot(
                 tripId: _destinationId!,
                 spotId: _spotId,
@@ -2116,7 +2142,8 @@ class _UnifiedSpotDetailModalState
                 isTodaysPlan: false,
                 spotPayload: _spotPayload(),
               );
-          print('✅ [_handleRemoveWishlist] API success (keep visited): ${result?.id}');
+          print(
+              '✅ [_handleRemoveWishlist] API success (keep visited): ${result?.id}');
         } else {
           print('🗑️ [_handleRemoveWishlist] API call: remove=true');
           await ref.read(tripRepositoryProvider).manageTripSpot(
@@ -2130,10 +2157,11 @@ class _UnifiedSpotDetailModalState
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
         print('✅ [_handleRemoveWishlist] Providers invalidated');
-        
+
         // 4. API完成后更新缓存（确保与服务器状态一致）
         if (_isVisited) {
-          print('🗑️ [_handleRemoveWishlist] Updating cache: isSaved=false, keeping visited');
+          print(
+              '🗑️ [_handleRemoveWishlist] Updating cache: isSaved=false, keeping visited');
           _updateWishlistCache(
             destinationId: _destinationId,
             isSaved: false,
@@ -2149,7 +2177,7 @@ class _UnifiedSpotDetailModalState
         // 失败时回滚
         print('❌ [_handleRemoveWishlist] API FAILED: $e');
         print('❌ [_handleRemoveWishlist] Stack trace: $stackTrace');
-        
+
         if (mounted) {
           setState(() {
             _isWishlist = prevWishlist;
@@ -2159,7 +2187,7 @@ class _UnifiedSpotDetailModalState
           // 回滚缓存
           _updateWishlistCache(
             destinationId: _destinationId,
-            isSaved: true,  // 回滚为已收藏
+            isSaved: true, // 回滚为已收藏
             isMustGo: prevMustGo,
             isTodaysPlan: prevTodaysPlan,
             isVisited: _isVisited,
@@ -2178,7 +2206,7 @@ class _UnifiedSpotDetailModalState
     if (!removeCompleter.isCompleted) {
       removeCompleter.complete();
     }
-    
+
     print('✅ [_handleRemoveWishlist] COMPLETE');
     return true;
   }
@@ -2215,7 +2243,7 @@ class _UnifiedSpotDetailModalState
       // 立即更新同步缓存，避免下次打开时闪烁
       _updateWishlistCache(
         destinationId: _destinationId,
-        isSaved: true,  // toggle mustGo时必然已保存
+        isSaved: true, // toggle mustGo时必然已保存
         isMustGo: isChecked,
         isTodaysPlan: _isTodaysPlan,
         isVisited: _isVisited,
@@ -2224,19 +2252,19 @@ class _UnifiedSpotDetailModalState
         userNotes: _userNotes,
         userPhotos: _userPhotos,
       );
-      
+
       // 立即刷新 providers 以确保 VAGO 列表快速更新
       ref.invalidate(tripsProvider);
       ref.invalidate(wishlistStatusProvider);
       try {
         await ref.refresh(tripsProvider.future).timeout(
-          const Duration(seconds: 2),
-          onTimeout: () => [],
-        );
+              const Duration(seconds: 2),
+              onTimeout: () => [],
+            );
       } catch (e) {
         print('⚠️ [toggleMustGo] Provider refresh error: $e');
       }
-      
+
       if (mounted) {
         setState(() => _hasStatusChanged = true);
       }
@@ -2282,7 +2310,7 @@ class _UnifiedSpotDetailModalState
       // 立即更新同步缓存，避免下次打开时闪烁
       _updateWishlistCache(
         destinationId: _destinationId,
-        isSaved: true,  // toggle today's plan时必然已保存
+        isSaved: true, // toggle today's plan时必然已保存
         isMustGo: _isMustGo,
         isTodaysPlan: isChecked,
         isVisited: _isVisited,
@@ -2291,19 +2319,19 @@ class _UnifiedSpotDetailModalState
         userNotes: _userNotes,
         userPhotos: _userPhotos,
       );
-      
+
       // 立即刷新 providers 以确保 VAGO 列表快速更新
       ref.invalidate(tripsProvider);
       ref.invalidate(wishlistStatusProvider);
       try {
         await ref.refresh(tripsProvider.future).timeout(
-          const Duration(seconds: 2),
-          onTimeout: () => [],
-        );
+              const Duration(seconds: 2),
+              onTimeout: () => [],
+            );
       } catch (e) {
         print('⚠️ [toggleTodaysPlan] Provider refresh error: $e');
       }
-      
+
       if (mounted) {
         setState(() => _hasStatusChanged = true);
       }
@@ -3077,7 +3105,8 @@ class _UnifiedSpotDetailModalState
                           isMustGo: _isMustGo,
                           isTodaysPlan: _isTodaysPlan,
                           onSave: () async {
-                            print('🔘🔘🔘 SaveSpotButton onSave called but _isWishlist=$_isWishlist (already saved) - no action taken');
+                            print(
+                                '🔘🔘🔘 SaveSpotButton onSave called but _isWishlist=$_isWishlist (already saved) - no action taken');
                             return true;
                           },
                           onUnsave: () async {
@@ -3092,7 +3121,8 @@ class _UnifiedSpotDetailModalState
                       : GestureDetector(
                           key: const ValueKey('save-button-unsaved'),
                           onTap: () {
-                            print('🔘 [UnifiedSpotDetailModal] Save button tapped!');
+                            print(
+                                '🔘 [UnifiedSpotDetailModal] Save button tapped!');
                             print('🔘 Current _isWishlist: $_isWishlist');
                             _handleAddWishlist();
                           },

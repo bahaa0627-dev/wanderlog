@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -195,17 +197,7 @@ class _MinePageState extends ConsumerState<MinePage> {
           ),
         ),
 
-        // Globe map section
-        SliverPersistentHeader(
-          pinned: false,
-          floating: false,
-          delegate: _CollapsibleMapHeaderDelegate(
-            child: mapSection,
-            maxExtentHeight: mapSectionMaxExtent,
-          ),
-        ),
-
-        // Stats card (below map by default; becomes sticky only after map collapses)
+        // Stats card (pinned above map)
         if (data.topCategories.isNotEmpty)
           SliverPersistentHeader(
             pinned: true,
@@ -220,6 +212,16 @@ class _MinePageState extends ConsumerState<MinePage> {
           )
         else
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
+        // Globe map section
+        SliverPersistentHeader(
+          pinned: false,
+          floating: false,
+          delegate: _CollapsibleMapHeaderDelegate(
+            child: mapSection,
+            maxExtentHeight: mapSectionMaxExtent,
+          ),
+        ),
 
         // Photo wall section
         SliverToBoxAdapter(
@@ -246,7 +248,7 @@ class _MinePageState extends ConsumerState<MinePage> {
         children: [
           // Title
           Text(
-            'Your flaneur',
+            'Your flâneur',
             style: AppTheme.displayLarge(context).copyWith(
               fontSize: 32,
               fontWeight: FontWeight.w700,
@@ -501,7 +503,14 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
     print(
         '🗺️ [GlobeMap] Spots with place: ${widget.data.visitedSpots.where((ts) => ts.spot != null).length}');
 
-    final previewSpots = widget.data.visitedSpots
+    final sortedVisitedSpots = List<TripSpot>.from(widget.data.visitedSpots)
+      ..sort((a, b) {
+        final aTime = a.visitDate ?? a.updatedAt ?? DateTime(1970);
+        final bTime = b.visitDate ?? b.updatedAt ?? DateTime(1970);
+        return bTime.compareTo(aTime);
+      });
+
+    final previewSpots = sortedVisitedSpots
         .where((ts) => ts.spot != null)
         .take(10)
         .map((tripSpot) {
@@ -624,7 +633,13 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
                 initialZoom: zoom,
                 selectedSpot: selected,
                 onSpotTap: widget.onSpotTap,
-                markerMode: MapboxMarkerMode.bubble,
+                markerMode: MapboxMarkerMode.checkIn,
+                checkInMarkerAsset: 'assets/images/icon_mine.jpg',
+                gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                  Factory<OneSequenceGestureRecognizer>(
+                    () => EagerGestureRecognizer(),
+                  ),
+                },
                 onMapCreated: () {},
               ),
 

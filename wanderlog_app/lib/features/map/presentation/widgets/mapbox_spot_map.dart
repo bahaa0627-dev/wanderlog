@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/category_emoji.dart';
@@ -17,6 +18,7 @@ enum MapboxMarkerMode {
   bubble,
   checkIn,
 }
+
 ///
 /// 统一了 Map tab 和 Album 地图的交互逻辑
 class MapboxSpotMap extends StatefulWidget {
@@ -31,6 +33,7 @@ class MapboxSpotMap extends StatefulWidget {
     this.cameraPadding,
     this.visitedSpots,
     this.markerMode = MapboxMarkerMode.bubble,
+    this.checkInMarkerAsset,
     this.gestureRecognizers,
     super.key,
   });
@@ -45,6 +48,7 @@ class MapboxSpotMap extends StatefulWidget {
   final MbxEdgeInsets? cameraPadding;
   final Map<String, bool>? visitedSpots; // spotId -> isVisited
   final MapboxMarkerMode markerMode;
+  final String? checkInMarkerAsset;
   final Set<Factory<OneSequenceGestureRecognizer>>? gestureRecognizers;
 
   @override
@@ -97,7 +101,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final oldSpotIds = oldWidget.spots.map((s) => s.id).toSet();
     final newSpotIds = widget.spots.map((s) => s.id).toSet();
     final hasNewSpots = !_setsEqual(oldSpotIds, newSpotIds);
-    
+
     final selectionChanged =
         oldWidget.selectedSpot?.id != widget.selectedSpot?.id;
 
@@ -106,11 +110,12 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       print('📍 [共享地图] spots 列表变化，重建所有标记');
       _addNativeMarkers();
     } else if (selectionChanged) {
-      print('📍 [共享地图] 选中变化: ${oldWidget.selectedSpot?.id} -> ${widget.selectedSpot?.id}');
+      print(
+          '📍 [共享地图] 选中变化: ${oldWidget.selectedSpot?.id} -> ${widget.selectedSpot?.id}');
       _refreshSelectedMarker();
     }
   }
-  
+
   bool _setsEqual<T>(Set<T> a, Set<T> b) {
     if (a.length != b.length) return false;
     for (final item in a) {
@@ -143,10 +148,11 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       print('✅ [共享地图] 地图手势已启用！');
       print('👆 [共享地图] scrollEnabled: ${settings.scrollEnabled}');
       print('👆 [共享地图] pinchToZoomEnabled: ${settings.pinchToZoomEnabled}');
-      
+
       // 验证设置是否生效
       final currentSettings = await map.gestures.getSettings();
-      print('🔍 [共享地图] 验证手势设置 - scrollEnabled: ${currentSettings.scrollEnabled}, pinchToZoomEnabled: ${currentSettings.pinchToZoomEnabled}');
+      print(
+          '🔍 [共享地图] 验证手势设置 - scrollEnabled: ${currentSettings.scrollEnabled}, pinchToZoomEnabled: ${currentSettings.pinchToZoomEnabled}');
     } catch (e) {
       print('❌ [共享地图] 启用地图手势失败: $e');
     }
@@ -182,20 +188,23 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       }
 
       final selectedId = widget.selectedSpot?.id;
-      
+
       // 限制一次添加的标记数量，避免卡顿
       final spotsToAdd = spots.length > 50 ? spots.take(50).toList() : spots;
-      print('📍 [共享地图] 将添加 ${spotsToAdd.length} 个标记（总共 ${spots.length} 个），模式: ${widget.markerMode}');
+      print(
+          '📍 [共享地图] 将添加 ${spotsToAdd.length} 个标记（总共 ${spots.length} 个），模式: ${widget.markerMode}');
 
       // 先添加未选中的标记
       for (final spot in spotsToAdd.where((s) => s.id != selectedId)) {
         if (generation != _markerGeneration) return;
         try {
-          print('📍 [共享地图] 添加标记: ${spot.name} at (${spot.latitude}, ${spot.longitude}), 模式: ${widget.markerMode}');
+          print(
+              '📍 [共享地图] 添加标记: ${spot.name} at (${spot.latitude}, ${spot.longitude}), 模式: ${widget.markerMode}');
           final annotation = await _createAnnotation(spot, isSelected: false);
           _annotationsBySpotId[spot.id] = annotation;
           _spotByAnnotationId[annotation.id] = spot;
-          print('✅ [共享地图] 标记添加成功: ${spot.name}, annotationId: ${annotation.id}');
+          print(
+              '✅ [共享地图] 标记添加成功: ${spot.name}, annotationId: ${annotation.id}');
         } catch (e, stack) {
           print('⚠️ [共享地图] 添加标记失败: ${spot.name} - $e');
           print('⚠️ [共享地图] Stack: $stack');
@@ -205,11 +214,13 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       // 再添加选中标记，确保在最上层
       if (selectedId != null) {
         // 只有当选中的 spot 在列表中时才添加选中标记
-        final selectedSpotIndex = spotsToAdd.indexWhere((s) => s.id == selectedId);
+        final selectedSpotIndex =
+            spotsToAdd.indexWhere((s) => s.id == selectedId);
         if (selectedSpotIndex != -1) {
           final selectedSpot = spotsToAdd[selectedSpotIndex];
           try {
-            final selectedAnnotation = await _createAnnotation(selectedSpot, isSelected: true);
+            final selectedAnnotation =
+                await _createAnnotation(selectedSpot, isSelected: true);
             if (generation != _markerGeneration) return;
             _annotationsBySpotId[selectedSpot.id] = selectedAnnotation;
             _spotByAnnotationId[selectedAnnotation.id] = selectedSpot;
@@ -259,17 +270,18 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       iconAnchor: IconAnchor.BOTTOM,
       // 2x 分辨率图片，缩放比例减半
       iconSize: widget.markerMode == MapboxMarkerMode.checkIn
-          ? 1.0  // checkIn 模式使用 1.0，因为图片是 2x 分辨率 (30*2*1.0 = 60px，缩小50%)
+          ? 1.0 // checkIn 模式使用 1.0，因为图片是 2x 分辨率 (30*2*1.0 = 60px，缩小50%)
           : (isSelected ? 1.2 : 1.0),
       // 选中的 marker 使用更高的 sortKey，确保在最上层
       // sortKey 越大越在上面
       symbolSortKey: widget.markerMode == MapboxMarkerMode.checkIn
-          ? 1000.0  // checkIn 模式所有标记都在最上层
+          ? 1000.0 // checkIn 模式所有标记都在最上层
           : (isSelected ? 1000.0 : 0.0),
     );
-    
+
     if (widget.markerMode == MapboxMarkerMode.checkIn) {
-      print('📍 [共享地图] 创建 checkIn 标记: ${spot.name}, iconSize: 1.0, symbolSortKey: 1000.0, 位置: (${spot.latitude}, ${spot.longitude})');
+      print(
+          '📍 [共享地图] 创建 checkIn 标记: ${spot.name}, iconSize: 1.0, symbolSortKey: 1000.0, 位置: (${spot.latitude}, ${spot.longitude})');
     }
 
     return manager.create(annotation);
@@ -278,10 +290,10 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   /// 直接更新选中的 spot，不触发 widget 重建
   Future<void> updateSelectedSpot(Spot? spot) async {
     if (spot?.id == _lastSelectedSpotId) return;
-    
+
     final newSelectedId = spot?.id;
     if (newSelectedId == null) return;
-    
+
     // 直接调用内部方法更新 marker 样式
     if (_annotationsBySpotId.isNotEmpty) {
       await _refreshSelectedMarkerById(newSelectedId);
@@ -296,26 +308,27 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     }
     final newSelectedId = widget.selectedSpot?.id;
 
-    print('📍 [共享地图] 刷新选中标记: lastSelected=$_lastSelectedSpotId, newSelected=$newSelectedId');
+    print(
+        '📍 [共享地图] 刷新选中标记: lastSelected=$_lastSelectedSpotId, newSelected=$newSelectedId');
 
     if (newSelectedId == null) {
       print('⚠️ [共享地图] 新选中 ID 为空');
       return;
     }
-    
+
     await _refreshSelectedMarkerById(newSelectedId);
   }
 
   Future<void> _refreshSelectedMarkerById(String newSelectedId) async {
     final manager = _pointAnnotationManager;
     if (manager == null) return;
-    
+
     if (_annotationsBySpotId.isEmpty) {
       print('📍 [共享地图] annotations 为空，重新添加所有标记');
       await _addNativeMarkers();
       return;
     }
-    
+
     // 如果选中的是同一个，不需要刷新
     if (_lastSelectedSpotId == newSelectedId) {
       print('📍 [共享地图] 选中的是同一个，跳过刷新');
@@ -336,7 +349,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       await _doRefreshSelectedMarker(newSelectedId);
     } finally {
       _isRefreshingMarker = false;
-      
+
       // 检查是否有待处理的选中请求
       final pending = _pendingSelectedId;
       if (pending != null && pending != _lastSelectedSpotId) {
@@ -355,7 +368,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
     try {
       final oldSelectedId = _lastSelectedSpotId;
-      
+
       // 先更新状态，防止重复处理
       _lastSelectedSpotId = newSelectedId;
 
@@ -364,19 +377,21 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
           oldSelectedId != newSelectedId &&
           _annotationsBySpotId.containsKey(oldSelectedId)) {
         // 只有当旧的 spot 还在当前列表中时才还原
-        final previousSpotIndex = widget.spots.indexWhere((s) => s.id == oldSelectedId);
+        final previousSpotIndex =
+            widget.spots.indexWhere((s) => s.id == oldSelectedId);
         if (previousSpotIndex != -1) {
           final previousSpot = widget.spots[previousSpotIndex];
           final oldAnnotation = _annotationsBySpotId[oldSelectedId];
-          
+
           if (oldAnnotation != null) {
             print('📍 [共享地图] 还原旧标记: ${previousSpot.name}');
-            
+
             // 删除旧标记并重建为普通样式
             await manager.delete(oldAnnotation);
             _spotByAnnotationId.remove(oldAnnotation.id);
-            
-            final restored = await _createAnnotation(previousSpot, isSelected: false);
+
+            final restored =
+                await _createAnnotation(previousSpot, isSelected: false);
             _annotationsBySpotId[oldSelectedId] = restored;
             _spotByAnnotationId[restored.id] = previousSpot;
           }
@@ -393,24 +408,26 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       }
 
       // 更新新选中标记的样式并提升到最上层
-      final newSpotIndex = widget.spots.indexWhere((s) => s.id == newSelectedId);
+      final newSpotIndex =
+          widget.spots.indexWhere((s) => s.id == newSelectedId);
       if (newSpotIndex == -1) {
         print('⚠️ [共享地图] 新选中的 spot 不在列表中: $newSelectedId');
         return;
       }
-      
+
       final newSpot = widget.spots[newSpotIndex];
       final existing = _annotationsBySpotId[newSelectedId];
-      
+
       print('📍 [共享地图] 选中新标记: ${newSpot.name}');
-      
+
       if (existing != null) {
         // 删除并重新创建以确保在最上层
         await manager.delete(existing);
         _spotByAnnotationId.remove(existing.id);
       }
-      
-      final selectedAnnotation = await _createAnnotation(newSpot, isSelected: true);
+
+      final selectedAnnotation =
+          await _createAnnotation(newSpot, isSelected: true);
       _annotationsBySpotId[newSelectedId] = selectedAnnotation;
       _spotByAnnotationId[selectedAnnotation.id] = newSpot;
 
@@ -424,14 +441,14 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   bool _isSpotClosed(Spot spot) {
     final raw = spot.openingHours;
     if (raw == null) return false;
-    
+
     final eval = OpeningHoursUtils.evaluate(
       raw,
       country: spot.country,
       longitude: spot.longitude,
     );
     if (eval == null) return false;
-    
+
     return !eval.isOpen;
   }
 
@@ -440,14 +457,19 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     required bool isSelected,
   }) async {
     if (widget.markerMode == MapboxMarkerMode.checkIn) {
-      const cacheKey = 'checkin_marker';
+      final assetPath = widget.checkInMarkerAsset;
+      final cacheKey = assetPath == null || assetPath.isEmpty
+          ? 'checkin_marker'
+          : 'checkin_marker_$assetPath';
       final cached = _markerBitmapCache[cacheKey];
       if (cached != null) {
         print('📍 [共享地图] 使用缓存的 checkIn 标记图片，大小: ${cached.length} bytes');
         return cached;
       }
       print('📍 [共享地图] 创建新的 checkIn 标记图片...');
-      final bitmap = await _createCheckInMarkerBitmap();
+      final bitmap = (assetPath != null && assetPath.isNotEmpty)
+          ? await _createAssetMarkerBitmap(assetPath)
+          : await _createCheckInMarkerBitmap();
       print('📍 [共享地图] checkIn 标记图片创建完成，大小: ${bitmap.length} bytes');
       _markerBitmapCache[cacheKey] = bitmap;
       return bitmap;
@@ -456,8 +478,10 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final isVisited = widget.visitedSpots?[spot.id] ?? false;
     final isClosed = _isSpotClosed(spot);
     // 使用名称和类别作为缓存 key，因为相同内容的 marker 可以共享 bitmap
-    final truncatedName = spot.name.length > 10 ? '${spot.name.substring(0, 10)}...' : spot.name;
-    final cacheKey = '${truncatedName}_${spot.category}_${isSelected ? 'selected' : 'default'}_${isVisited ? 'visited' : 'normal'}_${isClosed ? 'closed' : 'open'}';
+    final truncatedName =
+        spot.name.length > 10 ? '${spot.name.substring(0, 10)}...' : spot.name;
+    final cacheKey =
+        '${truncatedName}_${spot.category}_${isSelected ? 'selected' : 'default'}_${isVisited ? 'visited' : 'normal'}_${isClosed ? 'closed' : 'open'}';
     final cached = _markerBitmapCache[cacheKey];
     if (cached != null) {
       return cached;
@@ -471,20 +495,20 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     // - visited marker: same gray style as closed (浅灰背景)
     final Color markerColor;
     final Color labelColor;
-    
+
     if (isClosed) {
       // 关门状态：浅灰色背景和深灰文字
-      markerColor = AppTheme.markerGray;  // #CCCCCC
-      labelColor = AppTheme.markerLabelGray;  // #8D8D8D
+      markerColor = AppTheme.markerGray; // #CCCCCC
+      labelColor = AppTheme.markerLabelGray; // #8D8D8D
     } else if (isVisited) {
       // 已访问状态：与关门状态使用相同的灰色样式
-      markerColor = AppTheme.markerGray;  // #CCCCCC
-      labelColor = AppTheme.markerLabelGray;  // #8D8D8D
+      markerColor = AppTheme.markerGray; // #CCCCCC
+      labelColor = AppTheme.markerLabelGray; // #8D8D8D
     } else {
       markerColor = isSelected ? AppTheme.primaryYellow : Colors.white;
       labelColor = AppTheme.black;
     }
-    
+
     final bitmap = await _createCustomMarkerBitmap(
       spot.name,
       spot.category,
@@ -496,6 +520,24 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     );
     _markerBitmapCache[cacheKey] = bitmap;
     return bitmap;
+  }
+
+  Future<Uint8List> _createAssetMarkerBitmap(String assetPath) async {
+    try {
+      final data = await rootBundle.load(assetPath);
+      final codec = await ui.instantiateImageCodec(
+        data.buffer.asUint8List(),
+        targetWidth: 60,
+        targetHeight: 60,
+      );
+      final frame = await codec.getNextFrame();
+      final byteData =
+          await frame.image.toByteData(format: ui.ImageByteFormat.png);
+      return byteData!.buffer.asUint8List();
+    } catch (e) {
+      print('❌ [共享地图] 加载标记资源失败: $assetPath - $e');
+      return _createCheckInMarkerBitmap();
+    }
   }
 
   Future<Uint8List> _createCheckInMarkerBitmap() async {
@@ -523,7 +565,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     // 创建水滴形状路径
     // 水滴形状：上半部分是圆形，下半部分是尖角
     final path = Path();
-    
+
     // 画上半圆（从左侧底部到右侧底部，180度）
     path.addArc(
       Rect.fromCircle(
@@ -531,9 +573,9 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
         radius: radius,
       ),
       -3.14159, // -180度（从顶部开始）
-      3.14159,  // 180度（画上半圆）
+      3.14159, // 180度（画上半圆）
     );
-    
+
     // 从圆的底部中心点向下画尖角
     path.lineTo(centerX, tipY); // 到尖角底部
     path.close(); // 闭合路径（会自动回到起点）
@@ -554,7 +596,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final checkmarkSize = radius * 0.55; // 对勾大小（稍微缩小）
     final checkmarkX = centerX;
     final checkmarkY = circleCenterY;
-    
+
     // 对勾的左下角
     checkmarkPath.moveTo(
       checkmarkX - checkmarkSize * 0.3,
@@ -570,7 +612,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       checkmarkX + checkmarkSize * 0.4,
       checkmarkY - checkmarkSize * 0.15,
     );
-    
+
     canvas.drawPath(checkmarkPath, checkmarkPaint);
 
     final picture = pictureRecorder.endRecording();
@@ -580,7 +622,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     );
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final result = byteData!.buffer.asUint8List();
-    print('📍 [共享地图] checkIn 标记图片生成完成（水滴形状，缩小50%）: ${(markerWidth * scale).toInt()}x${(totalHeight * scale).toInt()}, ${result.length} bytes');
+    print(
+        '📍 [共享地图] checkIn 标记图片生成完成（水滴形状，缩小50%）: ${(markerWidth * scale).toInt()}x${(totalHeight * scale).toInt()}, ${result.length} bytes');
     return result;
   }
 
@@ -596,10 +639,10 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   }) async {
     // 使用 2x 分辨率让图像更清晰
     const double scale = 2.0;
-    
+
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
-    
+
     // 应用缩放
     canvas.scale(scale);
 
@@ -655,12 +698,20 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     fullTextPainter.layout();
 
     // 计算需要的宽度
-    final contentWidth = horizontalPadding + iconPainter.width + iconTextGap + fullTextPainter.width + horizontalPadding;
+    final contentWidth = horizontalPadding +
+        iconPainter.width +
+        iconTextGap +
+        fullTextPainter.width +
+        horizontalPadding;
     final markerWidth = contentWidth.clamp(minMarkerWidth, maxMarkerWidth);
-    
+
     // 计算可用的文字宽度
-    final availableTextWidth = markerWidth - horizontalPadding - iconPainter.width - iconTextGap - horizontalPadding;
-    
+    final availableTextWidth = markerWidth -
+        horizontalPadding -
+        iconPainter.width -
+        iconTextGap -
+        horizontalPadding;
+
     // 判断是否需要截断
     String displayText;
     if (fullTextPainter.width > availableTextWidth) {
@@ -699,7 +750,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()
-      ..color = (isClosed || isVisited) ? AppTheme.markerLabelGray : AppTheme.black
+      ..color =
+          (isClosed || isVisited) ? AppTheme.markerLabelGray : AppTheme.black
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5; // 稍微加粗边框让它更清晰
 
@@ -787,7 +839,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final textY = contentAreaTop + (contentAreaHeight - textPainter.height) / 2;
     textPainter.paint(
       canvas,
-      Offset(offsetX + horizontalPadding + iconPainter.width + iconTextGap, textY),
+      Offset(
+          offsetX + horizontalPadding + iconPainter.width + iconTextGap, textY),
     );
 
     // 如果关门，绘制右上角的 "Closed" 红色气泡
@@ -798,7 +851,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       const closedPaddingH = 6.0;
       const closedPaddingV = 3.0;
       const closedRadius = 8.0;
-      
+
       final closedPainter = TextPainter(
         text: TextSpan(
           text: closedText,
@@ -812,32 +865,33 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
         textDirection: TextDirection.ltr,
       );
       closedPainter.layout();
-      
+
       final closedBubbleWidth = closedPainter.width + closedPaddingH * 2;
       final closedBubbleHeight = closedPainter.height + closedPaddingV * 2;
-      
+
       // 位置：主气泡右上角偏移
       final closedLeft = right - closedBubbleWidth / 2 + 5;
       final closedTop = top - closedBubbleHeight / 2 - 2;
-      
+
       // 计算气泡超出右边界的宽度
       final closedRight = closedLeft + closedBubbleWidth;
       if (closedRight > right + offsetX) {
         extraRightWidth = closedRight - (right + offsetX) + 5; // 额外留 5px 边距
       }
-      
+
       final closedRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(closedLeft, closedTop, closedBubbleWidth, closedBubbleHeight),
+        Rect.fromLTWH(
+            closedLeft, closedTop, closedBubbleWidth, closedBubbleHeight),
         const Radius.circular(closedRadius),
       );
-      
+
       // 红色背景
       final closedBgPaint = Paint()
         ..color = const Color(0xFFE53935) // 红色
         ..style = PaintingStyle.fill;
-      
+
       canvas.drawRRect(closedRect, closedBgPaint);
-      
+
       // 绘制文字
       closedPainter.paint(
         canvas,
@@ -848,8 +902,12 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     // 转换为图片（使用 2x 分辨率）
     final picture = pictureRecorder.endRecording();
     // 如果有 Closed 气泡，需要增加图片尺寸（extraTopOffset 已经包含在 offsetY 中）
-    final imageWidth = ((markerWidth + offsetX * 2 + extraRightWidth) * scale).toInt();
-    final imageHeight = ((markerHeight + triangleHeight + offsetY + 5.0 + extraTopOffset) * scale).toInt();
+    final imageWidth =
+        ((markerWidth + offsetX * 2 + extraRightWidth) * scale).toInt();
+    final imageHeight =
+        ((markerHeight + triangleHeight + offsetY + 5.0 + extraTopOffset) *
+                scale)
+            .toInt();
     final image = await picture.toImage(imageWidth, imageHeight);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
@@ -951,9 +1009,8 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       kind == ui.PointerDeviceKind.mouse ||
       kind == ui.PointerDeviceKind.trackpad;
 
-  ScreenCoordinate? _anchorFromOffset(Offset? offset) => offset == null
-      ? null
-      : ScreenCoordinate(x: offset.dx, y: offset.dy);
+  ScreenCoordinate? _anchorFromOffset(Offset? offset) =>
+      offset == null ? null : ScreenCoordinate(x: offset.dx, y: offset.dy);
 
   void _setZoom(double zoom, {Offset? anchor}) {
     final map = _mapboxMap;
@@ -1066,15 +1123,17 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
             _pointAnnotationManager =
                 await mapboxMap.annotations.createPointAnnotationManager();
 
-            print('🗺️ [共享地图] 地图创建完成，初始中心: (${widget.initialCenter.lng}, ${widget.initialCenter.lat}), 缩放: ${widget.initialZoom}');
-            
+            print(
+                '🗺️ [共享地图] 地图创建完成，初始中心: (${widget.initialCenter.lng}, ${widget.initialCenter.lat}), 缩放: ${widget.initialZoom}');
+
             await _enableMapGestures();
             await _addNativeMarkers();
             await _applyPendingCamera();
-            
+
             // 确保地图显示正确的位置
             final cameraState = await mapboxMap.getCameraState();
-            print('🗺️ [共享地图] 地图当前相机: (${cameraState.center.coordinates.lng}, ${cameraState.center.coordinates.lat}), 缩放: ${cameraState.zoom}');
+            print(
+                '🗺️ [共享地图] 地图当前相机: (${cameraState.center.coordinates.lng}, ${cameraState.center.coordinates.lat}), 缩放: ${cameraState.zoom}');
 
             _isMapReady = true; // 标记地图已准备好
             widget.onMapCreated?.call();
@@ -1109,7 +1168,6 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
 /// 标记点击监听器
 class _MarkerClickListener extends OnPointAnnotationClickListener {
-
   _MarkerClickListener({
     required this.onMarkerTap,
     required this.annotationSpotResolver,

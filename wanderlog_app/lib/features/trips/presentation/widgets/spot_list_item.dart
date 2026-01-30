@@ -12,9 +12,10 @@ import 'package:wanderlog/core/providers/dio_provider.dart';
 import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
 
 class SpotListItem extends ConsumerWidget {
-
   const SpotListItem({
-    required this.tripId, required this.tripSpot, super.key,
+    required this.tripId,
+    required this.tripSpot,
+    super.key,
     this.showOpeningHours = false,
     this.showRating = false,
   });
@@ -248,7 +249,6 @@ class SpotListItem extends ConsumerWidget {
 }
 
 class _SpotActionsSheet extends StatefulWidget {
-
   const _SpotActionsSheet({
     required this.tripId,
     required this.tripSpot,
@@ -266,7 +266,9 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
   bool _isLoading = false;
 
   Future<void> _changeStatus(
-      BuildContext context, TripSpotStatus newStatus,) async {
+    BuildContext context,
+    TripSpotStatus newStatus,
+  ) async {
     setState(() => _isLoading = true);
 
     try {
@@ -292,7 +294,8 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
       if (mounted) {
         final languageCode = Localizations.localeOf(context).languageCode;
         final l10n = AppLocalizations(languageCode);
-        DialogUtils.showErrorSnackBar(context, l10n.operationFailedWith(e.toString()));
+        DialogUtils.showErrorSnackBar(
+            context, l10n.operationFailedWith(e.toString()));
       }
     } finally {
       if (mounted) {
@@ -327,7 +330,8 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
       if (mounted) {
         final languageCode = Localizations.localeOf(context).languageCode;
         final l10n = AppLocalizations(languageCode);
-        DialogUtils.showErrorSnackBar(context, l10n.operationFailedWith(e.toString()));
+        DialogUtils.showErrorSnackBar(
+            context, l10n.operationFailedWith(e.toString()));
       }
     } finally {
       if (mounted) {
@@ -393,9 +397,7 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
               ),
             ListTile(
               leading: Icon(
-                widget.tripSpot.isMustGo
-                    ? Icons.star
-                    : Icons.star_outline,
+                widget.tripSpot.isMustGo ? Icons.star : Icons.star_outline,
               ),
               title: Text(
                 widget.tripSpot.isMustGo
@@ -412,7 +414,6 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
 }
 
 class _CheckInDialog extends StatefulWidget {
-
   const _CheckInDialog({
     required this.tripId,
     required this.tripSpot,
@@ -449,11 +450,11 @@ class _CheckInDialogState extends State<_CheckInDialog> {
       await repository.manageTripSpot(
         tripId: widget.tripId,
         spotId: widget.tripSpot.spotId,
-        status: TripSpotStatus.visited,
+        isSaved: widget.tripSpot.isSaved,
+        isVisited: true,
         visitDate: _visitDate,
         userRating: _rating,
-        userNotes:
-            _notesController.text.isEmpty ? null : _notesController.text,
+        userNotes: _notesController.text.isEmpty ? null : _notesController.text,
       );
 
       widget.onRefresh();
@@ -468,7 +469,8 @@ class _CheckInDialogState extends State<_CheckInDialog> {
       if (mounted) {
         final languageCode = Localizations.localeOf(context).languageCode;
         final l10n = AppLocalizations(languageCode);
-        DialogUtils.showErrorSnackBar(context, l10n.operationFailedWith(e.toString()));
+        DialogUtils.showErrorSnackBar(
+            context, l10n.operationFailedWith(e.toString()));
       }
     } finally {
       if (mounted) {
@@ -479,87 +481,82 @@ class _CheckInDialogState extends State<_CheckInDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-      title: const Text('Check In'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Date picker
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.calendar_today),
-              title: Text(DateFormat('MMM d, yyyy').format(_visitDate)),
-              trailing: const Icon(Icons.edit),
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: _visitDate,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime.now(),
-                );
-                if (date != null) {
-                  setState(() => _visitDate = date);
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            // Rating
-            const Text(
-              'Rating',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                5,
-                (index) => IconButton(
-                  icon: Icon(
-                    index < _rating ? Icons.star : Icons.star_border,
-                    color: Colors.amber,
-                    size: 32,
+        title: const Text('Check In'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Date picker
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_today),
+                title: Text(DateFormat('MMM d, yyyy').format(_visitDate)),
+                trailing: const Icon(Icons.edit),
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: _visitDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                  );
+                  if (date != null) {
+                    setState(() => _visitDate = date);
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              // Rating
+              const Text(
+                'Rating',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  5,
+                  (index) => IconButton(
+                    icon: Icon(
+                      index < _rating ? Icons.star : Icons.star_border,
+                      color: Colors.amber,
+                      size: 32,
+                    ),
+                    onPressed: () {
+                      setState(() => _rating = index + 1);
+                    },
                   ),
-                  onPressed: () {
-                    setState(() => _rating = index + 1);
-                  },
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            // Notes
-            TextField(
-              controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: 'Notes (optional)',
-                hintText: 'Share your thoughts...',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+              // Notes
+              TextField(
+                controller: _notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Notes (optional)',
+                  hintText: 'Share your thoughts...',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
               ),
-              maxLines: 3,
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _isLoading ? null : _checkIn,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Check In'),
-        ),
-      ],
-    );
+        actions: [
+          TextButton(
+            onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: _isLoading ? null : _checkIn,
+            child: _isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Check In'),
+          ),
+        ],
+      );
 }
-
-
-
-
-

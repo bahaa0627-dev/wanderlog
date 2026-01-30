@@ -12,7 +12,7 @@ import 'package:flutter/foundation.dart';
 ///   local components) so device timezone doesn't affect results.
 class OpeningHoursUtils {
   /// Evaluate opening hours with optional location context for timezone fallback.
-  /// 
+  ///
   /// [raw] - The opening hours data from the API
   /// [country] - Optional country name/code for timezone estimation
   /// [longitude] - Optional longitude for timezone estimation
@@ -34,7 +34,7 @@ class OpeningHoursUtils {
     int? utcOffsetMinutes = _extractUtcOffset(raw);
     utcOffsetMinutes ??= getUtcOffsetByCountry(country);
     utcOffsetMinutes ??= estimateUtcOffsetFromLongitude(longitude);
-    
+
     final now = _nowWallClockUtc(utcOffsetMinutes);
 
     // 24/7: single period with open 00:00 and no close
@@ -107,7 +107,8 @@ class OpeningHoursUtils {
   static OpeningHoursEvaluation? evaluateWithTimezone(
     Map<String, dynamic>? raw,
     String timezoneId,
-  ) => evaluate(raw);
+  ) =>
+      evaluate(raw);
 
   static String _formatSummary(DateTime now, OpeningHoursComputation computed) {
     if (computed.isOpen && computed.closingTime != null) {
@@ -117,7 +118,8 @@ class OpeningHoursUtils {
         final mins = diff.inMinutes.clamp(1, 59);
         return 'Open, ${mins}mins left, Closes ${_formatTime(computed.closingTime!)}';
       }
-      if (diff >= const Duration(hours: 1) && diff <= const Duration(hours: 2)) {
+      if (diff >= const Duration(hours: 1) &&
+          diff <= const Duration(hours: 2)) {
         // 1-2 小时
         return 'Open, Closes within 2h, ${_formatTime(computed.closingTime!)}';
       }
@@ -204,7 +206,7 @@ class OpeningHoursUtils {
   }
 
   static OpeningHoursEvaluation? _evaluateFromWeekdayText({
-    required List weekdayText,
+    required List<dynamic> weekdayText,
     required DateTime now,
   }) {
     if (weekdayText.isEmpty) return null;
@@ -248,8 +250,10 @@ class OpeningHoursUtils {
       return null;
     }
 
-    final hours = todayText.substring(colonIndex + 1).trim();
-    if (hours.toLowerCase().contains('open 24') || hours == '7x24') {
+    final hours =
+        _sanitizeHoursText(todayText.substring(colonIndex + 1).trim());
+    final hoursLower = hours.toLowerCase();
+    if (hoursLower.contains('open 24') || hours == '7x24') {
       return OpeningHoursEvaluation(
         now: now,
         isOpen: true,
@@ -259,12 +263,13 @@ class OpeningHoursUtils {
         isClosingSoon: false,
       );
     }
-    if (hours.toLowerCase() == 'closed') {
+    if (hoursLower == 'closed') {
       final nextOpenText = _findNextOpeningFromWeekdayText(weekdayText, index);
       return OpeningHoursEvaluation(
         now: now,
         isOpen: false,
-        summaryText: nextOpenText == null ? 'Closed' : 'Closed, Opens $nextOpenText',
+        summaryText:
+            nextOpenText == null ? 'Closed' : 'Closed, Opens $nextOpenText',
         closingTime: null,
         nextOpeningTime: null,
         isClosingSoon: false,
@@ -274,24 +279,27 @@ class OpeningHoursUtils {
     // Try to parse "9:00 AM – 5:00 PM" to determine open/closed and next open.
     final parsed = _parseSingleRangeHours(hours);
     if (parsed != null) {
-      final currentMinutes = now.hour * 60 + now.minute;
+      final currentMinutes =
+          now.hour * 60 + now.minute; // Current time in minutes
       final openMinutes = parsed.openMinutes;
       final closeMinutes = parsed.closeMinutes <= openMinutes
           ? parsed.closeMinutes + 24 * 60
           : parsed.closeMinutes;
+      // If the business closes after midnight (closeMinutes extended past 24h),
+      // map the "after-midnight" current time into the same extended space.
       final currentComparable = currentMinutes < openMinutes
-          ? currentMinutes
+          ? currentMinutes + 24 * 60
           : currentMinutes;
 
-      final bool isOpenNow = currentComparable >= openMinutes &&
-          currentComparable < closeMinutes;
+      final bool isOpenNow =
+          currentComparable >= openMinutes && currentComparable < closeMinutes;
 
       if (isOpenNow) {
         final closing = _format12hMinutes(parsed.closeMinutes);
-        final minsUntilClose = closeMinutes - currentMinutes;
+        final minsUntilClose = closeMinutes - currentComparable;
         String summaryText;
         bool isClosingSoon = false;
-        
+
         if (minsUntilClose < 60) {
           // 不足 1 小时
           summaryText = 'Open, ${minsUntilClose}mins left, Closes $closing';
@@ -303,7 +311,7 @@ class OpeningHoursUtils {
         } else {
           summaryText = 'Open, Closes $closing';
         }
-        
+
         return OpeningHoursEvaluation(
           now: now,
           isOpen: true,
@@ -340,7 +348,8 @@ class OpeningHoursUtils {
       return OpeningHoursEvaluation(
         now: now,
         isOpen: false,
-        summaryText: nextOpenText == null ? 'Closed' : 'Closed, Opens $nextOpenText',
+        summaryText:
+            nextOpenText == null ? 'Closed' : 'Closed, Opens $nextOpenText',
         closingTime: null,
         nextOpeningTime: null,
         isClosingSoon: false,
@@ -358,18 +367,41 @@ class OpeningHoursUtils {
     );
   }
 
-  static String? _findNextOpeningFromWeekdayText(List weekdayText, int startIndex) {
+  static String _sanitizeHoursText(String input) {
+    // Some sources (e.g. AI-generated or loosely-normalized data) can contain
+    // stray JSON-like characters or punctuation, e.g. "5:30 to 11PM}".
+    // We only strip obvious leading/trailing noise and keep the core text.
+    var text = input.trim();
+    text = text.replaceAll(RegExp(r'^[\[{(\s]+'), '');
+    text = text.replaceAll(RegExp(r'[\]})\s]+$'), '');
+    text = text.replaceAll(RegExp(r'\s+'), ' ');
+    return text.trim();
+  }
+
+  static String? _findNextOpeningFromWeekdayText(
+    List<dynamic> weekdayText,
+    int startIndex,
+  ) {
     // weekday_text 顺序: Monday=0, Tuesday=1, ..., Sunday=6
     const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    
+
     for (int offset = 0; offset < 7; offset++) {
       final index = (startIndex + offset) % weekdayText.length;
       final dayText = weekdayText[index]?.toString() ?? '';
       final colonIndex = dayText.indexOf(':');
       if (colonIndex != -1 && colonIndex < dayText.length - 1) {
-        final hours = dayText.substring(colonIndex + 1).trim();
-        if (hours.toLowerCase() != 'closed' &&
-            !hours.toLowerCase().contains('open 24')) {
+        final hours =
+            _sanitizeHoursText(dayText.substring(colonIndex + 1).trim());
+        final hoursLower = hours.toLowerCase();
+        if (hoursLower != 'closed' && !hoursLower.contains('open 24')) {
+          final parsed = _parseSingleRangeHours(hours);
+          if (parsed != null) {
+            final timeText = _format12hMinutes(parsed.openMinutes);
+            final dayLabel = weekdayLabels[index];
+            return '$timeText $dayLabel';
+          }
+
+          // Fallback: try to locate a time with an explicit AM/PM.
           final openingMatch = RegExp(
             r'(\d{1,2}):?(\d{2})?\s*(AM|PM)',
             caseSensitive: false,
@@ -377,7 +409,6 @@ class OpeningHoursUtils {
           if (openingMatch != null) {
             final timeText = _formatTimeFromMatch(openingMatch);
             final dayLabel = weekdayLabels[index];
-            // 始终返回 "时间 星期几" 格式
             return '$timeText $dayLabel';
           }
         }
@@ -390,30 +421,39 @@ class OpeningHoursUtils {
     final hour = int.parse(match.group(1)!);
     final minute = int.tryParse(match.group(2) ?? '0') ?? 0;
     final period = match.group(3)!.toUpperCase() == 'PM' ? 'p.m' : 'a.m';
-    final minuteText = minute == 0 ? '' : ':${minute.toString().padLeft(2, '0')}';
+    final minuteText =
+        minute == 0 ? '' : ':${minute.toString().padLeft(2, '0')}';
     final hourValue = hour % 12 == 0 ? 12 : hour % 12;
     return '$hourValue$minuteText$period';
   }
 
   static _ParsedHoursRange? _parseSingleRangeHours(String hours) {
-    // Support both "–" (en-dash) and "to" as separators
+    final normalized = _sanitizeHoursText(hours);
+
+    // Support separators: "–" (en-dash), "-", and "to".
+    // Also support missing AM/PM on the start time, e.g. "5:30 to 11PM".
     final match = RegExp(
-      r'(\d{1,2}):?(\d{2})?\s*(AM|PM)\s*(?:–|to)\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)',
+      r'(\d{1,2}):?(\d{2})?\s*(AM|PM)?\s*(?:–|-|to)\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)',
       caseSensitive: false,
-    ).firstMatch(hours);
+    ).firstMatch(normalized);
     if (match == null) return null;
 
     try {
       final openHour = int.parse(match.group(1)!);
       final openMinute = int.tryParse(match.group(2) ?? '0') ?? 0;
-      final openPm = match.group(3)!.toUpperCase() == 'PM';
+      final startPeriodRaw = match.group(3);
       final closeHour = int.parse(match.group(4)!);
       final closeMinute = int.tryParse(match.group(5) ?? '0') ?? 0;
       final closePm = match.group(6)!.toUpperCase() == 'PM';
 
+      // If the start time doesn't specify AM/PM, assume it matches the end.
+      final openPm =
+          (startPeriodRaw?.toUpperCase() ?? (closePm ? 'PM' : 'AM')) == 'PM';
+
       final openMinutes = _to24hMinutes(openHour, openMinute, isPm: openPm);
       final closeMinutes = _to24hMinutes(closeHour, closeMinute, isPm: closePm);
-      return _ParsedHoursRange(openMinutes: openMinutes, closeMinutes: closeMinutes);
+      return _ParsedHoursRange(
+          openMinutes: openMinutes, closeMinutes: closeMinutes);
     } catch (_) {
       return null;
     }
@@ -430,7 +470,8 @@ class OpeningHoursUtils {
     final hour24 = m ~/ 60;
     final minute = m % 60;
     final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
-    final minuteText = minute == 0 ? '' : ':${minute.toString().padLeft(2, '0')}';
+    final minuteText =
+        minute == 0 ? '' : ':${minute.toString().padLeft(2, '0')}';
     final period = hour24 >= 12 ? 'p.m' : 'a.m';
     return '$hour12$minuteText$period';
   }
@@ -479,77 +520,77 @@ class OpeningHoursUtils {
     final c = country.toLowerCase();
     // 常见国家的典型时区偏移
     const countryOffsets = <String, int>{
-      'japan': 540,      // UTC+9
+      'japan': 540, // UTC+9
       'jp': 540,
       '日本': 540,
-      'china': 480,      // UTC+8
+      'china': 480, // UTC+8
       'cn': 480,
       '中国': 480,
       'south korea': 540, // UTC+9
       'korea': 540,
       'kr': 540,
       '韩国': 540,
-      'taiwan': 480,     // UTC+8
+      'taiwan': 480, // UTC+8
       'tw': 480,
       '台湾': 480,
-      'singapore': 480,  // UTC+8
+      'singapore': 480, // UTC+8
       'sg': 480,
-      'hong kong': 480,  // UTC+8
+      'hong kong': 480, // UTC+8
       'hk': 480,
-      'thailand': 420,   // UTC+7
+      'thailand': 420, // UTC+7
       'th': 420,
-      'vietnam': 420,    // UTC+7
+      'vietnam': 420, // UTC+7
       'vn': 420,
-      'indonesia': 420,  // UTC+7 (WIB)
+      'indonesia': 420, // UTC+7 (WIB)
       'id': 420,
-      'malaysia': 480,   // UTC+8
+      'malaysia': 480, // UTC+8
       'my': 480,
       'philippines': 480, // UTC+8
       'ph': 480,
-      'australia': 600,  // UTC+10 (AEST)
+      'australia': 600, // UTC+10 (AEST)
       'au': 600,
       'new zealand': 720, // UTC+12
       'nz': 720,
-      'india': 330,      // UTC+5:30
+      'india': 330, // UTC+5:30
       'in': 330,
       'united states': -300, // UTC-5 (EST)
       'usa': -300,
       'us': -300,
-      'canada': -300,    // UTC-5 (EST)
+      'canada': -300, // UTC-5 (EST)
       'ca': -300,
       'united kingdom': 0, // UTC+0
       'uk': 0,
       'gb': 0,
-      'france': 60,      // UTC+1
+      'france': 60, // UTC+1
       'fr': 60,
-      'germany': 60,     // UTC+1
+      'germany': 60, // UTC+1
       'de': 60,
-      'italy': 60,       // UTC+1
+      'italy': 60, // UTC+1
       'it': 60,
-      'spain': 60,       // UTC+1
+      'spain': 60, // UTC+1
       'es': 60,
       'netherlands': 60, // UTC+1
       'nl': 60,
-      'belgium': 60,     // UTC+1
+      'belgium': 60, // UTC+1
       'be': 60,
       'switzerland': 60, // UTC+1
       'ch': 60,
-      'austria': 60,     // UTC+1
+      'austria': 60, // UTC+1
       'at': 60,
-      'portugal': 0,     // UTC+0
+      'portugal': 0, // UTC+0
       'pt': 0,
-      'greece': 120,     // UTC+2
+      'greece': 120, // UTC+2
       'gr': 120,
-      'turkey': 180,     // UTC+3
+      'turkey': 180, // UTC+3
       'tr': 180,
-      'russia': 180,     // UTC+3 (Moscow)
+      'russia': 180, // UTC+3 (Moscow)
       'ru': 180,
-      'uae': 240,        // UTC+4
+      'uae': 240, // UTC+4
       'ae': 240,
       'dubai': 240,
-      'brazil': -180,    // UTC-3
+      'brazil': -180, // UTC-3
       'br': -180,
-      'mexico': -360,    // UTC-6
+      'mexico': -360, // UTC-6
       'mx': -360,
       'argentina': -180, // UTC-3
       'ar': -180,
@@ -616,7 +657,8 @@ class OpeningHoursUtils {
     final minutes = int.tryParse(normalizedTime.substring(2, 4));
     if (hours == null || minutes == null) return null;
 
-    final startOfDay = DateTime.utc(reference.year, reference.month, reference.day);
+    final startOfDay =
+        DateTime.utc(reference.year, reference.month, reference.day);
     final refIndex = numbering == _DayNumbering.sunday0
         ? _toSunday0(reference)
         : _toMonday0(reference);
@@ -653,6 +695,7 @@ class OpeningHoursUtils {
     return '$hourValue$minuteText$period';
   }
 
+  // ignore: unused_element
   static String _formatClosingCountdown(Duration diff) {
     if (diff >= const Duration(hours: 2)) return 'in 2h';
     if (diff >= const Duration(hours: 1)) return 'in 1h';
@@ -660,9 +703,11 @@ class OpeningHoursUtils {
     return 'in ${minutes}mins';
   }
 
+  // ignore: unused_element
   static bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  // ignore: unused_element
   static bool _isTomorrow(DateTime target, DateTime reference) {
     final tomorrow = reference.add(const Duration(days: 1));
     return target.year == tomorrow.year &&
@@ -720,5 +765,3 @@ class _ParsedHoursRange {
   final int openMinutes;
   final int closeMinutes;
 }
-
-

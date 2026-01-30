@@ -335,10 +335,14 @@ MinePageData _processMineRawData(List<dynamic> rawData) {
         visitDate: markerDate,
       ));
 
+      final categoryEn = placeMap['categoryEn'] as String? ??
+          placeMap['category_en'] as String? ??
+          spot.category;
+
       // Count categories
       _countCategories(
         categoryCounts,
-        spot.category,
+        categoryEn,
         spot.tags,
         spot.aiTags,
       );
@@ -414,10 +418,9 @@ void _countCategories(
 
   // Count AI tags
   if (aiTags != null) {
-    for (final tag in aiTags) {
-      final tagStr = tag.toString();
-      if (tagStr.isNotEmpty && !_isInvalidTag(tagStr)) {
-        final normalizedTag = _normalizeCategory(tagStr);
+    for (final tag in _extractAiTagLabels(aiTags)) {
+      if (tag.isNotEmpty && !_isInvalidTag(tag)) {
+        final normalizedTag = _normalizeCategory(tag);
         counts[normalizedTag] = (counts[normalizedTag] ?? 0) + 1;
       }
     }
@@ -435,6 +438,7 @@ String _normalizeCategory(String category) {
 /// Check if tag should be filtered out
 bool _isInvalidTag(String tag) {
   const invalidTags = {
+    'others',
     'point_of_interest',
     'establishment',
     'premise',
@@ -451,6 +455,26 @@ bool _isInvalidTag(String tag) {
     'postal_code',
   };
   return invalidTags.contains(tag.toLowerCase());
+}
+
+List<String> _extractAiTagLabels(List<dynamic> aiTags) {
+  final result = <String>[];
+  for (final tag in aiTags) {
+    if (tag is Map) {
+      final en = tag['en']?.toString();
+      final zh = tag['zh']?.toString();
+      final label = (en != null && en.isNotEmpty) ? en : (zh ?? '');
+      if (label.isNotEmpty) result.add(label);
+      continue;
+    }
+    if (tag is String) {
+      final trimmed = tag.trim();
+      if (trimmed.isEmpty) continue;
+      if (trimmed.contains('{') || trimmed.contains('}')) continue;
+      result.add(trimmed);
+    }
+  }
+  return result;
 }
 
 List<String> _parseStringList(String raw) {

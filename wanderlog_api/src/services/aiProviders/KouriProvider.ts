@@ -98,7 +98,7 @@ export class KouriProvider implements AIProvider {
     const apiKey = process.env.KOURI_API_KEY;
     const baseUrl = process.env.KOURI_BASE_URL;
     const chatModel = process.env.KOURI_CHAT_MODEL || 'gpt-4o-mini';
-    const visionModel = process.env.KOURI_VISION_MODEL || 'gpt-4o';
+    const visionModel = process.env.KOURI_VISION_MODEL || 'gpt-4o-mini';
 
     // Validate required configuration
     if (!apiKey) {

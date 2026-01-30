@@ -19,7 +19,8 @@ import 'package:wanderlog/features/trips/presentation/widgets/myland/check_in_di
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// Callback for MustGo/TodaysPlan/Visited state changes
-typedef SpotStatusCallback = void Function(String spotId, {bool? isMustGo, bool? isTodaysPlan, bool? isVisited, bool? isRemoved});
+typedef SpotStatusCallback = void Function(String spotId,
+    {bool? isMustGo, bool? isTodaysPlan, bool? isVisited, bool? isRemoved});
 
 /// Spot Detail Modal for MyLand page - displays spot details with save functionality
 class MyLandSpotDetailModal extends ConsumerStatefulWidget {
@@ -37,7 +38,8 @@ class MyLandSpotDetailModal extends ConsumerStatefulWidget {
   final SpotStatusCallback? onStatusChanged;
 
   @override
-  ConsumerState<MyLandSpotDetailModal> createState() => _MyLandSpotDetailModalState();
+  ConsumerState<MyLandSpotDetailModal> createState() =>
+      _MyLandSpotDetailModalState();
 }
 
 class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
@@ -47,8 +49,11 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
   bool _isMustGo = false;
   bool _isTodaysPlan = false;
   bool _isVisited = false; // Check-in status
+  // ignore: unused_field
   bool _isActionLoading = false; // Only for save/unsave operations
+  // ignore: unused_field
   bool _isMustGoLoading = false; // Separate loading for MustGo
+  // ignore: unused_field
   bool _isTodaysPlanLoading = false; // Separate loading for Today's Plan
   String? _destinationId;
   DateTime? _visitDate;
@@ -60,14 +65,14 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
   bool get _isSpotClosed {
     final raw = widget.spot.openingHours;
     if (raw == null) return false;
-    
+
     final eval = OpeningHoursUtils.evaluate(
       raw,
       country: widget.spot.country,
       longitude: widget.spot.longitude,
     );
     if (eval == null) return false;
-    
+
     return !eval.isOpen;
   }
 
@@ -97,20 +102,20 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
 
   /// Build placeholder widget for missing images
   Widget _buildPlaceholder() => Container(
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
+        decoration: const BoxDecoration(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(24),
+          ),
+          color: AppTheme.lightGray,
         ),
-        color: AppTheme.lightGray,
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.image_outlined,
-          size: 64,
-          color: AppTheme.mediumGray,
+        child: const Center(
+          child: Icon(
+            Icons.image_outlined,
+            size: 64,
+            color: AppTheme.mediumGray,
+          ),
         ),
-      ),
-    );
+      );
 
   List<String> _effectiveTags() {
     final List<String> result = [];
@@ -135,103 +140,101 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
   }
 
   Widget _buildCheckInButton() => GestureDetector(
-      onTap: _isVisited ? null : _handleCheckIn,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: _isVisited ? AppTheme.background : AppTheme.primaryYellow,
-          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderMedium,
-          ),
-          boxShadow: _isVisited ? null : AppTheme.cardShadow,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_isVisited) ...[
-              const Text('✓', style: TextStyle(fontSize: 16)),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              _isVisited ? 'Checked in' : 'Check in',
-              style: AppTheme.labelMedium(context).copyWith(
-                color: AppTheme.black,
-                fontWeight: FontWeight.bold,
-              ),
+        onTap: _isVisited ? null : _handleCheckIn,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: _isVisited ? AppTheme.background : AppTheme.primaryYellow,
+            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            border: Border.all(
+              color: AppTheme.black,
+              width: AppTheme.borderMedium,
             ),
-          ],
-        ),
-      ),
-    );
-
-  Widget _buildUserCheckInInfo() => Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.background,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-        border: Border.all(
-          color: AppTheme.black,
-          width: AppTheme.borderThin,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+            boxShadow: _isVisited ? null : AppTheme.cardShadow,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('✓', style: TextStyle(fontSize: 20)),
-              const SizedBox(width: 8),
+              if (_isVisited) ...[
+                const Text('✓', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 6),
+              ],
               Text(
-                'Your Visit',
-                style: AppTheme.headlineMedium(context).copyWith(
+                _isVisited ? 'Checked in' : 'Check in',
+                style: AppTheme.labelMedium(context).copyWith(
+                  color: AppTheme.black,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          if (_visitDate != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _formatVisitDate(_visitDate!),
-              style: AppTheme.bodySmall(context).copyWith(
-                color: AppTheme.mediumGray,
-              ),
-            ),
-          ],
-          if (_userRating != null) ...[
-            const SizedBox(height: 12),
+        ),
+      );
+
+  Widget _buildUserCheckInInfo() => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.background,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          border: Border.all(
+            color: AppTheme.black,
+            width: AppTheme.borderThin,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
               children: [
-                ...List.generate(
-                  5,
-                  (index) => Icon(
-                    index < _userRating!
-                        ? Icons.star
-                        : Icons.star_border,
-                    color: AppTheme.primaryYellow,
-                    size: 20,
+                const Text('✓', style: TextStyle(fontSize: 20)),
+                const SizedBox(width: 8),
+                Text(
+                  'Your Visit',
+                  style: AppTheme.headlineMedium(context).copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                ),f
+                ),
               ],
             ),
-          ],
-          if (_userNotes != null && _userNotes!.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              _userNotes!,
-              style: AppTheme.bodyMedium(context),
-            ),
-          ],
-          if (_userPhotos.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 80,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _userPhotos.length,
-                itemBuilder: (context, index) => Container(
+            if (_visitDate != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _formatVisitDate(_visitDate!),
+                style: AppTheme.bodySmall(context).copyWith(
+                  color: AppTheme.mediumGray,
+                ),
+              ),
+            ],
+            if (_userRating != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  ...List.generate(
+                    5,
+                    (index) => Icon(
+                      index < _userRating! ? Icons.star : Icons.star_border,
+                      color: AppTheme.primaryYellow,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (_userNotes != null && _userNotes!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                _userNotes!,
+                style: AppTheme.bodyMedium(context),
+              ),
+            ],
+            if (_userPhotos.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 80,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _userPhotos.length,
+                  itemBuilder: (context, index) => Container(
                     width: 80,
                     height: 80,
                     margin: const EdgeInsets.only(right: 8),
@@ -243,7 +246,8 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                       ),
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall - 1),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusSmall - 1),
                       child: _userPhotos[index].startsWith('data:')
                           ? Image.memory(
                               _decodeBase64Image(_userPhotos[index])!,
@@ -255,12 +259,12 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                             ),
                     ),
                   ),
+                ),
               ),
-            ),
+            ],
           ],
-        ],
-      ),
-    );
+        ),
+      );
 
   String _formatVisitDate(DateTime date) {
     final now = DateTime.now();
@@ -316,7 +320,8 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                                     fit: BoxFit.cover,
                                     width: double.infinity,
                                     height: double.infinity,
-                                    errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                                    errorBuilder: (_, __, ___) =>
+                                        _buildPlaceholder(),
                                   ),
                                 );
                               }
@@ -435,7 +440,8 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 16),
-                    if (widget.spot.address != null && widget.spot.address!.isNotEmpty) ...[
+                    if (widget.spot.address != null &&
+                        widget.spot.address!.isNotEmpty) ...[
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -528,8 +534,10 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                     }
                     return ok;
                   },
-                  onToggleMustGo: (isChecked) async => await _handleToggleMustGo(isChecked),
-                  onToggleTodaysPlan: (isChecked) async => await _handleToggleTodaysPlan(isChecked),
+                  onToggleMustGo: (isChecked) async =>
+                      await _handleToggleMustGo(isChecked),
+                  onToggleTodaysPlan: (isChecked) async =>
+                      await _handleToggleTodaysPlan(isChecked),
                 ),
               ),
             ),
@@ -543,18 +551,21 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
     try {
       final repo = ref.read(tripRepositoryProvider);
       final trips = await repo.getMyTrips();
-      debugPrint('🔍 [spot_detail_modal] Loading status for spot: ${widget.spot.id}');
+      debugPrint(
+          '🔍 [spot_detail_modal] Loading status for spot: ${widget.spot.id}');
       debugPrint('🔍 [spot_detail_modal] Found ${trips.length} trips');
       for (final t in trips) {
         try {
           final detail = await repo.getTripById(t.id);
-          debugPrint('🔍 [spot_detail_modal] Checking trip: ${t.id}, tripSpots: ${detail.tripSpots?.length}');
+          debugPrint(
+              '🔍 [spot_detail_modal] Checking trip: ${t.id}, tripSpots: ${detail.tripSpots?.length}');
           final tripSpot = detail.tripSpots?.firstWhere(
             (ts) => ts.spotId == widget.spot.id,
             orElse: () => throw StateError('not found'),
           );
           if (tripSpot != null) {
-            debugPrint('✅ [spot_detail_modal] Found tripSpot for ${widget.spot.id}');
+            debugPrint(
+                '✅ [spot_detail_modal] Found tripSpot for ${widget.spot.id}');
             debugPrint('   - isSaved: ${tripSpot.isSaved}');
             debugPrint('   - isVisited: ${tripSpot.isVisited}');
             debugPrint('   - isMustGo: ${tripSpot.isMustGo}');
@@ -562,7 +573,8 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
             debugPrint('   - visitDate: ${tripSpot.visitDate}');
             debugPrint('   - userRating: ${tripSpot.userRating}');
             debugPrint('   - userNotes: ${tripSpot.userNotes}');
-            debugPrint('   - userPhotos: ${tripSpot.userPhotos?.length ?? 0} photos');
+            debugPrint(
+                '   - userPhotos: ${tripSpot.userPhotos?.length ?? 0} photos');
             _destinationId = detail.id;
             if (mounted) {
               setState(() {
@@ -584,7 +596,8 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
           // ignore this trip
         }
       }
-      debugPrint('❌ [spot_detail_modal] No tripSpot found for ${widget.spot.id}');
+      debugPrint(
+          '❌ [spot_detail_modal] No tripSpot found for ${widget.spot.id}');
     } catch (e) {
       debugPrint('❌ [spot_detail_modal] Error loading status: $e');
       // ignore preload errors
@@ -598,7 +611,8 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
       if (!authed) return false;
 
       final city = widget.spot.city ?? '';
-      final destId = _destinationId ?? await ensureDestinationForCity(ref, city);
+      final destId =
+          _destinationId ?? await ensureDestinationForCity(ref, city);
       if (destId == null) {
         _showError('Failed to load destination');
         return false;
@@ -609,22 +623,24 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
       if (_isVisited) {
         // 保留 visited 数据，只是取消 wishlist/mustGo/todaysPlan 状态
         await ref.read(tripRepositoryProvider).manageTripSpot(
-          tripId: destId,
-          spotId: widget.spot.id,
-          status: TripSpotStatus.visited,
-          priority: SpotPriority.optional, // 取消 MustGo
-          // 不传递 visitDate, userRating, userNotes, userPhotos
-          // 后端会保留现有值
-        );
+              tripId: destId,
+              spotId: widget.spot.id,
+              isSaved: false,
+              isVisited: true,
+              isMustGo: false,
+              isTodaysPlan: false,
+              // 不传递 visitDate, userRating, userNotes, userPhotos
+              // 后端会保留现有值
+            );
       } else {
         // 如果没有 visited 数据，完全删除
         await ref.read(tripRepositoryProvider).manageTripSpot(
-          tripId: destId,
-          spotId: widget.spot.id,
-          remove: true,
-        );
+              tripId: destId,
+              spotId: widget.spot.id,
+              remove: true,
+            );
       }
-      
+
       ref.invalidate(tripsProvider);
       if (mounted) {
         setState(() {
@@ -636,7 +652,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
         // Notify parent about removal from wishlist
         // 如果是 visited，不从列表中移除，只是更新状态
         widget.onStatusChanged?.call(
-          widget.spot.id, 
+          widget.spot.id,
           isRemoved: !_isVisited, // visited 的不移除
           isMustGo: false,
           isTodaysPlan: false,
@@ -660,7 +676,8 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
       if (!authed) return false;
 
       final city = widget.spot.city ?? '';
-      final destId = _destinationId ?? await ensureDestinationForCity(ref, city);
+      final destId =
+          _destinationId ?? await ensureDestinationForCity(ref, city);
       if (destId == null) {
         _showError('Failed to create destination');
         return false;
@@ -702,7 +719,8 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
       if (!authed) return false;
 
       final city = widget.spot.city ?? '';
-      final destId = _destinationId ?? await ensureDestinationForCity(ref, city);
+      final destId =
+          _destinationId ?? await ensureDestinationForCity(ref, city);
       if (destId == null) {
         _showError('Failed to create destination');
         return false;
@@ -712,7 +730,8 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
       await ref.read(tripRepositoryProvider).manageTripSpot(
             tripId: destId,
             spotId: widget.spot.id,
-            status: isChecked ? TripSpotStatus.todaysPlan : TripSpotStatus.wishlist,
+            status:
+                isChecked ? TripSpotStatus.todaysPlan : TripSpotStatus.wishlist,
           );
 
       ref.invalidate(tripsProvider);
@@ -740,18 +759,20 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
     // Check authentication first
     final authed = await requireAuth(context, ref);
     if (!authed) return; // User not logged in, already navigated to login page
-    
+
     // User is logged in, show check-in dialog
     if (!context.mounted) return;
-    final result = await showDialog<Map<String, dynamic>>(
+    await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => CheckInDialog(
         spot: widget.spot,
         initialPhotos: _userPhotos.isNotEmpty ? _userPhotos : null,
-        onCheckIn: (visitDate, rating, notes, {List<File>? newImages, List<String>? existingPhotos}) async {
+        onCheckIn: (visitDate, rating, notes,
+            {List<File>? newImages, List<String>? existingPhotos}) async {
           try {
             final city = widget.spot.city ?? '';
-            final destId = _destinationId ?? await ensureDestinationForCity(ref, city);
+            final destId =
+                _destinationId ?? await ensureDestinationForCity(ref, city);
             if (destId == null) {
               _showError('Failed to create destination');
               return;
@@ -774,7 +795,9 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
             await ref.read(tripRepositoryProvider).manageTripSpot(
                   tripId: destId,
                   spotId: widget.spot.id,
-                  status: TripSpotStatus.visited,
+                  isSaved: _isWishlist,
+                  isVisited: true,
+                  isTodaysPlan: false,
                   visitDate: visitDate,
                   userRating: rating.toInt(),
                   userNotes: notes,
@@ -789,9 +812,11 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                 _userRating = rating.toInt();
                 _userNotes = notes;
                 _userPhotos = allPhotos;
-                _isTodaysPlan = false; // Remove from Today's Plan when checked in
+                _isTodaysPlan =
+                    false; // Remove from Today's Plan when checked in
               });
-              CustomToast.showSuccess(context, 'Checked in to ${widget.spot.name}');
+              CustomToast.showSuccess(
+                  context, 'Checked in to ${widget.spot.name}');
               // Notify parent about check-in
               widget.onStatusChanged?.call(
                 widget.spot.id,
@@ -814,4 +839,3 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
     CustomToast.showError(context, message);
   }
 }
-

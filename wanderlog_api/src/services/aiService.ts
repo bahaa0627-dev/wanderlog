@@ -128,6 +128,28 @@ class AIService {
   }
 
   /**
+   * Get ordered providers with Kouri prioritized for vision tasks
+   */
+  private getOrderedVisionProviders(): AIProvider[] {
+    const ordered: AIProvider[] = [];
+
+    const kouriProvider = this.providers.get(AIProviderName.KOURI);
+    if (kouriProvider && kouriProvider.isAvailable()) {
+      ordered.push(kouriProvider);
+    }
+
+    for (const name of this.providerOrder) {
+      if (name === AIProviderName.KOURI) continue;
+      const provider = this.providers.get(name);
+      if (provider && provider.isAvailable()) {
+        ordered.push(provider);
+      }
+    }
+
+    return ordered;
+  }
+
+  /**
    * Sleep for specified milliseconds
    */
   private sleep(ms: number): Promise<void> {
@@ -233,6 +255,51 @@ class AIService {
   }
 
   /**
+   * Execute operation with fallback across a provided list of providers
+   */
+  private async executeWithFallbackForProviders<T>(
+    providers: AIProvider[],
+    operation: (provider: AIProvider) => Promise<T>,
+    operationName: string = 'operation'
+  ): Promise<T> {
+    if (providers.length === 0) {
+      throw {
+        code: AIErrorCode.CONFIG_ERROR,
+        message: 'No AI providers available. Please configure at least one provider.',
+        provider: 'none',
+        retryable: false,
+      } as AIServiceError;
+    }
+
+    const errors: AIServiceError[] = [];
+
+    for (const provider of providers) {
+      try {
+        console.log(`[AIService] Attempting ${operationName} with provider: ${provider.name}`);
+        const result = await this.executeWithRetry(provider, operation);
+        console.log(`[AIService] ${operationName} succeeded with provider: ${provider.name}`);
+        return result;
+      } catch (error) {
+        const aiError = this.normalizeError(error, provider.name);
+        errors.push(aiError);
+
+        console.warn(
+          `[AIService] Provider ${provider.name} failed for ${operationName}:`,
+          aiError.message
+        );
+      }
+    }
+
+    throw {
+      code: AIErrorCode.INTERNAL_ERROR,
+      message: `All providers failed for ${operationName}`,
+      provider: 'multiple',
+      retryable: errors.some((e) => e.retryable),
+      details: errors,
+    } as AIServiceError;
+  }
+
+  /**
    * Normalize any error to AIServiceError format
    */
   private normalizeError(error: unknown, providerName: string | AIProviderName): AIServiceError {
@@ -319,7 +386,9 @@ class AIService {
    * @returns 识别出的地点信息
    */
   async identifyPlaceFromImage(imageUrl: string): Promise<PlaceIdentificationResult> {
-    return this.executeWithFallback(
+    const providers = this.getOrderedVisionProviders();
+    return this.executeWithFallbackForProviders(
+      providers,
       (provider) => provider.identifyPlace(imageUrl),
       'identifyPlaceFromImage'
     );

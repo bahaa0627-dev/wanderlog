@@ -14,6 +14,7 @@ import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/trips_bottom_nav.dart';
+// ignore: unused_import
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
 import 'package:wanderlog/features/collections/providers/recommendations_cache_provider.dart';
@@ -58,6 +59,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   final FocusNode _searchFocusNode = FocusNode();
   bool _isSearching = false;
 
+  // ignore: unused_element
   bool _asBool(dynamic value) {
     if (value is bool) return value;
     if (value is num) return value != 0;
@@ -89,7 +91,8 @@ class _HomePageState extends ConsumerState<HomePage> {
         final authState = ref.read(authProvider);
         if (authState.isAuthenticated) {
           unawaited(
-            ref.read(tripRepositoryProvider)
+            ref
+                .read(tripRepositoryProvider)
                 .getMyTrips()
                 .timeout(const Duration(seconds: 3), onTimeout: () => []),
           );
@@ -831,7 +834,7 @@ class _Header extends ConsumerWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Your own personalized flaneur guide',
+                    'Your own personalized flâneur story',
                     style: AppTheme.bodySmall(context).copyWith(
                       fontSize: 16,
                       color: AppTheme.mediumGray,
@@ -966,6 +969,8 @@ class _TripCard extends StatefulWidget {
 
 class _TripCardState extends State<_TripCard> {
   Color _dominantColor = AppTheme.lightGray; // 默认使用浅灰色而不是黑色
+
+  // ignore: unused_field
   bool _colorExtracted = false;
   bool _imageLoaded = false; // 图片是否成功加载
 

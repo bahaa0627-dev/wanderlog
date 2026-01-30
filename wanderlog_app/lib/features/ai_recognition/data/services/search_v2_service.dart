@@ -42,9 +42,9 @@ class SearchV2Service {
     }
 
     try {
-      // Stage 1: 分析用户诉求 (1s)
+      // Stage 1: 分析用户诉求 (固定 3s)
       onStageChange?.call(const SearchLoadingState.analyzing());
-      await Future<void>.delayed(const Duration(seconds: 1));
+      await Future<void>.delayed(const Duration(seconds: 3));
 
       // 检查是否已取消
       if (cancelToken?.isCancelled ?? false) {
@@ -55,7 +55,8 @@ class SearchV2Service {
       onStageChange?.call(const SearchLoadingState.searching());
 
       debugPrint(
-          '🔍 SearchV2: Calling API with query: $query, language: $language',);
+        '🔍 SearchV2: Calling API with query: $query, language: $language',
+      );
 
       final previousConnectTimeout = _dio.options.connectTimeout;
       _dio.options.connectTimeout = const Duration(seconds: 120);
@@ -88,6 +89,8 @@ class SearchV2Service {
 
       // Stage 3: 总结输出中
       onStageChange?.call(const SearchLoadingState.summarizing());
+      // 固定展示 5s，确保可见
+      await Future<void>.delayed(const Duration(seconds: 5));
 
       final data = response.data;
       if (data == null) {

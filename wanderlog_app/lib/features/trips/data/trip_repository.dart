@@ -3,7 +3,6 @@ import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 
 class TripRepository {
-
   TripRepository(this._dio);
   final Dio _dio;
 
@@ -11,19 +10,35 @@ class TripRepository {
     try {
       print('🚀 [TripRepository] Starting API request to /destinations...');
       final apiStartTime = DateTime.now();
-      
+
       final response = await _dio.get<List<dynamic>>('/destinations');
-      final apiDuration = DateTime.now().difference(apiStartTime).inMilliseconds;
+      print(
+          '🚀 [TripRepository] Response status: ${response.statusCode}, type: ${response.data.runtimeType}');
+      final apiDuration =
+          DateTime.now().difference(apiStartTime).inMilliseconds;
       print('🚀 [TripRepository] API request completed in ${apiDuration}ms');
-      
+
       final parseStartTime = DateTime.now();
       final List<dynamic> data = response.data as List<dynamic>;
-      final trips = data.map((json) => Trip.fromJson(json as Map<String, dynamic>)).toList();
-      final parseDuration = DateTime.now().difference(parseStartTime).inMilliseconds;
-      
-      print('🚀 [TripRepository] Parsed ${trips.length} trips in ${parseDuration}ms');
+      if (data.isNotEmpty) {
+        final first = data.first;
+        if (first is Map<String, dynamic>) {
+          print('🚀 [TripRepository] First trip keys: ${first.keys.toList()}');
+          final tripSpots = first['tripSpots'];
+          final spotCount = tripSpots is List ? tripSpots.length : 0;
+          print('🚀 [TripRepository] First trip tripSpots: $spotCount');
+        }
+      }
+      final trips = data
+          .map((json) => Trip.fromJson(json as Map<String, dynamic>))
+          .toList();
+      final parseDuration =
+          DateTime.now().difference(parseStartTime).inMilliseconds;
+
+      print(
+          '🚀 [TripRepository] Parsed ${trips.length} trips in ${parseDuration}ms');
       print('🚀 [TripRepository] Total time: ${apiDuration + parseDuration}ms');
-      
+
       return trips;
     } on DioException catch (e) {
       print('❌ [TripRepository] API error: ${e.message}');
@@ -33,7 +48,8 @@ class TripRepository {
 
   Future<Trip> getTripById(String id) async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>('/destinations/$id');
+      final response =
+          await _dio.get<Map<String, dynamic>>('/destinations/$id');
       return Trip.fromJson(response.data!);
     } on DioException catch (e) {
       throw _handleError(e);
@@ -81,8 +97,7 @@ class TripRepository {
     // 旧字段（兼容，将被废弃）
     @Deprecated('Use isSaved/isVisited/isTodaysPlan instead')
     TripSpotStatus? status,
-    @Deprecated('Use isMustGo instead')
-    SpotPriority? priority,
+    @Deprecated('Use isMustGo instead') SpotPriority? priority,
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -92,19 +107,19 @@ class TripRepository {
       if (remove) {
         data['remove'] = true;
       }
-      
+
       // 新的布尔字段
       if (isSaved != null) data['isSaved'] = isSaved;
       if (isVisited != null) data['isVisited'] = isVisited;
       if (isMustGo != null) data['isMustGo'] = isMustGo;
       if (isTodaysPlan != null) data['isTodaysPlan'] = isTodaysPlan;
-      
+
       // 旧字段（兼容）
       // ignore: deprecated_member_use_from_same_package
       if (status != null) data['status'] = _statusToServer(status);
       // ignore: deprecated_member_use_from_same_package
       if (priority != null) data['priority'] = _priorityToServer(priority);
-      
+
       if (visitDate != null) data['visitDate'] = visitDate.toIso8601String();
       if (userRating != null) data['userRating'] = userRating;
       if (userNotes != null) data['userNotes'] = userNotes;

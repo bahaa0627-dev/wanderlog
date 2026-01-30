@@ -62,12 +62,22 @@ class PhotoWall extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Check in to places to see your photos here',
-                    style: AppTheme.bodySmall(context).copyWith(
-                      color: AppTheme.mediumGray,
+                  SizedBox(
+                    width: double.infinity,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.center,
+                      child: Text(
+                        'check in places and upload your flâneur memories',
+                        style: AppTheme.bodySmall(context).copyWith(
+                          color: AppTheme.mediumGray,
+                        ),
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.visible,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ],
               ),

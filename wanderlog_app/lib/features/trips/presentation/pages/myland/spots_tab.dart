@@ -325,7 +325,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         _notifyCityOptionsChanged();
       }
     });
-    
+
     // 监听 tripsProvider 变化，实时刷新数据
     ref.listenManual(tripsProvider, (previous, next) {
       print('🔄 [SpotsTab] tripsProvider changed, refreshing...');
@@ -333,7 +333,16 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         unawaited(_loadDestinationsFromServer());
       }
     });
-    
+
+    // 监听登录状态变化，登录后重新拉取数据
+    ref.listenManual(authProvider, (previous, next) {
+      final wasAuthed = previous?.isAuthenticated ?? false;
+      final isAuthed = next.isAuthenticated;
+      if (mounted && !wasAuthed && isAuthed) {
+        unawaited(_loadDestinationsFromServer());
+      }
+    });
+
     // 立即开始加载数据（不等待）
     unawaited(_loadDestinationsFromServer());
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -427,8 +436,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           try {
             final rawCity = (spot.city ?? '').trim();
             final rawCountry = (spot.country ?? '').trim();
-            final destinationCity =
-              rawCity.isNotEmpty ? rawCity : (rawCountry.isNotEmpty ? rawCountry : 'Unknown');
+            final destinationCity = rawCity.isNotEmpty
+                ? rawCity
+                : (rawCountry.isNotEmpty ? rawCountry : 'Unknown');
             final destId = await ensureDestinationForCity(ref, destinationCity);
             if (destId == null) {
               if (context.mounted) {
@@ -496,18 +506,19 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
   void _handleSpotTap(_SpotEntry entry) async {
     final now = DateTime.now();
-    
+
     // 防抖：如果是同一个地点且点击间隔小于1秒，则忽略
-    if (_lastClickedSpotId == entry.spot.id && 
-        _lastClickTime != null && 
+    if (_lastClickedSpotId == entry.spot.id &&
+        _lastClickTime != null &&
         now.difference(_lastClickTime!).inMilliseconds < 1000) {
-      print('🔧 [spots_tab.dart] Debouncing rapid clicks for ${entry.spot.name}');
+      print(
+          '🔧 [spots_tab.dart] Debouncing rapid clicks for ${entry.spot.name}');
       return;
     }
-    
+
     _lastClickedSpotId = entry.spot.id;
     _lastClickTime = now;
-    
+
     // 添加调试日志
     print('🔧 [spots_tab.dart] _handleSpotTap for spot: ${entry.spot.name}');
     print('🔧 [spots_tab.dart] entry.isSaved: ${entry.isSaved}');
@@ -517,9 +528,10 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     print('🔧 [spots_tab.dart] entry.visitDate: ${entry.visitDate}');
     print('🔧 [spots_tab.dart] entry.userRating: ${entry.userRating}');
     print('🔧 [spots_tab.dart] entry.userNotes: ${entry.userNotes}');
-    print('🔧 [spots_tab.dart] entry.userPhotos: ${entry.userPhotos.length} photos');
+    print(
+        '🔧 [spots_tab.dart] entry.userPhotos: ${entry.userPhotos.length} photos');
     print('🔧 [spots_tab.dart] entry.destinationId: ${entry.destinationId}');
-    
+
     // 优化：只在需要时才加载合集数据
     Map<String, dynamic>? linkedCollection;
     try {
@@ -533,17 +545,18 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           ),
         );
       }
-      
+
       final repo = ref.read(collectionRepositoryProvider);
-      final collections = await repo.getCollectionsForPlace(entry.spot.id).timeout(
-        const Duration(seconds: 2),
-        onTimeout: () => <Map<String, dynamic>>[],
-      );
+      final collections =
+          await repo.getCollectionsForPlace(entry.spot.id).timeout(
+                const Duration(seconds: 2),
+                onTimeout: () => <Map<String, dynamic>>[],
+              );
       if (collections.isNotEmpty) {
         final random = math.Random();
         linkedCollection = collections[random.nextInt(collections.length)];
       }
-      
+
       // 关闭loading dialog
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
@@ -891,7 +904,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     final Set<String> cities = {};
     for (final entry in _entries) {
       bool includeEntry = false;
-      
+
       // 根据 tab 判断是否包含此 entry
       switch (_selectedSubTab) {
         case 0: // All tab - include all entries
@@ -907,7 +920,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           includeEntry = entry.isVisited;
           break;
       }
-      
+
       if (includeEntry) {
         final city = entry.city.trim();
         if (city.isNotEmpty) cities.add(city);
@@ -926,7 +939,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     final Map<String, List<Spot>> result = {};
     for (final entry in _entries) {
       bool includeEntry = false;
-      
+
       // 根据 tab 判断是否包含此 entry
       switch (_selectedSubTab) {
         case 0: // All tab
@@ -942,7 +955,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           includeEntry = entry.isVisited;
           break;
       }
-      
+
       if (includeEntry) {
         final city = entry.city.trim();
         if (city.isNotEmpty) {
@@ -959,7 +972,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     final cityToCountry = _buildCityToCountryMap();
     for (final entry in _entries) {
       bool includeEntry = false;
-      
+
       // 根据 tab 判断是否包含此 entry
       switch (_selectedSubTab) {
         case 0: // All tab
@@ -975,7 +988,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           includeEntry = entry.isVisited;
           break;
       }
-      
+
       if (includeEntry) {
         final city = entry.city.trim();
         final normalized = _normalizeCityKey(city);
@@ -1020,13 +1033,15 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       return;
     }
     final returnedCity = result?.trim();
-    if (returnedCity == null || returnedCity.isEmpty) {
-      return;
+    if (returnedCity != null && returnedCity.isNotEmpty && adoptReturnedCity) {
+      _selectCity(returnedCity);
     }
-    if (!adoptReturnedCity) {
-      return;
-    }
-    _selectCity(returnedCity);
+    unawaited(
+      _loadDestinationsFromServer(
+        forceRefresh: true,
+        loadAllCities: true,
+      ),
+    );
   }
 
   void _persistCityState() {
@@ -1110,47 +1125,60 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     }
   }
 
-  Future<void> _loadDestinationsFromServer() async {
+  Future<void> _loadDestinationsFromServer({
+    bool forceRefresh = false,
+    bool loadAllCities = false,
+  }) async {
     print('🚀 [SpotsTab] Starting optimized load...');
 
-    // Step 1: 立即尝试从缓存加载（0秒可见）
-    final cachedData = await _cacheService.getCitySpots(_selectedCitySlug);
-    if (cachedData != null && !cachedData.isExpired) {
-      print(
-          '💾 [SpotCache] Restoring ${cachedData.entries.length} entries from cache');
-      if (mounted) {
-        setState(() {
-          _isLoadingDestinations = false;
-          _hasLoadError = false;
+    if (!forceRefresh) {
+      // Step 1: 立即尝试从缓存加载（0秒可见）
+      final cachedData = await _cacheService.getCitySpots(_selectedCitySlug);
+      if (cachedData != null && !cachedData.isExpired) {
+        print(
+            '💾 [SpotCache] Restoring ${cachedData.entries.length} entries from cache');
+        if (mounted) {
+          setState(() {
+            _isLoadingDestinations = false;
+            _hasLoadError = false;
 
-          // 从缓存恢复完整的 Entry 数据
-          _entries.clear();
-          for (final cachedEntry in cachedData.entries) {
-            final entry = _SpotEntry(
-              city: cachedEntry.city,
-              citySlug: cachedEntry.citySlug,
-              spot: cachedEntry.spot,
-              addedAt: cachedEntry.addedAt,
-              isSaved: cachedEntry.isSaved,
-              isMustGo: cachedEntry.isMustGo,
-              isTodaysPlan: cachedEntry.isTodaysPlan,
-              isVisited: cachedEntry.isVisited,
-              destinationId: (cachedEntry.destinationId != null &&
-                      cachedEntry.destinationId!.trim().isNotEmpty)
-                  ? cachedEntry.destinationId
-                  : null,
-              visitDate: cachedEntry.visitDate,
-              userRating: cachedEntry.userRating,
-              userNotes: cachedEntry.userNotes,
-              userPhotos: cachedEntry.userPhotos,
-            );
-            _entries.add(entry);
-          }
-        });
-        _notifyCityOptionsChanged();
+            // 从缓存恢复完整的 Entry 数据
+            _entries.clear();
+            for (final cachedEntry in cachedData.entries) {
+              final entry = _SpotEntry(
+                city: cachedEntry.city,
+                citySlug: cachedEntry.citySlug,
+                spot: cachedEntry.spot,
+                addedAt: cachedEntry.addedAt,
+                isSaved: cachedEntry.isSaved,
+                isMustGo: cachedEntry.isMustGo,
+                isTodaysPlan: cachedEntry.isTodaysPlan,
+                isVisited: cachedEntry.isVisited,
+                destinationId: (cachedEntry.destinationId != null &&
+                        cachedEntry.destinationId!.trim().isNotEmpty)
+                    ? cachedEntry.destinationId
+                    : null,
+                visitDate: cachedEntry.visitDate,
+                userRating: cachedEntry.userRating,
+                userNotes: cachedEntry.userNotes,
+                userPhotos: cachedEntry.userPhotos,
+              );
+              _entries.add(entry);
+            }
+          });
+          _notifyCityOptionsChanged();
+        }
+      } else {
+        // 没有缓存，显示 loading
+        if (mounted) {
+          setState(() {
+            _isLoadingDestinations = true;
+            _hasLoadError = false;
+            _loadErrorMessage = null;
+          });
+        }
       }
     } else {
-      // 没有缓存，显示 loading
       if (mounted) {
         setState(() {
           _isLoadingDestinations = true;
@@ -1161,11 +1189,11 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     }
 
     // Step 2: 后台静默拉取真实数据
-    await _loadFreshDataInBackground();
+    await _loadFreshDataInBackground(loadAllCities: loadAllCities);
   }
 
   /// 后台静默拉取最新数据
-  Future<void> _loadFreshDataInBackground() async {
+  Future<void> _loadFreshDataInBackground({bool loadAllCities = false}) async {
     try {
       // 确保认证状态是最新的
       final authState = ref.read(authProvider);
@@ -1232,7 +1260,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       };
 
       // 过滤出当前城市的 destinations
-      final relevantDests = _selectedCitySlug == _allCitySlug
+      final relevantDests = loadAllCities || _selectedCitySlug == _allCitySlug
           ? destinations
           : destinations
               .where((d) => _ensureCitySlug(d.city ?? '') == _selectedCitySlug)
@@ -1245,7 +1273,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       final limitedDests = relevantDests.take(_maxCachedItems).toList();
       final detailFutures = limitedDests
           .where((d) => d.city?.trim().isNotEmpty ?? false)
-          .map((d) => repo.getTripById(d.id)
+          .map((d) => repo
+              .getTripById(d.id)
               .timeout(const Duration(seconds: 5))
               .catchError((_) => d));
       final details = await Future.wait(detailFutures);
@@ -1584,9 +1613,10 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       final city = entry.city.trim();
       final explicitCountry = entry.spot.country?.trim();
       final fallbackCountry = statsCityToCountry[_normalizeCityKey(city)];
-      final resolvedCountry = (explicitCountry != null && explicitCountry.isNotEmpty)
-          ? explicitCountry
-          : fallbackCountry;
+      final resolvedCountry =
+          (explicitCountry != null && explicitCountry.isNotEmpty)
+              ? explicitCountry
+              : fallbackCountry;
       final normalizedCountry = resolvedCountry?.trim().toLowerCase();
       final isInvalidCountry = normalizedCountry == null ||
           normalizedCountry.isEmpty ||
@@ -1732,7 +1762,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async {
-              print('🔄 [VAGO] Pull-to-refresh triggered, fetching latest data...');
+              print(
+                  '🔄 [VAGO] Pull-to-refresh triggered, fetching latest data...');
               await _loadDestinationsFromServer();
               print('✅ [VAGO] Pull-to-refresh completed');
             },
@@ -1740,62 +1771,62 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             child: Container(
               color: AppTheme.white,
               child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              switchInCurve: Curves.easeInOut,
-              switchOutCurve: Curves.easeInOut,
-              child: filteredEntries.isEmpty
-                  ? _EmptyState(
-                      onOpenMap: _openFullMap,
-                      isMapView: _isMapView,
-                    )
-                  : _isMapView
-                      // MustGo (1) 和 Today's Plan (2) 使用紧凑地图预览
-                      ? (_selectedSubTab == 1 || _selectedSubTab == 2)
-                          ? _CompactMapPreview(
-                              key: ValueKey(
-                                  'compact-map-view-$_selectedSubTab-$_selectedCitySlug'),
-                              entries: filteredEntries,
-                              cityName: _selectedCityName,
-                              spotsCount: filteredEntries.length,
-                              onOpenFullMap: _openFullMap,
-                              availableCities:
-                                  _getAvailableCitiesForCurrentTab(),
-                              spotsByCountryCity:
-                                  _getSpotsByCountryCityForCurrentTab(),
-                              onCityChanged: _selectCity,
-                            )
-                          : _MapPreview(
-                              key: const ValueKey('map-view'),
-                              entries: filteredEntries,
-                              cityName: _selectedCityName,
-                              tagOptions: _tagOptions,
-                              activeTags: _activeTags,
-                              onToggleTag: _toggleTag,
-                              onOpenFullMap: _openFullMap,
-                              controller: _carouselController,
-                              onCardTap: (spot) {
-                                final entry = _entries.firstWhere(
-                                  (e) => e.spot.id == spot.id,
-                                  orElse: () => _entries.first,
-                                );
-                                _handleSpotTap(entry);
-                              },
-                            )
-                      : _ListView(
-                          key: const ValueKey('list-view'),
-                          entries: filteredEntries,
-                          onToggleMustGo: _handleToggleMustGo,
-                          onQuickAddMustGo: _handleQuickAddMustGo,
-                          onSpotTap: _handleSpotTap,
-                          isVisitedTab: _selectedSubTab == 3,
-                          onLoadMore:
-                              (_selectedSubTab == 0 || _selectedSubTab == 3)
-                                  ? _loadMoreData
-                                  : null,
-                          hasMoreData:
-                              (_selectedSubTab == 0 || _selectedSubTab == 3) &&
-                                  _hasMoreData,
-                        ),
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeInOut,
+                switchOutCurve: Curves.easeInOut,
+                child: filteredEntries.isEmpty
+                    ? _EmptyState(
+                        onOpenMap: _openFullMap,
+                        isMapView: _isMapView,
+                      )
+                    : _isMapView
+                        // MustGo (1) 和 Today's Plan (2) 使用紧凑地图预览
+                        ? (_selectedSubTab == 1 || _selectedSubTab == 2)
+                            ? _CompactMapPreview(
+                                key: ValueKey(
+                                    'compact-map-view-$_selectedSubTab-$_selectedCitySlug'),
+                                entries: filteredEntries,
+                                cityName: _selectedCityName,
+                                spotsCount: filteredEntries.length,
+                                onOpenFullMap: _openFullMap,
+                                availableCities:
+                                    _getAvailableCitiesForCurrentTab(),
+                                spotsByCountryCity:
+                                    _getSpotsByCountryCityForCurrentTab(),
+                                onCityChanged: _selectCity,
+                              )
+                            : _MapPreview(
+                                key: const ValueKey('map-view'),
+                                entries: filteredEntries,
+                                cityName: _selectedCityName,
+                                tagOptions: _tagOptions,
+                                activeTags: _activeTags,
+                                onToggleTag: _toggleTag,
+                                onOpenFullMap: _openFullMap,
+                                controller: _carouselController,
+                                onCardTap: (spot) {
+                                  final entry = _entries.firstWhere(
+                                    (e) => e.spot.id == spot.id,
+                                    orElse: () => _entries.first,
+                                  );
+                                  _handleSpotTap(entry);
+                                },
+                              )
+                        : _ListView(
+                            key: const ValueKey('list-view'),
+                            entries: filteredEntries,
+                            onToggleMustGo: _handleToggleMustGo,
+                            onQuickAddMustGo: _handleQuickAddMustGo,
+                            onSpotTap: _handleSpotTap,
+                            isVisitedTab: _selectedSubTab == 3,
+                            onLoadMore:
+                                (_selectedSubTab == 0 || _selectedSubTab == 3)
+                                    ? _loadMoreData
+                                    : null,
+                            hasMoreData: (_selectedSubTab == 0 ||
+                                    _selectedSubTab == 3) &&
+                                _hasMoreData,
+                          ),
               ),
             ),
           ),
@@ -1856,9 +1887,11 @@ class _ErrorStateState extends State<_ErrorState> {
             children: [
               Image.asset(
                 'assets/images/no_data.png',
+                width: 260,
+                height: 260,
                 fit: BoxFit.contain,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
               Text(
                 'Failed to load',
                 style: AppTheme.bodyLarge(context).copyWith(
@@ -1866,7 +1899,7 @@ class _ErrorStateState extends State<_ErrorState> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 widget.message ?? 'Please check your network and try again',
                 style: AppTheme.bodySmall(context).copyWith(
@@ -2313,8 +2346,9 @@ class _ListViewState extends State<_ListView> {
         color: AppTheme.white,
         child: ListView.separated(
           controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          itemCount: widget.entries.length + (widget.hasMoreData ? 1 : 0),
+          itemCount: widget.entries.length + (_isLoadingMore ? 1 : 0),
           separatorBuilder: (_, __) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
             // 显示加载更多指示器
@@ -2326,15 +2360,7 @@ class _ListViewState extends State<_ListView> {
                       ? const CircularProgressIndicator(
                           color: AppTheme.primaryYellow,
                         )
-                      : TextButton(
-                          onPressed: _loadMore,
-                          child: Text(
-                            'Load More',
-                            style: AppTheme.labelMedium(context).copyWith(
-                              color: AppTheme.black,
-                            ),
-                          ),
-                        ),
+                      : const SizedBox.shrink(),
                 ),
               );
             }
@@ -2422,11 +2448,11 @@ class _EmptyState extends StatelessWidget {
             children: [
               Image.asset(
                 'assets/images/no_data.png',
-                width: 200,
-                height: 200,
+                width: 260,
+                height: 260,
                 fit: BoxFit.contain,
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 12),
               Text(
                 'You have no spots here yet',
                 textAlign: TextAlign.center,
@@ -2435,7 +2461,7 @@ class _EmptyState extends StatelessWidget {
                   height: 1.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 6),
               Text(
                 'To find interesting spots',
                 textAlign: TextAlign.center,
@@ -2497,83 +2523,79 @@ class _NoDestinationState extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                color: AppTheme.primaryYellow.withOpacity(0.25),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppTheme.black,
-                  width: AppTheme.borderMedium,
-                ),
-              ),
-              child: const Icon(
-                Icons.explore_outlined,
-                size: 64,
-                color: AppTheme.black,
-              ),
+            Image.asset(
+              'assets/images/no data.png',
+              width: 320,
+              height: 320,
+              fit: BoxFit.contain,
             ),
-            const SizedBox(height: 28),
-            Text(
-              "It seems you don't have any plan",
-              textAlign: TextAlign.center,
-              style: AppTheme.bodyLarge(context).copyWith(
-                color: AppTheme.black.withOpacity(0.65),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Add one more city to explore',
-              textAlign: TextAlign.center,
-              style: AppTheme.bodyMedium(context).copyWith(
-                color: AppTheme.black.withOpacity(0.45),
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 28),
-            GestureDetector(
-              onTap: () async {
-                // Check authentication
-                final authState = ref.read(authProvider);
-                if (!authState.isAuthenticated) {
-                  // Navigate to login page using push so user can return to current page
-                  if (context.mounted) {
-                    context.push('/login');
-                  }
-                  return;
-                }
-                // User is authenticated, proceed with add destination
-                onAddDestination();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryYellow,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                  border: Border.all(
-                    color: AppTheme.black,
-                    width: AppTheme.borderMedium,
+            Transform.translate(
+              offset: const Offset(0, -44),
+              child: Column(
+                children: [
+                  Text(
+                    "It seems you don't have any plan",
+                    textAlign: TextAlign.center,
+                    style: AppTheme.bodyLarge(context).copyWith(
+                      color: AppTheme.black.withOpacity(0.65),
+                      height: 1.5,
+                    ),
                   ),
-                  boxShadow: AppTheme.cardShadow,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.add, color: AppTheme.black),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Add destination',
-                      style: AppTheme.labelLarge(context).copyWith(
-                        color: AppTheme.black,
+                  const SizedBox(height: 12),
+                  Text(
+                    'Add one more city to explore',
+                    textAlign: TextAlign.center,
+                    style: AppTheme.bodyMedium(context).copyWith(
+                      color: AppTheme.black.withOpacity(0.45),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  GestureDetector(
+                    onTap: () async {
+                      // Check authentication
+                      final authState = ref.read(authProvider);
+                      if (!authState.isAuthenticated) {
+                        // Navigate to login page using push so user can return to current page
+                        if (context.mounted) {
+                          context.push('/login');
+                        }
+                        return;
+                      }
+                      // User is authenticated, proceed with add destination
+                      onAddDestination();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryYellow,
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusSmall),
+                        border: Border.all(
+                          color: AppTheme.black,
+                          width: AppTheme.borderMedium,
+                        ),
+                        boxShadow: AppTheme.cardShadow,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add, color: AppTheme.black),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Add destination',
+                            style: AppTheme.labelLarge(context).copyWith(
+                              color: AppTheme.black,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -4012,9 +4034,10 @@ class _VisitedSpotCard extends StatelessWidget {
       longitude: entry.spot.longitude,
     )?.summaryText;
 
+    final hasNotes = entry.userNotes != null && entry.userNotes!.isNotEmpty;
     final hasCheckInData = entry.visitDate != null ||
         entry.userRating != null ||
-        (entry.userNotes != null && entry.userNotes!.isNotEmpty) ||
+        hasNotes ||
         entry.userPhotos.isNotEmpty;
     final tags = _tagsList();
 
@@ -4148,7 +4171,9 @@ class _VisitedSpotCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: hasNotes
+                      ? CrossAxisAlignment.start
+                      : CrossAxisAlignment.center,
                   children: [
                     // Left: 📔 emoji + text and date
                     const Text(
@@ -4159,10 +4184,12 @@ class _VisitedSpotCard extends StatelessWidget {
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: hasNotes
+                            ? MainAxisAlignment.start
+                            : MainAxisAlignment.center,
                         children: [
                           // User notes (black, 14px, max 5 lines)
-                          if (entry.userNotes != null &&
-                              entry.userNotes!.isNotEmpty)
+                          if (hasNotes)
                             Text(
                               entry.userNotes!,
                               maxLines: 5,
@@ -4172,9 +4199,7 @@ class _VisitedSpotCard extends StatelessWidget {
                                 fontSize: 14,
                               ),
                             ),
-                          if (entry.userNotes != null &&
-                              entry.userNotes!.isNotEmpty &&
-                              entry.visitDate != null)
+                          if (hasNotes && entry.visitDate != null)
                             const SizedBox(height: 4),
                           // Date and Rating in the same row
                           if (entry.visitDate != null)

@@ -169,10 +169,10 @@ describe('KouriProvider Unit Tests', () => {
       expect(result.config?.chatModel).toBe('gpt-4o-mini');
     });
 
-    it('should use default vision model gpt-4o', () => {
+    it('should use default vision model gpt-4o-mini', () => {
       const result = validateConfig('test-api-key', 'https://api.kouri.com/v1');
       
-      expect(result.config?.visionModel).toBe('gpt-4o');
+      expect(result.config?.visionModel).toBe('gpt-4o-mini');
     });
   });
 

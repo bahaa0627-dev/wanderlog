@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/trips/presentation/pages/myland/spots_tab.dart';
 import 'package:wanderlog/features/trips/presentation/pages/myland/collections_tab.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/trips_bottom_nav.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 
 /// MyLand 主页面 - 包含 Spots 和 Collections 两个 tab
 class MyLandScreen extends StatefulWidget {
@@ -83,7 +85,8 @@ class _MyLandScreenState extends State<MyLandScreen> {
     setState(() => _currentTripCity = city);
   }
 
-  void _handleCityOptionsChanged(List<String> cities, [Map<String, String>? cityToCountry]) {
+  void _handleCityOptionsChanged(List<String> cities,
+      [Map<String, String>? cityToCountry]) {
     setState(() {
       _cityOptions = cities;
       if (cityToCountry != null) {
@@ -93,9 +96,11 @@ class _MyLandScreenState extends State<MyLandScreen> {
         _preferredCity = null;
       }
     });
-    
+
     // Apply initial city preference when cities are first loaded
-    if (!_hasAppliedInitialCity && widget.initialCity != null && widget.initialCity!.isNotEmpty) {
+    if (!_hasAppliedInitialCity &&
+        widget.initialCity != null &&
+        widget.initialCity!.isNotEmpty) {
       final matchingCity = cities.firstWhere(
         (c) => c.toLowerCase() == widget.initialCity!.toLowerCase(),
         orElse: () => '',
@@ -106,7 +111,7 @@ class _MyLandScreenState extends State<MyLandScreen> {
         return;
       }
     }
-    
+
     if (_preferredCity != null &&
         _preferredCity != _currentTripCity &&
         cities.contains(_preferredCity!)) {
@@ -116,45 +121,57 @@ class _MyLandScreenState extends State<MyLandScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-      backgroundColor: AppTheme.background,
-      body: Column(
-        children: [
-          // 顶部安全区域
-          SafeArea(
-            bottom: false,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              color: AppTheme.white,
-              child: Row(
-                children: [
-                  _TopUnderlineTab(
-                    label: 'Spots',
-                    active: _selectedTabIndex == 0,
-                    onTap: () => _onTopTabSelected(0),
-                  ),
-                  const SizedBox(width: 24),
-                  _TopUnderlineTab(
-                    label: 'Collections',
-                    active: _selectedTabIndex == 1,
-                    onTap: () => _onTopTabSelected(1),
-                  ),
-                  const Spacer(),
-                  _CityBadge(
-                    city: _currentTripCity,
-                    cities: _cityOptions,
-                    cityToCountry: _cityToCountry,
-                    onSelectCity: (city) {
-                      setState(() => _preferredCity = city);
-                      _spotsTabController.selectCity(city);
-                    },
-                    onAddCity: _spotsTabController.showAddCityDialog,
-                  ),
-                ],
+        backgroundColor: AppTheme.background,
+        body: Column(
+          children: [
+            // 顶部安全区域
+            SafeArea(
+              bottom: false,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                color: AppTheme.white,
+                child: Row(
+                  children: [
+                    _TopUnderlineTab(
+                      label: 'Spots',
+                      active: _selectedTabIndex == 0,
+                      onTap: () => _onTopTabSelected(0),
+                    ),
+                    const SizedBox(width: 24),
+                    _TopUnderlineTab(
+                      label: 'Collections',
+                      active: _selectedTabIndex == 1,
+                      onTap: () => _onTopTabSelected(1),
+                    ),
+                    const Spacer(),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final isAuthed =
+                            ref.watch(authProvider).isAuthenticated;
+                        final hasCities = _cityOptions.any(
+                          (c) => c.trim().isNotEmpty && c != 'All',
+                        );
+                        if (!isAuthed || !hasCities) {
+                          return const SizedBox.shrink();
+                        }
+                        return _CityBadge(
+                          city: _currentTripCity,
+                          cities: _cityOptions,
+                          cityToCountry: _cityToCountry,
+                          onSelectCity: (city) {
+                            setState(() => _preferredCity = city);
+                            _spotsTabController.selectCity(city);
+                          },
+                          onAddCity: _spotsTabController.showAddCityDialog,
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: IndexedStack(
+            Expanded(
+              child: IndexedStack(
                 index: _selectedTabIndex,
                 // IndexedStack 会保持所有子 widget 的状态，但只有当前 index 的 widget 会被渲染
                 // 这样可以避免切换 tab 时重新加载数据
@@ -177,7 +194,7 @@ class _MyLandScreenState extends State<MyLandScreen> {
             ),
           ],
         ),
-    );
+      );
 }
 
 class _TopUnderlineTab extends StatelessWidget {
@@ -315,12 +332,13 @@ class _CountryCityPickerSheet extends StatefulWidget {
   final VoidCallback onAddCity;
 
   @override
-  State<_CountryCityPickerSheet> createState() => _CountryCityPickerSheetState();
+  State<_CountryCityPickerSheet> createState() =>
+      _CountryCityPickerSheetState();
 }
 
 class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
   String? _selectedCountry;
-  
+
   // 构建国家到城市列表的映射
   Map<String, List<String>> get _countryToCities {
     final Map<String, List<String>> result = {};
@@ -334,9 +352,9 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
     }
     return result;
   }
-  
+
   List<String> get _countries => _countryToCities.keys.toList();
-  
+
   List<String> get _citiesForSelectedCountry {
     if (_selectedCountry == null) return [];
     return _countryToCities[_selectedCountry] ?? [];
@@ -376,9 +394,11 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
                 GestureDetector(
                   onTap: () => widget.onCitySelected('All'),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: widget.selectedCity.isEmpty || widget.selectedCity == 'All'
+                      color: widget.selectedCity.isEmpty ||
+                              widget.selectedCity == 'All'
                           ? AppTheme.primaryYellow.withOpacity(0.3)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(16),
@@ -387,7 +407,8 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
                     child: Text(
                       'All',
                       style: AppTheme.bodyMedium(context).copyWith(
-                        fontWeight: widget.selectedCity.isEmpty || widget.selectedCity == 'All'
+                        fontWeight: widget.selectedCity.isEmpty ||
+                                widget.selectedCity == 'All'
                             ? FontWeight.bold
                             : FontWeight.normal,
                       ),
@@ -401,7 +422,8 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
               child: _countries.isEmpty
                   ? Center(
                       child: Text(
-                        widget.cities.isNotEmpty
+                        widget.cities
+                                .any((c) => c.trim().isNotEmpty && c != 'All')
                             ? 'Loading cities...'
                             : 'No cities yet',
                         style: AppTheme.bodyMedium(context).copyWith(
@@ -443,7 +465,7 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
       ),
     );
   }
-  
+
   Widget _buildCountryCityColumns(ScrollController scrollController) {
     return Row(
       children: [
@@ -469,21 +491,27 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
                     });
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                    color: isSelected ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 14),
+                    color: isSelected
+                        ? AppTheme.primaryYellow.withOpacity(0.2)
+                        : Colors.transparent,
                     child: Row(
                       children: [
                         Expanded(
                           child: Text(
                             country,
                             style: AppTheme.bodyMedium(context).copyWith(
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (isSelected)
-                          const Icon(Icons.chevron_right, size: 18, color: AppTheme.mediumGray),
+                          const Icon(Icons.chevron_right,
+                              size: 18, color: AppTheme.mediumGray),
                       ],
                     ),
                   ),
@@ -505,21 +533,27 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
                 behavior: HitTestBehavior.opaque,
                 onTap: () => widget.onCitySelected(cityName),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                  color: isSelected ? AppTheme.primaryYellow.withOpacity(0.2) : Colors.transparent,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  color: isSelected
+                      ? AppTheme.primaryYellow.withOpacity(0.2)
+                      : Colors.transparent,
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
                           cityName,
                           style: AppTheme.bodyMedium(context).copyWith(
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (isSelected)
-                        const Icon(Icons.check, size: 18, color: AppTheme.primaryYellow),
+                        const Icon(Icons.check,
+                            size: 18, color: AppTheme.primaryYellow),
                     ],
                   ),
                 ),

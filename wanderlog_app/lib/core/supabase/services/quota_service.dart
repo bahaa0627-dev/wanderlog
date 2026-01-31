@@ -74,17 +74,26 @@ class QuotaService {
       : _client = client ?? SupabaseConfig.client;
   final SupabaseClient _client;
 
+  /// 是否启用配额限制（前端）
+  static const bool quotaEnforced = false;
+
+  /// 无限配额占位值
+  static const int unlimitedQuota = 1 << 30;
+
   /// 深度搜索每日限制
-  static const int deepSearchLimit = 10;
+  static const int deepSearchLimit = quotaEnforced ? 10 : unlimitedQuota;
 
   /// 详情查看每日限制
-  static const int detailViewLimit = 20;
+  static const int detailViewLimit = quotaEnforced ? 20 : unlimitedQuota;
 
   /// 获取当前用户 ID
   String? get _currentUserId => _client.auth.currentUser?.id;
 
   /// 获取配额状态
   Future<QuotaStatus> getQuotaStatus([String? userId]) async {
+    if (!quotaEnforced) {
+      return QuotaStatus.defaultStatus();
+    }
     final uid = userId ?? _currentUserId;
     if (uid == null) {
       return QuotaStatus.defaultStatus();
@@ -109,12 +118,18 @@ class QuotaService {
 
   /// 检查是否可以进行深度搜索
   Future<bool> canDeepSearch([String? userId]) async {
+    if (!quotaEnforced) {
+      return true;
+    }
     final status = await getQuotaStatus(userId);
     return status.canDeepSearch;
   }
 
   /// 检查是否可以查看详情
   Future<bool> canViewDetail([String? userId]) async {
+    if (!quotaEnforced) {
+      return true;
+    }
     final status = await getQuotaStatus(userId);
     return status.canViewDetail;
   }
@@ -122,6 +137,9 @@ class QuotaService {
   /// 消耗深度搜索配额
   /// 返回更新后的配额状态
   Future<QuotaStatus> consumeDeepSearch([String? userId]) async {
+    if (!quotaEnforced) {
+      return QuotaStatus.defaultStatus();
+    }
     final uid = userId ?? _currentUserId;
     if (uid == null) {
       return QuotaStatus.defaultStatus();
@@ -146,6 +164,9 @@ class QuotaService {
   /// 消耗详情查看配额
   /// 返回更新后的配额状态
   Future<QuotaStatus> consumeDetailView([String? userId]) async {
+    if (!quotaEnforced) {
+      return QuotaStatus.defaultStatus();
+    }
     final uid = userId ?? _currentUserId;
     if (uid == null) {
       return QuotaStatus.defaultStatus();

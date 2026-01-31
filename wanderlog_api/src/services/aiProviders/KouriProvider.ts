@@ -25,6 +25,7 @@ interface KouriConfig {
   apiKey: string;
   baseUrl: string;
   chatModel: string;
+  chatModelFallback?: string;
   visionModel: string;
 }
 
@@ -98,6 +99,7 @@ export class KouriProvider implements AIProvider {
     const apiKey = process.env.KOURI_API_KEY;
     const baseUrl = process.env.KOURI_BASE_URL;
     const chatModel = process.env.KOURI_CHAT_MODEL || 'gpt-4o-mini';
+    const chatModelFallback = process.env.KOURI_CHAT_MODEL_FALLBACK || 'gpt-4o';
     const visionModel = process.env.KOURI_VISION_MODEL || 'gpt-4o-mini';
 
     // Validate required configuration
@@ -117,6 +119,7 @@ export class KouriProvider implements AIProvider {
       apiKey,
       baseUrl: baseUrl.replace(/\/$/, ''), // Remove trailing slash
       chatModel,
+      chatModelFallback: chatModelFallback && chatModelFallback !== chatModel ? chatModelFallback : undefined,
       visionModel,
     };
 
@@ -124,6 +127,9 @@ export class KouriProvider implements AIProvider {
     console.log('[Kouri] Provider initialized successfully');
     console.log(`[Kouri] Base URL: ${this.config.baseUrl}`);
     console.log(`[Kouri] Chat model: ${this.config.chatModel}`);
+    if (this.config.chatModelFallback) {
+      console.log(`[Kouri] Chat fallback model: ${this.config.chatModelFallback}`);
+    }
     console.log(`[Kouri] Vision model: ${this.config.visionModel}`);
   }
 
@@ -293,6 +299,73 @@ ${systemPrompt || ''}`;
       return content;
     } catch (error) {
       throw this.handleError(error, 'generateText');
+    }
+  }
+
+  /**
+   * Generate text using chat/completions WITHOUT web search.
+   * This is preferred when you need strict JSON output (web search can add noise).
+   */
+  async generateTextNoSearch(prompt: string, systemPrompt?: string): Promise<string> {
+    if (!this.isAvailable() || !this.config) {
+      throw this.createConfigError();
+    }
+
+    const url = this.buildChatCompletionsApiUrl();
+
+    const systemInstruction = `You are a helpful AI assistant.
+
+${systemPrompt || ''}`;
+
+    const buildRequestBody = (model: string) => ({
+      model,
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 900,
+      temperature: 0.3,
+    });
+
+    try {
+      console.log(`[Kouri] Sending chat/completions request to: ${url}`);
+      const response = await axios.post<OpenAIChatResponse>(url, buildRequestBody(this.config.chatModel), {
+        headers: this.getHeaders(),
+        timeout: 45000,
+      });
+
+      const content = response.data.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('Empty response from Kouri chat/completions API');
+      }
+
+      console.log('[Kouri] chat/completions request successful');
+      return content;
+    } catch (error) {
+      // If the configured model is over capacity, retry once with a fallback model.
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const message = (error.response as any)?.data?.error?.message || error.message || '';
+        if (status === 503 && this.config.chatModelFallback) {
+          console.warn(`[Kouri] generateTextNoSearch 503 (${message}); retrying with fallback model ${this.config.chatModelFallback}`);
+          try {
+            const fallbackResponse = await axios.post<OpenAIChatResponse>(url, buildRequestBody(this.config.chatModelFallback), {
+              headers: this.getHeaders(),
+              timeout: 45000,
+            });
+            const fallbackContent = fallbackResponse.data.choices[0]?.message?.content;
+            if (!fallbackContent) {
+              throw new Error('Empty response from Kouri chat/completions API (fallback model)');
+            }
+            console.log('[Kouri] chat/completions fallback-model request successful');
+            return fallbackContent;
+          } catch (fallbackError) {
+            throw this.handleError(fallbackError, 'generateTextNoSearch');
+          }
+        }
+      }
+
+      throw this.handleError(error, 'generateTextNoSearch');
     }
   }
 

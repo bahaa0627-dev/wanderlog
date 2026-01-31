@@ -1,129 +1,252 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "0️⃣ 安装代理依赖",
-      "type": "shell",
-      "command": "npm install https-proxy-agent axios",
-      "options": {
-        "cwd": "${workspaceFolder}/wanderlog_api"
-      },
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new",
-        "focus": true
-      }
-    },
-    {
-      "label": "1️⃣ 启动 API 服务",
-      "type": "shell",
-      "command": "npm run dev",
-      "options": {
-        "cwd": "${workspaceFolder}/wanderlog_api"
-      },
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new",
-        "focus": true
-      },
-      "isBackground": true
-    },
-    {
-      "label": "2️⃣ 测试添加地点 - 埃菲尔铁塔",
-      "type": "shell",
-      "command": "echo '测试地点: 埃菲尔铁塔 (Eiffel Tower)' && echo 'Place ID: ChIJLU7jZClu5kcR4PcOOO6p3I0' && echo '' && curl -X POST http://localhost:3000/api/public-places/add-by-place-id -H 'Content-Type: application/json' -d '{\"placeId\": \"ChIJLU7jZClu5kcR4PcOOO6p3I0\"}' | python3 -m json.tool 2>/dev/null || curl -X POST http://localhost:3000/api/public-places/add-by-place-id -H 'Content-Type: application/json' -d '{\"placeId\": \"ChIJLU7jZClu5kcR4PcOOO6p3I0\"}'",
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new",
-        "focus": true
-      }
-    },
-    {
-      "label": "3️⃣ 查看所有公共地点",
-      "type": "shell",
-      "command": "echo '获取所有公共地点...' && echo '' && curl -s http://localhost:3000/api/public-places | python3 -m json.tool 2>/dev/null || curl http://localhost:3000/api/public-places",
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new",
-        "focus": true
-      }
-    },
-    {
-      "label": "4️⃣ 测试添加地点 - 卢浮宫",
-      "type": "shell",
-      "command": "echo '测试地点: 卢浮宫 (Louvre Museum)' && echo 'Place ID: ChIJD3uTd9hx5kcR1IQvGfr8dbk' && echo '' && curl -X POST http://localhost:3000/api/public-places/add-by-place-id -H 'Content-Type: application/json' -d '{\"placeId\": \"ChIJD3uTd9hx5kcR1IQvGfr8dbk\"}' | python3 -m json.tool 2>/dev/null || curl -X POST http://localhost:3000/api/public-places/add-by-place-id -H 'Content-Type: application/json' -d '{\"placeId\": \"ChIJD3uTd9hx5kcR1IQvGfr8dbk\"}'",
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new",
-        "focus": true
-      }
-    },
-    {
-      "label": "5️⃣ 查看统计信息",
-      "type": "shell",
-      "command": "echo '获取公共地点统计信息...' && echo '' && curl -s http://localhost:3000/api/public-places/stats | python3 -m json.tool 2>/dev/null || curl http://localhost:3000/api/public-places/stats",
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new",
-        "focus": true
-      }
-    },
-    {
-      "label": "🔄 完整测试流程",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "2️⃣ 测试添加地点 - 埃菲尔铁塔",
-        "4️⃣ 测试添加地点 - 卢浮宫",
-        "3️⃣ 查看所有公共地点",
-        "5️⃣ 查看统计信息"
-      ],
-      "problemMatcher": []
-    },
-    {
-      "label": "🛑 停止端口 3000 的进程",
-      "type": "shell",
-      "command": "lsof -ti:3000 | xargs kill -9 2>/dev/null && echo '✅ 已停止端口 3000 的进程' || echo 'ℹ️  没有进程在运行'",
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new",
-        "focus": true
-      }
-    },
-    {
-      "label": "🔍 检查服务状态",
-      "type": "shell",
-      "command": "if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then echo '✅ 服务正在运行在端口 3000'; lsof -Pi :3000 -sTCP:LISTEN; else echo '❌ 服务未运行'; fi",
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new",
-        "focus": true
-      }
-    },
-    {
-      "label": "🧪 测试 Google Maps API (直接)",
-      "type": "shell",
-      "command": "node test_google_api.js",
-      "options": {
-        "cwd": "${workspaceFolder}/wanderlog_api",
-        "env": {
-          "http_proxy": "http://127.0.0.1:7893",
-          "https_proxy": "http://127.0.0.1:7893"
-        }
-      },
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new",
-        "focus": true
-      }
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "0️⃣ 安装代理依赖",
+			"type": "shell",
+			"command": "export PATH=\"/opt/homebrew/opt/node@20/bin:$PATH\" && npm install https-proxy-agent axios",
+			"options": {
+				"cwd": "${workspaceFolder}/wanderlog_api",
+				"shell": {
+					"executable": "/bin/bash",
+					"args": [
+						"-l",
+						"-c"
+					]
+				},
+				"env": {
+					"ZSH_DISABLE_COMPFIX": "true"
+					"command": "cd wanderlog_api && echo '--- SearchV2 summaries (东京拉面店) ---' && curl -s -X POST http://localhost:3000/api/places/ai/search-v2 -H 'Content-Type: application/json' -d '{\"query\":\"东京拉面店\",\"language\":\"zh\"}' | python3 -m json.tool 2>/dev/null | grep '\"summary\"' | head -n 20",
+					"options": {
+						"shell": {
+							"executable": "/bin/bash",
+							"args": [
+								"-l",
+								"-c"
+							]
+						},
+						"env": {
+							"ZSH_DISABLE_COMPFIX": "true"
+						}
+					},
+					"problemMatcher": [],
+					"presentation": {
+						"reveal": "always",
+						"panel": "new",
+						"focus": true
+					}
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "1️⃣ 启动 API 服务",
+			"type": "shell",
+			"command": "export PATH=\"/opt/homebrew/opt/node@20/bin:$PATH\" && npm run dev",
+			"options": {
+				"cwd": "${workspaceFolder}/wanderlog_api",
+				"shell": {
+					"executable": "/bin/bash",
+					"args": [
+						"-l",
+						"-c"
+					]
+				},
+				"env": {
+					"ZSH_DISABLE_COMPFIX": "true"
+				}
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			},
+			"isBackground": true
+		},
+		{
+			"label": "2️⃣ 测试添加地点 - 埃菲尔铁塔",
+			"type": "shell",
+			"command": "echo '测试地点: 埃菲尔铁塔 (Eiffel Tower)' && echo 'Place ID: ChIJLU7jZClu5kcR4PcOOO6p3I0' && echo '' && curl -X POST http://localhost:3000/api/public-places/add-by-place-id -H 'Content-Type: application/json' -d '{\"placeId\": \"ChIJLU7jZClu5kcR4PcOOO6p3I0\"}' | python3 -m json.tool 2>/dev/null || curl -X POST http://localhost:3000/api/public-places/add-by-place-id -H 'Content-Type: application/json' -d '{\"placeId\": \"ChIJLU7jZClu5kcR4PcOOO6p3I0\"}'",
+			"options": {
+				"shell": {
+					"executable": "/bin/bash",
+					"args": [
+						"-l",
+						"-c"
+					]
+				},
+				"env": {
+					"ZSH_DISABLE_COMPFIX": "true"
+				}
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "3️⃣ 查看所有公共地点",
+			"type": "shell",
+			"command": "echo '获取所有公共地点...' && echo '' && curl -s http://localhost:3000/api/public-places | python3 -m json.tool 2>/dev/null || curl http://localhost:3000/api/public-places",
+			"options": {
+				"shell": {
+					"executable": "/bin/bash",
+					"args": [
+						"-l",
+						"-c"
+					]
+				},
+				"env": {
+					"ZSH_DISABLE_COMPFIX": "true"
+				}
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "4️⃣ 测试添加地点 - 卢浮宫",
+			"type": "shell",
+			"command": "echo '测试地点: 卢浮宫 (Louvre Museum)' && echo 'Place ID: ChIJD3uTd9hx5kcR1IQvGfr8dbk' && echo '' && curl -X POST http://localhost:3000/api/public-places/add-by-place-id -H 'Content-Type: application/json' -d '{\"placeId\": \"ChIJD3uTd9hx5kcR1IQvGfr8dbk\"}' | python3 -m json.tool 2>/dev/null || curl -X POST http://localhost:3000/api/public-places/add-by-place-id -H 'Content-Type: application/json' -d '{\"placeId\": \"ChIJD3uTd9hx5kcR1IQvGfr8dbk\"}'",
+			"options": {
+				"shell": {
+					"executable": "/bin/bash",
+					"args": [
+						"-l",
+						"-c"
+					]
+				},
+				"env": {
+					"ZSH_DISABLE_COMPFIX": "true"
+				}
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "5️⃣ 查看统计信息",
+			"type": "shell",
+			"command": "echo '获取公共地点统计信息...' && echo '' && curl -s http://localhost:3000/api/public-places/stats | python3 -m json.tool 2>/dev/null || curl http://localhost:3000/api/public-places/stats",
+			"options": {
+				"shell": {
+					"executable": "/bin/bash",
+					"args": [
+						"-l",
+						"-c"
+					]
+				},
+				"env": {
+					"ZSH_DISABLE_COMPFIX": "true"
+				}
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "🔄 完整测试流程",
+			"dependsOrder": "sequence",
+			"dependsOn": [
+				"2️⃣ 测试添加地点 - 埃菲尔铁塔",
+				"4️⃣ 测试添加地点 - 卢浮宫",
+				"3️⃣ 查看所有公共地点",
+				"5️⃣ 查看统计信息"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "🛑 停止端口 3000 的进程",
+			"type": "shell",
+			"command": "lsof -ti:3000 | xargs kill -9 2>/dev/null && echo '✅ 已停止端口 3000 的进程' || echo 'ℹ️  没有进程在运行'",
+			"options": {
+				"shell": {
+					"executable": "/bin/bash",
+					"args": [
+						"-l",
+						"-c"
+					]
+				},
+				"env": {
+					"ZSH_DISABLE_COMPFIX": "true"
+				}
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "🔍 检查服务状态",
+			"type": "shell",
+			"command": "if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then echo '✅ 服务正在运行在端口 3000'; lsof -Pi :3000 -sTCP:LISTEN; else echo '❌ 服务未运行'; fi",
+			"options": {
+				"shell": {
+					"executable": "/bin/bash",
+					"args": [
+						"-l",
+						"-c"
+					]
+				},
+				"env": {
+					"ZSH_DISABLE_COMPFIX": "true"
+				}
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "🧪 测试 Google Maps API (直接)",
+			"type": "shell",
+			"command": "export PATH=\"/opt/homebrew/opt/node@20/bin:$PATH\" && node test_google_api.js",
+			"options": {
+				"cwd": "${workspaceFolder}/wanderlog_api",
+				"shell": {
+					"executable": "/bin/bash",
+					"args": [
+						"-l",
+						"-c"
+					]
+				},
+				"env": {
+					"ZSH_DISABLE_COMPFIX": "true",
+					"http_proxy": "http://127.0.0.1:7893",
+					"https_proxy": "http://127.0.0.1:7893"
+				}
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "🧪 测试 SearchV2 - 东京拉面店 summary",
+			"type": "shell",
+			"command": "cd wanderlog_api && curl -s -X POST http://localhost:3000/api/places/ai/search-v2 -H 'Content-Type: application/json' -d '{\"query\":\"东京拉面店\",\"language\":\"zh\"}' | python3 - <<'PY'\nimport json,sys,re\nj=json.load(sys.stdin)\nplaces=j.get('places') or []\npat=re.compile(r'^以.+为亮点')\nprint('places:',len(places))\nfor i,p in enumerate(places[:10],1):\n    s=(p.get('summary') or '').strip()\n    isfb=bool(pat.search(s)) or ('整体氛围' in s and '为亮点' in s)\n    print(f\"{i:02d} fallback={isfb} {p.get('name','')[:40]} | {s}\")\nPY",
+			"isBackground": false
+		}
+	]
 }

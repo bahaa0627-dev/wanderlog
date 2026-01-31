@@ -13,6 +13,12 @@ class SearchV2Service {
 
   final Dio _dio;
 
+  /// 是否启用配额限制（前端）
+  static const bool quotaEnforced = false;
+
+  /// 无限配额占位值
+  static const int unlimitedQuota = 1 << 30;
+
   /// 获取后端 API 基础 URL
   String get _apiBaseUrl =>
       dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000/api';
@@ -145,6 +151,9 @@ class SearchV2Service {
   ///
   /// Returns 剩余搜索次数
   Future<int> getRemainingQuota(String userId) async {
+    if (!quotaEnforced) {
+      return unlimitedQuota;
+    }
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '$_apiBaseUrl/places/ai/quota',

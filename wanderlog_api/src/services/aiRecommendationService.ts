@@ -604,6 +604,10 @@ Each summary MUST be 40-60 characters, complete sentence, no "..." at end.`;
       'getRecommendations'
     );
 
+    if (!response || !Array.isArray(response.places)) {
+      throw new AIResponseValidationError('AI response missing places array');
+    }
+
     // 打印 AI 返回的地点名称
     console.log(`[AIRecommendationService] AI places: ${response.places.map(p => p.name).join(', ')}`);
 

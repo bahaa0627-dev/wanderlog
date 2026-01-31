@@ -235,7 +235,8 @@ const CATEGORY_KEYWORDS = [
   'cafe', 'coffee', 'bakery', 'restaurant', 'ramen', 'sushi', 'museum', 'gallery',
   'temple', 'shrine', 'park', 'garden', 'bar', 'pub', 'shop', 'shopping', 'hotel',
   'market', 'flea market', 'food market',
-  '咖啡', '餐厅', '博物馆', '公园', '酒吧', '商店', '酒店',
+  '咖啡', '咖啡馆', '餐厅', '拉面', '拉麵', '拉面店', '拉麵店', '寿司', '面馆', '面館',
+  '博物馆', '美术馆', '公园', '酒吧', '商店', '酒店',
 ];
 
 /**
@@ -354,6 +355,12 @@ class IntentClassifierService implements IIntentClassifier {
    */
   async classify(query: string, language: string): Promise<IntentResult> {
     logger.info(`[IntentClassifier] Classifying query: "${query}"`);
+
+    // Fast path: for non-Latin queries (Chinese/Japanese/etc.), use rule-based fallback immediately.
+    // This avoids waiting on AI provider timeouts and keeps SearchV2 responsive.
+    if (/[\u0080-\uFFFF]/.test(query)) {
+      return this.fallbackClassify(query, language);
+    }
 
     try {
       // Build the prompt with the user's query

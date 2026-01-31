@@ -18,6 +18,12 @@ import prisma from '../config/database';
 const DAILY_QUOTA = 10;
 
 /**
+ * Temporary switch to disable AI search quota enforcement.
+ * Set to false to re-enable quota limits.
+ */
+const AI_SEARCH_QUOTA_ENFORCED = false;
+
+/**
  * VIP quota limit - 100 searches per day
  */
 const VIP_DAILY_QUOTA = 100;
@@ -147,6 +153,9 @@ class QuotaService {
    * @returns true if user has remaining quota, false otherwise
    */
   async canSearch(userId: string): Promise<boolean> {
+    if (!AI_SEARCH_QUOTA_ENFORCED) {
+      return true;
+    }
     try {
       const quota = await this.getOrCreateQuotaRecord(userId);
       const userLimit = this.getUserDailyLimit(userId);
@@ -166,6 +175,9 @@ class QuotaService {
    * @throws QuotaExceededError if quota is exceeded
    */
   async consumeQuota(userId: string): Promise<void> {
+    if (!AI_SEARCH_QUOTA_ENFORCED) {
+      return;
+    }
     const quota = await this.getOrCreateQuotaRecord(userId);
     const userLimit = this.getUserDailyLimit(userId);
 
@@ -190,6 +202,9 @@ class QuotaService {
    * @returns Number of remaining searches for today
    */
   async getRemainingQuota(userId: string): Promise<number> {
+    if (!AI_SEARCH_QUOTA_ENFORCED) {
+      return Number.MAX_SAFE_INTEGER;
+    }
     try {
       const quota = await this.getOrCreateQuotaRecord(userId);
       const userLimit = this.getUserDailyLimit(userId);
@@ -207,6 +222,9 @@ class QuotaService {
    * @returns The daily search limit
    */
   getDailyLimit(): number {
+    if (!AI_SEARCH_QUOTA_ENFORCED) {
+      return Number.MAX_SAFE_INTEGER;
+    }
     return this.dailyLimit;
   }
 
@@ -222,6 +240,20 @@ class QuotaService {
     used: number;
     resetsAt: Date;
   }> {
+    if (!AI_SEARCH_QUOTA_ENFORCED) {
+      const now = new Date();
+      const tomorrow = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + 1
+      ));
+      return {
+        remaining: Number.MAX_SAFE_INTEGER,
+        limit: Number.MAX_SAFE_INTEGER,
+        used: 0,
+        resetsAt: tomorrow,
+      };
+    }
     try {
       const quota = await this.getOrCreateQuotaRecord(userId);
       const userLimit = this.getUserDailyLimit(userId);

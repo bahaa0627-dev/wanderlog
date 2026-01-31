@@ -1123,14 +1123,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
       // 普通文本响应（non_travel 或没有城市分组的 travel_consultation）
       // 对于 travel_consultation，只显示有图片的地点，没有图片的不展示卡片
-      // 过滤掉没有真实图片的地点（排除 example.com 占位符）
-      bool hasValidImage(PlaceResult p) {
-        if (p.coverImage.isEmpty) return false;
-        if (p.coverImage.contains('example.com')) return false;
-        return p.coverImage.startsWith('http');
-      }
-
-      final placesWithImage = result.places.where(hasValidImage).toList();
+      final placesWithImage = result.places.where((p) => p.hasValidCoverImage).toList();
       debugPrint(
           '🖼️ [_buildSearchV2Result] After filter: ${placesWithImage.length} places (from ${result.places.length})');
 
@@ -1153,6 +1146,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               onPlaceTap: _showPlaceDetail,
             ),
           ],
+
+          // Text-only places intentionally hidden
         ],
       );
     }
@@ -1277,6 +1272,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             onPlaceTap: _showPlaceDetail,
           ),
 
+        // Text-only places intentionally hidden
+
         const SizedBox(height: 20),
 
         // 有分类时，在地点列表后显示 overallSummary（如果有的话）
@@ -1317,6 +1314,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       ],
     );
   }
+
 
   /// 构建穿插显示的城市内容（城市介绍 + 卡片）
   /// 解析 AI 回复文本，在每个城市介绍后插入对应的横滑卡片

@@ -86,6 +86,12 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
   bool _isSaving = false;
   String? _destinationId;
 
+  String _truncateDescription(String text, int maxChars) {
+    final trimmed = text.trim();
+    if (trimmed.length <= maxChars) return trimmed;
+    return trimmed.substring(0, maxChars);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -215,9 +221,10 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
     });
 
     // 获取 summary 或 recommendationPhrase
-    final description = widget.place.summary.isNotEmpty 
-        ? widget.place.summary 
-        : (widget.place.recommendationPhrase ?? '');
+    final description = widget.place.summary.isNotEmpty
+      ? widget.place.summary
+      : (widget.place.recommendationPhrase ?? '');
+    final displayDescription = _truncateDescription(description, 100);
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -247,15 +254,13 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
                   ),
                   const SizedBox(height: 8),
                   // AI summary - 约3行
-                  if (description.isNotEmpty)
+                  if (displayDescription.isNotEmpty)
                     Text(
-                      description,
+                      displayDescription,
                       style: AppTheme.bodyMedium(context).copyWith(
                         color: AppTheme.darkGray,
                         height: 1.4,
                       ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   // 标签
                   if ((widget.place.displayTagsEn ?? widget.place.tags)?.isNotEmpty ?? false) ...[

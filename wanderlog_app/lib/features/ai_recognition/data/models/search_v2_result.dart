@@ -73,6 +73,12 @@ class SearchV2Result {
           acknowledgment: description,
           categories: null,
           places: places,
+          textOnlyPlaces: (json['textOnlyPlaces'] as List?)
+                  ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
+                  .toList() ??
+              [],
+          translatedQuery: json['translatedQuery'] as String?,
+          translationStatus: json['translationStatus'] as String?,
           overallSummary: json['overallSummary'] as String? ?? '',
           quotaRemaining: json['quotaRemaining'] as int? ?? 0,
           stage: _parseStage(json['stage'] as String?),
@@ -91,6 +97,12 @@ class SearchV2Result {
           acknowledgment: '',
           categories: null,
           places: [],
+          textOnlyPlaces: (json['textOnlyPlaces'] as List?)
+                  ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
+                  .toList() ??
+              [],
+          translatedQuery: json['translatedQuery'] as String?,
+          translationStatus: json['translationStatus'] as String?,
           overallSummary: '',
           quotaRemaining: json['quotaRemaining'] as int? ?? 0,
           stage: _parseStage(json['stage'] as String?),
@@ -125,6 +137,12 @@ class SearchV2Result {
           acknowledgment: json['acknowledgment'] as String? ?? '',
           categories: null,
           places: relatedPlaces,
+          textOnlyPlaces: (json['textOnlyPlaces'] as List?)
+                  ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
+                  .toList() ??
+              [],
+          translatedQuery: json['translatedQuery'] as String?,
+          translationStatus: json['translationStatus'] as String?,
           cityPlaces: cityPlaces,
           overallSummary: json['overallSummary'] as String? ?? '',
           quotaRemaining: json['quotaRemaining'] as int? ?? 0,
@@ -149,6 +167,12 @@ class SearchV2Result {
                   ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
                   .toList() ??
               [],
+          textOnlyPlaces: (json['textOnlyPlaces'] as List?)
+              ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+            [],
+          translatedQuery: json['translatedQuery'] as String?,
+          translationStatus: json['translationStatus'] as String?,
           mapPlaces: (json['mapPlaces'] as List?)
               ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
               .toList(),
@@ -194,6 +218,9 @@ class SearchV2Result {
     required this.success,
     required this.acknowledgment,
     required this.places,
+    this.textOnlyPlaces = const [],
+    this.translatedQuery,
+    this.translationStatus,
     required this.overallSummary,
     required this.quotaRemaining,
     required this.stage,
@@ -246,6 +273,15 @@ class SearchV2Result {
 
   /// 无分类时的平铺结果（最多 5 个）
   final List<PlaceResult> places;
+
+  /// 文本补齐地点（无图片，卡片后以文本方式展示）
+  final List<PlaceResult> textOnlyPlaces;
+
+  /// 翻译后的查询（仅用于日志/调试面板）
+  final String? translatedQuery;
+
+  /// 翻译状态（not_needed / translated / failed）
+  final String? translationStatus;
 
   /// 地图页可额外展示的地点（可选，通常比 places 更多）
   final List<PlaceResult>? mapPlaces;
@@ -324,6 +360,9 @@ class SearchV2Result {
       'acknowledgment': acknowledgment,
       'categories': categories?.map((e) => e.toJson()).toList(),
       'places': places.map((e) => e.toJson()).toList(),
+      'textOnlyPlaces': textOnlyPlaces.map((e) => e.toJson()).toList(),
+      'translatedQuery': translatedQuery,
+      'translationStatus': translationStatus,
       'mapPlaces': mapPlaces?.map((e) => e.toJson()).toList(),
       'cityPlaces': cityPlaces?.map((e) => e.toJson()).toList(),
       'overallSummary': overallSummary,

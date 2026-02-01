@@ -13,6 +13,7 @@ import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.d
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot, SpotSource;
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
+import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 
 /// 推荐结果地图组件
 ///
@@ -1102,12 +1103,7 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
   }
 
   Widget _buildCover() {
-    const placeholder = ColoredBox(
-      color: AppTheme.lightGray,
-      child: const Center(
-        child: Icon(Icons.place, size: 52, color: AppTheme.mediumGray),
-      ),
-    );
+    const placeholder = VagoPlaceholderSmall();
 
     if (widget.place.coverImage.isEmpty) return placeholder;
 

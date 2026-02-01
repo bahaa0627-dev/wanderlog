@@ -107,6 +107,7 @@ export enum AIProviderName {
   AZURE_OPENAI = 'azure_openai',
   GEMINI = 'gemini',
   KOURI = 'kouri',
+  OPENROUTER = 'openrouter',
 }
 
 /**

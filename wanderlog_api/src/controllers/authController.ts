@@ -8,7 +8,6 @@ import { generateVerificationCode } from '../utils/tokenGenerator';
 import { ensureAuthTablesExist } from '../utils/ensureAuthTables';
 import {
   sendVerificationEmail,
-  sendPasswordResetEmail,
   sendWelcomeEmail,
 } from '../services/emailService';
 
@@ -398,7 +397,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 /**
  * 重置密码
  */
-export const resetPassword = async (req: Request, res: Response) => {
+export const resetPassword = async (_req: Request, res: Response) => {
   // Note: Password reset is primarily handled by Supabase's native resetPasswordForEmail()
   // with deep link support (io.supabase.wanderlog://login-callback)
   // This endpoint returns 501 to indicate the feature is handled by Supabase

@@ -2792,13 +2792,14 @@ class _UnifiedSpotDetailModalState
           child: Column(
             children: [
               // 1. Image section with close button and collection entry
+              // 只有当有图片时才显示图片区域
+              if (_spotImages.isNotEmpty)
               Stack(
                 children: [
                   // 图片容器 - 详情页图片铺满，无左右边距
                   SizedBox(
                     height: 300,
-                    child: _spotImages.isNotEmpty
-                        ? GestureDetector(
+                    child: GestureDetector(
                             onTap: () =>
                                 _showFullScreenImage(_currentImageIndex),
                             child: PageView.builder(
@@ -2847,8 +2848,7 @@ class _UnifiedSpotDetailModalState
                                 );
                               },
                             ),
-                          )
-                        : _buildPlaceholder(),
+                          ),
                   ),
                   if (_spotImages.length > 1)
                     Positioned(
@@ -2912,6 +2912,37 @@ class _UnifiedSpotDetailModalState
                   ),
                 ],
               ),
+              // 没有图片时，显示一个顶部圆角区域和关闭按钮
+              if (_spotImages.isEmpty)
+                Container(
+                  height: 56,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 16, right: 16),
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context, _hasStatusChanged),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppTheme.lightGray,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: AppTheme.mediumGray,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               // Scrollable content
               Expanded(
                 child: SingleChildScrollView(

@@ -28,7 +28,8 @@ export interface IntentResult {
   placeName?: string;           // specific_place: the exact place name
   placeNames?: string[];        // travel_consultation: extracted place names from response
   city?: string;                // Detected city name
-  category?: string;            // Detected category (restaurant, cafe, museum, etc.)
+  category?: string;            // Detected category slug (restaurant, cafe, museum, etc.)
+  tags?: string[];              // Detected tag keywords for search
   count?: number;               // Detected quantity request
   confidence?: number;          // Confidence score 0-1
 }
@@ -124,6 +125,11 @@ export interface CityPlacesGroup {
 export interface MentionedPlace {
   name: string;                 // Place name
   city: string;                 // City the place belongs to
+  address?: string;             // Full address if known
+  website?: string;             // Official website URL
+  country?: string;             // Country name
+  rating?: number;              // Rating score (e.g., 4.5)
+  ratingCount?: number;         // Number of reviews
 }
 
 /**

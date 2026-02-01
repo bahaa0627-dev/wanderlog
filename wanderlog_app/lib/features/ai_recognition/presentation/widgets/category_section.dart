@@ -140,15 +140,16 @@ class _PlaceCardWithSummary extends StatelessWidget {
               showSummary: false,
             ),
           ),
-          const SizedBox(height: 8),
-          // Summary 在卡片下方，最多 3 行，超出显示...
-          if (place.summary.isNotEmpty)
+          if (place.summary.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            // Summary 在卡片下方，最多 3 行，超出显示...
             Text(
               place.summary,
               style: summaryStyle,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
+          ],
         ],
       );
 }

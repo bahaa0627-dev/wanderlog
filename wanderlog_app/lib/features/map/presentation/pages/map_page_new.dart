@@ -122,7 +122,8 @@ class Spot {
     if (coverImage.isEmpty) return false;
     if (coverImage.contains('example.com')) return false;
     if (coverImage.contains('placeholder')) return false;
-    return true;
+    // 必须是 http/https 开头的有效 URL
+    return coverImage.startsWith('http');
   }
 
   /// 复制并修改
@@ -427,7 +428,7 @@ class _MapPageState extends ConsumerState<MapPage> {
 
     // 监听搜索框变化，用于显示/隐藏清除按钮
     _searchController.addListener(_onSearchTextChanged);
-    
+
     // 监听 wishlistStatusProvider 变化，实时更新地图卡片状态
     ref.listenManual(wishlistStatusProvider, (previous, next) {
       print('🔄 [MapPage] wishlistStatusProvider changed, updating UI...');
@@ -1531,8 +1532,9 @@ class _MapPageState extends ConsumerState<MapPage> {
     List<String>? initialUserPhotos;
 
     if (authState.isAuthenticated) {
-      print('🗺️ [MapPageNew] User authenticated, loading full status from server...');
-      
+      print(
+          '🗺️ [MapPageNew] User authenticated, loading full status from server...');
+
       try {
         // 先显示一个简单的loading indicator
         if (mounted) {
@@ -1544,7 +1546,7 @@ class _MapPageState extends ConsumerState<MapPage> {
             ),
           );
         }
-        
+
         // 等待可能正在进行的收藏/取消收藏操作完成
         await WishlistStatusCache.awaitPendingOperation(spot.id);
         if (spot.name.isNotEmpty) {
@@ -1554,15 +1556,15 @@ class _MapPageState extends ConsumerState<MapPage> {
         // 从服务器获取最新的完整状态 - 2秒超时
         final tripRepo = ref.read(tripRepositoryProvider);
         final trips = await tripRepo.getMyTrips().timeout(
-          const Duration(seconds: 2),
-          onTimeout: () => <Trip>[],
-        );
-        
+              const Duration(seconds: 2),
+              onTimeout: () => <Trip>[],
+            );
+
         print('�🚨🚨 [SPOT_DETAIL_DEBUG] Loading status for spot:');
         print('🚨 spot.id: ${spot.id}');
         print('🚨 spot.name: ${spot.name}');
         print('🚨 trips count: ${trips.length}');
-        
+
         // 查找包含这个 spot 的 trip
         for (final trip in trips) {
           try {
@@ -1572,34 +1574,36 @@ class _MapPageState extends ConsumerState<MapPage> {
               final tripDetail = await tripRepo.getTripById(trip.id);
               tripSpots = tripDetail.tripSpots ?? [];
             }
-            
-            print('� [SPOT_DETAIL_DEBUG] Checking trip: ${trip.name} (${tripSpots.length} spots)');
-            
+
+            print(
+                '� [SPOT_DETAIL_DEBUG] Checking trip: ${trip.name} (${tripSpots.length} spots)');
+
             for (final ts in tripSpots) {
               // 尝试匹配 spot（通过 id、name 或 googlePlaceId）
               bool isMatch = false;
               String matchType = '';
-              
+
               if (ts.spot?.id == spot.id) {
                 isMatch = true;
                 matchType = 'by id';
               } else if (ts.spot?.name == spot.name && spot.name.isNotEmpty) {
                 isMatch = true;
                 matchType = 'by name';
-              } else if (ts.spot?.googlePlaceId != null && 
-                         ts.spot?.googlePlaceId == spot.id) {
+              } else if (ts.spot?.googlePlaceId != null &&
+                  ts.spot?.googlePlaceId == spot.id) {
                 isMatch = true;
                 matchType = 'by googlePlaceId';
               }
-              
+
               if (isMatch) {
-                print('🚨✅ [SPOT_DETAIL_DEBUG] MATCH FOUND in trip ${trip.name} ($matchType)');
+                print(
+                    '🚨✅ [SPOT_DETAIL_DEBUG] MATCH FOUND in trip ${trip.name} ($matchType)');
                 print('🚨   ts.spot.id: ${ts.spot?.id}');
                 print('🚨   ts.spot.googlePlaceId: ${ts.spot?.googlePlaceId}');
                 print('🚨   ts.isSaved: ${ts.isSaved}');
                 print('🚨   ts.isMustGo: ${ts.isMustGo}');
                 print('🚨   ts.isVisited: ${ts.isVisited}');
-                
+
                 initialIsSaved = ts.isSaved == true;
                 initialIsMustGo = ts.isMustGo == true;
                 initialIsTodaysPlan = ts.isTodaysPlan == true;
@@ -1617,12 +1621,12 @@ class _MapPageState extends ConsumerState<MapPage> {
             print('⚠️ [MapPageNew] Error loading trip ${trip.name}: $e');
           }
         }
-        
+
         if (initialDestinationId == null) {
           print('ℹ️ [MapPageNew] Spot not found in any trip (not saved)');
           initialIsSaved = false;
         }
-        
+
         // 💾 保存到缓存供后续使用
         WishlistStatusCache.updateFullStatus(
           spot.id,
@@ -1636,13 +1640,14 @@ class _MapPageState extends ConsumerState<MapPage> {
           userNotes: initialUserNotes,
           userPhotos: initialUserPhotos,
         );
-        
+
         // 关闭loading dialog
         if (mounted && Navigator.canPop(context)) {
           Navigator.pop(context);
         }
-        
-        print('🗺️ [MapPageNew] Server data loaded: isSaved=$initialIsSaved, isVisited=$initialIsVisited');
+
+        print(
+            '🗺️ [MapPageNew] Server data loaded: isSaved=$initialIsSaved, isVisited=$initialIsVisited');
       } catch (e) {
         print('❌ [MapPageNew] Failed to load status from server: $e');
         // 关闭loading dialog
@@ -1655,7 +1660,8 @@ class _MapPageState extends ConsumerState<MapPage> {
         if (fullStatus == null && spot.name.isNotEmpty) {
           fullStatus = WishlistStatusCache.getFullStatus(spot.name);
         }
-        initialIsSaved = fullStatus?.isSaved ?? fullStatus?.destinationId != null;
+        initialIsSaved =
+            fullStatus?.isSaved ?? fullStatus?.destinationId != null;
         initialIsMustGo = fullStatus?.isMustGo;
         initialIsTodaysPlan = fullStatus?.isTodaysPlan;
         initialIsVisited = fullStatus?.isVisited;
@@ -1667,7 +1673,7 @@ class _MapPageState extends ConsumerState<MapPage> {
         if (fullStatus == null && spot.name.isNotEmpty) {
           fullStatus = WishlistStatusCache.getFullStatus(spot.name);
         }
-        
+
         if (fullStatus != null) {
           initialIsSaved = fullStatus.isSaved;
           initialIsMustGo = fullStatus.isMustGo;
@@ -3042,7 +3048,8 @@ class _BottomSpotCardState extends ConsumerState<_BottomSpotCard> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (widget.spot.rating > 0 && widget.spot.ratingCount > 0) ...[
+                    if (widget.spot.rating > 0 &&
+                        widget.spot.ratingCount > 0) ...[
                       const SizedBox(height: 8),
                       _RatingRow(
                         rating: widget.spot.rating,
@@ -3100,4 +3107,3 @@ class _RatingRow extends StatelessWidget {
     );
   }
 }
-

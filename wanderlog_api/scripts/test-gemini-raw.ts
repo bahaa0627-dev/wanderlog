@@ -2,7 +2,7 @@ import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyCHg2fu3ukEbbkI5thNiqGyhIxgGPtBMYg';
-const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const model = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
 const proxyUrl = process.env.HTTPS_PROXY || 'http://127.0.0.1:7893';
 
 const SYSTEM_PROMPT = `You are a travel expert. Recommend 5 places.

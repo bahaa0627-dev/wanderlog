@@ -159,6 +159,7 @@ class _AIRecognitionHistoryChatPageState
   }
 
   Future<void> _handleAddMore() async {
+    return;
     // 检查是否已达上限
     if (_selectedImages.length >= 5) {
       final languageCode = Localizations.localeOf(context).languageCode;
@@ -1083,102 +1084,6 @@ class _AIRecognitionHistoryChatPageState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 图片预览区域（左对齐）
-            if (_selectedImages.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                alignment: Alignment.centerLeft,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ..._selectedImages.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final image = entry.value;
-                        return Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          child: Stack(
-                            children: [
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: AppTheme.black,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Image.file(
-                                    File(image.path),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => const ColoredBox(
-                                        color: AppTheme.lightGray,
-                                        child: Icon(
-                                          Icons.broken_image,
-                                          color: AppTheme.mediumGray,
-                                        ),
-                                      ),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                top: -4,
-                                right: -4,
-                                child: GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _selectedImages.removeAt(index);
-                                    });
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.mediumGray
-                                          .withValues(alpha: 0.9),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.close,
-                                      size: 16,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                      // 添加更多按钮
-                      if (_selectedImages.length < 5)
-                        GestureDetector(
-                          onTap: _handleAddMore,
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: AppTheme.lightGray,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: AppTheme.black,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.add,
-                              size: 32,
-                              color: AppTheme.mediumGray,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
             // 输入栏
             Padding(
               padding: EdgeInsets.only(
@@ -1230,26 +1135,6 @@ class _AIRecognitionHistoryChatPageState
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // + 按钮（添加图片）- 正在回复时隐藏
-                  if (!_isSendingMessage)
-                    GestureDetector(
-                      onTap: _handleAddMore,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppTheme.background,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppTheme.black,
-                            width: 2,
-                          ),
-                        ),
-                        child: const Icon(Icons.add,
-                            color: AppTheme.black, size: 24,),
-                      ),
-                    ),
-                  if (!_isSendingMessage) const SizedBox(width: 8),
                   // 发送/暂停按钮
                   GestureDetector(
                     onTap: _isSendingMessage

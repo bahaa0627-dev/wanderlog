@@ -145,6 +145,33 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
+  Future<void> _refreshRecommendationsSilently() async {
+    try {
+      final cacheNotifier = ref.read(recommendationsCacheProvider.notifier);
+      final data = await cacheNotifier.loadRecommendations(forceRefresh: true);
+      if (mounted) {
+        setState(() {
+          _recommendations = data;
+          _recommendationsError = null;
+        });
+      }
+    } catch (e) {
+      print('❌ Error refreshing recommendations: $e');
+      if (mounted) {
+        setState(() {
+          _recommendationsError = e.toString();
+        });
+      }
+    }
+  }
+
+  Future<void> _handlePullToRefresh() async {
+    await Future.wait([
+      _refreshRecommendationsSilently(),
+      ref.read(placesCacheProvider.notifier).refresh(),
+    ]);
+  }
+
   /// 预加载用户收藏和 check-in 状态，填充 WishlistStatusCache
   /// 这样进入 map 页面时状态就已经准备好，避免空白状态闪烁
   Future<void> _preloadWishlistStatus() async {
@@ -377,146 +404,184 @@ class _HomePageState extends ConsumerState<HomePage> {
                         index: _selectedTab,
                         children: [
                           // Tab 0: Collection
-                          if (_isLoadingRecommendations)
-                            const Center(child: CircularProgressIndicator())
-                          else if (_recommendationsError != null)
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(32.0),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.cloud_off_outlined,
-                                      size: 64,
-                                      color: AppTheme.mediumGray,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'Failed to load recommendations',
-                                      style: AppTheme.bodyLarge(context),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Please check your connection and try again',
-                                      style:
-                                          AppTheme.bodySmall(context).copyWith(
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 24),
-                                    PrimaryButton(
-                                      text: 'Retry',
-                                      onPressed: _loadRecommendations,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          else if (_recommendations.isEmpty)
-                            const Center(
-                              child: Text('No recommendations available'),
-                            )
-                          else
-                            ListView.builder(
-                              padding: const EdgeInsets.only(
-                                  bottom:
-                                      80), // 底部 padding（底部导航栏高度约82px + 安全区域）
-                              cacheExtent: 500, // 优化性能：减少预加载范围
-                              itemCount: _recommendations.length,
-                              itemBuilder: (context, recommendationIndex) {
-                                final recommendation =
-                                    _recommendations[recommendationIndex];
-                                final items =
-                                    recommendation['items'] as List<dynamic>? ??
-                                        [];
-                                final recommendationName =
-                                    recommendation['name'] as String? ?? '';
-                                final hasMore = items.length > 5;
-                                final displayItems = items.take(5).toList();
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              Widget collectionChild;
 
-                                return Padding(
-                                  padding: EdgeInsets.only(
-                                    bottom: recommendationIndex <
-                                            _recommendations.length - 1
-                                        ? 16
-                                        : 16, // 合集推荐之间间距 16px，最后一个合集底部也留 16px
+                              if (_isLoadingRecommendations) {
+                                collectionChild = SingleChildScrollView(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  child: SizedBox(
+                                    height: constraints.maxHeight,
+                                    child: const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // 推荐标题行 - 不要黄色竖杠
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16),
-                                        child: Row(
+                                );
+                              } else if (_recommendationsError != null) {
+                                collectionChild = SingleChildScrollView(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  child: SizedBox(
+                                    height: constraints.maxHeight,
+                                    child: Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(32.0),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
-                                            // 推荐名称 - 直接展示
-                                            Expanded(
-                                              child: Text(
-                                                recommendationName,
-                                                style: AppTheme.headlineLarge(
-                                                        context)
-                                                    .copyWith(
-                                                  fontSize: 18,
-                                                ),
-                                              ),
+                                            const Icon(
+                                              Icons.cloud_off_outlined,
+                                              size: 64,
+                                              color: AppTheme.mediumGray,
                                             ),
-                                            // More 按钮（超过5个时显示）
-                                            if (hasMore)
-                                              GestureDetector(
-                                                onTap: () {
-                                                  final recommendationId =
-                                                      recommendation['id']
-                                                          as String?;
-                                                  if (recommendationId !=
-                                                      null) {
-                                                    context.push(
-                                                      '/recommendation/$recommendationId?name=${Uri.encodeComponent(recommendationName)}',
-                                                    );
-                                                  }
-                                                },
-                                                child: Text(
-                                                  'more >',
-                                                  style: AppTheme.labelSmall(
-                                                          context)
-                                                      .copyWith(
-                                                    fontWeight: FontWeight.w400,
-                                                    color:
-                                                        AppTheme.textSecondary,
-                                                  ),
-                                                ),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'Failed to load recommendations',
+                                              style:
+                                                  AppTheme.bodyLarge(context),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'Please check your connection and try again',
+                                              style: AppTheme.bodySmall(context)
+                                                  .copyWith(
+                                                color: AppTheme.textSecondary,
                                               ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            const SizedBox(height: 24),
+                                            PrimaryButton(
+                                              text: 'Retry',
+                                              onPressed: _loadRecommendations,
+                                            ),
                                           ],
                                         ),
                                       ),
-                                      const SizedBox(
-                                          height: 8), // 合集标题距离合集卡片 8px
-                                      // 横向滚动的合集列表 - 高度 = 卡片高度 224 + 底部间距 8
-                                      SizedBox(
-                                        height: 232, // 卡片高度 224px + 底部间距 8px
-                                        child: ListView.builder(
-                                          scrollDirection: Axis.horizontal,
-                                          clipBehavior: Clip.none,
-                                          cacheExtent: 200, // 优化性能：减少横向预加载范围
-                                          padding: const EdgeInsets.only(
-                                              left: 16, right: 16),
-                                          itemCount: displayItems.length,
-                                          itemBuilder: (context, itemIndex) {
-                                            final item =
-                                                displayItems[itemIndex];
-                                            final collection = item[
-                                                        'collection']
-                                                    as Map<String, dynamic>? ??
-                                                {};
-                                            final collectionId =
-                                                collection['id'] as String?;
-                                            final collectionName =
-                                                collection['name'] as String? ??
-                                                    'Collection';
+                                    ),
+                                  ),
+                                );
+                              } else if (_recommendations.isEmpty) {
+                                collectionChild = SingleChildScrollView(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  child: SizedBox(
+                                    height: constraints.maxHeight,
+                                    child: const Center(
+                                      child: Text(
+                                          'No recommendations available'),
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                collectionChild = ListView.builder(
+                                  padding: const EdgeInsets.only(
+                                      bottom:
+                                          80), // 底部 padding（底部导航栏高度约82px + 安全区域）
+                                  cacheExtent: 500, // 优化性能：减少预加载范围
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  itemCount: _recommendations.length,
+                                  itemBuilder:
+                                      (context, recommendationIndex) {
+                                    final recommendation =
+                                        _recommendations[recommendationIndex];
+                                    final items = recommendation['items']
+                                            as List<dynamic>? ??
+                                        [];
+                                    final recommendationName =
+                                        recommendation['name'] as String? ?? '';
+                                    final hasMore = items.length > 5;
+                                    final displayItems = items.take(5).toList();
+
+                                    return Padding(
+                                      padding: EdgeInsets.only(
+                                        bottom: recommendationIndex <
+                                                _recommendations.length - 1
+                                            ? 16
+                                            : 16, // 合集推荐之间间距 16px，最后一个合集底部也留 16px
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          // 推荐标题行 - 不要黄色竖杠
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16),
+                                            child: Row(
+                                              children: [
+                                                // 推荐名称 - 直接展示
+                                                Expanded(
+                                                  child: Text(
+                                                    recommendationName,
+                                                    style:
+                                                        AppTheme.headlineLarge(
+                                                                context)
+                                                            .copyWith(
+                                                      fontSize: 18,
+                                                    ),
+                                                  ),
+                                                ),
+                                                // More 按钮（超过5个时显示）
+                                                if (hasMore)
+                                                  GestureDetector(
+                                                    onTap: () {
+                                                      final recommendationId =
+                                                          recommendation['id']
+                                                              as String?;
+                                                      if (recommendationId !=
+                                                          null) {
+                                                        context.push(
+                                                          '/recommendation/$recommendationId?name=${Uri.encodeComponent(recommendationName)}',
+                                                        );
+                                                      }
+                                                    },
+                                                    child: Text(
+                                                      'more >',
+                                                      style: AppTheme.labelSmall(
+                                                              context)
+                                                          .copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w400,
+                                                        color:
+                                                            AppTheme.textSecondary,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(
+                                              height: 8), // 合集标题距离合集卡片 8px
+                                          // 横向滚动的合集列表 - 高度 = 卡片高度 224 + 底部间距 8
+                                          SizedBox(
+                                            height:
+                                                232, // 卡片高度 224px + 底部间距 8px
+                                            child: ListView.builder(
+                                              scrollDirection: Axis.horizontal,
+                                              clipBehavior: Clip.none,
+                                              cacheExtent:
+                                                  200, // 优化性能：减少横向预加载范围
+                                              padding: const EdgeInsets.only(
+                                                  left: 16, right: 16),
+                                              itemCount: displayItems.length,
+                                              itemBuilder: (context, itemIndex) {
+                                                final item =
+                                                    displayItems[itemIndex];
+                                                final collection = item[
+                                                            'collection']
+                                                        as Map<String, dynamic>? ??
+                                                    {};
+                                                final collectionId =
+                                                    collection['id'] as String?;
+                                                final collectionName =
+                                                    collection['name']
+                                                            as String? ??
+                                                        'Collection';
 
                                             // 调试：查看数据结构
                                             print('🔍 合集: $collectionName');
@@ -761,22 +826,46 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                 ),
                                               ),
                                             );
-                                          },
-                                        ),
+                                              },
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
+                                    );
+                                  },
                                 );
-                              },
-                            ),
+                              }
+
+                              return RefreshIndicator(
+                                onRefresh: _handlePullToRefresh,
+                                child: collectionChild,
+                              );
+                            },
+                          ),
                           // Tab 1: Map - 添加底部 padding 为底部导航栏留空间
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 38),
-                            child: MapPage(
-                              key: const ValueKey('map-page-default'),
-                              resetSelectionKey: _mapResetKey,
-                              onFullscreenChanged: _handleMapFullscreenChanged,
-                            ),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              return RefreshIndicator(
+                                onRefresh: _handlePullToRefresh,
+                                child: SingleChildScrollView(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  child: SizedBox(
+                                    height: constraints.maxHeight,
+                                    child: Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 38),
+                                      child: MapPage(
+                                        key: const ValueKey('map-page-default'),
+                                        resetSelectionKey: _mapResetKey,
+                                        onFullscreenChanged:
+                                            _handleMapFullscreenChanged,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),

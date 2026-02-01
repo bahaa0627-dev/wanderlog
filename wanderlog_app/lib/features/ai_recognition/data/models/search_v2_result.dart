@@ -4,6 +4,7 @@
 /// Requirements: 3.5, 9.1
 library;
 
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 /// 搜索阶段枚举
@@ -32,6 +33,74 @@ enum IntentType {
 
 /// SearchV2 完整响应结果
 class SearchV2Result {
+  static String _normalizeMarkdownText(String input) {
+    var text = (input).trim();
+    if (text.isEmpty) return '';
+
+    // Remove leading response wrapper if present
+    text = text
+      .replaceFirst(RegExp(r'^\s*["“]?response["”]?\s*[:：]\s*', caseSensitive: false), '')
+      .replaceFirst(RegExp(r'^\s*["“]?description["”]?\s*[:：]\s*', caseSensitive: false), '')
+      .replaceFirst(RegExp(r'^\s*["“]?textContent["”]?\s*[:：]\s*', caseSensitive: false), '')
+      .replaceFirst(RegExp(r'^\s*["“]?content["”]?\s*[:：]\s*', caseSensitive: false), '')
+      .trim();
+    text = text.replaceFirst(RegExp(r'^"+'), '').replaceFirst(RegExp(r'"+$'), '').trim();
+
+    // If it's a JSON string or JSON object, try to decode.
+    if ((text.startsWith('{') && text.endsWith('}')) ||
+        (text.startsWith('[') && text.endsWith(']')) ||
+        (text.startsWith('"') && text.endsWith('"'))) {
+      try {
+        final decoded = jsonDecode(text);
+        if (decoded is Map) {
+          final candidates = [
+            decoded['textContent'],
+            decoded['response'],
+            decoded['content'],
+            decoded['description'],
+          ];
+          for (final c in candidates) {
+            if (c is String && c.trim().isNotEmpty) {
+              text = c;
+              break;
+            }
+          }
+        } else if (decoded is List) {
+          for (final item in decoded) {
+            if (item is String && item.trim().isNotEmpty) {
+              text = item;
+              break;
+            }
+            if (item is Map) {
+              final candidates = [item['textContent'], item['response'], item['content'], item['description']];
+              for (final c in candidates) {
+                if (c is String && c.trim().isNotEmpty) {
+                  text = c;
+                  break;
+                }
+              }
+            }
+          }
+        } else if (decoded is String) {
+          text = decoded;
+        }
+      } catch (_) {
+        // ignore and keep original
+      }
+    }
+
+    // Unescape common sequences if they are still escaped.
+    text = text
+        .replaceAll('\\r\\n', '\n')
+        .replaceAll('\\n', '\n')
+        .replaceAll('\\t', '\t')
+        .replaceAll('\\"', '"')
+        .replaceAll('\\\\', '\\');
+
+    text = text.replaceFirst(RegExp(r'^[\[\{\"\s]+'), '').replaceFirst(RegExp(r'[\]\}\"\s]+$'), '').trim();
+    return text;
+  }
+
   /// 从 JSON 创建
   factory SearchV2Result.fromJson(Map<String, dynamic> json) {
     // 解析意图类型
@@ -63,9 +132,10 @@ class SearchV2Result {
         } else {
           places = [];
         }
-        final description = json['description'] as String? ??
-            json['acknowledgment'] as String? ??
-            '';
+        final description = _normalizeMarkdownText(
+          json['description'] as String? ??
+          json['acknowledgment'] as String? ??
+          '');
         final identifiedPlaceName = json['identifiedPlaceName'] as String?;
 
         return SearchV2Result(
@@ -90,7 +160,7 @@ class SearchV2Result {
 
       case IntentType.nonTravel:
         // non_travel 意图返回纯文本
-        final textContent = json['textContent'] as String? ?? '';
+        final textContent = _normalizeMarkdownText(json['textContent'] as String? ?? '');
 
         return SearchV2Result(
           success: json['success'] as bool? ?? false,
@@ -113,7 +183,7 @@ class SearchV2Result {
 
       case IntentType.travelConsultation:
         // travel_consultation 意图返回文本 + 相关地点
-        final textContent = json['textContent'] as String? ?? '';
+        final textContent = _normalizeMarkdownText(json['textContent'] as String? ?? '');
         // 兼容两种格式：relatedPlaces（后端返回）和 places（本地保存）
         final relatedPlaces = (json['relatedPlaces'] as List?)
                 ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
@@ -181,7 +251,9 @@ class SearchV2Result {
           stage: _parseStage(json['stage'] as String?),
           error: json['error'] as String?,
           intent: intent,
-          textContent: json['textContent'] as String?,
+          textContent: json['textContent'] is String
+              ? _normalizeMarkdownText(json['textContent'] as String)
+              : null,
         );
     }
   }

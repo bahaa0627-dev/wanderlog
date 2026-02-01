@@ -10,3 +10,4 @@ export * from './types';
 // Provider implementations
 export { AzureOpenAIProvider } from './AzureOpenAIProvider';
 export { GeminiProvider } from './GeminiProvider';
+export { OpenRouterProvider } from './OpenRouterProvider';

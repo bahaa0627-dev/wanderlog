@@ -91,7 +91,7 @@ class AIRecognitionIntroSheet extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'You can upload screenshots from Xiaohongshu,\nother platforms or take picture directly',
+                  'Ask the AI assistant to recommend spots\nfor your next trip',
                   textAlign: TextAlign.left,
                   style: AppTheme.bodyMedium(context).copyWith(
                     color: AppTheme.mediumGray,
@@ -131,7 +131,7 @@ class AIRecognitionIntroSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Upload → AI Recognize → Add to Wishlist',
+                        'Ask → AI → Add to Wishlist',
                         style: AppTheme.bodySmall(context).copyWith(
                           color: AppTheme.mediumGray,
                         ),

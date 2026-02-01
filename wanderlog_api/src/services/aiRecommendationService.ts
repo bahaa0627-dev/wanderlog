@@ -10,7 +10,9 @@
 import { KouriProvider } from './aiProviders/KouriProvider';
 import { AzureOpenAIProvider } from './aiProviders/AzureOpenAIProvider';
 import { GeminiProvider } from './aiProviders/GeminiProvider';
+import { OpenRouterProvider } from './aiProviders/OpenRouterProvider';
 import { AIProvider, AIProviderName, AIServiceError, AIErrorCode } from './aiProviders/types';
+import { canMakeAICall, incrementAICallCount } from './aiCallCounter';
 
 /**
  * AI-generated place recommendation
@@ -79,6 +81,15 @@ export class AIResponseValidationError extends Error {
  */
 const RECOMMENDATION_SYSTEM_PROMPT = `You are a travel expert. Recommend places based on user query.
 
+LOCATION RULES (CRITICAL - HIGHEST PRIORITY):
+- If the user query mentions a SPECIFIC CITY (e.g., "London ramen", "Tokyo cafes", "Paris museums"):
+  - ALL recommended places MUST be located IN THAT CITY
+  - Do NOT recommend places from other cities or countries
+  - If you cannot find enough places in that city, return fewer places rather than places from other locations
+- If the user query mentions a SPECIFIC COUNTRY (e.g., "Japanese ramen", "French cafes"):
+  - ALL recommended places MUST be located IN THAT COUNTRY
+- If NO location is specified, recommend globally famous places
+
 LANGUAGE RULES (CRITICAL - MUST FOLLOW):
 - The user will specify their preferred language in the prompt
 - ALL output text MUST be in the user's specified language - NO EXCEPTIONS
@@ -110,7 +121,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
 {
   "requestedCount": 10,
   "exceededLimit": false,
-  "acknowledgment": "A creative, engaging intro (2-3 sentences, max 60 words). MUST be in user's specified language. Avoid generic phrases like 'vibrant city'. Be specific about what makes these recommendations special.",
+  "acknowledgment": "A creative, engaging intro (2-3 sentences, 60-140 chars). MUST be in user's specified language. MUST mention the query topic explicitly and include 1-2 concrete traits (e.g., flavors, styles, vibe, popularity). Avoid generic phrases like 'vibrant city'.",
   "categories": [
     {
       "title": "☕ Category Title with Emoji",
@@ -157,7 +168,7 @@ Rules:
 6. coverImageUrl: always empty string (images fetched separately)
 7. tags: 2 descriptive tags only
 8. summary: MUST be 30-50 chars, complete sentence, no ellipsis
-9. acknowledgment: Creative intro (2-3 sentences, max 60 words), avoid clichés, MUST be in user's language
+9. acknowledgment: REQUIRED. 2-3 sentences, 60-140 chars, MUST mention the query topic, include 1-2 concrete traits, avoid clichés, MUST be in user's language
 10. Set exceededLimit to true if user requested more than 20`;
 
 
@@ -213,12 +224,14 @@ class AIRecommendationService {
         validOrder.push(AIProviderName.AZURE_OPENAI);
       } else if (name === 'gemini') {
         validOrder.push(AIProviderName.GEMINI);
+      } else if (name === 'openrouter') {
+        validOrder.push(AIProviderName.OPENROUTER);
       }
     }
     
     // Default order if none valid
     if (validOrder.length === 0) {
-      return [AIProviderName.KOURI, AIProviderName.AZURE_OPENAI, AIProviderName.GEMINI];
+      return [AIProviderName.OPENROUTER, AIProviderName.KOURI, AIProviderName.GEMINI];
     }
     
     return validOrder;
@@ -236,6 +249,13 @@ class AIRecommendationService {
     if (kouriProvider.isAvailable()) {
       this.providers.set(AIProviderName.KOURI, kouriProvider);
       console.log('[AIRecommendationService] Kouri provider registered');
+    }
+
+    // Initialize OpenRouter Provider
+    const openRouterProvider = new OpenRouterProvider();
+    if (openRouterProvider.isAvailable()) {
+      this.providers.set(AIProviderName.OPENROUTER, openRouterProvider);
+      console.log('[AIRecommendationService] OpenRouter provider registered');
     }
 
     // Initialize Azure OpenAI Provider (fallback)
@@ -283,6 +303,19 @@ class AIRecommendationService {
     operation: (provider: AIProvider) => Promise<T>,
     operationName: string
   ): Promise<T> {
+    // Check global AI call limit FIRST
+    if (!canMakeAICall()) {
+      throw {
+        code: AIErrorCode.INTERNAL_ERROR,
+        message: `AI call limit exceeded for ${operationName}`,
+        provider: 'none',
+        retryable: false,
+      } as AIServiceError;
+    }
+    
+    // Increment counter BEFORE making the call
+    incrementAICallCount(operationName);
+    
     const providers = this.getOrderedProviders();
     
     if (providers.length === 0) {

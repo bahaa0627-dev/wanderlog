@@ -2,7 +2,7 @@
  * Gemini Provider
  * 
  * Implements the AIProvider interface for Google Gemini service.
- * Supports both vision and text generation using Gemini 1.5 Flash model.
+ * Supports both vision and text generation using Gemini 2.5 Pro model.
  */
 
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
@@ -64,7 +64,7 @@ export class GeminiProvider implements AIProvider {
    */
   private loadConfig(): void {
     const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const model = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
 
     // Validate required configuration
     if (!apiKey) {

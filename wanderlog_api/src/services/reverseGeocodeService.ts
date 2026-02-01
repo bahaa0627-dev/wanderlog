@@ -131,6 +131,78 @@ export class ReverseGeocodeService {
   private async sleep(ms: number): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, ms));
   }
+
+  /**
+   * Forward geocode: convert address to coordinates
+   * @param address Full address string (e.g., "33 Cranbourn St, London WC2H 7AD")
+   * @returns Coordinates { lat, lon } or null if not found
+   */
+  async forwardGeocode(address: string): Promise<{ lat: number; lon: number } | null> {
+    if (!address || address.trim().length === 0) {
+      return null;
+    }
+
+    let attempt = 0;
+    let lastError: Error | null = null;
+
+    while (attempt <= this.maxRetries) {
+      attempt += 1;
+      await this.rateLimiter.acquire();
+
+      try {
+        // Use search endpoint instead of reverse
+        const searchEndpoint = this.endpoint.replace('/reverse', '/search');
+        const url = new URL(searchEndpoint);
+        url.searchParams.set('format', 'jsonv2');
+        url.searchParams.set('q', address);
+        url.searchParams.set('limit', '1');
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+        const response = await fetch(url.toString(), {
+          headers: {
+            'User-Agent': 'wanderlog-geocoding/1.0',
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          if (response.status === 429 || response.status >= 500) {
+            await this.sleep(this.calculateBackoff(attempt));
+            continue;
+          }
+          throw new Error(`Nominatim search error: ${response.status}`);
+        }
+
+        const data = await response.json() as Array<{
+          lat: string;
+          lon: string;
+          display_name?: string;
+        }>;
+
+        if (data && data.length > 0) {
+          const lat = parseFloat(data[0].lat);
+          const lon = parseFloat(data[0].lon);
+          if (!isNaN(lat) && !isNaN(lon)) {
+            return { lat, lon };
+          }
+        }
+
+        return null;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        await this.sleep(this.calculateBackoff(attempt));
+      }
+    }
+
+    if (lastError) {
+      console.warn(`[Geocode] Forward geocoding failed for "${address}": ${lastError.message}`);
+    }
+    return null;
+  }
 }
 
 export default new ReverseGeocodeService();

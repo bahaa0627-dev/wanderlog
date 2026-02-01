@@ -18,6 +18,8 @@ import {
 import { AzureOpenAIProvider } from './aiProviders/AzureOpenAIProvider';
 import { GeminiProvider } from './aiProviders/GeminiProvider';
 import { KouriProvider } from './aiProviders/KouriProvider';
+import { OpenRouterProvider } from './aiProviders/OpenRouterProvider';
+import { canMakeAICall, incrementAICallCount } from './aiCallCounter';
 
 /**
  * Retry configuration
@@ -52,12 +54,14 @@ function parseProviderOrder(): AIProviderName[] {
       validOrder.push(AIProviderName.GEMINI);
     } else if (name === 'kouri') {
       validOrder.push(AIProviderName.KOURI);
+    } else if (name === 'openrouter') {
+      validOrder.push(AIProviderName.OPENROUTER);
     }
   }
   
   // Default order if none valid
   if (validOrder.length === 0) {
-    return [AIProviderName.AZURE_OPENAI, AIProviderName.GEMINI];
+    return [AIProviderName.OPENROUTER, AIProviderName.KOURI, AIProviderName.GEMINI];
   }
   
   return validOrder;
@@ -100,6 +104,13 @@ class AIService {
     if (kouriProvider.isAvailable()) {
       this.providers.set(AIProviderName.KOURI, kouriProvider);
       console.log('[AIService] Kouri provider registered');
+    }
+
+    // Initialize OpenRouter Provider
+    const openRouterProvider = new OpenRouterProvider();
+    if (openRouterProvider.isAvailable()) {
+      this.providers.set(AIProviderName.OPENROUTER, openRouterProvider);
+      console.log('[AIService] OpenRouter provider registered');
     }
 
     // Log available providers
@@ -209,6 +220,19 @@ class AIService {
     operation: (provider: AIProvider) => Promise<T>,
     operationName: string = 'operation'
   ): Promise<T> {
+    // Check global AI call limit FIRST
+    if (!canMakeAICall()) {
+      throw {
+        code: AIErrorCode.INTERNAL_ERROR,
+        message: `AI call limit exceeded for ${operationName}`,
+        provider: 'none',
+        retryable: false,
+      } as AIServiceError;
+    }
+    
+    // Increment counter BEFORE making the call
+    incrementAICallCount(operationName);
+    
     const providers = this.getOrderedProviders();
     
     if (providers.length === 0) {

@@ -8,6 +8,7 @@ import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/core/l10n/app_localizations.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/ai_recognition_result.dart';
 import 'package:wanderlog/features/ai_recognition/data/services/ai_recognition_service.dart';
+import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
@@ -58,7 +59,7 @@ class AIRecognitionIntroSheet extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(
-              'You can upload screenshots from Xiaohongshu\nor other platforms',
+              'Ask the AI assistant to recommend spots\nfor your next trip',
               textAlign: TextAlign.center,
               style: AppTheme.bodyMedium(context).copyWith(
                 color: AppTheme.mediumGray,
@@ -97,7 +98,7 @@ class AIRecognitionIntroSheet extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Upload → AI Recognize → Add to Wishlist',
+                      'Ask → AI → Add to Wishlist',
                       style: AppTheme.bodySmall(context).copyWith(
                         color: AppTheme.mediumGray,
                       ),
@@ -115,7 +116,7 @@ class AIRecognitionIntroSheet extends StatelessWidget {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: () => _handleOpenAlbum(context),
+                onPressed: () => _handleOpenAssistant(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryYellow,
                   foregroundColor: AppTheme.black,
@@ -129,7 +130,7 @@ class AIRecognitionIntroSheet extends StatelessWidget {
                   elevation: 0,
                 ),
                 child: Text(
-                  'Open Album',
+                  'Start AI Chat',
                   style: AppTheme.labelLarge(context),
                 ),
               ),
@@ -139,6 +140,16 @@ class AIRecognitionIntroSheet extends StatelessWidget {
         ],
       ),
     );
+
+  Future<void> _handleOpenAssistant(BuildContext context) async {
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => const AIAssistantPage(),
+      ),
+    );
+  }
 
   Future<void> _handleOpenAlbum(BuildContext context) async {
     final picker = ImagePicker();

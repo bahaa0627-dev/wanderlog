@@ -1,13 +1,12 @@
 /**
- * Kouri OpenAI Proxy Provider
+ * OpenRouter Provider
  * 
- * Implements the AIProvider interface for Kouri API proxy service.
- * Provides access to OpenAI models (gpt-4o-mini, gpt-4o) via OpenAI-compatible API.
- * Uses /v1/responses endpoint with web_search_preview for better recommendations.
+ * Implements the AIProvider interface for OpenRouter API.
+ * Provides access to OpenAI models (gpt-4o-mini) via OpenRouter with web search capability.
+ * Uses /api/v1/responses endpoint with web_search_preview for better recommendations.
  */
 
 import axios, { AxiosError } from 'axios';
-import net from 'net';
 import {
   AIProvider,
   AIProviderName,
@@ -17,16 +16,43 @@ import {
   httpStatusToErrorCode,
   isRetryableError,
 } from './types';
+import { R2ImageService } from '../r2ImageService';
 
 /**
- * Kouri API configuration interface
+ * OpenRouter API configuration interface
  */
-interface KouriConfig {
+interface OpenRouterConfig {
   apiKey: string;
   baseUrl: string;
   chatModel: string;
-  chatModelFallback?: string;
   visionModel: string;
+}
+
+/**
+ * OpenRouter Responses API format (with web search)
+ */
+interface OpenRouterResponsesResponse {
+  id: string;
+  object: string;
+  created_at: number;
+  status: string;
+  model: string;
+  output: Array<{
+    id: string;
+    type: string;
+    status: string;
+    content?: Array<{
+      type: string;
+      text?: string;
+      annotations?: Array<any>;
+    }>;
+    role?: string;
+  }>;
+  usage?: {
+    input_tokens: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  };
 }
 
 /**
@@ -53,42 +79,17 @@ interface OpenAIChatResponse {
 }
 
 /**
- * Kouri Responses API format (with web search)
+ * OpenRouter Provider implementation
  */
-interface KouriResponsesResponse {
-  id: string;
-  object: string;
-  created_at: number;
-  status: string;
-  model: string;
-  output: Array<{
-    id: string;
-    type: string;
-    status: string;
-    content?: Array<{
-      type: string;
-      text?: string;
-      annotations?: Array<any>;
-    }>;
-    role?: string;
-  }>;
-  usage?: {
-    input_tokens: number;
-    output_tokens?: number;
-    total_tokens?: number;
-  };
-}
-
-/**
- * Kouri Provider implementation
- */
-export class KouriProvider implements AIProvider {
-  readonly name = AIProviderName.KOURI;
+export class OpenRouterProvider implements AIProvider {
+  readonly name = AIProviderName.OPENROUTER;
   
-  private config: KouriConfig | null = null;
+  private config: OpenRouterConfig | null = null;
   private configValid: boolean = false;
+  private r2ImageService: R2ImageService;
 
   constructor() {
+    this.r2ImageService = new R2ImageService();
     this.loadConfig();
   }
 
@@ -96,21 +97,14 @@ export class KouriProvider implements AIProvider {
    * Load and validate configuration from environment variables
    */
   private loadConfig(): void {
-    const apiKey = process.env.KOURI_API_KEY;
-    const baseUrl = process.env.KOURI_BASE_URL;
-    const chatModel = process.env.KOURI_CHAT_MODEL || 'gpt-4.1-mini';
-    const chatModelFallback = process.env.KOURI_CHAT_MODEL_FALLBACK || 'gpt-4o-mini';
-    const visionModel = process.env.KOURI_VISION_MODEL || 'gpt-4o-mini';
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    const baseUrl = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+    const chatModel = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+    const visionModel = process.env.OPENROUTER_VISION_MODEL || 'openai/gpt-4o-mini';
 
     // Validate required configuration
     if (!apiKey) {
-      console.log('[Kouri] Configuration incomplete - missing API key');
-      this.configValid = false;
-      return;
-    }
-
-    if (!baseUrl) {
-      console.log('[Kouri] Configuration incomplete - missing base URL');
+      console.log('[OpenRouter] Configuration incomplete - missing API key');
       this.configValid = false;
       return;
     }
@@ -119,18 +113,14 @@ export class KouriProvider implements AIProvider {
       apiKey,
       baseUrl: baseUrl.replace(/\/$/, ''), // Remove trailing slash
       chatModel,
-      chatModelFallback: chatModelFallback && chatModelFallback !== chatModel ? chatModelFallback : undefined,
       visionModel,
     };
 
     this.configValid = true;
-    console.log('[Kouri] Provider initialized successfully');
-    console.log(`[Kouri] Base URL: ${this.config.baseUrl}`);
-    console.log(`[Kouri] Chat model: ${this.config.chatModel}`);
-    if (this.config.chatModelFallback) {
-      console.log(`[Kouri] Chat fallback model: ${this.config.chatModelFallback}`);
-    }
-    console.log(`[Kouri] Vision model: ${this.config.visionModel}`);
+    console.log('[OpenRouter] Provider initialized successfully');
+    console.log(`[OpenRouter] Base URL: ${this.config.baseUrl}`);
+    console.log(`[OpenRouter] Chat model: ${this.config.chatModel}`);
+    console.log(`[OpenRouter] Vision model: ${this.config.visionModel}`);
   }
 
   /**
@@ -141,80 +131,37 @@ export class KouriProvider implements AIProvider {
   }
 
   /**
-   * If user configured a localhost proxy (common dev setup), but it isn't running,
-   * axios will fail with ECONNREFUSED. We detect that case and disable proxy for
-   * this request so it can go direct.
+   * Build API URL for responses endpoint (with web search)
    */
-  private async shouldDisableProxyForRequest(): Promise<boolean> {
-    const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
-    if (!proxyUrl) return false;
-
-    // Only guard the common local proxy scenario.
-    const match = proxyUrl.match(/^(https?:\/\/)?(localhost|127\.0\.0\.1):(\d+)/i);
-    if (!match) return false;
-
-    const host = match[2];
-    const port = Number(match[3]);
-    if (!Number.isFinite(port)) return false;
-
-    // Quick TCP connect probe.
-    const ok = await new Promise<boolean>((resolve) => {
-      const socket = new net.Socket();
-      const done = (value: boolean) => {
-        try { socket.destroy(); } catch (_) {}
-        resolve(value);
-      };
-
-      socket.setTimeout(300);
-      socket.once('connect', () => done(true));
-      socket.once('timeout', () => done(false));
-      socket.once('error', () => done(false));
-      socket.connect(port, host);
-    });
-
-    if (ok) return false;
-    console.warn(`[Kouri] Local proxy ${host}:${port} not reachable; disabling proxy for this request`);
-    return true;
+  private buildResponsesApiUrl(): string {
+    if (!this.config) {
+      throw new Error('OpenRouter not configured');
+    }
+    return `${this.config.baseUrl}/responses`;
   }
-
 
   /**
    * Build API URL for chat completions endpoint
    */
   private buildChatApiUrl(): string {
     if (!this.config) {
-      throw new Error('Kouri not configured');
+      throw new Error('OpenRouter not configured');
     }
     return `${this.config.baseUrl}/chat/completions`;
   }
 
   /**
-   * Build API URL for chat completions endpoint (alias)
-   */
-  private buildChatCompletionsApiUrl(): string {
-    return this.buildChatApiUrl();
-  }
-
-  /**
-   * Build API URL for responses endpoint (with web search)
-   */
-  private buildResponsesApiUrl(): string {
-    if (!this.config) {
-      throw new Error('Kouri not configured');
-    }
-    return `${this.config.baseUrl}/responses`;
-  }
-
-  /**
-   * Get common headers for Kouri API requests
+   * Get common headers for OpenRouter API requests
    */
   private getHeaders(): Record<string, string> {
     if (!this.config) {
-      throw new Error('Kouri not configured');
+      throw new Error('OpenRouter not configured');
     }
     return {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${this.config.apiKey}`,
+      'HTTP-Referer': 'https://wanderlog.app', // Required by OpenRouter
+      'X-Title': 'WanderLog', // Optional but recommended
     };
   }
 
@@ -236,7 +183,7 @@ export class KouriProvider implements AIProvider {
   }
 
   /**
-   * Generate text based on a prompt using Kouri Responses API (with web search)
+   * Generate text based on a prompt using OpenRouter Responses API (with web search)
    * @param prompt User prompt
    * @param systemPrompt Optional system prompt
    * @returns Generated text response
@@ -265,20 +212,19 @@ ${systemPrompt || ''}`;
     const requestBody = {
       model: this.config.chatModel,
       input: fullPrompt,
-      tools: [{ type: 'web_search_preview' }],
-      tool_choice: 'auto', // 让 AI 自己决定是否使用 web search
+      tools: [{ 
+        type: 'web_search_preview',
+        search_context_size: 'medium', // Balance between speed and context
+      }],
+      tool_choice: 'auto', // Let AI decide whether to use web search
     };
 
     try {
-      console.log(`[Kouri] Sending responses request to: ${url}`);
+      console.log(`[OpenRouter] Sending responses request to: ${url}`);
 
-      const disableProxy = await this.shouldDisableProxyForRequest();
-      
-      const response = await axios.post<KouriResponsesResponse>(url, requestBody, {
+      const response = await axios.post<OpenRouterResponsesResponse>(url, requestBody, {
         headers: this.getHeaders(),
         timeout: 90000, // 90 second timeout for web search
-        // If disableProxy is true, this prevents axios from attempting to use env proxy.
-        proxy: disableProxy ? false : undefined,
       });
 
       // Extract text content from the response
@@ -297,11 +243,11 @@ ${systemPrompt || ''}`;
       }
 
       if (!content) {
-        throw new Error('Empty response from Kouri Responses API');
+        throw new Error('Empty response from OpenRouter Responses API');
       }
 
-      console.log(`[Kouri] Responses request successful`);
-      console.log(`[Kouri] Tokens used: ${response.data.usage?.input_tokens || 'unknown'}`);
+      console.log(`[OpenRouter] Responses request successful`);
+      console.log(`[OpenRouter] Tokens used: ${response.data.usage?.input_tokens || 'unknown'}`);
       
       return content;
     } catch (error) {
@@ -318,67 +264,43 @@ ${systemPrompt || ''}`;
       throw this.createConfigError();
     }
 
-    const url = this.buildChatCompletionsApiUrl();
+    const url = this.buildChatApiUrl();
 
     const systemInstruction = `You are a helpful AI assistant.
 
 ${systemPrompt || ''}`;
 
-    const buildRequestBody = (model: string) => ({
-      model,
+    const requestBody = {
+      model: this.config.chatModel,
       messages: [
         { role: 'system', content: systemInstruction },
         { role: 'user', content: prompt },
       ],
       max_tokens: 900,
       temperature: 0.3,
-    });
+    };
 
     try {
-      console.log(`[Kouri] Sending chat/completions request to: ${url}`);
-      const response = await axios.post<OpenAIChatResponse>(url, buildRequestBody(this.config.chatModel), {
+      console.log(`[OpenRouter] Sending chat/completions request to: ${url}`);
+      const response = await axios.post<OpenAIChatResponse>(url, requestBody, {
         headers: this.getHeaders(),
         timeout: 45000,
       });
 
       const content = response.data.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('Empty response from Kouri chat/completions API');
+        throw new Error('Empty response from OpenRouter chat/completions API');
       }
 
-      console.log('[Kouri] chat/completions request successful');
+      console.log('[OpenRouter] chat/completions request successful');
       return content;
     } catch (error) {
-      // If the configured model is over capacity, retry once with a fallback model.
-      if (axios.isAxiosError(error)) {
-        const status = error.response?.status;
-        const message = (error.response as any)?.data?.error?.message || error.message || '';
-        if (status === 503 && this.config.chatModelFallback) {
-          console.warn(`[Kouri] generateTextNoSearch 503 (${message}); retrying with fallback model ${this.config.chatModelFallback}`);
-          try {
-            const fallbackResponse = await axios.post<OpenAIChatResponse>(url, buildRequestBody(this.config.chatModelFallback), {
-              headers: this.getHeaders(),
-              timeout: 45000,
-            });
-            const fallbackContent = fallbackResponse.data.choices[0]?.message?.content;
-            if (!fallbackContent) {
-              throw new Error('Empty response from Kouri chat/completions API (fallback model)');
-            }
-            console.log('[Kouri] chat/completions fallback-model request successful');
-            return fallbackContent;
-          } catch (fallbackError) {
-            throw this.handleError(fallbackError, 'generateTextNoSearch');
-          }
-        }
-      }
-
       throw this.handleError(error, 'generateTextNoSearch');
     }
   }
 
-
   /**
-   * Identify a place from an image URL using Kouri API with vision model
+   * Identify a place from an image URL using OpenRouter API with vision model
    * @param imageUrl URL or base64 encoded image
    * @returns Place identification result
    */
@@ -429,7 +351,7 @@ If you cannot identify the place with reasonable confidence, set confidence to 0
     };
 
     try {
-      console.log(`[Kouri] Sending vision request to: ${url}`);
+      console.log(`[OpenRouter] Sending vision request to: ${url}`);
       
       const response = await axios.post<OpenAIChatResponse>(url, requestBody, {
         headers: this.getHeaders(),
@@ -438,14 +360,14 @@ If you cannot identify the place with reasonable confidence, set confidence to 0
 
       const content = response.data.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('Empty response from Kouri API');
+        throw new Error('Empty response from OpenRouter API');
       }
 
       // Parse JSON response
       const result = this.parseJsonResponse<PlaceIdentificationResult>(content);
       
-      console.log(`[Kouri] Vision request successful - identified: ${result.placeName}`);
-      console.log(`[Kouri] Tokens used: ${response.data.usage?.total_tokens || 'unknown'}`);
+      console.log(`[OpenRouter] Vision request successful - identified: ${result.placeName}`);
+      console.log(`[OpenRouter] Tokens used: ${response.data.usage?.total_tokens || 'unknown'}`);
       
       return result;
     } catch (error) {
@@ -455,13 +377,14 @@ If you cannot identify the place with reasonable confidence, set confidence to 0
 
   /**
    * Search for place image using web search
+   * Downloads the image and uploads to R2 to ensure product domain URL
    * @param placeName Name of the place
    * @param city Optional city name for better results
-   * @returns Image URL or null
+   * @returns Image URL (R2 CDN URL) or null
    */
   async searchPlaceImage(placeName: string, city?: string): Promise<string | null> {
     if (!this.isAvailable() || !this.config) {
-      console.log('[Kouri] Not available for image search');
+      console.log('[OpenRouter] Not available for image search');
       return null;
     }
 
@@ -483,19 +406,22 @@ If no direct image URL found, return:
     const requestBody = {
       model: this.config.chatModel,
       input: prompt,
-      tools: [{ type: 'web_search_preview' }],
-      tool_choice: 'auto', // Let AI decide, same as generateText
+      tools: [{ 
+        type: 'web_search_preview',
+        search_context_size: 'medium',
+      }],
+      tool_choice: 'auto',
     };
 
     try {
-      console.log(`[Kouri] Searching image for: ${searchQuery}`);
+      console.log(`[OpenRouter] Searching image for: ${searchQuery}`);
       
-      const response = await axios.post<KouriResponsesResponse>(url, requestBody, {
+      const response = await axios.post<OpenRouterResponsesResponse>(url, requestBody, {
         headers: this.getHeaders(),
         timeout: 45000, // 45 second timeout
       });
 
-      // Extract text content from the response (same logic as generateText)
+      // Extract text content from the response
       const output = response.data.output;
       let content = '';
       
@@ -511,11 +437,11 @@ If no direct image URL found, return:
       }
 
       if (!content) {
-        console.log('[Kouri] No text content in image search response');
+        console.log('[OpenRouter] No text content in image search response');
         return null;
       }
 
-      console.log('[Kouri] Image search response:', content.substring(0, 300));
+      console.log('[OpenRouter] Image search response:', content.substring(0, 300));
 
       // Remove markdown code blocks if present
       content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -536,22 +462,169 @@ If no direct image URL found, return:
           const isDirectImage = imageExtensions.some(ext => urlLower.includes(ext));
           
           if (isDirectImage) {
-            console.log(`[Kouri] Found image from ${result.source}: ${result.imageUrl}`);
-            return result.imageUrl;
+            console.log(`[OpenRouter] Found image from ${result.source}: ${result.imageUrl}`);
+            
+            // Download and upload to R2 to ensure product domain URL
+            try {
+              const uploadResult = await this.r2ImageService.processAndUpload(result.imageUrl);
+              if (uploadResult.success && uploadResult.publicUrl) {
+                console.log(`[OpenRouter] Image uploaded to R2: ${uploadResult.publicUrl}`);
+                return uploadResult.publicUrl;
+              } else {
+                console.error('[OpenRouter] Failed to upload image to R2:', uploadResult.error);
+                // Return null if upload fails (as per user requirement)
+                return null;
+              }
+            } catch (uploadError) {
+              console.error('[OpenRouter] Failed to upload image to R2:', uploadError instanceof Error ? uploadError.message : uploadError);
+              // Return null if upload fails (as per user requirement)
+              return null;
+            }
           } else {
-            console.log(`[Kouri] Skipping non-direct image URL: ${result.imageUrl.substring(0, 80)}...`);
+            console.log(`[OpenRouter] Skipping non-direct image URL: ${result.imageUrl.substring(0, 80)}...`);
           }
         } else {
-          console.log('[Kouri] No imageUrl in parsed response');
+          console.log('[OpenRouter] No imageUrl in parsed response');
         }
       } catch (parseError) {
-        console.log('[Kouri] Failed to parse image search response:', content.substring(0, 200));
+        console.log('[OpenRouter] Failed to parse image search response:', content.substring(0, 200));
       }
       
       return null;
     } catch (error) {
-      console.error('[Kouri] Image search error:', error instanceof Error ? error.message : error);
+      console.error('[OpenRouter] Image search error:', error instanceof Error ? error.message : error);
       return null;
+    }
+  }
+
+  /**
+   * Search for images of multiple places in a SINGLE API call
+   * This is much more efficient than calling searchPlaceImage for each place
+   * @param places Array of {name, city} objects
+   * @returns Map of placeName -> imageUrl (or null if not found)
+   */
+  async searchPlaceImagesBatch(places: Array<{name: string; city: string}>): Promise<Map<string, string | null>> {
+    const results = new Map<string, string | null>();
+    
+    if (!this.isAvailable() || !this.config || places.length === 0) {
+      console.log('[OpenRouter] Not available for batch image search or no places');
+      return results;
+    }
+
+    // Limit to first 5 places to keep response manageable
+    const placesToSearch = places.slice(0, 5);
+    const placeList = placesToSearch.map((p, i) => `${i + 1}. ${p.name} (${p.city})`).join('\n');
+
+    const url = this.buildResponsesApiUrl();
+    const prompt = `Search the web and find direct image URLs for these places:
+
+${placeList}
+
+Requirements:
+- Find a direct link to an image file for each place (URL must contain .jpg, .jpeg, .png, .webp, or .gif)
+- Prefer images from Wikipedia, Wikimedia Commons, or official tourism websites
+- Do NOT use stock photo sites like Getty, Alamy, Shutterstock
+
+Return ONLY this JSON array:
+[
+  {"name": "Place Name 1", "imageUrl": "https://example.com/image1.jpg"},
+  {"name": "Place Name 2", "imageUrl": "https://example.com/image2.jpg"},
+  {"name": "Place Name 3", "imageUrl": null}
+]
+
+If no image found for a place, set imageUrl to null.`;
+
+    const requestBody = {
+      model: this.config.chatModel,
+      input: prompt,
+      tools: [{ 
+        type: 'web_search_preview',
+        search_context_size: 'medium',
+      }],
+      tool_choice: 'auto',
+    };
+
+    try {
+      console.log(`[OpenRouter] Batch searching images for ${placesToSearch.length} places`);
+      
+      const response = await axios.post<OpenRouterResponsesResponse>(url, requestBody, {
+        headers: this.getHeaders(),
+        timeout: 60000, // 60 second timeout for batch
+      });
+
+      // Extract text content
+      const output = response.data.output;
+      let content = '';
+      
+      for (const item of output) {
+        if (item.type === 'message' && item.content) {
+          for (const contentItem of item.content) {
+            if (contentItem.type === 'output_text' && contentItem.text) {
+              content = contentItem.text;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!content) {
+        console.log('[OpenRouter] No text content in batch image search response');
+        return results;
+      }
+
+      console.log('[OpenRouter] Batch image search response:', content.substring(0, 500));
+
+      // Remove markdown code blocks
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+      // Extract JSON array
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        content = jsonMatch[0];
+      }
+
+      // Parse response
+      try {
+        const parsed = JSON.parse(content) as Array<{name: string; imageUrl: string | null}>;
+        
+        if (Array.isArray(parsed)) {
+          const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+          
+          for (const item of parsed) {
+            if (item.name && item.imageUrl) {
+              const urlLower = item.imageUrl.toLowerCase();
+              const isDirectImage = imageExtensions.some(ext => urlLower.includes(ext));
+              
+              if (isDirectImage) {
+                // Upload to R2
+                try {
+                  const uploadResult = await this.r2ImageService.processAndUpload(item.imageUrl);
+                  if (uploadResult.success && uploadResult.publicUrl) {
+                    results.set(item.name, uploadResult.publicUrl);
+                    console.log(`[OpenRouter] Batch: "${item.name}" -> ${uploadResult.publicUrl}`);
+                  } else {
+                    results.set(item.name, null);
+                  }
+                } catch (uploadError) {
+                  results.set(item.name, null);
+                }
+              } else {
+                results.set(item.name, null);
+              }
+            } else if (item.name) {
+              results.set(item.name, null);
+            }
+          }
+        }
+      } catch (parseError) {
+        console.log('[OpenRouter] Failed to parse batch image search response');
+      }
+      
+      console.log(`[OpenRouter] Batch search complete: found ${[...results.values()].filter(v => v).length}/${placesToSearch.length} images`);
+      return results;
+    } catch (error) {
+      console.error('[OpenRouter] Batch image search error:', error instanceof Error ? error.message : error);
+      return results;
     }
   }
 
@@ -561,19 +634,19 @@ If no direct image URL found, return:
   private createConfigError(): AIServiceError {
     return {
       code: AIErrorCode.CONFIG_ERROR,
-      message: 'Kouri API is not configured',
+      message: 'OpenRouter API is not configured',
       provider: this.name,
       retryable: false,
     };
   }
 
   /**
-   * Handle errors from Kouri API calls
+   * Handle errors from OpenRouter API calls
    */
   private handleError(error: unknown, operation: string): AIServiceError {
     // Handle timeout errors
     if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
-      console.error(`[Kouri] ${operation} timeout`);
+      console.error(`[OpenRouter] ${operation} timeout`);
       return {
         code: AIErrorCode.TIMEOUT,
         message: 'Request timed out',
@@ -589,7 +662,7 @@ If no direct image URL found, return:
         || axiosError.message 
         || 'Unknown error';
       
-      console.error(`[Kouri] ${operation} error (${status}):`, errorMessage);
+      console.error(`[OpenRouter] ${operation} error (${status}):`, errorMessage);
       
       const code = httpStatusToErrorCode(status);
       return {
@@ -603,7 +676,7 @@ If no direct image URL found, return:
 
     // Handle parse errors
     if (error instanceof Error && error.message.includes('parse')) {
-      console.error(`[Kouri] ${operation} parse error:`, error.message);
+      console.error(`[OpenRouter] ${operation} parse error:`, error.message);
       return {
         code: AIErrorCode.PARSE_ERROR,
         message: error.message,
@@ -615,7 +688,7 @@ If no direct image URL found, return:
 
     // Non-Axios error
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[Kouri] ${operation} error:`, errorMessage);
+    console.error(`[OpenRouter] ${operation} error:`, errorMessage);
     
     return {
       code: AIErrorCode.UNKNOWN,

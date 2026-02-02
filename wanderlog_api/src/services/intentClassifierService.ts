@@ -201,7 +201,7 @@ Requirements:
      1. [AccuWeather](https://accuweather.com) - Detailed hourly forecasts
      2. [Weather.com](https://weather.com) - 10-day weather outlook
 
-Return the response as plain Markdown text (not JSON).
+Return the response as plain Markdown text (not JSON).`;
 
 // ============ Prompt Templates ============
 
@@ -236,8 +236,8 @@ Classify into ONE of these intents:
    - Simple queries like just the place name, or "tell me about X", "what is X"
    IMPORTANT: If user asks "how to...", "when to...", "tips for..." about a place, it's travel_consultation!
 
-3. "travel_consultation" - Travel-related ADVICE, TIPS, HOW-TO, or PRACTICAL QUESTIONS
-   Covers: 规划、天气、交通、门票、预算、旅行清单、注意事项、签证、语言、网络等
+3. "travel_consultation" - Travel-related ADVICE, TIPS, HOW-TO, or PRACTICAL QUESTIONS (NOT weather)
+   Covers: 规划、交通、门票、预算、旅行清单、注意事项、签证、语言、网络、建筑风格、艺术家作品等 (不包括天气)
    Examples: 
    - "how to buy ticket of Sagrada Familia" (门票购买)
    - "how to get to Eiffel Tower from airport" (交通)
@@ -245,33 +245,45 @@ Classify into ONE of these intents:
    - "what to pack for Iceland" (旅行清单)
    - "things to avoid in Rome" (注意事项)
    - "do I need visa for Japan" (签证)
-   - "weather in Paris in April" (天气)
    - "budget for 7 days in Tokyo" (预算)
    - "Plan a 3-day trip to Rome" (规划)
    - "Louvre vs Orsay which is better" (比较)
    - "which area to stay in London" (住宿区域建议)
+   - "zaha hadid's architecture" (建筑师作品 - 可参观的建筑地点)
+   - "the architecture of brutalism" (建筑风格 - 可参观的建筑地点)
+   - "Gaudi's works in Barcelona" (艺术家作品 - 可参观的地点)
    Key signals:
    - Questions starting with "how to", "how do I", "how can I"
    - Questions about tickets, booking, prices, costs, budget
-   - Questions about timing, weather, season, best time
+   - Questions about timing, season, best time (NOT weather forecast)
    - Questions about transportation, getting there
    - Questions about packing, preparation, checklist
    - Questions about safety, scams, things to avoid
+   - Questions about architecture styles, architects, or artists (these have visitable places!)
    - Questions about visa, entry requirements
    - Comparisons between places
    - Trip planning questions
+   - Questions about architecture styles, architects, or artists (these mention visitable places)
 
-4. "non_travel" - NOT travel-related at all
-   Examples: "推荐运动方案", "心情不好怎么办", "Python怎么学"
-   Key signal: Health, emotions, technology, work, study, etc.
+4. "non_travel" - NOT travel-related OR weather queries (just needs AI text response, no place matching)
+   Examples: 
+   - "what's the weather in Beijing" (天气查询 - 直接返回文本)
+   - "weather in Tokyo" (天气 - 不需要地点匹配)
+   - "推荐运动方案" (健康)
+   - "心情不好怎么办" (情感)
+   - "Python怎么学" (技术)
+   Key signal: Weather queries, health, emotions, technology, work, study, etc.
+   NOT non_travel: architecture styles, architects' works, art movements (these have visitable places)
 
 DECISION RULES (in order):
-1. If query contains "how to", "how do", "tips for", "best way to", "should I" about travel → "travel_consultation"
-2. If query asks about tickets, booking, prices, budget, weather, transport, visa, packing → "travel_consultation"
-3. If query asks "what to eat", "好吃的", "美食", or searches for food/restaurants → "general_search"
-4. If query contains a place CATEGORY AND wants to FIND venues → "general_search"
-5. If query is JUST a place name or simple "what is X" → "specific_place"
-6. If not travel-related → "non_travel"
+1. If query asks about WEATHER ("weather in", "天气", "what's the weather") → "non_travel" (just return AI text)
+2. If query asks about architecture, architects, art movements, or artists' works → "travel_consultation" (has visitable places)
+3. If query contains "how to", "how do", "tips for", "best way to", "should I" about travel → "travel_consultation"
+4. If query asks about tickets, booking, prices, budget, transport, visa, packing → "travel_consultation"
+5. If query asks "what to eat", "好吃的", "美食", or searches for food/restaurants → "general_search"
+6. If query contains a place CATEGORY AND wants to FIND venues → "general_search"
+7. If query is JUST a place name or simple "what is X" → "specific_place"
+8. If not travel-related → "non_travel"
 
 Return JSON only:
 {
@@ -524,6 +536,9 @@ const CHINESE_CITY_TO_ENGLISH: Record<string, string> = {
  * 注意：这些关键词必须在非旅行上下文中才算 non_travel
  */
 const NON_TRAVEL_KEYWORDS = [
+  // Weather queries (天气查询 - 不需要地点匹配，直接返回 AI 文本)
+  'weather', 'weather in', '天气', '天气怎么样', '气候', '温度', '穿什么', '冷不冷', '热不热',
+  'what is the weather', "what's the weather", 'forecast',
   // Health & Fitness (非旅行场景)
   '运动方案', '健身计划', '减肥方法', '健康饮食',
   'workout plan', 'fitness routine', 'diet plan',
@@ -551,10 +566,6 @@ const TRAVEL_CONSULTATION_KEYWORDS = [
   // === 规划 Planning ===
   'plan', 'itinerary', 'schedule', 'route', 'day trip', 'day plan',
   '计划', '行程', '路线', '安排', '规划', '几天', '一日游',
-
-  // === 天气 Weather ===
-  'weather', 'climate', 'season', 'temperature', 'rainy', 'sunny', 'cold', 'hot',
-  '天气', '气候', '季节', '温度', '穿什么', '冷不冷', '热不热',
 
   // === 交通 Transportation ===
   'transport', 'get to', 'get there', 'metro', 'subway', 'bus', 'taxi', 'uber',
@@ -604,6 +615,13 @@ const TRAVEL_CONSULTATION_KEYWORDS = [
   // === 体验咨询 (不是搜索地点) ===
   'worth visiting', 'is it worth', 'should i',
   '值得去吗', '要不要去',
+
+  // === 建筑/艺术/风格 (有可参观地点) ===
+  'architecture', 'architect', 'architectural', 'brutalism', 'brutalist',
+  'modernism', 'modernist', 'art deco', 'gothic', 'baroque', 'renaissance',
+  'gaudi', 'zaha hadid', 'frank gehry', 'le corbusier', 'renzo piano',
+  'norman foster', 'tadao ando', 'works of', 'buildings by', 'designed by',
+  '建筑', '建筑师', '作品', '风格', '设计',
 
   // 注意：'推荐', '建议', 'recommend', 'suggest', 'advice' 这些词不放在这里
   // 因为用户来都是求推荐的，"推荐几家伦敦的毛线店" 应该是 general_search 而不是 travel_consultation
@@ -2524,6 +2542,11 @@ Rules:
       return { textContent: aiResult.textContent };
     }
 
+    // Step 2.5: Deduplicate places with similar names (e.g., "Loop" and "Loop London")
+    // Keep the more specific/longer name when two names are substrings of each other
+    mentionedPlaces = this.deduplicatePlaces(mentionedPlaces);
+    logger.info(`[IntentClassifier] After deduplication: ${mentionedPlaces.length} unique places`);
+
     // Step 3: Match related places from database
     // Use shared translation cache to avoid duplicate AI calls
     const translationCache = new Map<string, string>();
@@ -2721,13 +2744,15 @@ Rules:
    * @param cities Cities mentioned in AI response
    * @param language Language parameter for tag display ('en' or 'zh')
    * @param translationCache Shared translation cache to avoid duplicate AI calls
+   * @param skipImageSearch If true, skip image search for places not in DB (speeds up multi-city scenarios)
    * @returns Object with either relatedPlaces (single city) or cityPlaces (multi-city)
    */
   private async matchRelatedPlacesWithCache(
     mentionedPlaces: MentionedPlace[],
     cities: string[],
     language: 'en' | 'zh' = 'en',
-    translationCache: Map<string, string>
+    translationCache: Map<string, string>,
+    skipImageSearch: boolean = false
   ): Promise<{ relatedPlaces?: PlaceResult[]; cityPlaces?: CityPlacesGroup[] }> {
     
     // Group mentioned places by city
@@ -2746,7 +2771,13 @@ Rules:
       .filter(c => c.length > 0);
     const uniqueCities = [...new Set(normalizedCities)];
 
-    logger.info(`[IntentClassifier] Matching places for ${uniqueCities.length} cities: ${uniqueCities.join(', ')}`);
+    logger.info(`[IntentClassifier] Matching places for ${uniqueCities.length} cities: ${uniqueCities.join(', ')} (skipImageSearch: ${skipImageSearch})`);
+
+    // 🚀 优化：多城市场景自动跳过图片搜索以避免超时
+    const shouldSkipImageSearch = skipImageSearch || uniqueCities.length > 2;
+    if (shouldSkipImageSearch && uniqueCities.length > 2) {
+      logger.info(`[IntentClassifier] Auto-skipping image search for multi-city scenario (${uniqueCities.length} cities)`);
+    }
 
     // Single city scenario: return flat array
     if (uniqueCities.length === 1) {
@@ -2755,9 +2786,13 @@ Rules:
       let results = await this.matchPlacesForCityWithCache(placeNames, city, language, translationCache);
       
       // 如果数据库没有匹配的地点，尝试为 AI 提到的地点创建临时 PlaceResult（联网搜索图片）
-      if (results.length === 0 && mentionedPlaces.length > 0) {
+      if (results.length === 0 && mentionedPlaces.length > 0 && !shouldSkipImageSearch) {
         logger.info(`[IntentClassifier] No DB matches for "${city}", creating temp places with image search`);
         results = await this.createTempPlacesWithImageSearch(mentionedPlaces.slice(0, 10), city, language);
+      } else if (results.length === 0 && mentionedPlaces.length > 0) {
+        // 跳过图片搜索时，创建简单的临时地点（无图片）
+        logger.info(`[IntentClassifier] No DB matches for "${city}", creating temp places without image search (fast mode)`);
+        results = await this.createTempPlacesWithoutImageSearch(mentionedPlaces.slice(0, 10), city, language);
       }
 
       logger.info(`[IntentClassifier] Single city "${city}": ${results.length} places`);
@@ -2777,8 +2812,14 @@ Rules:
           city.toLowerCase().includes((p.city || '').toLowerCase())
         );
         if (cityMentionedPlaces.length > 0) {
-          logger.info(`[IntentClassifier] No DB matches for "${city}", creating temp places with image search`);
-          results = await this.createTempPlacesWithImageSearch(cityMentionedPlaces.slice(0, 5), city, language);
+          if (!shouldSkipImageSearch) {
+            logger.info(`[IntentClassifier] No DB matches for "${city}", creating temp places with image search`);
+            results = await this.createTempPlacesWithImageSearch(cityMentionedPlaces.slice(0, 5), city, language);
+          } else {
+            // 🚀 优化：跳过图片搜索，直接创建临时地点（无图片但有坐标）
+            logger.info(`[IntentClassifier] No DB matches for "${city}", creating temp places without image search (fast mode)`);
+            results = await this.createTempPlacesWithoutImageSearch(cityMentionedPlaces.slice(0, 5), city, language);
+          }
         }
       }
 
@@ -3039,13 +3080,15 @@ Rules:
           continue;
         }
 
-        // Find best match by name similarity
+        // Find best match by name similarity (use both standard and word-based)
         let bestMatch: any = null;
         let bestScore = 0;
 
         for (const candidate of withImages) {
-          const similarity = calculateNameSimilarity(cleanedName || name, candidate.name);
-          logger.info(`[IntentClassifier] Similarity "${cleanedName || name}" vs "${candidate.name}": ${similarity.toFixed(3)}`);
+          const standardSim = calculateNameSimilarity(cleanedName || name, candidate.name);
+          const wordSim = this.calculateWordBasedSimilarity(cleanedName || name, candidate.name);
+          const similarity = Math.max(standardSim, wordSim);
+          logger.info(`[IntentClassifier] Similarity "${cleanedName || name}" vs "${candidate.name}": ${similarity.toFixed(3)} (standard: ${standardSim.toFixed(3)}, word: ${wordSim.toFixed(3)})`);
           if (similarity > bestScore && similarity >= CONFIG.NAME_SIMILARITY_THRESHOLD) {
             bestMatch = candidate;
             bestScore = similarity;
@@ -3068,6 +3111,89 @@ Rules:
   }
 
   /**
+   * Deduplicate places with similar names
+   * When two place names are substrings of each other (e.g., "Loop" and "Loop London"),
+   * keep the more specific/longer name
+   * @param places Array of mentioned places
+   * @returns Deduplicated array of places
+   */
+  private deduplicatePlaces(places: MentionedPlace[]): MentionedPlace[] {
+    if (places.length <= 1) return places;
+
+    const result: MentionedPlace[] = [];
+    const processedIndices = new Set<number>();
+
+    for (let i = 0; i < places.length; i++) {
+      if (processedIndices.has(i)) continue;
+
+      const place1 = places[i];
+      const name1Lower = (place1.name || '').toLowerCase().trim();
+      if (!name1Lower) {
+        processedIndices.add(i);
+        continue;
+      }
+
+      let bestPlace = place1;
+      let bestNameLength = name1Lower.length;
+
+      // Find all places that are similar to this one
+      for (let j = i + 1; j < places.length; j++) {
+        if (processedIndices.has(j)) continue;
+
+        const place2 = places[j];
+        const name2Lower = (place2.name || '').toLowerCase().trim();
+        if (!name2Lower) continue;
+
+        // Check if names are related (one contains the other, or high similarity)
+        const isSimilar = 
+          name1Lower.includes(name2Lower) || 
+          name2Lower.includes(name1Lower) ||
+          this.calculateNameSimilarity(name1Lower, name2Lower) > 0.8;
+
+        if (isSimilar) {
+          processedIndices.add(j);
+          // Keep the longer/more specific name
+          if (name2Lower.length > bestNameLength) {
+            bestPlace = place2;
+            bestNameLength = name2Lower.length;
+          }
+          logger.info(`[IntentClassifier] Dedup: "${place2.name}" merged into "${bestPlace.name}"`);
+        }
+      }
+
+      result.push(bestPlace);
+      processedIndices.add(i);
+    }
+
+    return result;
+  }
+
+  /**
+   * Calculate similarity between two place names (0-1)
+   */
+  private calculateNameSimilarity(name1: string, name2: string): number {
+    const n1 = name1.toLowerCase().trim();
+    const n2 = name2.toLowerCase().trim();
+    
+    if (n1 === n2) return 1;
+    if (!n1 || !n2) return 0;
+
+    // Simple Jaccard similarity on words
+    const words1 = new Set(n1.split(/\s+/).filter(w => w.length > 2));
+    const words2 = new Set(n2.split(/\s+/).filter(w => w.length > 2));
+    
+    if (words1.size === 0 || words2.size === 0) return 0;
+
+    let intersection = 0;
+    for (const word of words1) {
+      if (words2.has(word)) intersection++;
+    }
+
+    const union = words1.size + words2.size - intersection;
+    return union > 0 ? intersection / union : 0;
+  }
+
+  /**
    * Create temporary PlaceResult objects for AI-mentioned places
    * OPTIMIZED: Uses SINGLE batch image search call instead of N individual calls
    * @param mentionedPlaces Places mentioned in AI response
@@ -3082,21 +3208,96 @@ Rules:
   ): Promise<PlaceResult[]> {
     const results: PlaceResult[] = [];
     const placesToProcess = mentionedPlaces.slice(0, 10); // Limit to 10 places
+    const unmatchedPlaces: MentionedPlace[] = [];
+    // Default city variants (used as fallback)
+    const defaultCityVariants = this.getCityVariants(this.normalizeCityForMatching(city));
+
+    // Step 1: Try to find existing places in database first (with full details)
+    for (const place of placesToProcess) {
+      const placeName = this.normalizePlaceNameForMatching(place.name);
+      if (!placeName) {
+        unmatchedPlaces.push(place);
+        continue;
+      }
+
+      // Use place's own city if available, otherwise use default city
+      const placeCity = place.city?.trim() || city;
+      const placeCityVariants = placeCity !== city 
+        ? this.getCityVariants(this.normalizeCityForMatching(placeCity))
+        : defaultCityVariants;
+
+      try {
+        // Try exact match first with place's city
+        let dbPlace = await prisma.place.findFirst({
+          where: {
+            name: { equals: placeName, mode: 'insensitive' },
+            city: { in: placeCityVariants, mode: 'insensitive' },
+          },
+        });
+
+        // Try fuzzy match if exact match fails
+        if (!dbPlace) {
+          dbPlace = await prisma.place.findFirst({
+            where: {
+              name: { contains: placeName, mode: 'insensitive' },
+              city: { in: placeCityVariants, mode: 'insensitive' },
+            },
+          });
+        }
+
+        // Also try matching without city constraint for unique/famous names
+        if (!dbPlace) {
+          dbPlace = await prisma.place.findFirst({
+            where: {
+              name: { equals: placeName, mode: 'insensitive' },
+            },
+          });
+        }
+        
+        // Try fuzzy match without city for unique names
+        if (!dbPlace) {
+          dbPlace = await prisma.place.findFirst({
+            where: {
+              name: { contains: placeName, mode: 'insensitive' },
+            },
+          });
+        }
+
+        if (dbPlace) {
+          logger.info(`[IntentClassifier] Found existing place in DB: "${placeName}" -> "${dbPlace.name}" (city: ${dbPlace.city})`);
+          results.push(this.toPlaceResult(dbPlace, language));
+        } else {
+          unmatchedPlaces.push(place);
+        }
+      } catch (error) {
+        logger.warn(`[IntentClassifier] DB lookup failed for "${placeName}": ${error}`);
+        unmatchedPlaces.push(place);
+      }
+    }
+
+    // If all places were found in DB, return early
+    if (unmatchedPlaces.length === 0) {
+      logger.info(`[IntentClassifier] All ${results.length} places found in database with full details`);
+      return results;
+    }
+
+    logger.info(`[IntentClassifier] ${results.length} from DB, ${unmatchedPlaces.length} need temp creation`);
     
     // OPTIMIZATION: Use batch image search (SINGLE AI call for all places)
     let imageMap = new Map<string, string | null>();
     
     // Only do batch image search if AI call limit not exceeded
-    if (canMakeAICall() && placesToProcess.length > 0) {
+    if (canMakeAICall() && unmatchedPlaces.length > 0) {
       const openRouter = new OpenRouterProvider();
       if (openRouter.isAvailable()) {
         // Count as 1 AI call for the batch
         incrementAICallCount('intentClassifier.batchImageSearch');
-        logger.info(`[IntentClassifier] Batch image search for ${placesToProcess.length} places (global calls: ${getAICallCount()}/${getMaxAICallsPerRequest()})`);
+        logger.info(`[IntentClassifier] Batch image search for ${unmatchedPlaces.length} places (global calls: ${getAICallCount()}/${getMaxAICallsPerRequest()})`);
         
-        const searchPlaces = placesToProcess.map(p => ({
+        // Use each place's own city for image search
+        const searchPlaces = unmatchedPlaces.map(p => ({
           name: this.normalizePlaceNameForMatching(p.name) || p.name,
-          city: city,
+          city: p.city?.trim() || city,
         }));
         
         try {
@@ -3110,14 +3311,18 @@ Rules:
       logger.info(`[IntentClassifier] Skipping image search - AI limit reached (${getAICallCount()}/${getMaxAICallsPerRequest()})`);
     }
 
-    // Process places with batch results
-    for (const place of placesToProcess) {
+    // Process unmatched places with batch results
+    for (const place of unmatchedPlaces) {
       try {
         const placeName = this.normalizePlaceNameForMatching(place.name);
         if (!placeName) continue;
 
         // Get image from batch results
         const imageUrl = imageMap.get(placeName) || imageMap.get(place.name) || '';
+
+        // Use place's own city if available
+        const placeCity = place.city?.trim() || city;
+        const placeCountry = (place as any).country || '';
 
         // Try to get coordinates from address using forward geocoding (Nominatim - NOT AI)
         // IMPORTANT: Always include city in geocoding query to avoid matching wrong locations
@@ -3126,33 +3331,43 @@ Rules:
         const placeAddress = (place as any).address;
         // Build geocoding query: use address+city if address exists, otherwise use placeName+city
         const geocodeQuery = placeAddress 
-          ? `${placeAddress}, ${city}`
-          : `${placeName}, ${city}`;
+          ? `${placeAddress}, ${placeCity}`
+          : `${placeName}, ${placeCity}`;
         
         try {
           const coords = await geocodeService.forwardGeocode(geocodeQuery);
           if (coords) {
             latitude = coords.lat;
             longitude = coords.lon;
-            logger.debug(`[IntentClassifier] Geocoded "${placeName}" in ${city}: ${coords.lat}, ${coords.lon}`);
+            logger.debug(`[IntentClassifier] Geocoded "${placeName}" in ${placeCity}: ${coords.lat}, ${coords.lon}`);
           }
         } catch (geoError) {
           // Geocoding errors are fine, just continue
+        }
+
+        // Build a better summary using available data
+        const rating = (place as any).rating;
+        const ratingStr = rating ? ` (${rating}⭐)` : '';
+        const locationStr = placeCountry ? `${placeCity}, ${placeCountry}` : placeCity;
+        
+        let summary: string;
+        if (language === 'zh') {
+          summary = `位于${locationStr}${ratingStr}，是一个值得探索的独特目的地。`;
+        } else {
+          summary = `Located in ${locationStr}${ratingStr}, a unique destination worth exploring.`;
         }
 
         // Create temporary PlaceResult
         const tempPlace: PlaceResult = {
           id: `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`,
           name: place.name,
-          summary: language === 'zh' 
-            ? `${city}的${placeName}，AI推荐的热门地点。`
-            : `${placeName} in ${city}, recommended by AI.`,
+          summary,
           coverImage: imageUrl,
           images: imageUrl ? [imageUrl] : [],
           latitude,
           longitude,
-          city: city,
-          country: (place as any).country || '',
+          city: placeCity,
+          country: placeCountry,
           rating: (place as any).rating ?? null,
           ratingCount: (place as any).ratingCount ?? null,
           tags: [],
@@ -3171,6 +3386,134 @@ Rules:
 
     const withImages = results.filter(r => r.coverImage && r.coverImage.startsWith('http')).length;
     logger.info(`[IntentClassifier] Created ${results.length} temp places (${withImages} with images)`);
+    return results;
+  }
+
+  /**
+   * Create temporary PlaceResults WITHOUT image search (fast mode)
+   * Used for multi-city scenarios to avoid timeout
+   * Only geocodes addresses, no AI image search
+   * @param mentionedPlaces Places mentioned by AI
+   * @param city Default city name
+   * @param language Language for display
+   * @returns Array of PlaceResults without images
+   */
+  private async createTempPlacesWithoutImageSearch(
+    mentionedPlaces: MentionedPlace[],
+    city: string,
+    language: 'en' | 'zh' = 'en'
+  ): Promise<PlaceResult[]> {
+    const results: PlaceResult[] = [];
+    const placesToProcess = mentionedPlaces.slice(0, 10);
+    const defaultCityVariants = this.getCityVariants(this.normalizeCityForMatching(city));
+
+    // Step 1: Try to find existing places in database first
+    for (const place of placesToProcess) {
+      const placeName = this.normalizePlaceNameForMatching(place.name);
+      if (!placeName) continue;
+
+      const placeCity = place.city?.trim() || city;
+      const placeCityVariants = placeCity !== city 
+        ? this.getCityVariants(this.normalizeCityForMatching(placeCity))
+        : defaultCityVariants;
+
+      try {
+        // Try exact match first
+        let dbPlace = await prisma.place.findFirst({
+          where: {
+            name: { equals: placeName, mode: 'insensitive' },
+            city: { in: placeCityVariants, mode: 'insensitive' },
+          },
+        });
+
+        // Try fuzzy match
+        if (!dbPlace) {
+          dbPlace = await prisma.place.findFirst({
+            where: {
+              name: { contains: placeName, mode: 'insensitive' },
+              city: { in: placeCityVariants, mode: 'insensitive' },
+            },
+          });
+        }
+
+        // Try without city constraint
+        if (!dbPlace) {
+          dbPlace = await prisma.place.findFirst({
+            where: {
+              name: { equals: placeName, mode: 'insensitive' },
+            },
+          });
+        }
+
+        if (dbPlace) {
+          logger.info(`[IntentClassifier] Found existing place in DB (fast mode): "${placeName}" -> "${dbPlace.name}"`);
+          results.push(this.toPlaceResult(dbPlace, language));
+          continue;
+        }
+      } catch (error) {
+        logger.warn(`[IntentClassifier] DB lookup failed for "${placeName}": ${error}`);
+      }
+
+      // Step 2: Create temp place without image (just geocode)
+      try {
+        const placeCity = place.city?.trim() || city;
+        const placeCountry = (place as any).country || '';
+
+        // Try to get coordinates (fast, uses Nominatim not AI)
+        let latitude = 0;
+        let longitude = 0;
+        const placeAddress = (place as any).address;
+        const geocodeQuery = placeAddress 
+          ? `${placeAddress}, ${placeCity}`
+          : `${placeName}, ${placeCity}`;
+        
+        try {
+          const coords = await geocodeService.forwardGeocode(geocodeQuery);
+          if (coords) {
+            latitude = coords.lat;
+            longitude = coords.lon;
+            logger.info(`[IntentClassifier] Geocoded "${placeName}" -> (${latitude}, ${longitude})`);
+          } else {
+            logger.warn(`[IntentClassifier] Geocoding failed for "${placeName}" - no coords returned`);
+          }
+        } catch (geoError) {
+          logger.warn(`[IntentClassifier] Geocoding error for "${placeName}": ${geoError}`);
+        }
+
+        const rating = (place as any).rating;
+        const ratingStr = rating ? ` (${rating}⭐)` : '';
+        const locationStr = placeCountry ? `${placeCity}, ${placeCountry}` : placeCity;
+        
+        const summary = language === 'zh'
+          ? `位于${locationStr}${ratingStr}，是一个值得探索的独特目的地。`
+          : `Located in ${locationStr}${ratingStr}, a unique destination worth exploring.`;
+
+        const tempPlace: PlaceResult = {
+          id: `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          name: place.name,
+          summary,
+          coverImage: '', // 🚀 No image search - will be empty
+          images: [],
+          latitude,
+          longitude,
+          city: placeCity,
+          country: placeCountry,
+          rating: (place as any).rating ?? null,
+          ratingCount: (place as any).ratingCount ?? null,
+          tags: [],
+          isVerified: false,
+          source: 'ai',
+          address: (place as any).address || undefined,
+          website: (place as any).website || undefined,
+        };
+
+        results.push(tempPlace);
+      } catch (error) {
+        logger.warn(`[IntentClassifier] Error creating temp place (fast mode) for "${place.name}": ${error}`);
+      }
+    }
+
+    logger.info(`[IntentClassifier] Created ${results.length} temp places (fast mode, no image search)`);
     return results;
   }
 
@@ -3249,10 +3592,34 @@ Rules:
       images = [dbPlace.coverImage];
     }
     
+    // Build summary with fallback
+    let summary = dbPlace.aiDescription || dbPlace.description || '';
+    if (!summary) {
+      // Generate a fallback summary based on available data
+      const city = dbPlace.city || '';
+      const country = dbPlace.country || '';
+      const category = dbPlace.categoryEn || '';
+      const rating = dbPlace.rating;
+      
+      const locationStr = country ? `${city}, ${country}` : city;
+      const ratingStr = rating ? ` (${rating}⭐)` : '';
+      const categoryStr = category ? ` ${category.toLowerCase()}` : '';
+      
+      if (language === 'zh') {
+        summary = locationStr 
+          ? `位于${locationStr}的${categoryStr ? categoryStr : '景点'}${ratingStr}。`
+          : `值得探索的${categoryStr ? categoryStr : '景点'}${ratingStr}。`;
+      } else {
+        summary = locationStr
+          ? `A${categoryStr || ' destination'} in ${locationStr}${ratingStr}.`
+          : `A${categoryStr || ' destination'} worth exploring${ratingStr}.`;
+      }
+    }
+    
     return {
       id: dbPlace.id,
       name: dbPlace.name,
-      summary: dbPlace.aiDescription || '',
+      summary,
       coverImage: dbPlace.coverImage || '',
       images: images,
       latitude: dbPlace.latitude,

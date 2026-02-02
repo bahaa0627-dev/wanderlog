@@ -461,14 +461,13 @@ Generate THREE things with RICH, DETAILED content:
      ? '- Example: "希望这些推荐能帮你找到心仪的店铺，如有其他问题随时问我！"' 
      : '- Example: "Hope you find your perfect spot! Let me know if you need more recommendations."'}
 
-3. "placeSummaries": For EACH place, write a DETAILED summary (100-200 chars)
+3. "placeSummaries": For EACH place, write a CONCISE summary (80-150 chars)
    - Describe what makes it SPECIAL: signature dishes, unique atmosphere, standout features
-   - Include specific details: cooking style, ingredients, ambiance, what to order
-   - Make it vivid and enticing, like a food critic's recommendation
+   - Be concise but vivid, like a mini food critic's recommendation
    - Do NOT include ratings, numbers, address, or city name
    ${language === 'zh' 
-     ? '- Example: "这家店以手工拉面著称，提供各种风味的拉面，其中牛肉拉面特别受欢迎。这里的辣椒油和调料可以自由搭配，满足不同的口味需求。"' 
-     : '- Example: "Famous for handmade noodles with incredible texture. The beef ramen is a standout, and you can customize your spice level with their house-made chili oil."'}
+     ? '- Example: "以手工拉面著称，牛肉拉面尤为出色，辣椒油和调料可自由搭配，满足不同口味。"' 
+     : '- Example: "Famous for handmade noodles with great texture. The beef ramen is outstanding with house-made chili oil."'}
 
 Places to summarize:
 ${placesList}
@@ -481,7 +480,7 @@ CRITICAL:
   "acknowledgment": "...",
   "overallSummary": "...",
   "placeSummaries": [
-    { "id": "<same id>", "summary": "<100-200 char detailed summary>" }
+    { "id": "<same id>", "summary": "<80-150 char concise summary>" }
   ]
 }`;
 
@@ -865,7 +864,7 @@ City context: ${parsedQuery.city || 'various cities'}
 
 CRITICAL REQUIREMENTS:
 - Output language: ${languageText}
-- Each summary should be 1-2 sentences, between 60-150 characters.
+- Each summary should be 1-2 sentences, between 70-120 characters.
 - Highlight what makes each place SPECIAL and UNIQUE for this search query.
 - Include distinctive features like: specialty dishes, atmosphere, signature items, unique selling points.
 - Make it vivid and specific (not generic descriptions).
@@ -876,11 +875,11 @@ CRITICAL REQUIREMENTS:
 
 EXAMPLES of GOOD summaries (${languageText}):
 ${language === 'zh' 
-  ? `- "以手工染制的纯羊毛纱线闻名，店内氛围温馨，是编织爱好者的天堂。"
-- "提供来自世界各地的稀有纱线品种，尤其是意大利进口马海毛和美利奴羊毛。"
-- "店主亲自挑选的独立设计师手工纱线，色彩丰富，质感细腻。"`
-  : `- "Known for hand-dyed pure wool yarns in stunning colors, with a cozy atmosphere perfect for knitting enthusiasts."
-- "Offers rare yarn varieties from around the world, specializing in Italian mohair and Merino wool imports."`}
+  ? `- "以手工染制的纯羊毛纱线闻名，店内氛围温馨，是编织爱好者的理想去处。"
+- "提供来自世界各地的稀有纱线品种，意大利进口马海毛为特色。"
+- "独立设计师手工纱线，色彩丰富多样，质感细腻柔软。"`
+  : `- "Known for hand-dyed pure wool yarns in stunning colors, with a cozy atmosphere."
+- "Offers rare yarn varieties from around the world, specializing in Italian mohair."`}
 
 Places JSON:
 ${JSON.stringify(batch)}
@@ -888,7 +887,7 @@ ${JSON.stringify(batch)}
 Return JSON only:
 {
   "summaries": [
-    { "id": "<same id>", "summary": "<informative summary in ${languageText}, 60-150 chars>" }
+    { "id": "<same id>", "summary": "<concise summary in ${languageText}, 70-120 chars>" }
   ]
 }`;
 
@@ -3959,6 +3958,7 @@ export const searchV2 = async (req: Request, res: Response) => {
   
   try {
     const { query, userId, language = 'en', excludePlaceIds = [] } = req.body;
+    logger.info(`[SearchV2] Received request - query: "${query}", language: "${language}", isNonLatin: ${/[\u0080-\uFFFF]/.test(query)}`);
     if (!query || query.trim().length === 0) {
       return res.status(400).json({
         success: false, 
@@ -3975,12 +3975,14 @@ export const searchV2 = async (req: Request, res: Response) => {
     }
 
     const isChineseQuery = containsCjk(query);
-    const isNonLatinQuery = /[\u0080-\uFFFF]/.test(query);
+    // Use CJK detection instead of generic non-Latin check
+    // This avoids false positives from smart quotes, accented characters, etc.
+    const isNonLatinQuery = isChineseQuery;
 
     // Narrative (ack/overall/summary text) should be Chinese for Chinese queries.
     // Retrieval/matching can still use English.
-    const matchLanguage = isNonLatinQuery ? 'en' : language;
-    const narrativeLanguage = isNonLatinQuery ? 'zh' : language;
+    const matchLanguage = isChineseQuery ? 'en' : language;
+    const narrativeLanguage = isChineseQuery ? 'zh' : language;
     const matchLanguageCode = matchLanguage as 'en' | 'zh';
     const narrativeLanguageCode = narrativeLanguage as 'en' | 'zh';
     const summaryLanguageCode = narrativeLanguageCode;

@@ -2858,7 +2858,7 @@
                 const result = await res.json();
                 
                 if (res.ok && result.success) {
-                    alert('删除成功');
+                    // 删除成功，静默刷新
                     await loadPlaces();
                 } else {
                     throw new Error(result.message || result.error || '删除失败');
@@ -4061,8 +4061,8 @@
                     }
                 };
                 img.onerror = () => {
-                    alert('图片预览失败，但已上传成功');
-                    if (infoEl) infoEl.textContent = '已上传到 R2';
+                    // 图片预览失败，但已上传成功
+                    if (infoEl) infoEl.textContent = '图片预览失败，但已上传到 R2';
                 };
                 img.src = compressedDataUrl;
             } catch (error) {
@@ -4653,8 +4653,7 @@
                     // 设置封面图 URL
                     coverImageInput.value = r2Url;
                     updateCoverImagePreview();
-                    
-                    alert('封面图已成功上传到 R2！');
+                    // 上传成功，无需弹窗
                 } catch (error) {
                     console.error('封面图上传失败:', error);
                     alert(`封面图上传失败: ${error.message || '未知错误'}`);
@@ -5500,7 +5499,7 @@
                     throw new Error(result.message || '删除失败');
                 }
 
-                alert('删除成功');
+                // 删除成功，静默刷新
                 await loadRecommendations();
             } catch (e) {
                 console.error('删除推荐失败:', e);

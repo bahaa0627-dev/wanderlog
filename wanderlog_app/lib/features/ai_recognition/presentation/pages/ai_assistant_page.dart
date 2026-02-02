@@ -45,6 +45,7 @@ class _ChatMessage {
     this.imageUrls,
     this.spots,
     this.searchV2Result,
+    this.isNew = false,
   });
 
   final String id;
@@ -54,6 +55,7 @@ class _ChatMessage {
   final List<Spot>? spots;
   final SearchV2Result? searchV2Result;
   final DateTime timestamp;
+  bool isNew; // 标记是否是新消息，用于触发渐显动画
 }
 
 /// AI Assistant 页面 - 聊天式全屏页面
@@ -459,7 +461,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       return;
     }
 
-    // 添加 SearchV2 结果消息
+    // 添加 SearchV2 结果消息（标记为新消息，触发渐显动画）
     setState(() {
       _messages.add(
         _ChatMessage(
@@ -467,6 +469,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           isUser: false,
           searchV2Result: result,
           timestamp: DateTime.now(),
+          isNew: true,
         ),
       );
     });
@@ -942,7 +945,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             padding: const EdgeInsets.only(bottom: 16),
             child: message.isUser
                 ? _buildUserMessage(message)
-                : _buildAIMessage(message),
+                : _AnimatedAIMessage(
+                    key: ValueKey(message.id),
+                    message: message,
+                    builder: _buildAIMessage,
+                  ),
           );
         },
       );
@@ -1321,8 +1328,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     );
   }
 
-  /// 构建穿插显示的城市内容（城市介绍 + 卡片）
-  /// 解析 AI 回复文本，在每个城市介绍后插入对应的横滑卡片
+  /// 构建城市内容展示（文本 + 卡片 + 地图）
+  /// 改进版：所有卡片和地图始终显示在文本末尾，不再穿插在中间
   Widget _buildInterleavedCityContent(
     String textContent,
     List<CityPlacesGroup> cityPlaces, {
@@ -1336,125 +1343,45 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       textOnlyPlaces,
     );
 
-    // 创建城市名到地点的映射（保留原始大小写用于显示）
-    final cityPlacesMap = <String, CityPlacesGroup>{};
-    for (final group in cityPlaces) {
-      cityPlacesMap[group.city.toLowerCase()] = group;
-    }
-
     debugPrint(
-        '🏙️ Building interleaved content for cities: ${cityPlacesMap.keys.join(", ")}');
+        '🏙️ Building city content for ${cityPlaces.length} city groups, total ${allPlaces.length} places');
 
-    // 按城市分割文本
-    final lines = textContent.split('\n');
-    final sections = <_CitySection>[];
-    String currentContent = '';
-    String? currentCityKey;
+    // Step 1: 先显示完整的文本内容（markdown格式，地点名可点击）
+    widgets.add(_buildMarkdownText(textContent, places: allPlaces));
 
-    for (final line in lines) {
-      final trimmed = line.trim();
-
-      // 检查是否是城市标题
-      String? detectedCityKey;
-      for (final cityKey in cityPlacesMap.keys) {
-        // 匹配多种格式：## Tokyo、### Tokyo、**Tokyo**、🗼 Tokyo、Tokyo:
-        // 使用更宽松的匹配
-        final cityLower = trimmed.toLowerCase();
-        if (cityLower.contains(cityKey) &&
-            (trimmed.startsWith('##') ||
-                trimmed.startsWith('**') ||
-                trimmed.contains('🗼') ||
-                trimmed.contains('🗾') ||
-                trimmed.contains('🇫🇷') ||
-                trimmed.contains('🇯🇵') ||
-                trimmed.contains('✨') ||
-                RegExp(r'^[#*\s]*' + RegExp.escape(cityKey),
-                        caseSensitive: false)
-                    .hasMatch(cityLower))) {
-          detectedCityKey = cityKey;
-          debugPrint('🏙️ Detected city "$cityKey" in line: $trimmed');
-          break;
-        }
-      }
-
-      if (detectedCityKey != null && detectedCityKey != currentCityKey) {
-        // 发现新城市，保存之前的内容
-        if (currentContent.trim().isNotEmpty || currentCityKey != null) {
-          sections.add(
-            _CitySection(
-              cityKey: currentCityKey,
-              content: currentContent.trim(),
-            ),
-          );
-        }
-        currentCityKey = detectedCityKey;
-        currentContent = '$line\n';
-      } else {
-        currentContent += '$line\n';
-      }
+    // Step 2: 收集所有有图片的地点，统一在末尾显示横滑卡片
+    final allPlacesWithImage = <PlaceResult>[];
+    for (final group in cityPlaces) {
+      final placesWithImage =
+          group.places.where((p) => p.hasValidCoverImage).toList();
+      allPlacesWithImage.addAll(placesWithImage);
+      debugPrint(
+          '🏙️ [_buildInterleavedCityContent] City "${group.city}": ${group.places.length} total, ${placesWithImage.length} with images');
     }
 
-    // 保存最后一段
-    if (currentContent.trim().isNotEmpty || currentCityKey != null) {
-      sections.add(
-        _CitySection(
-          cityKey: currentCityKey,
-          content: currentContent.trim(),
+    // 只显示有图片的地点卡片（横向滚动）
+    if (allPlacesWithImage.isNotEmpty) {
+      widgets.add(const SizedBox(height: 20));
+      widgets.add(_buildHorizontalSpotCards(allPlacesWithImage));
+    }
+
+    // Step 3: 最底部显示地图（有坐标的地点）
+    final placesWithCoordinates =
+        allPlaces.where((p) => p.latitude != 0 && p.longitude != 0).toList();
+    debugPrint('🗺️ [_buildInterleavedCityContent] All places: ${allPlaces.length}');
+    for (final p in allPlaces) {
+      debugPrint('🗺️ [_buildInterleavedCityContent] "${p.name}": lat=${p.latitude}, lng=${p.longitude}');
+    }
+    debugPrint('🗺️ [_buildInterleavedCityContent] Places with valid coordinates: ${placesWithCoordinates.length}');
+    if (placesWithCoordinates.isNotEmpty) {
+      widgets.add(const SizedBox(height: 20));
+      widgets.add(
+        RecommendationMapView(
+          places: placesWithCoordinates,
+          height: 200,
+          onPlaceTap: _showPlaceDetail,
         ),
       );
-    }
-
-    debugPrint('🏙️ Found ${sections.length} sections');
-
-    // 构建 widgets
-    for (final section in sections) {
-      // 添加文本内容
-      if (section.content.isNotEmpty) {
-        widgets.add(_buildMarkdownText(section.content, places: allPlaces));
-      }
-
-      // 如果这个 section 有对应的城市，添加卡片（只显示有图片的地点）
-      if (section.cityKey != null &&
-          cityPlacesMap.containsKey(section.cityKey)) {
-        final group = cityPlacesMap[section.cityKey]!;
-        debugPrint(
-            '🏙️ [_buildInterleavedCityContent] City "${group.city}" has ${group.places.length} places');
-        final placesWithImage =
-            group.places.where((p) => p.hasValidCoverImage).toList();
-        debugPrint(
-            '🏙️ [_buildInterleavedCityContent] After filter: ${placesWithImage.length} places with images');
-        if (placesWithImage.isNotEmpty) {
-          widgets.add(const SizedBox(height: 12));
-          widgets.add(_buildHorizontalSpotCards(placesWithImage));
-          widgets.add(const SizedBox(height: 16));
-        }
-      }
-    }
-
-    // 如果没有成功分割（没有检测到城市），显示所有内容后再显示所有卡片
-    if (sections.every((s) => s.cityKey == null)) {
-      debugPrint('🏙️ No city sections detected, showing all cards at end');
-      widgets.clear();
-      widgets.add(_buildMarkdownText(textContent, places: allPlaces));
-      for (final group in cityPlaces) {
-        // 只显示有图片的地点
-        final placesWithImage =
-            group.places.where((p) => p.hasValidCoverImage).toList();
-        if (placesWithImage.isNotEmpty) {
-          widgets.add(const SizedBox(height: 16));
-          widgets.add(
-            Text(
-              group.city,
-              style: AppTheme.titleMedium(context).copyWith(
-                color: AppTheme.black,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          );
-          widgets.add(const SizedBox(height: 12));
-          widgets.add(_buildHorizontalSpotCards(placesWithImage));
-        }
-      }
     }
 
     return Column(
@@ -3437,13 +3364,6 @@ class _ItinerarySlot {
   final List<String> items = [];
 }
 
-/// 城市内容分段辅助类
-class _CitySection {
-  _CitySection({this.cityKey, required this.content});
-  final String? cityKey;
-  final String content;
-}
-
 /// 大尺寸地点卡片 - 用于单个地点展示
 /// 比普通卡片更大，占满宽度，比例为 4:3
 class _LargePlaceCard extends ConsumerStatefulWidget {
@@ -3841,5 +3761,77 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
       return '${(count / 1000).toStringAsFixed(1)}K';
     }
     return count.toString();
+  }
+}
+
+/// AI 消息渐显动画包装器
+/// 新消息会触发淡入+上滑动画效果
+class _AnimatedAIMessage extends StatefulWidget {
+  const _AnimatedAIMessage({
+    super.key,
+    required this.message,
+    required this.builder,
+  });
+
+  final _ChatMessage message;
+  final Widget Function(_ChatMessage) builder;
+
+  @override
+  State<_AnimatedAIMessage> createState() => _AnimatedAIMessageState();
+}
+
+class _AnimatedAIMessageState extends State<_AnimatedAIMessage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1), // 从下方轻微滑入
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    ));
+
+    // 如果是新消息，播放动画；否则直接显示
+    if (widget.message.isNew) {
+      _controller.forward().then((_) {
+        // 动画完成后标记为非新消息
+        widget.message.isNew = false;
+      });
+    } else {
+      _controller.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slideAnimation,
+      child: FadeTransition(
+        opacity: _fadeAnimation,
+        child: widget.builder(widget.message),
+      ),
+    );
   }
 }

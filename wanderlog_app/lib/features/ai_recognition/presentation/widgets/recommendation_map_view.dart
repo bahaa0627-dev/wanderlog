@@ -135,6 +135,13 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
 
   /// 计算地图中心点和缩放级别
   (Position, double) _calculateCameraPosition() {
+    debugPrint(
+        '🗺️ [_calculateCameraPosition] Total places: ${widget.places.length}');
+    for (final p in widget.places) {
+      debugPrint(
+          '🗺️ [_calculateCameraPosition] "${p.name}": lat=${p.latitude}, lng=${p.longitude}');
+    }
+
     // 过滤掉无效坐标的地点（0, 0 是无效坐标）
     final validPlaces = widget.places
         .where((p) =>
@@ -144,13 +151,22 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
             p.longitude.abs() > 0.0001)
         .toList();
 
+    debugPrint(
+        '🗺️ [_calculateCameraPosition] Valid places: ${validPlaces.length}');
+
     if (validPlaces.isEmpty) {
-      // 默认位置（北京）
+      // 如果没有有效坐标的地点，聚焦到第一个地点的城市（如果有）
+      // 默认位置（北京）作为最终回退
+      debugPrint(
+          '🗺️ [_calculateCameraPosition] No valid places, using default (Beijing)');
       return (Position(116.4074, 39.9042), 10.0);
     }
 
+    // 始终从第一个有效地点开始，这样用户可以看到实际推荐的地点
     if (validPlaces.length == 1) {
       final place = validPlaces.first;
+      debugPrint(
+          '🗺️ [_calculateCameraPosition] Single place: ${place.name} at (${place.latitude}, ${place.longitude})');
       return (Position(place.longitude, place.latitude), 14.0);
     }
 
@@ -170,6 +186,11 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
     // 计算中心点
     final centerLat = (minLat + maxLat) / 2;
     final centerLng = (minLng + maxLng) / 2;
+
+    debugPrint(
+        '🗺️ [_calculateCameraPosition] Bounds: lat($minLat, $maxLat), lng($minLng, $maxLng)');
+    debugPrint(
+        '🗺️ [_calculateCameraPosition] Center: ($centerLat, $centerLng)');
 
     // 计算缩放级别（基于边界范围）
     final latDiff = maxLat - minLat;
@@ -1446,32 +1467,6 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                               ),
                             ],
                           ),
-                        // 地址
-                        if (widget.place.address != null &&
-                            widget.place.address!.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.location_on_outlined,
-                                size: 12,
-                                color: Colors.white.withOpacity(0.8),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  widget.place.address!,
-                                  style: AppTheme.bodySmall(context).copyWith(
-                                    color: Colors.white.withOpacity(0.8),
-                                    fontSize: 11,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
                       ],
                     ),
                   ),

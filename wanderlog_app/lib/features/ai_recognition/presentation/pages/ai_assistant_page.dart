@@ -563,6 +563,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     return hasChinese ? 'zh' : 'en';
   }
 
+  /// 检测文本是否包含中文字符
+  bool _containsChinese(String text) {
+    if (text.trim().isEmpty) return false;
+    final chineseRegex = RegExp(r'[\u4e00-\u9fff\u3400-\u4dbf]');
+    return chineseRegex.hasMatch(text);
+  }
+
   /// 将 PlaceResult 转换为 Spot
   Spot _placeResultToSpot(PlaceResult place) {
     debugPrint(
@@ -1128,20 +1135,23 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           // 文本内容 - 支持 Markdown 格式，地点名可点击
           _buildMarkdownText(textContent, places: textPlaces),
 
-          // 有图片的地点：显示大卡片
-          if (placesWithImage.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _buildHorizontalPlaceCards(placesWithImage),
-          ],
+          // non_travel 意图不显示地点卡片和地图（如天气、技术问题等）
+          if (!result.isNonTravel) ...[
+            // 有图片的地点：显示大卡片
+            if (placesWithImage.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              _buildHorizontalPlaceCards(placesWithImage),
+            ],
 
-          // 地图展示（只显示有坐标的地点）
-          if (placesWithCoordinates.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            RecommendationMapView(
-              places: placesWithCoordinates,
-              height: 200,
-              onPlaceTap: _showPlaceDetail,
-            ),
+            // 地图展示（只显示有坐标的地点）
+            if (placesWithCoordinates.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              RecommendationMapView(
+                places: placesWithCoordinates,
+                height: 200,
+                onPlaceTap: _showPlaceDetail,
+              ),
+            ],
           ],
         ],
       );
@@ -1216,6 +1226,17 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     // 默认处理（general_search）
     final textPlaces =
         _mergePlacesForText(result.places, result.textOnlyPlaces);
+
+    // 判断是否有文字补充地点（需要切换到横滑卡片展示）
+    final hasSupplementText =
+        result.supplementText != null && result.supplementText!.isNotEmpty;
+    final hasTextOnlyPlaces = result.textOnlyPlaces.isNotEmpty;
+    final shouldUseHorizontalCards = hasSupplementText || hasTextOnlyPlaces;
+
+    // 判断是否应该分类展示（超过5个地点且有分类信息）
+    final shouldShowCategories =
+        result.hasCategories && result.places.length > 5;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1232,7 +1253,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         ],
 
         // 没有分类时，在地点列表前显示 overallSummary 作为开头介绍
-        if (!result.hasCategories && result.overallSummary.isNotEmpty) ...[
+        if (!shouldShowCategories && result.overallSummary.isNotEmpty) ...[
           Text(
             result.overallSummary,
             style: AppTheme.bodyMedium(context).copyWith(
@@ -1243,15 +1264,21 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           const SizedBox(height: 16),
         ],
 
-        // 分类展示或平铺展示 - Requirements: 9.1
-        if (result.hasCategories)
+        // 地点展示逻辑：
+        // 1. 有分类且超过5个地点 -> 分类展示
+        // 2. 有文字补充地点 -> 横滑卡片展示
+        // 3. 其他情况 -> 平铺展示
+        if (shouldShowCategories)
           // 有分类时使用分类展示组件
           CategorizedPlacesList(
             categories: result.categories!,
             onPlaceTap: _showPlaceDetail,
           )
+        else if (shouldUseHorizontalCards)
+          // 有文字补充时使用横滑卡片展示
+          _buildHorizontalPlaceCards(result.places)
         else
-          // 无分类时使用平铺展示组件
+          // 无分类且无补充时使用平铺展示组件
           FlatPlaceList(
             places: result.places,
             onPlaceTap: _showPlaceDetail,
@@ -1262,7 +1289,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         const SizedBox(height: 20),
 
         // 有分类时，在地点列表后显示 overallSummary（如果有的话）
-        if (result.hasCategories && result.overallSummary.isNotEmpty) ...[
+        if (shouldShowCategories && result.overallSummary.isNotEmpty) ...[
           Text(
             result.overallSummary,
             style: AppTheme.bodyMedium(context).copyWith(
@@ -1285,7 +1312,10 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         // 显示所有有坐标的地点（包括没有图片的文本补充地点）
         if (_getAllPlacesWithCoordinates(result).isNotEmpty) ...[
           const SizedBox(height: 20),
-          _buildMapWithBottomCards(_getAllPlacesWithCoordinates(result)),
+          _buildMapWithBottomCards(
+            _getAllPlacesWithCoordinates(result),
+            isEnglish: !_containsChinese(result.acknowledgment),
+          ),
         ],
       ],
     );
@@ -1875,6 +1905,17 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 用于 ### 级别标题，匹配地点名称后变为可点击样式
   /// 支持 "金田家 Kanada-Ya" 格式（中文名 + 英文名）
   Widget _buildClickableHeader(String titleText, {List<PlaceResult>? places}) {
+    // 🔧 清理可能遗留的 markdown 标题符号
+    String cleanedTitle = titleText;
+    if (cleanedTitle.startsWith('### ')) {
+      cleanedTitle = cleanedTitle.substring(4);
+    } else if (cleanedTitle.startsWith('## ')) {
+      cleanedTitle = cleanedTitle.substring(3);
+    } else if (cleanedTitle.startsWith('# ')) {
+      cleanedTitle = cleanedTitle.substring(2);
+    }
+    titleText = cleanedTitle;
+
     // 提取地点名（移除评分部分，如 "Louvre Museum (4.6分)" -> "Louvre Museum"）
     String placeName = titleText;
 
@@ -1960,6 +2001,18 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// [链接文字](URL) 会显示为可点击的蓝色链接
   Widget _buildRichText(String text, {List<PlaceResult>? places}) {
     final spans = <InlineSpan>[];
+
+    // 🔧 清理 markdown 标题符号（###、##、# 开头）
+    String cleanedText = text;
+    if (cleanedText.startsWith('### ')) {
+      cleanedText = cleanedText.substring(4);
+    } else if (cleanedText.startsWith('## ')) {
+      cleanedText = cleanedText.substring(3);
+    } else if (cleanedText.startsWith('# ')) {
+      cleanedText = cleanedText.substring(2);
+    }
+    // 使用清理后的文本
+    text = cleanedText;
 
     // Debug: 打印传入的 places 列表
     debugPrint('🔍 _buildRichText places count: ${places?.length ?? 0}');
@@ -2499,14 +2552,15 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
   /// 构建地图+底部横滑卡片组件
   /// 没有图片的地点使用白底小卡片
-  Widget _buildMapWithBottomCards(List<PlaceResult> places) {
+  Widget _buildMapWithBottomCards(List<PlaceResult> places,
+      {bool isEnglish = false}) {
     if (places.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '在地图上探索更多',
+          isEnglish ? 'Explore more on map' : '在地图上探索更多',
           style: AppTheme.bodySmall(context).copyWith(
             color: AppTheme.darkGray,
             height: 1.4,
@@ -2518,21 +2572,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           height: 200,
           onPlaceTap: _showPlaceDetail,
         ),
-        const SizedBox(height: 12),
-        // 底部横滑卡片 - 支持有图片和无图片的地点
-        SizedBox(
-          height: 100, // 紧凑的高度
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            itemCount: places.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final place = places[index];
-              return _buildCompactPlaceCard(place);
-            },
-          ),
-        ),
+        // 移除底部横滑卡片，只保留地图
       ],
     );
   }

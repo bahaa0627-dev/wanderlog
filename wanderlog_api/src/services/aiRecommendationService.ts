@@ -97,7 +97,8 @@ LANGUAGE RULES (CRITICAL - MUST FOLLOW):
 - If user language is Chinese, respond ONLY in Chinese
 - NEVER mix languages or use a different language than specified
 - Place names should use their commonly known name (can be in original language)
-- Category titles, summaries, tags, recommendationPhrase - ALL in user's language
+- Category titles, summaries, recommendationPhrase - ALL in user's language
+- tags: ALWAYS in English only (never translate tags to user's language)
 - acknowledgment - MUST be in user's language
 - ABSOLUTELY NO German, French, Spanish or any other language unless that is the user's specified language
 - Double-check your response language before returning
@@ -124,9 +125,9 @@ PLACE SELECTION RULES (CRITICAL):
 
 Return ONLY valid JSON (no markdown, no code blocks):
 {
-  "requestedCount": 10,
+  "requestedCount": 8,
   "exceededLimit": false,
-  "acknowledgment": "A creative, engaging intro (2-3 sentences, 60-140 chars). MUST be in user's specified language. MUST mention the query topic explicitly and include 1-2 concrete traits (e.g., flavors, styles, vibe, popularity). Avoid generic phrases like 'vibrant city'.",
+  "acknowledgment": "A creative, engaging opening paragraph (2-3 sentences, 80-200 chars). MUST be ENTIRELY in user's specified language - no mixing. Set the scene by describing what makes this location/category special. Mention specific characteristics like famous flavors, architectural styles, cultural significance, or local atmosphere. Make the reader excited about the upcoming recommendations. Example for Chinese: '伦敦的毛线店以其丰富的色彩和温馨的氛围闻名，从传统羊毛到手工染色的特色纱线应有尽有。以下是几家深受编织爱好者喜爱的精选店铺，无论你是新手还是达人都能找到心仪之选！'",
   "categories": [
     {
       "title": "☕ Category Title with Emoji",
@@ -136,7 +137,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "places": [
     {
       "name": "Place Name",
-      "summary": "Brief description (30-50 chars max, must be complete)",
+      "summary": "Brief description (40-80 chars, must be complete)",
       "latitude": 35.6762,
       "longitude": 139.6503,
       "city": "City",
@@ -165,16 +166,16 @@ CRITICAL - recommendationPhrase:
 - NEVER use generic "Recommended" for all places
 
 Rules:
-1. Parse user query to determine requested count. Default to 20 if not specified. Max 20.
-2. Return EXACTLY the requested number of places (or 20 if exceeds limit)
+1. Parse user query to determine requested count. If not specified, randomly choose 5-10. Max 10.
+2. Return EXACTLY the requested number of places (or 10 if exceeds limit)
 3. MUST have exactly 3-4 categories (distribute places across them)
 4. Each category should have roughly equal places
 5. ALWAYS include categories with emoji prefix
 6. coverImageUrl: always empty string (images fetched separately)
-7. tags: 2 descriptive tags only
-8. summary: MUST be 30-50 chars, complete sentence, no ellipsis
-9. acknowledgment: REQUIRED. 2-3 sentences, 60-140 chars, MUST mention the query topic, include 1-2 concrete traits, avoid clichés, MUST be in user's language
-10. Set exceededLimit to true if user requested more than 20`;
+7. tags: 2 descriptive tags in ENGLISH only (e.g., 'Tonkotsu', 'Cozy', 'Local favorite' - NEVER in Chinese or other languages)
+8. summary: MUST be 40-80 chars, complete sentence in user's language, no ellipsis
+9. acknowledgment: REQUIRED. 2-3 sentences, 80-200 chars, ENTIRELY in user's language, set the scene, mention specific traits of the category/location, make it engaging
+10. Set exceededLimit to true if user requested more than 10`;
 
 
 /**
@@ -528,19 +529,19 @@ class AIRecommendationService {
       throw new AIResponseValidationError('places must be an array');
     }
 
-    // 期望最多 20 个地点
-    if (response.places.length > 20) {
-      console.warn(`[AIRecommendationService] AI returned ${response.places.length} places, truncating to 20`);
-      response.places = response.places.slice(0, 20);
+    // 期望最多 10 个地点（5-10范围）
+    if (response.places.length > 10) {
+      console.warn(`[AIRecommendationService] AI returned ${response.places.length} places, truncating to 10`);
+      response.places = response.places.slice(0, 10);
     }
     if (response.places.length === 0) {
       throw new AIResponseValidationError('No places returned by AI');
     }
 
-    // 解析 requestedCount（AI 返回的数量），默认 20，最大 20
+    // 解析 requestedCount（AI 返回的数量），默认 8，最大 10
     let requestedCount = typeof response.requestedCount === 'number' 
-      ? Math.max(1, Math.min(20, response.requestedCount))
-      : 20; // 默认 20 个地点
+      ? Math.max(1, Math.min(10, response.requestedCount))
+      : 8; // 默认 8 个地点
     
     // 解析 exceededLimit
     const exceededLimit = response.exceededLimit === true;
@@ -622,7 +623,7 @@ class AIRecommendationService {
     
     const userPrompt = `User query: ${query}
 
-CRITICAL LANGUAGE REQUIREMENT: You MUST respond ONLY in ${languageName}. ALL text including acknowledgment, category titles, summaries, tags, and recommendationPhrase MUST be in ${languageName}. Do NOT use any other language.
+CRITICAL LANGUAGE REQUIREMENT: You MUST respond ONLY in ${languageName}. ALL text including acknowledgment, category titles, summaries, and recommendationPhrase MUST be in ${languageName}. EXCEPTION: tags MUST ALWAYS be in English regardless of user language (e.g., 'Tonkotsu', 'Cozy', 'Hidden gem'). Do NOT use any other language for other fields.
 
 CRITICAL RULES FOR NUMBER OF PLACES:
 - Parse the user's query to determine how many places they want

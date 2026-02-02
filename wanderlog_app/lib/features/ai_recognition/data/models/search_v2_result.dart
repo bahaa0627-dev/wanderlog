@@ -39,12 +39,25 @@ class SearchV2Result {
 
     // Remove leading response wrapper if present
     text = text
-      .replaceFirst(RegExp(r'^\s*["“]?response["”]?\s*[:：]\s*', caseSensitive: false), '')
-      .replaceFirst(RegExp(r'^\s*["“]?description["”]?\s*[:：]\s*', caseSensitive: false), '')
-      .replaceFirst(RegExp(r'^\s*["“]?textContent["”]?\s*[:：]\s*', caseSensitive: false), '')
-      .replaceFirst(RegExp(r'^\s*["“]?content["”]?\s*[:：]\s*', caseSensitive: false), '')
-      .trim();
-    text = text.replaceFirst(RegExp(r'^"+'), '').replaceFirst(RegExp(r'"+$'), '').trim();
+        .replaceFirst(
+            RegExp(r'^\s*["“]?response["”]?\s*[:：]\s*', caseSensitive: false),
+            '')
+        .replaceFirst(
+            RegExp(r'^\s*["“]?description["”]?\s*[:：]\s*',
+                caseSensitive: false),
+            '')
+        .replaceFirst(
+            RegExp(r'^\s*["“]?textContent["”]?\s*[:：]\s*',
+                caseSensitive: false),
+            '')
+        .replaceFirst(
+            RegExp(r'^\s*["“]?content["”]?\s*[:：]\s*', caseSensitive: false),
+            '')
+        .trim();
+    text = text
+        .replaceFirst(RegExp(r'^"+'), '')
+        .replaceFirst(RegExp(r'"+$'), '')
+        .trim();
 
     // If it's a JSON string or JSON object, try to decode.
     if ((text.startsWith('{') && text.endsWith('}')) ||
@@ -72,7 +85,12 @@ class SearchV2Result {
               break;
             }
             if (item is Map) {
-              final candidates = [item['textContent'], item['response'], item['content'], item['description']];
+              final candidates = [
+                item['textContent'],
+                item['response'],
+                item['content'],
+                item['description']
+              ];
               for (final c in candidates) {
                 if (c is String && c.trim().isNotEmpty) {
                   text = c;
@@ -97,7 +115,10 @@ class SearchV2Result {
         .replaceAll('\\"', '"')
         .replaceAll('\\\\', '\\');
 
-    text = text.replaceFirst(RegExp(r'^[\[\{\"\s]+'), '').replaceFirst(RegExp(r'[\]\}\"\s]+$'), '').trim();
+    text = text
+        .replaceFirst(RegExp(r'^[\[\{\"\s]+'), '')
+        .replaceFirst(RegExp(r'[\]\}\"\s]+$'), '')
+        .trim();
     return text;
   }
 
@@ -133,9 +154,9 @@ class SearchV2Result {
           places = [];
         }
         final description = _normalizeMarkdownText(
-          json['description'] as String? ??
-          json['acknowledgment'] as String? ??
-          '');
+            json['description'] as String? ??
+                json['acknowledgment'] as String? ??
+                '');
         final identifiedPlaceName = json['identifiedPlaceName'] as String?;
 
         return SearchV2Result(
@@ -160,7 +181,8 @@ class SearchV2Result {
 
       case IntentType.nonTravel:
         // non_travel 意图返回纯文本
-        final textContent = _normalizeMarkdownText(json['textContent'] as String? ?? '');
+        final textContent =
+            _normalizeMarkdownText(json['textContent'] as String? ?? '');
 
         return SearchV2Result(
           success: json['success'] as bool? ?? false,
@@ -183,7 +205,8 @@ class SearchV2Result {
 
       case IntentType.travelConsultation:
         // travel_consultation 意图返回文本 + 相关地点
-        final textContent = _normalizeMarkdownText(json['textContent'] as String? ?? '');
+        final textContent =
+            _normalizeMarkdownText(json['textContent'] as String? ?? '');
         // 兼容两种格式：relatedPlaces（后端返回）和 places（本地保存）
         final relatedPlaces = (json['relatedPlaces'] as List?)
                 ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
@@ -238,9 +261,9 @@ class SearchV2Result {
                   .toList() ??
               [],
           textOnlyPlaces: (json['textOnlyPlaces'] as List?)
-              ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-            [],
+                  ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
+                  .toList() ??
+              [],
           translatedQuery: json['translatedQuery'] as String?,
           translationStatus: json['translationStatus'] as String?,
           mapPlaces: (json['mapPlaces'] as List?)
@@ -254,7 +277,7 @@ class SearchV2Result {
           textContent: json['textContent'] is String
               ? _normalizeMarkdownText(json['textContent'] as String)
               : null,
-            supplementText: json['supplementText'] is String
+          supplementText: json['supplementText'] is String
               ? _normalizeMarkdownText(json['supplementText'] as String)
               : null,
         );
@@ -379,6 +402,9 @@ class SearchV2Result {
 
   /// 是否有分类
   bool get hasCategories => categories != null && categories!.isNotEmpty;
+
+  /// 是否是非旅行查询（天气、技术、情感等，不应该显示地图）
+  bool get isNonTravel => intent == IntentType.nonTravel;
 
   /// 是否是文本响应（non_travel、travel_consultation 或 general_search_text）
   bool get isTextResponse =>

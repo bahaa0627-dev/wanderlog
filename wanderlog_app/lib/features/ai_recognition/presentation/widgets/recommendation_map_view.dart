@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/category_emoji.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
@@ -943,9 +942,13 @@ class _FullscreenRecommendationMapState
       (p) => p.coverImage.isEmpty,
     );
 
-    // 卡片尺寸 - 紧凑模式时高度减半
+    // 卡片尺寸 - 使用最大高度作为容器高度
+    // 数据库地点（大图）: 280
+    // AI 地点（白底）: 140
+    // 无封面图: 140
     const cardWidth = 210.0;
-    final cardHeight = allWithoutCoverImage ? 140.0 : 280.0;
+    const maxCardHeight = 280.0; // 容器使用最大高度
+    const aiCardHeight = 140.0; // AI 卡片高度
 
     return WillPopScope(
       onWillPop: () async {
@@ -1033,7 +1036,7 @@ class _FullscreenRecommendationMapState
                 left: 0,
                 right: 0,
                 bottom: 0,
-                height: cardHeight + 16,
+                height: maxCardHeight + 16,
                 child: SafeArea(
                   top: false,
                   left: false,
@@ -1047,13 +1050,19 @@ class _FullscreenRecommendationMapState
                       final place = widget.places[index];
                       final isSelected = (place.id ?? place.name) ==
                           (_selectedPlace?.id ?? _selectedPlace?.name);
+                      // 根据来源决定卡片高度：AI 地点用矮卡片，数据库地点用高卡片
+                      final isAIPlace = place.source == PlaceSource.ai;
+                      final thisCardHeight = (allWithoutCoverImage || isAIPlace)
+                          ? aiCardHeight
+                          : maxCardHeight;
                       return AnimatedScale(
                         scale: isSelected ? 1.0 : 0.92,
                         duration: const Duration(milliseconds: 250),
-                        child: Center(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
                           child: SizedBox(
                             width: cardWidth,
-                            height: cardHeight,
+                            height: thisCardHeight,
                             child: _BottomPlaceCard(
                               place: place,
                               onTap: () => widget.onPlaceTap?.call(place),
@@ -1094,56 +1103,6 @@ class _BottomPlaceCard extends StatefulWidget {
 }
 
 class _BottomPlaceCardState extends State<_BottomPlaceCard> {
-  Color _dominantColor = Colors.black;
-
-  @override
-  void initState() {
-    super.initState();
-    _extractDominantColor();
-  }
-
-  @override
-  void didUpdateWidget(_BottomPlaceCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.place.coverImage != widget.place.coverImage) {
-      _extractDominantColor();
-    }
-  }
-
-  Future<void> _extractDominantColor() async {
-    if (widget.place.coverImage.isEmpty) return;
-
-    try {
-      final ImageProvider imageProvider;
-      if (widget.place.coverImage.startsWith('data:')) {
-        final base64Data = widget.place.coverImage.split(',').last;
-        final bytes = base64Decode(base64Data);
-        imageProvider = MemoryImage(Uint8List.fromList(bytes));
-      } else {
-        imageProvider = NetworkImage(widget.place.coverImage);
-      }
-
-      final paletteGenerator = await PaletteGenerator.fromImageProvider(
-        imageProvider,
-        size: const ui.Size(100, 100),
-        maximumColorCount: 5,
-      );
-
-      if (mounted) {
-        setState(() {
-          _dominantColor = paletteGenerator.dominantColor?.color ??
-              paletteGenerator.darkMutedColor?.color ??
-              paletteGenerator.darkVibrantColor?.color ??
-              Colors.black;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _dominantColor = Colors.black);
-      }
-    }
-  }
-
   Widget _buildCover() {
     const placeholder = VagoPlaceholderSmall();
 
@@ -1184,7 +1143,102 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
     if (widget.isCompact) {
       return _buildCompactCard(context);
     }
+    // AI 地点使用白底紧凑卡片样式（图2）
+    if (widget.place.source == PlaceSource.ai) {
+      return _buildAIPlaceCard(context);
+    }
+    // 数据库地点使用大图渐变样式
     return _buildFullCard(context);
+  }
+
+  /// AI 地点卡片（白底+编号+评分样式）
+  Widget _buildAIPlaceCard(BuildContext context) {
+    final emoji = _getCategoryEmoji();
+    final indexText = widget.index != null ? 'No.${widget.index! + 1}' : '';
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border:
+              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 分类 emoji + 编号
+              Row(
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 20)),
+                  if (indexText.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      indexText,
+                      style: AppTheme.bodyMedium(context).copyWith(
+                        color: AppTheme.black.withOpacity(0.7),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 6),
+              // 名称
+              Text(
+                widget.place.name,
+                style: AppTheme.headlineMedium(context).copyWith(
+                  color: AppTheme.black,
+                  fontWeight: FontWeight.bold,
+                  height: 1.2,
+                  fontSize: 18,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              // 评分
+              if (widget.place.hasRating)
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.star,
+                      size: 16,
+                      color: AppTheme.primaryYellow,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      widget.place.rating!.toStringAsFixed(1),
+                      style: AppTheme.bodyMedium(context).copyWith(
+                        color: AppTheme.black,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (widget.place.ratingCount != null) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        formatRatingCount(widget.place.ratingCount),
+                        style: AppTheme.bodySmall(context).copyWith(
+                          color: AppTheme.black.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// 紧凑卡片（无封面图时）
@@ -1279,7 +1333,7 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
     );
   }
 
-  /// 完整卡片（有封面图时）
+  /// 完整卡片（数据库地点 - 大图+渐变覆盖样式）
   Widget _buildFullCard(BuildContext context) => GestureDetector(
         onTap: widget.onTap,
         child: Container(
@@ -1297,7 +1351,7 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
               fit: StackFit.expand,
               children: [
                 _buildCover(),
-                // 底部渐变蒙层 - 使用提取的主色
+                // 底部渐变蒙层
                 Positioned(
                   left: 0,
                   right: 0,
@@ -1310,9 +1364,9 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          _dominantColor.withOpacity(0.3),
-                          _dominantColor.withOpacity(0.6),
-                          _dominantColor.withOpacity(0.85),
+                          Colors.black.withOpacity(0.3),
+                          Colors.black.withOpacity(0.6),
+                          Colors.black.withOpacity(0.85),
                         ],
                         stops: const [0.0, 0.3, 0.6, 1.0],
                       ),
@@ -1341,7 +1395,7 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 6),
-                        // 评分或推荐短语
+                        // 评分
                         if (widget.place.hasRating)
                           Row(
                             children: [
@@ -1392,6 +1446,32 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                               ),
                             ],
                           ),
+                        // 地址
+                        if (widget.place.address != null &&
+                            widget.place.address!.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.location_on_outlined,
+                                size: 12,
+                                color: Colors.white.withOpacity(0.8),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  widget.place.address!,
+                                  style: AppTheme.bodySmall(context).copyWith(
+                                    color: Colors.white.withOpacity(0.8),
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

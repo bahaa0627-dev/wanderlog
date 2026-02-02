@@ -98,7 +98,10 @@ interface CategoryGroup {
 const CONFIG = {
   AI_TIMEOUT_MS: 60000, // 降低到 60 秒以避免客户端超时
   AI_SUMMARY_TIMEOUT_MS: 30000,
-  DEFAULT_COUNT: 5,  // 默认返回 5 个地点（不分类时 3-5 个）
+  DEFAULT_COUNT: 8,  // 默认返回 5-10 个地点
+  MIN_COUNT: 5,       // 最少返回 5 个地点
+  MAX_COUNT: 10,      // 最多返回 10 个地点（不分类时）
+  CATEGORY_THRESHOLD: 6, // 超过这个数量时分类展示
   MIN_PLACES_PER_CATEGORY: 3,
   MIN_CATEGORIES: 2,  // 至少 2 个分类
   NAME_SIMILARITY_THRESHOLD: 0.6,
@@ -4337,13 +4340,14 @@ export const searchV2 = async (req: Request, res: Response) => {
       parsedQuery.explicitCount = true;
     }
 
-    // If user didn't specify a count, default to 5
-    // 用户要求：数据库有 5 条以上就不再补齐
-    const defaultTarget = 5; // 固定为 5，不再追求 10 条
+    // If user didn't specify a count, use random 5-10 range
+    // 用户要求：返回 5-10 个地点，每次随机，超过 5 个时分类展示
+    const randomTarget = Math.floor(Math.random() * (CONFIG.MAX_COUNT - CONFIG.MIN_COUNT + 1)) + CONFIG.MIN_COUNT;
     const targetCount = Math.min(
-      Math.max(parsedQuery.explicitCount ? parsedQuery.count : defaultTarget, CONFIG.DEFAULT_COUNT),
-      15, // 最多 15 条
+      Math.max(parsedQuery.explicitCount ? parsedQuery.count : randomTarget, CONFIG.MIN_COUNT),
+      CONFIG.MAX_COUNT, // 最多 10 条
     );
+    logger.info(`[SearchV2] Random target count: ${randomTarget}, final target: ${targetCount}`);
 
     // 获取用户今日已收藏的地点（需要排除）
     let userSavedPlaceIds: Set<string> = new Set();
@@ -4412,7 +4416,8 @@ export const searchV2 = async (req: Request, res: Response) => {
 
     // Always start the AI request in parallel, so we can prioritize AI→DB matched places when available.
     // We'll cap how long we wait based on whether the DB cache already satisfies the target.
-    const aiPromise = aiRecommendationService.getRecommendations(matchQuery, matchLanguage)
+    // 使用 narrativeLanguageCode 确保 AI 返回的 acknowledgment 语言与用户查询语言一致
+    const aiPromise = aiRecommendationService.getRecommendations(matchQuery, narrativeLanguageCode)
       .catch(err => {
         logger.warn(`[SearchV2] AI call failed: ${err}`);
         return null;
@@ -4900,10 +4905,25 @@ export const searchV2 = async (req: Request, res: Response) => {
     logger.info(`[SearchV2] Final count after image filter: ${finalPlaces.length}/${targetCount}`);
 
     // ========== 文本补齐：当匹配到的卡片数量不足时，用 AI 文本补齐 ==========
+    // 如果结果不足且 AI 还没返回，重新等待 AI 完成
+    const remaining = Math.max(targetCount - finalPlaces.length, 0);
+    if (remaining > 0 && !aiRecommendations) {
+      logger.info(`[SearchV2] Results shortage: got ${finalPlaces.length}, need ${targetCount}, waiting for AI...`);
+      aiRecommendations = await Promise.race([
+        aiPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), CONFIG.AI_TIMEOUT_MS)),
+      ]);
+      if (aiRecommendations) {
+        logger.info(`[SearchV2] AI returned ${aiRecommendations.places.length} places after retry`);
+      } else {
+        logger.warn(`[SearchV2] AI still not available after retry`);
+      }
+    }
+    
     const textOnlyPlaces: PlaceResult[] = [];
     if (aiRecommendations && aiRecommendations.places.length > 0) {
-      const remaining = Math.max(targetCount - finalPlaces.length, 0);
       if (remaining > 0) {
+        logger.info(`[SearchV2] Results shortage: got ${finalPlaces.length}, need ${targetCount}, generating ${remaining} text supplements`);
         const seenNames = new Set<string>(Array.from(usedNames));
         for (const aiPlace of aiRecommendations.places) {
           if (textOnlyPlaces.length >= remaining) break;
@@ -4922,7 +4942,7 @@ export const searchV2 = async (req: Request, res: Response) => {
             country: aiPlace.country || '',
             rating: null,
             ratingCount: null,
-            tags: buildDisplayTags(null, aiPlace.tags, matchLanguageCode),
+            tags: buildDisplayTags(null, aiPlace.tags, 'en'), // 标签始终用英文
             isVerified: false,
             source: 'ai',
             address: undefined,
@@ -4978,7 +4998,7 @@ export const searchV2 = async (req: Request, res: Response) => {
               country: aiPlace.country || '',
               rating: null,
               ratingCount: null,
-              tags: buildDisplayTags(null, aiPlace.tags, matchLanguageCode),
+              tags: buildDisplayTags(null, aiPlace.tags, 'en'), // 标签始终用英文
               isVerified: false,
               source: 'ai',
               address: undefined,
@@ -5620,11 +5640,11 @@ Return plain text only.`;
           narrativeLanguageCode
         );
         
-        // 添加分隔标题
+        // 添加分隔标题（不使用---分隔线）
         if (supplementText) {
           const headerText = narrativeLanguageCode === 'zh' 
-            ? `\n\n---\n\n### 📍 更多推荐\n\n以下是更多符合你搜索条件的地点（暂无封面图片）：\n\n`
-            : `\n\n---\n\n### 📍 More Recommendations\n\nHere are more places matching your search (no cover images available):\n\n`;
+            ? `\n\n### 📍 更多推荐\n\n以下是更多符合你搜索条件的地点（暂无封面图片）：\n\n`
+            : `\n\n### 📍 More Recommendations\n\nHere are more places matching your search (no cover images available):\n\n`;
           supplementText = headerText + supplementText;
         }
       }
@@ -5633,6 +5653,26 @@ Return plain text only.`;
     // ========== Map places：合并所有有坐标的地点用于地图展示 ==========
     // 包括有图片的 finalPlaces 和有坐标的 textOnlyPlaces
     let mapPlaces: PlaceResult[] = [];
+    
+    // 为 textOnlyPlaces 补充评分数据（如果有的话）
+    if (textOnlyPlaces.length > 0) {
+      const aiPlacesNeedingRatings = textOnlyPlaces.filter(p => p.rating === null || p.rating === undefined);
+      if (aiPlacesNeedingRatings.length > 0) {
+        logger.info(`[SearchV2] Enriching ${aiPlacesNeedingRatings.length} AI places with ratings...`);
+        try {
+          const enrichedPlaces = await enrichPlacesWithRatings(aiPlacesNeedingRatings, parsedQuery.city || '', narrativeLanguageCode as 'en' | 'zh');
+          // 用 enriched 结果更新 textOnlyPlaces 数组
+          for (let i = 0; i < textOnlyPlaces.length; i++) {
+            const enriched = enrichedPlaces.find(ep => ep.name.toLowerCase() === textOnlyPlaces[i].name.toLowerCase());
+            if (enriched) {
+              textOnlyPlaces[i] = enriched;
+            }
+          }
+        } catch (err) {
+          logger.warn(`[SearchV2] Failed to enrich AI places with ratings: ${err}`);
+        }
+      }
+    }
     
     // 添加有图片的地点
     for (const place of finalPlaces) {
@@ -5646,9 +5686,10 @@ Return plain text only.`;
     const existingMapIds = new Set(mapPlaces.map(p => p.id || p.name.toLowerCase()));
     for (const place of textOnlyPlaces) {
       const placeKey = place.id || place.name.toLowerCase();
-      if (!existingMapIds.has(placeKey) && 
-          place.latitude && place.longitude && 
-          Math.abs(place.latitude) > 0.0001 && Math.abs(place.longitude) > 0.0001) {
+      const hasValidCoords = place.latitude && place.longitude && 
+          Math.abs(place.latitude) > 0.0001 && Math.abs(place.longitude) > 0.0001;
+      logger.info(`[SearchV2] TextOnly place "${place.name}": lat=${place.latitude}, lon=${place.longitude}, validCoords=${hasValidCoords}`);
+      if (!existingMapIds.has(placeKey) && hasValidCoords) {
         mapPlaces.push(place);
         existingMapIds.add(placeKey);
       }

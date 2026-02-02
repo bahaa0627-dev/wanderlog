@@ -185,7 +185,8 @@ Return JSON:
 const NON_TRAVEL_PROMPT = `You are a helpful assistant. Answer the user's question.
 
 Query: "{query}"
-Language: {language}
+
+⚠️ LANGUAGE REQUIREMENT: You MUST respond ONLY in {language}. This is CRITICAL.
 
 Requirements:
 1. Provide a helpful response in Markdown format
@@ -193,14 +194,14 @@ Requirements:
 3. Use emoji where appropriate
 4. Keep response concise but helpful
 5. When mentioning specific items or places, use **bold** format
-6. CRITICAL: Your ENTIRE response MUST be in {language}. Do NOT mix languages.
+6. ⚠️ CRITICAL: Your ENTIRE response MUST be in {language}. Do NOT use any other language. If the query mentions a place name in another language, still respond in {language}.
 7. When providing external links/resources, format them as a numbered list with each link on its own line:
    - Format: "1. [Site Name](URL) - Brief description"
    - Example:
      1. [AccuWeather](https://accuweather.com) - Detailed hourly forecasts
      2. [Weather.com](https://weather.com) - 10-day weather outlook
 
-Return the response as plain Markdown text (not JSON).`;
+Return the response as plain Markdown text (not JSON).
 
 // ============ Prompt Templates ============
 

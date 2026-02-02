@@ -96,7 +96,7 @@ interface CategoryGroup {
 }
 
 const CONFIG = {
-  AI_TIMEOUT_MS: 90000,
+  AI_TIMEOUT_MS: 60000, // 降低到 60 秒以避免客户端超时
   AI_SUMMARY_TIMEOUT_MS: 30000,
   DEFAULT_COUNT: 5,  // 默认返回 5 个地点（不分类时 3-5 个）
   MIN_PLACES_PER_CATEGORY: 3,
@@ -107,7 +107,7 @@ const CONFIG = {
   COORDINATE_THRESHOLD_VERY_CLOSE: 0.002, // ~220m for same place with different names
   IMAGE_SEARCH_TIMEOUT_MS: 15000,
   MIN_PLACES_FOR_CARDS: 3, // 少于这个数量时，改用文本格式
-  GEOCODE_TIMEOUT_MS: 5000, // 单个地址 geocoding 超时
+  GEOCODE_TIMEOUT_MS: 3000, // 单个地址 geocoding 超时（从 5s 降到 3s）
 };
 
 /**
@@ -1563,7 +1563,9 @@ Return JSON only:
       const info = enrichedMap?.get(key) || null;
       
       // Merge information (enriched data takes priority)
-      const finalName = info?.name || place.name;
+      // 🔧 落库时只保存英文名称
+      const rawName = info?.name || place.name;
+      const finalName = extractEnglishName(rawName);
       const finalAddress = info?.address || place.address || '';
       const finalWebsite = info?.website || place.website || '';
       let finalLat: number = (info?.latitude && info.latitude !== 0) ? info.latitude : (place.latitude || 0);
@@ -1969,7 +1971,7 @@ Return JSON:
   };
 
   try {
-    const response = await generateJsonTextWithFallback(prompt, 12000);
+    const response = await generateJsonTextWithFallback(prompt, 8000); // 8秒超时以加快响应
     if (!response) return [];
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return [];
@@ -2027,6 +2029,7 @@ async function matchMentionedPlacesFromDB(
   parsedQuery: ParsedQuery,
   language: 'en' | 'zh',
   requiredCategory?: string,
+  requireImage: boolean = true, // 是否要求有图片，text-only 模式可设为 false
 ): Promise<PlaceResult[]> {
   const results: PlaceResult[] = [];
   const seen = new Set<string>();
@@ -2055,15 +2058,18 @@ async function matchMentionedPlacesFromDB(
       const city = normalizeCityForMatching(place.city, parsedQuery);
       const country = normalizeCountryForMatching(place.country, parsedQuery);
       
-      logger.info(`[matchMentioned] Searching for "${term}" in city="${city}", country="${country}"`);
+      logger.info(`[matchMentioned] Searching for "${term}" in city="${city}", country="${country}" (requireImage=${requireImage})`);
 
       // 策略1：先尝试不带位置过滤的精确名字匹配
       // 如果名字完全匹配且只有一个结果，直接使用（避免城市格式不一致导致的匹配失败）
       const exactNameOnlyConditions: any[] = [
-        { coverImage: { not: null } },
-        { coverImage: { not: '' } },
         { name: { equals: term, mode: 'insensitive' as const } },
       ];
+      // 只在需要图片时添加图片条件
+      if (requireImage) {
+        exactNameOnlyConditions.unshift({ coverImage: { not: null } });
+        exactNameOnlyConditions.unshift({ coverImage: { not: '' } });
+      }
       
       const exactNameMatches = await prisma.place.findMany({
         where: { AND: exactNameOnlyConditions },
@@ -2103,10 +2109,12 @@ async function matchMentionedPlacesFromDB(
 
       // 策略2：如果精确名字匹配失败，尝试带位置过滤的 contains 匹配
       const exactConditions: any[] = [
-        { coverImage: { not: null } },
-        { coverImage: { not: '' } },
         { name: { equals: term, mode: 'insensitive' as const } },
       ];
+      if (requireImage) {
+        exactConditions.unshift({ coverImage: { not: null } });
+        exactConditions.unshift({ coverImage: { not: '' } });
+      }
       if (city) {
         exactConditions.unshift(buildCityCondition(city));
       }
@@ -2127,10 +2135,12 @@ async function matchMentionedPlacesFromDB(
       }
 
       const conditions: any[] = [
-        { coverImage: { not: null } },
-        { coverImage: { not: '' } },
         { name: { contains: term, mode: 'insensitive' as const } },
       ];
+      if (requireImage) {
+        conditions.unshift({ coverImage: { not: null } });
+        conditions.unshift({ coverImage: { not: '' } });
+      }
 
       if (city) {
         conditions.unshift(buildCityCondition(city));
@@ -2800,6 +2810,44 @@ function parseQuery(query: string, options: { allowChinese?: boolean } = {}): Pa
 
 
 /**
+ * 从中英文混合名称中提取英文名称（用于落库）
+ * 例如："金田家 Kanada-Ya" -> "Kanada-Ya"
+ * 例如："一风堂 Ippudo" -> "Ippudo"
+ */
+function extractEnglishName(name: string): string {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return trimmed;
+  
+  // 检查是否包含中文字符
+  const hasChinese = /[\u4e00-\u9fff]/.test(trimmed);
+  if (!hasChinese) return trimmed; // 纯英文，直接返回
+  
+  // 尝试分割中英文
+  // 模式1: "中文名 English Name" - 空格分隔
+  const parts = trimmed.split(/\s+/);
+  const englishParts = parts.filter(p => !/[\u4e00-\u9fff]/.test(p) && p.length > 0);
+  
+  if (englishParts.length > 0) {
+    const englishName = englishParts.join(' ').trim();
+    if (englishName.length >= 3) {
+      logger.info(`[SearchV2] Extracted English name: "${trimmed}" -> "${englishName}"`);
+      return englishName;
+    }
+  }
+  
+  // 模式2: "中文名English" - 直接相连，提取非中文部分
+  const nonChineseMatch = trimmed.match(/[a-zA-Z][a-zA-Z0-9\s\-'&]+/);
+  if (nonChineseMatch && nonChineseMatch[0].trim().length >= 3) {
+    const englishName = nonChineseMatch[0].trim();
+    logger.info(`[SearchV2] Extracted English name (pattern 2): "${trimmed}" -> "${englishName}"`);
+    return englishName;
+  }
+  
+  // 无法提取，返回原名
+  return trimmed;
+}
+
+/**
  * 将未匹配的 AI 地点保存到数据库（异步，不阻塞主流程）
  * 这样可以逐步丰富数据库内容
  * 
@@ -2822,6 +2870,14 @@ async function saveUnmatchedAIPlacesToDB(
   let savedCount = 0;
   let skippedCount = 0;
   
+  // 🔧 辅助函数：检查名称是否有包含关系
+  const isNameContained = (name1: string, name2: string): boolean => {
+    const n1 = name1.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, '');
+    const n2 = name2.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, '');
+    if (n1.length < 4 || n2.length < 4) return false;
+    return n1.includes(n2) || n2.includes(n1);
+  };
+  
   for (const place of unmatchedPlaces) {
     try {
       // 策略1: 检查名称完全匹配（不区分大小写）
@@ -2837,7 +2893,23 @@ async function saveUnmatchedAIPlacesToDB(
         continue;
       }
       
-      // 策略2: 检查同城市内名称相似的地点
+      // 策略1.5: 检查名称包含匹配（如 "Ippudo" 包含在 "一风堂 Ippudo" 中）
+      const containsMatch = await prisma.place.findFirst({
+        where: {
+          OR: [
+            { name: { contains: place.name, mode: 'insensitive' } },
+            // 反向检查较难用 Prisma 实现，下面手动检查
+          ],
+        },
+      });
+      
+      if (containsMatch && isNameContained(place.name, containsMatch.name)) {
+        logger.info(`[SearchV2] Skipping "${place.name}" - name contained in "${containsMatch.name}" (id: ${containsMatch.id})`);
+        skippedCount++;
+        continue;
+      }
+      
+      // 策略2: 检查同城市内名称相似或包含的地点
       const sameCityPlaces = await prisma.place.findMany({
         where: {
           city: { equals: place.city, mode: 'insensitive' },
@@ -2849,8 +2921,10 @@ async function saveUnmatchedAIPlacesToDB(
       let isDuplicate = false;
       for (const existing of sameCityPlaces) {
         const similarity = calculateNameSimilarity(place.name, existing.name);
-        if (similarity > 0.8) {
-          logger.info(`[SearchV2] Skipping "${place.name}" - similar to "${existing.name}" in same city (similarity: ${similarity.toFixed(2)})`);
+        // 🔧 增加包含检查
+        const hasContainment = isNameContained(place.name, existing.name);
+        if (similarity > 0.8 || hasContainment) {
+          logger.info(`[SearchV2] Skipping "${place.name}" - similar/contained to "${existing.name}" in same city (similarity: ${similarity.toFixed(2)}, contained: ${hasContainment})`);
           isDuplicate = true;
           break;
         }
@@ -2861,7 +2935,7 @@ async function saveUnmatchedAIPlacesToDB(
         continue;
       }
       
-      // 策略3: 检查坐标接近且名称相似的地点（跨城市）
+      // 策略3: 检查坐标接近且名称相似或包含的地点（跨城市）
       const nearbyPlaces = await prisma.place.findMany({
         where: {
           latitude: { gte: place.latitude - 0.01, lte: place.latitude + 0.01 },
@@ -2873,8 +2947,10 @@ async function saveUnmatchedAIPlacesToDB(
       
       for (const existing of nearbyPlaces) {
         const similarity = calculateNameSimilarity(place.name, existing.name);
-        if (similarity > 0.6) {
-          logger.info(`[SearchV2] Skipping "${place.name}" - similar to nearby "${existing.name}" (similarity: ${similarity.toFixed(2)})`);
+        // 🔧 增加包含检查：坐标接近时，名称包含也算重复
+        const hasContainment = isNameContained(place.name, existing.name);
+        if (similarity > 0.6 || hasContainment) {
+          logger.info(`[SearchV2] Skipping "${place.name}" - similar/contained to nearby "${existing.name}" (similarity: ${similarity.toFixed(2)}, contained: ${hasContainment})`);
           isDuplicate = true;
           break;
         }
@@ -2886,9 +2962,11 @@ async function saveUnmatchedAIPlacesToDB(
       }
       
       // 没有重复，创建新地点
+      // 🔧 落库时只保存英文名称
+      const englishName = extractEnglishName(place.name);
       await prisma.place.create({
         data: {
-          name: place.name,
+          name: englishName,
           city: place.city,
           country: place.country,
           latitude: place.latitude,
@@ -2902,7 +2980,7 @@ async function saveUnmatchedAIPlacesToDB(
         },
       });
       savedCount++;
-      logger.info(`[SearchV2] Saved new AI place: "${place.name}" (${place.city})`);
+      logger.info(`[SearchV2] Saved new AI place: "${englishName}" (original: "${place.name}", city: ${place.city})`);
     } catch (error) {
       logger.warn(`[SearchV2] Failed to save AI place "${place.name}": ${error}`);
     }
@@ -2971,6 +3049,22 @@ async function matchAIPlacesFromDB(aiPlaces: AIPlace[], language: 'en' | 'zh' = 
     
     for (const candidate of candidates) {
       let nameSimilarity = calculateNameSimilarity(aiPlace.name, candidate.name);
+      
+      // 🔧 包含匹配增强：如果 AI 名称完全包含在数据库名称中，或反之，提升相似度
+      // 例如："Ippudo" 包含在 "一风堂 Ippudo" 或 "Ippudo Central Saint Giles" 中
+      const aiNameLower = aiPlace.name.toLowerCase().trim();
+      const dbNameLower = (candidate.name || '').toLowerCase().trim();
+      const aiNameNormalized = aiNameLower.replace(/[^a-z0-9\u4e00-\u9fff]/g, '');
+      const dbNameNormalized = dbNameLower.replace(/[^a-z0-9\u4e00-\u9fff]/g, '');
+      
+      if (aiNameNormalized.length >= 4 && dbNameNormalized.length >= 4) {
+        // 如果 AI 名称是数据库名称的子串，或反之
+        if (dbNameNormalized.includes(aiNameNormalized) || aiNameNormalized.includes(dbNameNormalized)) {
+          nameSimilarity = Math.max(nameSimilarity, 0.85);
+          logger.info(`[SearchV2] Name containment match: "${aiPlace.name}" <-> "${candidate.name}", boosted similarity to ${nameSimilarity.toFixed(2)}`);
+        }
+      }
+      
       const latDiff = Math.abs(aiPlace.latitude - candidate.latitude);
       const lngDiff = Math.abs(aiPlace.longitude - candidate.longitude);
       const coordDistance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
@@ -3696,8 +3790,8 @@ KEY RULES:
 Return the response as plain Markdown text (not JSON).`;
 
   try {
-    // 使用联网搜索能力获取最新的地点信息和网站
-    const response = await generateTextWithWebSearch(prompt, 60000);
+    // 使用联网搜索能力获取最新的地点信息和网站（30秒超时以避免整体超时）
+    const response = await generateTextWithWebSearch(prompt, 30000);
     
     if (response) {
       // 清理响应，移除可能的 JSON 包装
@@ -4239,7 +4333,7 @@ export const searchV2 = async (req: Request, res: Response) => {
       logger.info(`[SearchV2] Added tags from intent: ${JSON.stringify(parsedQuery.tags)}`);
     }
     if (intentResult.count && !parsedQuery.explicitCount) {
-      parsedQuery.count = Math.min(Math.max(intentResult.count, 1), 20);
+      parsedQuery.count = Math.min(Math.max(intentResult.count, 1), 15);
       parsedQuery.explicitCount = true;
     }
 
@@ -4248,7 +4342,7 @@ export const searchV2 = async (req: Request, res: Response) => {
     const defaultTarget = 5; // 固定为 5，不再追求 10 条
     const targetCount = Math.min(
       Math.max(parsedQuery.explicitCount ? parsedQuery.count : defaultTarget, CONFIG.DEFAULT_COUNT),
-      10, // 最多 10 条
+      15, // 最多 15 条
     );
 
     // 获取用户今日已收藏的地点（需要排除）
@@ -4984,7 +5078,7 @@ Return the response as plain Markdown text.`;
 
         try {
           // 使用联网搜索能力获取最新的地点信息和网站
-          const response = await generateTextWithWebSearch(fallbackPrompt, 60000);
+          const response = await generateTextWithWebSearch(fallbackPrompt, 30000);
           
           if (response) {
             textContent = response
@@ -5005,26 +5099,63 @@ Return the response as plain Markdown text.`;
       }
 
       // 从文本内容中提取地点名并匹配数据库（支持中英文）
+      // 这一步很重要：确保数据库中已有的地点能被匹配到并添加到 places 数组
+      let mentioned: MentionedPlaceLite[] = [];
       if (textContent) {
-        const mentioned = await extractMentionedPlacesFromText(
+        mentioned = await extractMentionedPlacesFromText(
           textContent,
           narrativeLanguageCode,
           parsedQuery,
         );
         if (mentioned.length > 0) {
           // Pass original query to filter matched places by category relevance
+          // text-only 模式不要求有图片（requireImage: false）
           matchedTextPlaces = await matchMentionedPlacesFromDB(
             mentioned,
             parsedQuery,
             narrativeLanguageCode,
             query, // Original query for category filtering
+            false, // requireImage: false - 允许匹配无图片的地点
           );
+          logger.info(`[SearchV2] Extracted ${mentioned.length} places from text, matched ${matchedTextPlaces.length} from DB`);
+        }
+      }
+      
+      // 🔧 对于未匹配到数据库的地点，创建基本的 PlaceResult 以便前端显示
+      const matchedNames = new Set(matchedTextPlaces.map(p => p.name.toLowerCase().trim()));
+      const unmatchedMentioned: PlaceResult[] = [];
+      for (const m of mentioned) {
+        const mNameLower = m.name.toLowerCase().trim();
+        if (!matchedNames.has(mNameLower)) {
+          // 创建基本的 PlaceResult，后续会通过地理编码获取坐标
+          const basePlace: PlaceResult = {
+            id: generateStablePlaceId(m.name, m.city || parsedQuery.city || '', 0, 0),
+            name: m.name,
+            summary: '', // 无 summary
+            coverImage: '',
+            images: [],
+            latitude: 0,
+            longitude: 0,
+            city: m.city || parsedQuery.city || '',
+            country: m.country || parsedQuery.country || '',
+            rating: null,
+            ratingCount: null,
+            tags: [],
+            isVerified: false,
+            source: 'ai', // 来自 AI 推荐
+            address: undefined,
+            phoneNumber: undefined,
+            website: undefined,
+            openingHours: undefined,
+          };
+          unmatchedMentioned.push(basePlace);
+          logger.info(`[SearchV2] Created unmatched place from text: "${m.name}" (will geocode)`);
         }
       }
       
       // 为文本中提到的地点获取评分（通过 AI 联网搜索）
-      // 合并 matchedTextPlaces 和 textOnlyPlaces，为缺少评分的地点查询评分
-      let allTextPlaces = [...matchedTextPlaces];
+      // 合并 matchedTextPlaces、unmatchedMentioned 和 textOnlyPlaces
+      let allTextPlaces = [...matchedTextPlaces, ...unmatchedMentioned];
       if (textOnlyPlaces.length > 0) {
         // 🚀 优化：跳过联网搜索，直接保存（节省 30-45 秒）
         logger.info(`[SearchV2] Persisting ${textOnlyPlaces.length} text-only places to database (fast mode)...`);

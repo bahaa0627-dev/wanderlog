@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
-import 'package:wanderlog/shared/models/trip_spot_model.dart' show TripSpotStatus;
+import 'package:wanderlog/shared/models/trip_spot_model.dart'
+    show TripSpotStatus;
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// 平铺展示组件 - 无分类时使用
-/// 
+///
 /// Requirements: 9.4, 9.5
 /// - 无分类时使用此组件
 /// - 最多显示 maxPlaces 个地点
@@ -38,10 +41,8 @@ class FlatPlaceList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 只显示有图片的地点，过滤掉没有图片的
-    final placesWithImage = places
-        .where((p) => p.hasValidCoverImage)
-        .take(maxPlaces)
-        .toList();
+    final placesWithImage =
+        places.where((p) => p.hasValidCoverImage).take(maxPlaces).toList();
 
     if (placesWithImage.isEmpty) {
       return const SizedBox.shrink();
@@ -62,8 +63,97 @@ class FlatPlaceList extends StatelessWidget {
   }
 }
 
+Future<void> _openExternalUrl(String url) async {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return;
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
+List<InlineSpan> _buildSummarySpans({
+  required String text,
+  required TextStyle baseStyle,
+  required TextStyle linkStyle,
+  String? website,
+}) {
+  final spans = <InlineSpan>[];
+  final pattern = RegExp(r'(https?:\/\/[^\s]+)|在线购买|在线购票|购票|购票链接|购票网站');
+  var currentIndex = 0;
+
+  for (final match in pattern.allMatches(text)) {
+    if (match.start > currentIndex) {
+      spans.add(TextSpan(
+        text: text.substring(currentIndex, match.start),
+        style: baseStyle,
+      ));
+    }
+
+    final matchedText = match.group(0) ?? '';
+    final urlMatch = match.group(1);
+    final targetUrl = urlMatch ??
+        (website?.trim().isNotEmpty == true ? website!.trim() : null);
+
+    if (targetUrl == null || targetUrl.isEmpty) {
+      spans.add(TextSpan(text: matchedText, style: baseStyle));
+    } else {
+      spans.add(TextSpan(
+        text: matchedText,
+        style: linkStyle,
+        recognizer: TapGestureRecognizer()
+          ..onTap = () async {
+            await _openExternalUrl(targetUrl);
+          },
+      ));
+    }
+
+    currentIndex = match.end;
+  }
+
+  if (currentIndex < text.length) {
+    spans.add(TextSpan(
+      text: text.substring(currentIndex),
+      style: baseStyle,
+    ));
+  }
+
+  return spans;
+}
+
+Widget _buildLinkedSummaryText({
+  required BuildContext context,
+  required String text,
+  String? website,
+  TextStyle? style,
+}) {
+  if (text.trim().isEmpty) return const SizedBox.shrink();
+
+  final baseStyle = style ??
+      AppTheme.bodySmall(context).copyWith(
+        color: AppTheme.darkGray,
+        height: 1.3,
+        fontSize: 13,
+      );
+  final linkStyle = baseStyle.copyWith(
+    color: AppTheme.accentBlue,
+    decoration: TextDecoration.underline,
+    fontWeight: FontWeight.w600,
+  );
+
+  return Text.rich(
+    TextSpan(
+      children: _buildSummarySpans(
+        text: text,
+        baseStyle: baseStyle,
+        linkStyle: linkStyle,
+        website: website,
+      ),
+    ),
+  );
+}
+
 /// 纯文字地点展示组件 - 用于没有图片的地点
-/// 
+///
 /// 格式：地点名加粗，下方展示 AI summary（约3行）
 class TextOnlyPlaceItem extends ConsumerStatefulWidget {
   const TextOnlyPlaceItem({
@@ -104,7 +194,8 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
   @override
   void didUpdateWidget(TextOnlyPlaceItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.place.id != widget.place.id || oldWidget.place.name != widget.place.name) {
+    if (oldWidget.place.id != widget.place.id ||
+        oldWidget.place.name != widget.place.name) {
       _syncWishlistStatus();
     }
   }
@@ -115,7 +206,8 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
     statusAsync.whenData((statusMap) {
       final spotId = widget.place.id ?? widget.place.name;
       final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
-      if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
+      if (mounted &&
+          (isInWishlist != _isInWishlist || destId != _destinationId)) {
         setState(() {
           _isInWishlist = isInWishlist;
           _destinationId = destId;
@@ -138,10 +230,10 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
     try {
       if (_isInWishlist && _destinationId != null) {
         await ref.read(tripRepositoryProvider).manageTripSpot(
-          tripId: _destinationId!,
-          spotId: widget.place.id ?? widget.place.name,
-          remove: true,
-        );
+              tripId: _destinationId!,
+              spotId: widget.place.id ?? widget.place.name,
+              remove: true,
+            );
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
         setState(() {
@@ -151,19 +243,20 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
         widget.onWishlistChanged?.call(false);
         CustomToast.showSuccess(context, 'Removed from wishlist');
       } else {
-        final cityName = widget.place.city?.isNotEmpty ?? false 
-            ? widget.place.city! 
-            : (widget.place.country?.isNotEmpty ?? false 
-                ? widget.place.country! 
+        final cityName = widget.place.city?.isNotEmpty ?? false
+            ? widget.place.city!
+            : (widget.place.country?.isNotEmpty ?? false
+                ? widget.place.country!
                 : 'Saved Places');
-        
+
         final destId = await ensureDestinationForCity(ref, cityName);
         if (destId == null) {
           CustomToast.showError(context, 'Failed to save - please try again');
           return;
         }
 
-        final effectiveTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+        final effectiveTags =
+            widget.place.displayTagsEn ?? widget.place.tags ?? [];
 
         await ref.read(tripRepositoryProvider).manageTripSpot(
           tripId: destId,
@@ -207,11 +300,13 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
   @override
   Widget build(BuildContext context) {
     // 监听收藏状态变化，自动更新 UI
-    ref.listen<AsyncValue<Map<String, String?>>>(wishlistStatusProvider, (previous, next) {
+    ref.listen<AsyncValue<Map<String, String?>>>(wishlistStatusProvider,
+        (previous, next) {
       next.whenData((statusMap) {
         final spotId = widget.place.id ?? widget.place.name;
         final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
-        if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
+        if (mounted &&
+            (isInWishlist != _isInWishlist || destId != _destinationId)) {
           setState(() {
             _isInWishlist = isInWishlist;
             _destinationId = destId;
@@ -220,10 +315,12 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
       });
     });
 
-    // 获取 summary 或 recommendationPhrase
-    final description = widget.place.summary.isNotEmpty
-      ? widget.place.summary
-      : (widget.place.recommendationPhrase ?? '');
+    // 获取 summary 或 recommendationPhrase，去掉"简介:"前缀
+    var description = widget.place.summary.isNotEmpty
+        ? widget.place.summary
+        : (widget.place.recommendationPhrase ?? '');
+    // 去掉"简介:"或"简介："前缀
+    description = description.replaceFirst(RegExp(r'^简介[：:]\\s*'), '');
     final displayDescription = _truncateDescription(description, 100);
 
     return GestureDetector(
@@ -255,34 +352,45 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
                   const SizedBox(height: 8),
                   // AI summary - 约3行
                   if (displayDescription.isNotEmpty)
-                    Text(
-                      displayDescription,
+                    _buildLinkedSummaryText(
+                      context: context,
+                      text: displayDescription,
+                      website: widget.place.website,
                       style: AppTheme.bodyMedium(context).copyWith(
                         color: AppTheme.darkGray,
                         height: 1.4,
                       ),
                     ),
                   // 标签
-                  if ((widget.place.displayTagsEn ?? widget.place.tags)?.isNotEmpty ?? false) ...[
+                  if ((widget.place.displayTagsEn ?? widget.place.tags)
+                          ?.isNotEmpty ??
+                      false) ...[
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 4,
                       runSpacing: 4,
-                      children: (widget.place.displayTagsEn ?? widget.place.tags ?? []).take(2).map((tag) => Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryYellow.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            tag,
-                            style: AppTheme.bodySmall(context).copyWith(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.black,
-                            ),
-                          ),
-                        )).toList(),
+                      children: (widget.place.displayTagsEn ??
+                              widget.place.tags ??
+                              [])
+                          .take(2)
+                          .map((tag) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppTheme.primaryYellow.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  tag,
+                                  style: AppTheme.bodySmall(context).copyWith(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.black,
+                                  ),
+                                ),
+                              ))
+                          .toList(),
                     ),
                   ],
                 ],
@@ -305,7 +413,8 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
                         padding: EdgeInsets.all(6),
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(AppTheme.black),
                         ),
                       )
                     : Icon(
@@ -357,7 +466,8 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
   @override
   void didUpdateWidget(FlatPlaceCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.place.id != widget.place.id || oldWidget.place.name != widget.place.name) {
+    if (oldWidget.place.id != widget.place.id ||
+        oldWidget.place.name != widget.place.name) {
       _syncWishlistStatus();
     }
   }
@@ -368,7 +478,8 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
     statusAsync.whenData((statusMap) {
       final spotId = widget.place.id ?? widget.place.name;
       final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
-      if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
+      if (mounted &&
+          (isInWishlist != _isInWishlist || destId != _destinationId)) {
         setState(() {
           _isInWishlist = isInWishlist;
           _destinationId = destId;
@@ -380,43 +491,44 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
   Widget _buildCoverImage() {
     // AI 地点的占位符 - 使用渐变背景和图标
     Widget buildAIPlaceholder() => Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.primaryYellow.withOpacity(0.3),
-              AppTheme.accentBlue.withOpacity(0.2),
-            ],
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.primaryYellow.withOpacity(0.3),
+                AppTheme.accentBlue.withOpacity(0.2),
+              ],
+            ),
           ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.auto_awesome,
-                size: 40,
-                color: AppTheme.primaryYellow.withOpacity(0.8),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'AI Recommended',
-                style: TextStyle(
-                  color: AppTheme.mediumGray,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  size: 40,
+                  color: AppTheme.primaryYellow.withOpacity(0.8),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  'AI Recommended',
+                  style: TextStyle(
+                    color: AppTheme.mediumGray,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
+        );
 
     const defaultPlaceholder = ColoredBox(
       color: AppTheme.lightGray,
       child: Center(
-        child: Icon(Icons.image_not_supported, size: 48, color: AppTheme.mediumGray),
+        child: Icon(Icons.image_not_supported,
+            size: 48, color: AppTheme.mediumGray),
       ),
     );
 
@@ -439,20 +551,23 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
           ),
         );
       },
-      errorBuilder: (_, __, ___) => widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder,
+      errorBuilder: (_, __, ___) =>
+          widget.place.isAIOnly ? buildAIPlaceholder() : defaultPlaceholder,
     );
   }
 
   Widget _buildRatingOrPhrase(BuildContext context) {
-    // AI-only 地点显示推荐短语
-    if (widget.place.isAIOnly || !widget.place.hasRating) {
-      final phrase = widget.place.recommendationPhrase?.isNotEmpty ?? false 
+    // 只有真正从 AI 来源的地点才显示 "AI Recommended"
+    // 数据库缓存的地点即使没有评分也不应该显示 AI 标签
+    if (widget.place.isAIOnly) {
+      final phrase = widget.place.recommendationPhrase?.isNotEmpty ?? false
           ? widget.place.recommendationPhrase!
           : _getDefaultPhrase();
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.auto_awesome, size: 14, color: AppTheme.primaryYellow),
+          const Icon(Icons.auto_awesome,
+              size: 14, color: AppTheme.primaryYellow),
           const SizedBox(width: 4),
           Text(
             phrase,
@@ -466,7 +581,10 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
       );
     }
 
-    // 有评分的地点显示评分
+    // 有评分的地点显示评分，没有评分则返回空
+    if (!widget.place.hasRating) {
+      return const SizedBox.shrink();
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -497,20 +615,30 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
   String _getDefaultPhrase() {
     final tags = widget.place.tags ?? [];
     final name = widget.place.name.toLowerCase();
-    
-    if (tags.any((t) => t.toLowerCase().contains('museum') || t.toLowerCase().contains('gallery'))) {
+
+    if (tags.any((t) =>
+        t.toLowerCase().contains('museum') ||
+        t.toLowerCase().contains('gallery'))) {
       return 'Cultural treasure';
     }
-    if (tags.any((t) => t.toLowerCase().contains('temple') || t.toLowerCase().contains('shrine'))) {
+    if (tags.any((t) =>
+        t.toLowerCase().contains('temple') ||
+        t.toLowerCase().contains('shrine'))) {
       return 'Sacred landmark';
     }
-    if (tags.any((t) => t.toLowerCase().contains('park') || t.toLowerCase().contains('garden'))) {
+    if (tags.any((t) =>
+        t.toLowerCase().contains('park') ||
+        t.toLowerCase().contains('garden'))) {
       return 'Scenic retreat';
     }
-    if (tags.any((t) => t.toLowerCase().contains('cafe') || t.toLowerCase().contains('coffee'))) {
+    if (tags.any((t) =>
+        t.toLowerCase().contains('cafe') ||
+        t.toLowerCase().contains('coffee'))) {
       return 'Local favorite';
     }
-    if (tags.any((t) => t.toLowerCase().contains('restaurant') || t.toLowerCase().contains('food'))) {
+    if (tags.any((t) =>
+        t.toLowerCase().contains('restaurant') ||
+        t.toLowerCase().contains('food'))) {
       return 'Culinary gem';
     }
     if (name.contains('castle') || name.contains('palace')) {
@@ -519,8 +647,14 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
     if (name.contains('tower') || name.contains('view')) {
       return 'Iconic viewpoint';
     }
-    
-    final phrases = ['Must-visit', 'Hidden gem', 'Local pick', 'Worth exploring', 'Traveler favorite'];
+
+    final phrases = [
+      'Must-visit',
+      'Hidden gem',
+      'Local pick',
+      'Worth exploring',
+      'Traveler favorite'
+    ];
     return phrases[widget.place.name.length % phrases.length];
   }
 
@@ -532,21 +666,24 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
     return Wrap(
       spacing: 4,
       runSpacing: 4,
-      children: displayTags.take(2).map((tag) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryYellow,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            tag,
-            style: AppTheme.bodySmall(context).copyWith(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.black,
-            ),
-          ),
-        )).toList(),
+      children: displayTags
+          .take(2)
+          .map((tag) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryYellow,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  tag,
+                  style: AppTheme.bodySmall(context).copyWith(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.black,
+                  ),
+                ),
+              ))
+          .toList(),
     );
   }
 
@@ -566,10 +703,10 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
       if (_isInWishlist && _destinationId != null) {
         // 已收藏，移除
         await ref.read(tripRepositoryProvider).manageTripSpot(
-          tripId: _destinationId!,
-          spotId: widget.place.id ?? widget.place.name,
-          remove: true,
-        );
+              tripId: _destinationId!,
+              spotId: widget.place.id ?? widget.place.name,
+              remove: true,
+            );
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
         setState(() {
@@ -581,12 +718,12 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
       } else {
         // 未收藏，添加
         // 使用 city，如果为空则使用 country，如果都为空则使用 "Saved Places"
-        final cityName = widget.place.city?.isNotEmpty ?? false 
-            ? widget.place.city! 
-            : (widget.place.country?.isNotEmpty ?? false 
-                ? widget.place.country! 
+        final cityName = widget.place.city?.isNotEmpty ?? false
+            ? widget.place.city!
+            : (widget.place.country?.isNotEmpty ?? false
+                ? widget.place.country!
                 : 'Saved Places');
-        
+
         final destId = await ensureDestinationForCity(ref, cityName);
         if (destId == null) {
           CustomToast.showError(context, 'Failed to save - please try again');
@@ -594,7 +731,8 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
         }
 
         // 使用 displayTagsEn 作为 tags，如果没有则回退到原始 tags
-        final effectiveTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+        final effectiveTags =
+            widget.place.displayTagsEn ?? widget.place.tags ?? [];
 
         await ref.read(tripRepositoryProvider).manageTripSpot(
           tripId: destId,
@@ -638,11 +776,13 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
   @override
   Widget build(BuildContext context) {
     // 监听收藏状态变化，自动更新 UI
-    ref.listen<AsyncValue<Map<String, String?>>>(wishlistStatusProvider, (previous, next) {
+    ref.listen<AsyncValue<Map<String, String?>>>(wishlistStatusProvider,
+        (previous, next) {
       next.whenData((statusMap) {
         final spotId = widget.place.id ?? widget.place.name;
         final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
-        if (mounted && (isInWishlist != _isInWishlist || destId != _destinationId)) {
+        if (mounted &&
+            (isInWishlist != _isInWishlist || destId != _destinationId)) {
           setState(() {
             _isInWishlist = isInWishlist;
             _destinationId = destId;
@@ -662,7 +802,8 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+                border: Border.all(
+                    color: AppTheme.black, width: AppTheme.borderMedium),
                 boxShadow: AppTheme.cardShadow,
               ),
               child: ClipRRect(
@@ -699,20 +840,26 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: _isInWishlist ? AppTheme.primaryYellow : Colors.white,
+                            color: _isInWishlist
+                                ? AppTheme.primaryYellow
+                                : Colors.white,
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.black, width: 1.5),
+                            border:
+                                Border.all(color: AppTheme.black, width: 1.5),
                           ),
                           child: _isSaving
                               ? const Padding(
                                   padding: EdgeInsets.all(8),
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.black),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppTheme.black),
                                   ),
                                 )
                               : Icon(
-                                  _isInWishlist ? Icons.favorite : Icons.favorite_border,
+                                  _isInWishlist
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
                                   size: 18,
                                   color: AppTheme.black,
                                 ),
@@ -757,13 +904,10 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
         const SizedBox(height: 8),
         // Summary 在卡片下方，完整展示不截断
         if (widget.place.summary.isNotEmpty)
-          Text(
-            widget.place.summary,
-            style: AppTheme.bodySmall(context).copyWith(
-              color: AppTheme.darkGray,
-              height: 1.3,
-              fontSize: 13,
-            ),
+          _buildLinkedSummaryText(
+            context: context,
+            text: widget.place.summary,
+            website: widget.place.website,
           ),
       ],
     );

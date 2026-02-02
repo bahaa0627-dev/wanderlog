@@ -97,8 +97,8 @@ export class KouriProvider implements AIProvider {
    */
   private loadConfig(): void {
     const apiKey = process.env.KOURI_API_KEY;
-    const baseUrl = process.env.KOURI_BASE_URL;
-    const chatModel = process.env.KOURI_CHAT_MODEL || 'gpt-4.1-mini';
+    let baseUrl = process.env.KOURI_BASE_URL;
+    const chatModel = process.env.KOURI_CHAT_MODEL || 'gpt-4o-mini';
     const chatModelFallback = process.env.KOURI_CHAT_MODEL_FALLBACK || 'gpt-4o-mini';
     const visionModel = process.env.KOURI_VISION_MODEL || 'gpt-4o-mini';
 
@@ -115,9 +115,16 @@ export class KouriProvider implements AIProvider {
       return;
     }
 
+    // Normalize baseUrl: remove trailing slash and /responses suffix if present
+    // We'll add /responses or /chat/completions as needed in the build*Url methods
+    baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+    if (baseUrl.endsWith('/responses')) {
+      baseUrl = baseUrl.replace(/\/responses$/, '');
+    }
+
     this.config = {
       apiKey,
-      baseUrl: baseUrl.replace(/\/$/, ''), // Remove trailing slash
+      baseUrl,
       chatModel,
       chatModelFallback: chatModelFallback && chatModelFallback !== chatModel ? chatModelFallback : undefined,
       visionModel,
@@ -552,6 +559,132 @@ If no direct image URL found, return:
     } catch (error) {
       console.error('[Kouri] Image search error:', error instanceof Error ? error.message : error);
       return null;
+    }
+  }
+
+  /**
+   * Batch search for place images using a SINGLE API call
+   * Much more efficient than calling searchPlaceImage multiple times
+   * @param places Array of {name, city} objects (max 10)
+   * @param timeoutMs Optional timeout in milliseconds (default 15000)
+   * @returns Map of placeName -> imageUrl (or null if not found)
+   */
+  async searchPlaceImagesBatch(
+    places: Array<{name: string; city: string}>,
+    timeoutMs: number = 15000
+  ): Promise<Map<string, string | null>> {
+    const results = new Map<string, string | null>();
+    
+    if (!this.isAvailable() || !this.config || places.length === 0) {
+      console.log('[Kouri] Not available for batch image search or no places');
+      return results;
+    }
+
+    // Limit to 10 places max
+    const placesToSearch = places.slice(0, 10);
+    const placeList = placesToSearch.map((p, i) => `${i + 1}. ${p.name} (${p.city})`).join('\n');
+
+    const url = this.buildResponsesApiUrl();
+    const prompt = `Search the web and find direct image URLs for these places:
+
+${placeList}
+
+Requirements:
+- Find a direct link to an image file for each place (URL must contain .jpg, .jpeg, .png, .webp, or .gif)
+- Prefer images from Wikipedia, Wikimedia Commons, or official tourism websites
+- Do NOT use stock photo sites like Getty, Alamy, Shutterstock
+
+Return ONLY this JSON array (no other text):
+[
+  {"name": "Place Name 1", "imageUrl": "https://example.com/image1.jpg"},
+  {"name": "Place Name 2", "imageUrl": null}
+]
+
+If no image found for a place, set imageUrl to null.`;
+
+    const requestBody = {
+      model: this.config.chatModel,
+      input: prompt,
+      tools: [{ type: 'web_search_preview' }],
+      tool_choice: 'auto',
+    };
+
+    try {
+      console.log(`[Kouri] Batch searching images for ${placesToSearch.length} places (timeout: ${timeoutMs}ms)`);
+      
+      const response = await axios.post<KouriResponsesResponse>(url, requestBody, {
+        headers: this.getHeaders(),
+        timeout: timeoutMs,
+      });
+
+      // Extract text content
+      const output = response.data.output;
+      let content = '';
+      
+      for (const item of output) {
+        if (item.type === 'message' && item.content) {
+          for (const contentItem of item.content) {
+            if (contentItem.type === 'output_text' && contentItem.text) {
+              content = contentItem.text;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!content) {
+        console.log('[Kouri] No text content in batch image search response');
+        return results;
+      }
+
+      console.log('[Kouri] Batch image search response:', content.substring(0, 300));
+
+      // Remove markdown code blocks
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+      // Extract JSON array
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        content = jsonMatch[0];
+      }
+
+      // Parse response
+      try {
+        const parsed = JSON.parse(content) as Array<{name: string; imageUrl: string | null}>;
+        
+        if (Array.isArray(parsed)) {
+          const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+          
+          for (const item of parsed) {
+            if (item.name && item.imageUrl) {
+              const urlLower = item.imageUrl.toLowerCase();
+              const isDirectImage = imageExtensions.some(ext => urlLower.includes(ext));
+              
+              if (isDirectImage) {
+                results.set(item.name, item.imageUrl);
+                console.log(`[Kouri] Batch: "${item.name}" -> found image`);
+              } else {
+                results.set(item.name, null);
+                console.log(`[Kouri] Batch: "${item.name}" -> non-direct image URL skipped`);
+              }
+            } else if (item.name) {
+              results.set(item.name, null);
+            }
+          }
+        }
+      } catch (parseError) {
+        console.log('[Kouri] Failed to parse batch image search response');
+      }
+
+      console.log(`[Kouri] Batch image search completed: ${results.size}/${placesToSearch.length} processed`);
+      return results;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+        console.log('[Kouri] Batch image search timed out');
+      } else {
+        console.error('[Kouri] Batch image search error:', error instanceof Error ? error.message : error);
+      }
+      return results;
     }
   }
 

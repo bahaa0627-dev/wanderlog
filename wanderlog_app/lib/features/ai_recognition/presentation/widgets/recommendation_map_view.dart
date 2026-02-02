@@ -9,8 +9,10 @@ import 'package:flutter/foundation.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/category_emoji.dart';
 import 'package:wanderlog/features/ai_recognition/data/models/search_v2_result.dart';
-import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart' as map_page show Spot, SpotSource;
+import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart'
+    as map_page show Spot, SpotSource;
 import 'package:wanderlog/features/map/presentation/widgets/mapbox_spot_map.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
@@ -134,13 +136,22 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
 
   /// 计算地图中心点和缩放级别
   (Position, double) _calculateCameraPosition() {
-    if (widget.places.isEmpty) {
+    // 过滤掉无效坐标的地点（0, 0 是无效坐标）
+    final validPlaces = widget.places
+        .where((p) =>
+            p.latitude != 0 &&
+            p.longitude != 0 &&
+            p.latitude.abs() > 0.0001 &&
+            p.longitude.abs() > 0.0001)
+        .toList();
+
+    if (validPlaces.isEmpty) {
       // 默认位置（北京）
       return (Position(116.4074, 39.9042), 10.0);
     }
 
-    if (widget.places.length == 1) {
-      final place = widget.places.first;
+    if (validPlaces.length == 1) {
+      final place = validPlaces.first;
       return (Position(place.longitude, place.latitude), 14.0);
     }
 
@@ -150,7 +161,7 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
     double minLng = double.infinity;
     double maxLng = double.negativeInfinity;
 
-    for (final place in widget.places) {
+    for (final place in validPlaces) {
       if (place.latitude < minLat) minLat = place.latitude;
       if (place.latitude > maxLat) maxLat = place.latitude;
       if (place.longitude < minLng) minLng = place.longitude;
@@ -466,7 +477,8 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
                 }
               },
               gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                Factory<OneSequenceGestureRecognizer>(
+                    () => EagerGestureRecognizer()),
               },
             ),
             // 地图标题
@@ -511,8 +523,11 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
                     shape: BoxShape.circle,
                     border: Border.all(color: AppTheme.black, width: 1),
                   ),
-                  child: const Icon(Icons.fullscreen,
-                      size: 20, color: AppTheme.black,),
+                  child: const Icon(
+                    Icons.fullscreen,
+                    size: 20,
+                    color: AppTheme.black,
+                  ),
                 ),
               ),
             ),
@@ -572,8 +587,9 @@ class _FullscreenRecommendationMapState
     _selectedPlace = widget.selectedPlace;
     // 如果有初始选中的地点，找到它的索引
     if (_selectedPlace != null) {
-      final index = widget.places.indexWhere((p) =>
-          (p.id ?? p.name) == (_selectedPlace!.id ?? _selectedPlace!.name),);
+      final index = widget.places.indexWhere(
+        (p) => (p.id ?? p.name) == (_selectedPlace!.id ?? _selectedPlace!.name),
+      );
       if (index >= 0) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_cardPageController.hasClients) {
@@ -602,12 +618,21 @@ class _FullscreenRecommendationMapState
 
   /// 计算地图中心点和缩放级别
   (Position, double) _calculateCameraPosition() {
-    if (widget.places.isEmpty) {
+    // 过滤掉无效坐标的地点（0, 0 是无效坐标）
+    final validPlaces = widget.places
+        .where((p) =>
+            p.latitude != 0 &&
+            p.longitude != 0 &&
+            p.latitude.abs() > 0.0001 &&
+            p.longitude.abs() > 0.0001)
+        .toList();
+
+    if (validPlaces.isEmpty) {
       return (Position(116.4074, 39.9042), 10.0);
     }
 
-    if (widget.places.length == 1) {
-      final place = widget.places.first;
+    if (validPlaces.length == 1) {
+      final place = validPlaces.first;
       return (Position(place.longitude, place.latitude), 14.0);
     }
 
@@ -616,7 +641,7 @@ class _FullscreenRecommendationMapState
     double minLng = double.infinity;
     double maxLng = double.negativeInfinity;
 
-    for (final place in widget.places) {
+    for (final place in validPlaces) {
       if (place.latitude < minLat) minLat = place.latitude;
       if (place.latitude > maxLat) maxLat = place.latitude;
       if (place.longitude < minLng) minLng = place.longitude;
@@ -913,9 +938,14 @@ class _FullscreenRecommendationMapState
       }
     }
 
-    // 卡片尺寸 - 与 home map 页一致 (3:4 比例)
+    // 检查是否所有地点都没有封面图
+    final allWithoutCoverImage = widget.places.every(
+      (p) => p.coverImage.isEmpty,
+    );
+
+    // 卡片尺寸 - 紧凑模式时高度减半
     const cardWidth = 210.0;
-    const cardHeight = 280.0;
+    final cardHeight = allWithoutCoverImage ? 140.0 : 280.0;
 
     return WillPopScope(
       onWillPop: () async {
@@ -927,109 +957,116 @@ class _FullscreenRecommendationMapState
         body: Stack(
           clipBehavior: Clip.none,
           children: [
-          // 全屏地图
-          MapboxSpotMap(
-            key: _mapKey,
-            spots: spots,
-            initialCenter: center,
-            initialZoom: zoom,
-            selectedSpot: selectedSpot,
-            onSpotTap: (spot) {
-              final place = _findPlaceBySpot(widget.places, spot);
-              if (place != null) {
-                _handleMarkerTap(place);
-              }
-            },
-            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
-            },
-          ),
-          // 顶部返回按钮
-          Positioned(
-            top: topPadding + 12,
-            left: 16,
-            child: GestureDetector(
-              onTap: _handleExit,
+            // 全屏地图
+            MapboxSpotMap(
+              key: _mapKey,
+              spots: spots,
+              initialCenter: center,
+              initialZoom: zoom,
+              selectedSpot: selectedSpot,
+              onSpotTap: (spot) {
+                final place = _findPlaceBySpot(widget.places, spot);
+                if (place != null) {
+                  _handleMarkerTap(place);
+                }
+              },
+              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                Factory<OneSequenceGestureRecognizer>(
+                    () => EagerGestureRecognizer()),
+              },
+            ),
+            // 顶部返回按钮
+            Positioned(
+              top: topPadding + 12,
+              left: 16,
+              child: GestureDetector(
+                onTap: _handleExit,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.black, width: 1.5),
+                    boxShadow: AppTheme.cardShadow,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new,
+                    size: 18,
+                    color: AppTheme.black,
+                  ),
+                ),
+              ),
+            ),
+            // 地点数量标签
+            Positioned(
+              top: topPadding + 12,
+              right: 16,
               child: Container(
-                width: 40,
-                height: 40,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTheme.black, width: 1.5),
                   boxShadow: AppTheme.cardShadow,
                 ),
-                child: const Icon(Icons.arrow_back_ios_new,
-                    size: 18, color: AppTheme.black,),
-              ),
-            ),
-          ),
-          // 地点数量标签
-          Positioned(
-            top: topPadding + 12,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.black, width: 1.5),
-                boxShadow: AppTheme.cardShadow,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.place, size: 16, color: AppTheme.black),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${widget.places.length} places',
-                    style: AppTheme.bodySmall(context).copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.black,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // 底部横滑卡片列表 - 和其他地图页保持一致
-          if (widget.places.isNotEmpty && !_isExiting)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: cardHeight + 16,
-              child: SafeArea(
-                top: false,
-                left: false,
-                right: false,
-                child: PageView.builder(
-                  controller: _cardPageController,
-                  clipBehavior: Clip.none,
-                  onPageChanged: _onCardPageChanged,
-                  itemCount: widget.places.length,
-                  itemBuilder: (context, index) {
-                    final place = widget.places[index];
-                    final isSelected = (place.id ?? place.name) ==
-                        (_selectedPlace?.id ?? _selectedPlace?.name);
-                    return AnimatedScale(
-                      scale: isSelected ? 1.0 : 0.92,
-                      duration: const Duration(milliseconds: 250),
-                      child: Center(
-                        child: SizedBox(
-                          width: cardWidth,
-                          height: cardHeight,
-                          child: _BottomPlaceCard(
-                            place: place,
-                            onTap: () => widget.onPlaceTap?.call(place),
-                          ),
-                        ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.place, size: 16, color: AppTheme.black),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${widget.places.length} places',
+                      style: AppTheme.bodySmall(context).copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.black,
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
               ),
             ),
+            // 底部横滑卡片列表 - 和其他地图页保持一致
+            if (widget.places.isNotEmpty && !_isExiting)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: cardHeight + 16,
+                child: SafeArea(
+                  top: false,
+                  left: false,
+                  right: false,
+                  child: PageView.builder(
+                    controller: _cardPageController,
+                    clipBehavior: Clip.none,
+                    onPageChanged: _onCardPageChanged,
+                    itemCount: widget.places.length,
+                    itemBuilder: (context, index) {
+                      final place = widget.places[index];
+                      final isSelected = (place.id ?? place.name) ==
+                          (_selectedPlace?.id ?? _selectedPlace?.name);
+                      return AnimatedScale(
+                        scale: isSelected ? 1.0 : 0.92,
+                        duration: const Duration(milliseconds: 250),
+                        child: Center(
+                          child: SizedBox(
+                            width: cardWidth,
+                            height: cardHeight,
+                            child: _BottomPlaceCard(
+                              place: place,
+                              onTap: () => widget.onPlaceTap?.call(place),
+                              index: index,
+                              isCompact: allWithoutCoverImage,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -1038,14 +1075,19 @@ class _FullscreenRecommendationMapState
 }
 
 /// 底部地点卡片组件 - 全图+渐变覆盖样式（和其他地图页保持一致）
+/// 支持紧凑模式（无封面图时）
 class _BottomPlaceCard extends StatefulWidget {
   const _BottomPlaceCard({
     required this.place,
     required this.onTap,
+    this.index,
+    this.isCompact = false,
   });
 
   final PlaceResult place;
   final VoidCallback onTap;
+  final int? index;
+  final bool isCompact;
 
   @override
   State<_BottomPlaceCard> createState() => _BottomPlaceCardState();
@@ -1127,8 +1169,118 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
     );
   }
 
+  /// 获取分类 emoji
+  String _getCategoryEmoji() {
+    final tags = widget.place.tags;
+    if (tags != null && tags.isNotEmpty) {
+      return getCategoryEmoji(tags.first);
+    }
+    return '📍';
+  }
+
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) {
+    // 紧凑模式：无封面图时使用
+    if (widget.isCompact) {
+      return _buildCompactCard(context);
+    }
+    return _buildFullCard(context);
+  }
+
+  /// 紧凑卡片（无封面图时）
+  Widget _buildCompactCard(BuildContext context) {
+    final emoji = _getCategoryEmoji();
+    final indexText = widget.index != null ? 'No.${widget.index! + 1}' : '';
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border:
+              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 分类 emoji + 编号
+              Row(
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 20)),
+                  if (indexText.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      indexText,
+                      style: AppTheme.bodyMedium(context).copyWith(
+                        color: AppTheme.black.withOpacity(0.7),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 6),
+              // 名称
+              Flexible(
+                child: Text(
+                  widget.place.name,
+                  style: AppTheme.headlineMedium(context).copyWith(
+                    color: AppTheme.black,
+                    fontWeight: FontWeight.bold,
+                    height: 1.2,
+                    fontSize: 18,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 6),
+              // 评分
+              if (widget.place.hasRating)
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.star,
+                      size: 16,
+                      color: AppTheme.primaryYellow,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      widget.place.rating!.toStringAsFixed(1),
+                      style: AppTheme.bodyMedium(context).copyWith(
+                        color: AppTheme.black,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (widget.place.ratingCount != null) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        formatRatingCount(widget.place.ratingCount),
+                        style: AppTheme.bodySmall(context).copyWith(
+                          color: AppTheme.black.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 完整卡片（有封面图时）
+  Widget _buildFullCard(BuildContext context) => GestureDetector(
         onTap: widget.onTap,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 6),
@@ -1193,8 +1345,11 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                         if (widget.place.hasRating)
                           Row(
                             children: [
-                              const Icon(Icons.star,
-                                  size: 14, color: AppTheme.primaryYellow,),
+                              const Icon(
+                                Icons.star,
+                                size: 14,
+                                color: AppTheme.primaryYellow,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 widget.place.rating!.toStringAsFixed(1),
@@ -1218,8 +1373,11 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                         else if (widget.place.recommendationPhrase != null)
                           Row(
                             children: [
-                              const Icon(Icons.auto_awesome,
-                                  size: 14, color: AppTheme.primaryYellow,),
+                              const Icon(
+                                Icons.auto_awesome,
+                                size: 14,
+                                color: AppTheme.primaryYellow,
+                              ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
@@ -1234,7 +1392,6 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                               ),
                             ],
                           ),
-
                       ],
                     ),
                   ),

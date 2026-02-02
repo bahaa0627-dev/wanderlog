@@ -1,4 +1,4 @@
-import { Client, AddressType, GeocodingAddressComponentType } from '@googlemaps/google-maps-services-js';
+import { Client, AddressType, GeocodingAddressComponentType, PlaceInputType } from '@googlemaps/google-maps-services-js';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { createId } from '@paralleldrive/cuid2';
 import prisma from '../config/database';
@@ -108,136 +108,16 @@ class GoogleMapsService {
 
   /**
    * 从Google Place ID获取详细信息（用于详情页）
-   * 只获取详情页需要的字段：地址、营业时间、额外图片、网站、电话
-   * 不获取：price_level（省钱）
+   * ⚠️ 已禁用：全面禁止使用 Google Places API，改用 Kouri/OpenRouter 联网搜索
    */
   async getPlaceDetails(placeId: string): Promise<PlaceData | null> {
-    try {
-      console.log(`🔍 Fetching details for place ID: ${placeId}`);
-      console.log(`🔑 Using API key: ${this.apiKey.substring(0, 20)}...`);
-      
-      const response = await getClient().placeDetails({
-        params: {
-          place_id: placeId,
-          key: this.apiKey,
-          fields: [
-            'place_id',
-            'name',
-            'formatted_address',
-            'address_components',
-            'geometry',
-            'rating',
-            'user_ratings_total',
-            // 'price_level', // 移除，省钱
-            'types',
-            'opening_hours',
-            'utc_offset',  // 用于计算地点当地时间
-            'website',
-            'formatted_phone_number',
-            'photos',
-            'editorial_summary',
-            // 'reviews' // 移除，省钱
-          ]
-        }
-      });
-
-      console.log(`✅ API Response Status: ${response.data.status}`);
-
-      if (response.data.status !== 'OK' || !response.data.result) {
-        console.error('❌ Place details error:', response.data.status);
-        if (response.data.error_message) {
-          console.error('Error message:', response.data.error_message);
-        }
-        return null;
-      }
-
-      const place = response.data.result;
-      
-      // 提取城市和国家
-      const addressComponents = place.address_components || [];
-      let city = '';
-      let country = '';
-      
-      for (const component of addressComponents) {
-        // 尝试多个可能的城市类型
-        if (component.types.includes('locality' as AddressType)) {
-          city = component.long_name;
-        } else if (!city && component.types.includes('administrative_area_level_2' as GeocodingAddressComponentType)) {
-          city = component.long_name;
-        } else if (!city && component.types.includes('administrative_area_level_1' as GeocodingAddressComponentType)) {
-          city = component.long_name;
-        }
-        
-        if (component.types.includes('country' as AddressType)) {
-          country = component.long_name;
-        }
-      }
-
-      // 提取分类（使用第一个有意义的type）
-      const category = this.extractCategory(place.types || []);
-
-      // 提取标签
-      const tags = this.extractTags(place);
-
-      // 获取封面图和其他图片
-      const { coverImage, images } = await this.extractImages(place.photos || []);
-
-      // 保存完整的营业时间数据，包括 utc_offset_minutes 用于时区计算
-      // 格式: { weekday_text: [...], periods: [...], utc_offset_minutes: 540, open_now: true }
-      let openingHoursData: any = undefined;
-      if (place.opening_hours) {
-        openingHoursData = {
-          weekday_text: place.opening_hours.weekday_text,
-          periods: place.opening_hours.periods,
-          utc_offset_minutes: (place as any).utc_offset_minutes ?? (place as any).utc_offset,
-          open_now: place.opening_hours.open_now,
-        };
-        // 移除 undefined 字段
-        Object.keys(openingHoursData).forEach(key => {
-          if (openingHoursData[key] === undefined) {
-            delete openingHoursData[key];
-          }
-        });
-      }
-
-      return {
-        googlePlaceId: place.place_id || placeId,
-        name: place.name || '',
-        city: normalizeCity(city) || 'Unknown',
-        country: country || 'Unknown',
-        latitude: place.geometry?.location?.lat || 0,
-        longitude: place.geometry?.location?.lng || 0,
-        address: place.formatted_address,
-        description: place.editorial_summary?.overview,
-        openingHours: openingHoursData
-          ? JSON.stringify(openingHoursData)
-          : undefined,
-        rating: place.rating,
-        ratingCount: place.user_ratings_total,
-        category,
-        tags: tags ? JSON.stringify(tags) : undefined,
-        coverImage,
-        images: images ? JSON.stringify(images) : undefined,
-        // priceLevel: 移除，省钱
-        website: place.website,
-        phoneNumber: place.formatted_phone_number,
-        // aiSummary: 移除，不再基于 reviews 生成
-      };
-    } catch (error: any) {
-      console.error('❌ Error fetching place details:', error.message);
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
-      }
-      if (error.code) {
-        console.error('Error code:', error.code);
-      }
-      return null;
-    }
+    console.warn(`⚠️ [GoogleMapsService] getPlaceDetails 已禁用，请使用 AI 联网搜索代替. PlaceId: "${placeId}"`);
+    return null;
   }
 
   /**
    * 搜索附近的地点
+   * ⚠️ 已禁用：全面禁止使用 Google Places API，改用 Kouri/OpenRouter 联网搜索
    */
   async searchNearby(
     latitude: number,
@@ -245,63 +125,17 @@ class GoogleMapsService {
     radius: number = 5000,
     type?: string
   ) {
-    try {
-      const response = await getClient().placesNearby({
-        params: {
-          location: { lat: latitude, lng: longitude },
-          radius,
-          type,
-          key: this.apiKey
-        }
-      });
-
-      if (response.data.status !== 'OK') {
-        console.error('Nearby search error:', response.data.status);
-        return [];
-      }
-
-      return response.data.results || [];
-    } catch (error) {
-      console.error('Error searching nearby places:', error);
-      return [];
-    }
+    console.warn(`⚠️ [GoogleMapsService] searchNearby 已禁用，请使用 AI 联网搜索代替.`);
+    return [];
   }
 
   /**
    * 文本搜索地点
+   * ⚠️ 已禁用：全面禁止使用 Google Places API，改用 Kouri/OpenRouter 联网搜索
    */
   async textSearch(query: string, location?: { lat: number; lng: number }) {
-    try {
-      console.log(`🔍 Text search: "${query}"`);
-      
-      // 构建参数，只有当 location 有效时才包含它
-      const params: any = {
-        query,
-        key: this.apiKey
-      };
-      
-      if (location && typeof location.lat === 'number' && typeof location.lng === 'number') {
-        params.location = location;
-      }
-      
-      const response = await getClient().textSearch({ params });
-
-      console.log(`📍 Text search status: ${response.data.status}, results: ${response.data.results?.length || 0}`);
-
-      // ZERO_RESULTS 也是有效的响应，只是没有找到结果
-      if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
-        console.error('Text search error:', response.data.status, response.data.error_message);
-        return [];
-      }
-
-      return response.data.results || [];
-    } catch (error: any) {
-      console.error('Error in text search:', error.message);
-      if (error.response?.data) {
-        console.error('Response data:', error.response.data);
-      }
-      return [];
-    }
+    console.warn(`⚠️ [GoogleMapsService] textSearch 已禁用，请使用 AI 联网搜索代替. Query: "${query}"`);
+    return [];
   }
 
   /**
@@ -389,50 +223,6 @@ class GoogleMapsService {
   }
 
   /**
-   * 生成AI总结（基于评论）
-   */
-  private generateAISummary(reviews: any[]): string | undefined {
-    if (!reviews || reviews.length === 0) {
-      return undefined;
-    }
-
-    // 获取最高评分的评论（最多10条）
-    const topReviews = reviews
-      .filter(r => r.rating >= 4)
-      .slice(0, 10);
-
-    if (topReviews.length === 0) {
-      return undefined;
-    }
-
-    // 简单的关键词提取（实际应用中可以使用AI API）
-    const keywords: { [key: string]: number } = {};
-    const commonWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'is', 'was', 'are', 'were']);
-
-    topReviews.forEach((review) => {
-      const words = (review.text || '').toLowerCase().split(/\s+/);
-      words.forEach((rawWord: string) => {
-        const word = rawWord.replace(/[^\w]/g, '');
-        if (word.length > 3 && !commonWords.has(word)) {
-          keywords[word] = (keywords[word] || 0) + 1;
-        }
-      });
-    });
-
-    // 获取最常见的3个关键词
-    const topKeywords = Object.entries(keywords)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([word]) => word);
-
-    if (topKeywords.length > 0) {
-      return `Visitors love the ${topKeywords.join(', ')}`;
-    }
-
-    return undefined;
-  }
-
-  /**
    * 检查地点是否已存在（去重）
    */
   async checkDuplicate(name: string, address: string): Promise<boolean> {
@@ -475,8 +265,8 @@ class GoogleMapsService {
         const now = new Date().toISOString();
         
         await prisma.$executeRaw`
-          INSERT INTO Place (id, googlePlaceId, name, city, country, latitude, longitude, address, category, rating, ratingCount, coverImage, images, priceLevel, website, phoneNumber, openingHours, source, createdAt, updatedAt, lastSyncedAt)
-          VALUES (${id}, ${placeData.googlePlaceId || null}, ${placeData.name}, ${placeData.city || null}, ${placeData.country || null}, ${placeData.latitude}, ${placeData.longitude}, ${placeData.address || null}, ${placeData.category || null}, ${placeData.rating || null}, ${placeData.ratingCount || null}, ${placeData.coverImage || null}, ${placeData.images || null}, ${placeData.priceLevel || null}, ${placeData.website || null}, ${placeData.phoneNumber || null}, ${placeData.openingHours || null}, ${'google_maps'}, ${now}, ${now}, ${now})
+          INSERT INTO Place (id, googlePlaceId, name, city, country, latitude, longitude, address, category, rating, ratingCount, coverImage, images, website, phoneNumber, openingHours, source, createdAt, updatedAt, lastSyncedAt)
+          VALUES (${id}, ${placeData.googlePlaceId || null}, ${placeData.name}, ${placeData.city || null}, ${placeData.country || null}, ${placeData.latitude}, ${placeData.longitude}, ${placeData.address || null}, ${placeData.category || null}, ${placeData.rating || null}, ${placeData.ratingCount || null}, ${placeData.coverImage || null}, ${placeData.images || null}, ${placeData.website || null}, ${placeData.phoneNumber || null}, ${placeData.openingHours || null}, ${'google_maps'}, ${now}, ${now}, ${now})
         `;
 
         imported++;
@@ -503,7 +293,7 @@ class GoogleMapsService {
       const response = await getClient().findPlaceFromText({
         params: {
           input: query,
-          inputtype: 'textquery',
+          inputtype: PlaceInputType.textQuery,
           fields: ['place_id', 'name', 'formatted_address', 'geometry', 'rating', 'user_ratings_total', 'photos', 'types'],
           key: this.apiKey,
         }
@@ -579,7 +369,7 @@ class GoogleMapsService {
       const response = await getClient().findPlaceFromText({
         params: {
           input: query,
-          inputtype: 'textquery',
+          inputtype: PlaceInputType.textQuery,
           fields: ['place_id', 'name', 'formatted_address', 'geometry', 'rating', 'user_ratings_total', 'photos', 'types'],
           key: this.apiKey,
         }

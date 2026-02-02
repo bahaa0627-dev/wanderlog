@@ -77,7 +77,6 @@ export const importSpot = async (req: Request, res: Response) => {
         tags: placeData.tags ? JSON.parse(placeData.tags) : [],
         coverImage: placeData.coverImage,
         images: placeData.images ? JSON.parse(placeData.images) : [],
-        priceLevel: placeData.priceLevel,
         website: placeData.website,
         phoneNumber: placeData.phoneNumber,
         source: 'user_import',
@@ -105,7 +104,7 @@ export const getPlaces = async (req: Request, res: Response) => {
       city,
       category,
       categorySlug,
-      tags,
+      tags: _tags,
       search,
       lat,
       lng,
@@ -440,7 +439,7 @@ Important:
  */
 export const getAIRecommendations = async (req: Request, res: Response) => {
   try {
-    const { query, city, country, category, tags, limit = 5 } = req.body;
+    const { query, city, country, category, tags: _tags, limit = 5 } = req.body;
 
     if (!query || typeof query !== 'string') {
       return res.status(400).json({ message: 'query is required' });

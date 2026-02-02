@@ -35,7 +35,7 @@ import {
 // ============ Configuration ============
 
 const CONFIG = {
-  AI_TIMEOUT_MS: 10000,  // 10 second timeout for intent classification
+  AI_TIMEOUT_MS: 30000,  // 30 second timeout for intent classification (prioritize accuracy)
   DESCRIPTION_TIMEOUT_MS: 15000, // 15 second timeout for description generation
   CONSULTATION_TIMEOUT_MS: 90000, // 90 second timeout for travel consultation (increased for web search)
   NON_TRAVEL_TIMEOUT_MS: 60000, // 60 second timeout for non-travel responses (increased)
@@ -92,14 +92,70 @@ Requirements:
 1. Provide a helpful, engaging response in Markdown format
 2. Use headings (##, ###) for structure when appropriate  
 3. Use emoji to make it friendly 🌍✈️🏛️
-4. IMPORTANT: When asking about restaurants/shops/places, recommend AT LEAST 6-10 specific places, not just 2-3
+4. **CRITICAL: Recommend AT LEAST 5 specific places (minimum 5, ideally 6-10 for restaurants/shops)**
 5. Keep response informative (300-600 words for place recommendations)
-6. When mentioning specific places in {language}, format them as:
-   - If {language} is Chinese: **中文地名 (English Name)** - e.g., **美人鱼雕像 (The Little Mermaid)**
-   - If place name is already in English or has no translation, just use **English Name** without parentheses
-   - Do NOT put city name in parentheses, only the English place name
-7. For each place, include: address, brief description/style, website if available
+5.1 **IF the user asks for an itinerary or mentions number of days (e.g., "3天/三日/3-day/itinerary/行程/规划"), you MUST output a day-by-day plan with time slots.**
+  - Use this structure:
+    - ## 第一天：主题 (or ## Day 1: Theme)
+    - ### 上午 / 下午 / 晚上 (or Morning / Afternoon / Evening)
+    - Under each time slot, list places in this EXACT format:
+      * **Place Name** (NO rating in itinerary mode - ratings are handled by the app)
+      * Short description + practical tip (1-2 sentences, NO bullet points, NO indentation)
+      * Blank line before next place
+  - CRITICAL: Do NOT use bullet points (·, •, -) before place names
+  - CRITICAL: Do NOT indent place content
+  - CRITICAL: Do NOT include ratings (X.X分 or X.X) after place names in itinerary mode
+  - Keep each slot 2-4 items max to avoid overload
+  - In itinerary mode, DO NOT use the detailed per-place template (网站/links)
+  
+  Example itinerary format (Chinese):
+  ## 第一天：经典地标游览
+  
+  ### 上午
+  **白金汉宫**
+  开始您的一天，前往白金汉宫观看卫兵换岗仪式。这个标志性的皇宫是英国王室的官方居所。建议10点前到达以占据好位置。
+  
+  **威斯敏斯特教堂**
+  接着前往这座历史悠久的教堂，了解其悠久的历史和许多皇室婚礼的场所。
+
+  Example itinerary format (English):
+  ## Day 1: Classic Landmarks
+  
+  ### Morning
+  **Buckingham Palace**
+  Start your day at Buckingham Palace to watch the Changing of the Guard. This iconic royal palace is the official residence of the British monarchy. Arrive before 10am to secure a good spot.
+  
+  **Westminster Abbey (4.6)**
+  Head to this historic church to learn about its rich history and royal weddings.
+
+6. **If NOT in itinerary mode, use the detailed place template below.**
+6.1 **PLACE TITLE FORMAT (CRITICAL - MUST FOLLOW THIS EXACT FORMAT):**
+   - Use ### heading level
+   - Title MUST be bold text (NOT a hyperlink - the app handles navigation via app schema)
+   - Do NOT include ratings in place titles - ratings are displayed by the app on place cards
+   - Format: ### **Place Name**
+   - English example: ### **Lanzhou Noodle Bar**
+   - English example: ### **Shanghai Family**
+   - Chinese example: ### **兰州拉面馆**
+7. **PLACE DETAILS ORDER (CRITICAL - MUST FOLLOW THIS EXACT ORDER):**
+   For each place, list details in this EXACT format:
+   - Description with practical tips (NO bullet point, NO "简介:" label, directly after title - include visit tips like best photo time, crowd avoidance, advance booking, etc.)
+   - 网站: Website URL (WITH bullet point -, format as clickable link [domain](url))
+   
+   Example format for Chinese (MUST follow exactly):
+   ### **Lanzhou Noodle Bar**
+   一家评分很高的兰州拉面店，提供多种选择，包括招牌的牛肉拉面。顾客评价很高，尤其提到他们家的"Dao Xiao Mian"面条口感独特。建议中午前到达以避开高峰人流。
+   - 网站: [yelp.co.uk](https://yelp.co.uk)
+   
+   Example format for English (MUST follow exactly):
+   ### **Lanzhou Noodle Bar**
+   A highly-rated Lanzhou noodle shop offering various choices, including their signature beef ramen. Customers rave about their unique "Dao Xiao Mian" noodles. Arrive before noon to avoid peak crowds.
+   - Website: [yelp.co.uk](https://yelp.co.uk)
+   
+   IMPORTANT: For itinerary responses, DO NOT include website links - keep it concise with just place name and brief tips.
 8. CRITICAL: Your ENTIRE response MUST be in {language}. Do NOT mix languages.
+8.1 If you must include a foreign term, provide the {language} translation immediately and avoid standalone foreign phrases.
+8.2 Do NOT output foreign headings (e.g., French) in day titles; keep all headings in {language}.
 9. At the end, you may add a follow-up prompt in {language}
 
 Return JSON:
@@ -112,7 +168,7 @@ Return JSON:
 }
 
 ⚠️ IMPORTANT for mentionedPlaces and cities:
-- MUST include AT LEAST 5-10 places in mentionedPlaces array when recommending restaurants/cafes/shops
+- **MUST include AT LEAST 5 places in mentionedPlaces array (minimum 5, ideally 6-10)**
 - The "name" field MUST be in ENGLISH (e.g., "Eiffel Tower", NOT "埃菲尔铁塔")
 - The "city" field MUST be in ENGLISH (e.g., "Paris", NOT "巴黎")
 - Include "address" with full street address if known from web search
@@ -322,6 +378,10 @@ const CATEGORY_KEYWORD_TO_SLUG: Record<string, string> = {
   // thrift_store
   'thrift store': 'thrift_store', 'second hand': 'thrift_store', 'vintage shop': 'thrift_store',
   '二手店': 'thrift_store', '古着店': 'thrift_store',
+  // yarn_store
+  'yarn store': 'yarn_store', 'yarn shop': 'yarn_store', 'wool shop': 'yarn_store', 
+  'knitting': 'yarn_store', 'haberdashery': 'yarn_store', 'craft store': 'yarn_store',
+  'yarn': 'yarn_store',
   // shop (通用)
   'shop': 'shop', 'store': 'shop',
   '商店': 'shop',
@@ -544,9 +604,8 @@ const TRAVEL_CONSULTATION_KEYWORDS = [
   'worth visiting', 'is it worth', 'should i',
   '值得去吗', '要不要去',
 
-  // === 推荐/建议 ===
-  'recommend', 'suggest', 'advice',
-  '推荐', '建议',
+  // 注意：'推荐', '建议', 'recommend', 'suggest', 'advice' 这些词不放在这里
+  // 因为用户来都是求推荐的，"推荐几家伦敦的毛线店" 应该是 general_search 而不是 travel_consultation
 ];
 
 // ============ Intent Classifier Service ============
@@ -664,13 +723,25 @@ class IntentClassifierService implements IIntentClassifier {
     if (/[一二三四五六七八九十]+(个|家|处|条|天|日)/.test(compact)) return false;
 
     // Category/list intent hints (general_search)
+    // 包含这些词时，通常是搜索一类地点而非特定地点
     const generalHints = [
       '推荐', '哪里', '附近', '必去', '清单', '排行', 'top', '地图', '打卡',
       '攻略', '行程', '路线', '一日游', '二日', '三日', '几日', '几天',
       '怎么', '如何', '门票', '开放时间', '交通', '地铁', '机场', '签证',
-      '餐厅', '饭店', '酒店', '住宿', '咖啡', '拉面', '寿司', '火锅', '烤肉',
-      '酒吧', '夜景', '购物', '商场', '超市', '景点',
-      '博物馆', '美术馆', '公园', '温泉', '海滩', '滑雪',
+      // 餐饮类
+      '餐厅', '饭店', '酒店', '住宿', '咖啡', '咖啡店', '咖啡厅',
+      '拉面', '拉面店', '寿司', '寿司店', '火锅', '火锅店', '烤肉', '烤肉店',
+      '甜品', '甜品店', '甜点', '蛋糕', '蛋糕店', '面包', '面包店', '烘焙',
+      '奶茶', '奶茶店', '饮品', '小吃', '小吃店', '早餐', '早餐店', '早午餐',
+      '酒吧', '夜店', '居酒屋', '小酒馆', '酒庄', '啤酒',
+      // 购物类
+      '购物', '商场', '超市', '便利店', '书店', '唱片店',
+      '毛线', '毛线店', '手工', '手工店', '工艺', '工艺品',
+      '古着', '古董', '跳蚤市场', '市集', '夜市',
+      // 景点类
+      '夜景', '景点', '博物馆', '美术馆', '画廊', '公园', '花园',
+      '温泉', '海滩', '沙滩', '滑雪', '滑雪场', '游乐园', '主题公园',
+      '教堂', '寺庙', '神社', '城堡', '宫殿',
     ];
     if (generalHints.some((h) => compact.includes(h))) {
       // Exception: place names like “卢浮宫博物馆” should still be specific.
@@ -819,6 +890,9 @@ Return JSON:
       // Skip if it's just a number like "1." or section headers
       if (/^\d+\.?$/.test(name) || name.length < 3) continue;
       
+      // Remove rating suffix like (4.7分) or (4.7) first
+      name = name.replace(/\s*[（(]\d+\.?\d*(分)?[）)]$/, '').trim();
+      
       // Extract English name from parentheses if present
       const parenMatch = name.match(/[（(]([A-Za-z][^）)]+)[）)]/);
       if (parenMatch) {
@@ -838,6 +912,9 @@ Return JSON:
     while ((match = headingPattern.exec(text)) !== null) {
       let name = match[1].trim();
       
+      // Remove rating suffix like (4.7分) or (4.7) first
+      name = name.replace(/\s*[（(]\d+\.?\d*(分)?[）)]$/, '').trim();
+      
       // Extract English name from parentheses if present
       const parenMatch = name.match(/[（(]([A-Za-z][^）)]+)[）)]/);
       if (parenMatch) {
@@ -848,6 +925,83 @@ Return JSON:
       if (seenNames.has(nameLower)) continue;
       seenNames.add(nameLower);
       
+      places.push({ name, city: defaultCity });
+    }
+
+    // Pattern 3: Bullet or sentence lines like "海德公园：..." or "Hyde Park: ..."
+    const lineColonPattern = /(?:^|\n)\s*(?:[-•*]\s*)?([^\n:：]{2,40})[：:]\s+/g;
+    while ((match = lineColonPattern.exec(text)) !== null) {
+      let name = match[1].trim();
+
+      // Remove common leading verbs
+      name = name.replace(/^(参观|前往|游览|打卡|欣赏|探访|体验|走访|逛|去|到|建议|安排)\s*/i, '');
+      name = name.replace(/^(visit|explore|head to|go to|check out|see)\s+/i, '');
+
+      // Skip time slots or section labels
+      if (/^(第.+天|上午|中午|下午|傍晚|晚上|夜晚|清晨|早上|午后|夜间|morning|afternoon|evening|night|day\s*\d+)/i.test(name)) {
+        continue;
+      }
+
+      // Extract English name from parentheses if present
+      const parenMatch = name.match(/[（(]([A-Za-z][^）)]+)[）)]/);
+      if (parenMatch) {
+        name = parenMatch[1].trim();
+      }
+
+      if (name.length < 3) continue;
+      const nameLower = name.toLowerCase();
+      if (seenNames.has(nameLower)) continue;
+      seenNames.add(nameLower);
+      places.push({ name, city: defaultCity });
+    }
+
+    // Pattern 4: "Hyde Park - relax..." style
+    const lineDashPattern = /(?:^|\n)\s*(?:[-•*]\s*)?([^\n\-–—]{2,40})\s*[\-–—]\s+/g;
+    while ((match = lineDashPattern.exec(text)) !== null) {
+      let name = match[1].trim();
+
+      name = name.replace(/^(参观|前往|游览|打卡|欣赏|探访|体验|走访|逛|去|到|建议|安排)\s*/i, '');
+      name = name.replace(/^(visit|explore|head to|go to|check out|see)\s+/i, '');
+
+      if (/^(第.+天|上午|中午|下午|傍晚|晚上|夜晚|清晨|早上|午后|夜间|morning|afternoon|evening|night|day\s*\d+)/i.test(name)) {
+        continue;
+      }
+
+      const parenMatch = name.match(/[（(]([A-Za-z][^）)]+)[）)]/);
+      if (parenMatch) {
+        name = parenMatch[1].trim();
+      }
+
+      if (name.length < 3) continue;
+      const nameLower = name.toLowerCase();
+      if (seenNames.has(nameLower)) continue;
+      seenNames.add(nameLower);
+      places.push({ name, city: defaultCity });
+    }
+
+    // Pattern 5: Bullet point lines like "• 卢浮宫（4.8分）" or "· 巴黎圣母院"
+    const bulletPointPattern = /(?:^|\n)\s*[•·]\s*([^\n（(]{2,50})(?:[（(]([^）)]+)[）)])?/g;
+    while ((match = bulletPointPattern.exec(text)) !== null) {
+      let name = match[1].trim();
+      const parenContent = match[2]?.trim();
+
+      // Skip time slots or section headers
+      if (/^(第.+天|上午|中午|下午|傍晚|晚上|夜晚|清晨|早上|午后|夜间|morning|afternoon|evening|night|day\s*\d+)/i.test(name)) {
+        continue;
+      }
+
+      // Remove trailing colons or punctuation
+      name = name.replace(/[：:，,。.]+$/, '').trim();
+
+      // If there's English name in parentheses, use it
+      if (parenContent && /[A-Za-z]/.test(parenContent) && !/^\d+\.?\d*分?$/.test(parenContent)) {
+        name = parenContent;
+      }
+
+      if (name.length < 2) continue;
+      const nameLower = name.toLowerCase();
+      if (seenNames.has(nameLower)) continue;
+      seenNames.add(nameLower);
       places.push({ name, city: defaultCity });
     }
 
@@ -904,19 +1058,94 @@ Return JSON:
   /**
    * Classify user query intent using rule-based detection
    * 
-   * OPTIMIZATION: Always use rule-based classification to save AI costs.
-   * The fallbackClassify method handles all four intent types accurately:
-   * - travel_consultation: detected by keywords (how to, X days, plan, etc.)
-   * - general_search: detected by category keywords (cafe, museum, etc.)
-   * - specific_place: detected by proper noun patterns
-   * - non_travel: detected by non-travel keywords
+   * Uses AI for accurate intent classification with rule-based fallback.
+   * The AI can better understand complex queries and distinguish between:
+   * - travel_consultation: advice, tips, how-to questions
+   * - general_search: finding multiple places by category/criteria
+   * - specific_place: info about one specific named place
+   * - non_travel: non-travel related queries
    */
   async classify(query: string, language: string): Promise<IntentResult> {
     logger.info(`[IntentClassifier] Classifying query: "${query}"`);
     
-    // Always use rule-based classification to save AI costs
-    // The fallbackClassify method is comprehensive and handles all intent types
+    // Try AI classification first for better accuracy
+    try {
+      const aiResult = await this.classifyWithAI(query, language);
+      if (aiResult && aiResult.intent) {
+        logger.info(`[IntentClassifier] AI classification: ${aiResult.intent} (confidence: ${aiResult.confidence})`);
+        return aiResult;
+      }
+    } catch (error) {
+      logger.warn(`[IntentClassifier] AI classification failed, falling back to rules: ${error}`);
+    }
+    
+    // Fallback to rule-based classification
+    logger.info(`[IntentClassifier] Using fallback classification for: "${query}"`);
     return this.fallbackClassify(query, language);
+  }
+
+  /**
+   * AI-based intent classification using INTENT_CLASSIFICATION_PROMPT
+   * @param query User's search query
+   * @param language User's preferred language
+   * @returns IntentResult or null if AI call fails
+   */
+  private async classifyWithAI(query: string, language: string): Promise<IntentResult | null> {
+    const prompt = INTENT_CLASSIFICATION_PROMPT.replace('{query}', query);
+    
+    try {
+      const response = await Promise.race([
+        aiService.executeWithFallback(
+          (provider) => provider.generateText(prompt),
+          'intentClassifier.classify',
+        ),
+        new Promise<string>((_, reject) => 
+          setTimeout(() => reject(new Error('AI classification timeout')), CONFIG.AI_TIMEOUT_MS)
+        ),
+      ]);
+      
+      if (!response) {
+        logger.warn('[IntentClassifier] Empty AI response for classification');
+        return null;
+      }
+      
+      // Parse JSON response
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        logger.warn('[IntentClassifier] No JSON found in AI classification response');
+        return null;
+      }
+      
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      // Validate intent type
+      const validIntents = ['general_search', 'specific_place', 'travel_consultation', 'non_travel'];
+      if (!parsed.intent || !validIntents.includes(parsed.intent)) {
+        logger.warn(`[IntentClassifier] Invalid intent from AI: ${parsed.intent}`);
+        return null;
+      }
+      
+      // Build IntentResult
+      const result: IntentResult = {
+        intent: parsed.intent,
+        confidence: parsed.confidence || 0.8,
+      };
+      
+      // Add optional fields based on intent
+      if (parsed.placeName) result.placeName = parsed.placeName;
+      if (parsed.placeNames && Array.isArray(parsed.placeNames)) result.placeNames = parsed.placeNames;
+      if (parsed.city) {
+        // Ensure city is in English
+        result.city = CHINESE_CITY_TO_ENGLISH[parsed.city] || parsed.city;
+      }
+      if (parsed.category) result.category = parsed.category;
+      if (parsed.count && typeof parsed.count === 'number') result.count = parsed.count;
+      
+      return result;
+    } catch (error) {
+      logger.warn(`[IntentClassifier] AI classification error: ${error}`);
+      return null;
+    }
   }
 
   /**
@@ -1296,7 +1525,21 @@ Return JSON:
       description = await this.generatePlaceDescription(identifiedPlaceName, language);
     }
 
-    // Step 4: If place found but no image, search for image (this is a web search, not AI)
+    // Step 4: If NO database match, use AI web search to get complete info and persist
+    if (!matchedPlace) {
+      logger.info(`[IntentClassifier] No DB match for "${identifiedPlaceName}", using AI web search...`);
+      try {
+        const webPlace = await this.searchAndPersistPlace(identifiedPlaceName, language);
+        if (webPlace) {
+          matchedPlace = webPlace;
+          logger.info(`[IntentClassifier] AI web search found and persisted: "${webPlace.name}"`);
+        }
+      } catch (error) {
+        logger.warn(`[IntentClassifier] AI web search failed for "${identifiedPlaceName}": ${error}`);
+      }
+    }
+
+    // Step 5: If place found but no image, search for image (this is a web search, not AI)
     if (matchedPlace && (!matchedPlace.coverImage || matchedPlace.coverImage === '')) {
       logger.info(`[IntentClassifier] Place "${matchedPlace.name}" has no image, searching online...`);
       try {
@@ -1326,6 +1569,282 @@ Return JSON:
       place: matchedPlace,
       identifiedPlaceName, // Return the AI-identified name for frontend display
     };
+  }
+
+  /**
+   * Search for a place via AI web search and persist to database
+   * Used when database has no match for specific_place intent
+   * 一次性获取: 名称、地址、评分、网站、电话、营业时间、封面图
+   * 坐标优先走 Mapbox，失败则用 AI 返回的坐标
+   */
+  private async searchAndPersistPlace(placeName: string, language: string): Promise<PlaceResult | null> {
+    const isZh = language === 'zh';
+    
+    const prompt = `Search the web for information about "${placeName}".
+
+Provide the following details:
+1. name: The official place name (in English)
+2. localName: The local/native name if different (e.g., Chinese name for places in China)
+3. address: Full street address
+4. city: City name (in English)
+5. country: Country name (in English)
+6. website: Official website URL
+7. latitude: GPS latitude coordinate (decimal, e.g., 35.6892)
+8. longitude: GPS longitude coordinate (decimal, e.g., 139.6917)
+9. rating: Google Maps/TripAdvisor rating (e.g., 4.5 out of 5)
+10. ratingCount: Number of reviews (e.g., 12000)
+11. phoneNumber: Phone number
+12. openingHours: Brief opening hours (e.g., "Mon-Sun 9:00-18:00")
+13. category: Place type (e.g., museum, restaurant, landmark, cafe, temple, park)
+14. coverImageUrl: A publicly accessible image URL of this place (from Wikipedia, official website, or travel sites)
+15. description: A brief 2-3 sentence description${isZh ? ' in Chinese' : ' in English'}
+
+Return JSON only:
+{
+  "name": "Place Name",
+  "localName": "本地名称",
+  "address": "123 Main St, City, Country",
+  "city": "City",
+  "country": "Country",
+  "website": "https://example.com",
+  "latitude": 35.6892,
+  "longitude": 139.6917,
+  "rating": 4.5,
+  "ratingCount": 12000,
+  "phoneNumber": "+1-234-567-8900",
+  "openingHours": "Mon-Sun 9:00-18:00",
+  "category": "museum",
+  "coverImageUrl": "https://example.com/image.jpg",
+  "description": "Description text here..."
+}`;
+
+    try {
+      const response = await aiService.executeWithFallback(
+        (provider) => provider.generateText(prompt),
+        'intentClassifier.searchAndPersistPlace',
+      );
+      
+      if (!response) {
+        logger.warn(`[IntentClassifier] No response from AI web search for "${placeName}"`);
+        return null;
+      }
+
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        logger.warn(`[IntentClassifier] No JSON in AI response for "${placeName}"`);
+        return null;
+      }
+
+      const info = JSON.parse(jsonMatch[0]);
+      if (!info.name) {
+        logger.warn(`[IntentClassifier] AI response missing name for "${placeName}"`);
+        return null;
+      }
+
+      // Get coordinates: prioritize Mapbox, fallback to AI
+      let finalLat = info.latitude || 0;
+      let finalLng = info.longitude || 0;
+      
+      if ((finalLat === 0 || finalLng === 0) && info.address) {
+        logger.info(`[IntentClassifier] Geocoding "${info.name}" via Mapbox...`);
+        try {
+          const geocodeResult = await geocodeService.forwardGeocode(info.address, {
+            country: info.country,
+          });
+          if (geocodeResult) {
+            finalLat = geocodeResult.lat;
+            finalLng = geocodeResult.lon;
+            logger.info(`[IntentClassifier] Mapbox geocode success: (${finalLat}, ${finalLng})`);
+          }
+        } catch (geoError) {
+          logger.warn(`[IntentClassifier] Mapbox geocode failed, using AI coords: ${geoError}`);
+        }
+      }
+
+      // If still no coords but have city, try geocoding city + name
+      if ((finalLat === 0 || finalLng === 0) && info.city) {
+        const searchQuery = `${info.name}, ${info.city}`;
+        logger.info(`[IntentClassifier] Trying city-based geocode: "${searchQuery}"`);
+        try {
+          const geocodeResult = await geocodeService.forwardGeocode(searchQuery, {
+            country: info.country,
+          });
+          if (geocodeResult) {
+            finalLat = geocodeResult.lat;
+            finalLng = geocodeResult.lon;
+            logger.info(`[IntentClassifier] City geocode success: (${finalLat}, ${finalLng})`);
+          }
+        } catch (geoError) {
+          logger.warn(`[IntentClassifier] City geocode failed: ${geoError}`);
+        }
+      }
+
+      // Get cover image if not provided by AI
+      let coverImage = info.coverImageUrl || '';
+      if (!coverImage) {
+        logger.info(`[IntentClassifier] Searching cover image for "${info.name}"...`);
+        try {
+          const imageUrl = await this.kouriProvider.searchPlaceImage(info.name, info.city || '');
+          if (imageUrl) {
+            coverImage = imageUrl;
+            logger.info(`[IntentClassifier] Found cover image: ${imageUrl.substring(0, 50)}...`);
+          }
+        } catch (imgError) {
+          logger.warn(`[IntentClassifier] Image search failed: ${imgError}`);
+        }
+      }
+
+      // Persist to database
+      const categorySlug = this.mapCategoryToSlug(info.category || 'landmark');
+      
+      try {
+        // Check if exists
+        const existing = await prisma.place.findFirst({
+          where: {
+            name: { equals: info.name, mode: 'insensitive' },
+            city: { equals: info.city || '', mode: 'insensitive' },
+          },
+        });
+
+        let dbPlace: any;
+        if (existing) {
+          // Update with new info
+          const updateData: Record<string, unknown> = {};
+          if (info.address && !existing.address) updateData.address = info.address;
+          if (info.website && !existing.website) updateData.website = info.website;
+          if (finalLat && finalLat !== 0 && (!existing.latitude || existing.latitude === 0)) updateData.latitude = finalLat;
+          if (finalLng && finalLng !== 0 && (!existing.longitude || existing.longitude === 0)) updateData.longitude = finalLng;
+          if (info.rating && info.rating > 0 && (!existing.rating || existing.rating === 0)) updateData.rating = info.rating;
+          if (info.ratingCount && info.ratingCount > 0 && (!existing.ratingCount || existing.ratingCount === 0)) updateData.ratingCount = info.ratingCount;
+          if (coverImage && !existing.coverImage) updateData.coverImage = coverImage;
+          if (info.phoneNumber && !existing.phoneNumber) updateData.phoneNumber = info.phoneNumber;
+          if (info.openingHours && !existing.openingHours) updateData.openingHours = info.openingHours;
+          if (info.description && !(existing as any).aiDescription) updateData.aiDescription = info.description;
+          if (!existing.source || existing.source === 'ai_generated') updateData.source = 'ai_generated_web';
+          
+          if (Object.keys(updateData).length > 0) {
+            dbPlace = await prisma.place.update({
+              where: { id: existing.id },
+              data: updateData,
+            });
+            logger.info(`[IntentClassifier] Updated existing place "${existing.name}"`);
+          } else {
+            dbPlace = existing;
+          }
+        } else {
+          // Create new
+          dbPlace = await prisma.place.create({
+            data: {
+              name: info.name,
+              city: info.city || 'Unknown',
+              country: info.country || 'Unknown',
+              latitude: finalLat,
+              longitude: finalLng,
+              address: info.address || null,
+              website: info.website || null,
+              phoneNumber: info.phoneNumber || null,
+              openingHours: info.openingHours || null,
+              rating: info.rating || null,
+              ratingCount: info.ratingCount || null,
+              coverImage: coverImage || '',
+              categoryEn: categorySlug,
+              aiDescription: info.description || null,
+              source: 'ai_generated_web',
+              isVerified: false,
+            },
+          });
+          logger.info(`[IntentClassifier] Created new place "${dbPlace.name}" (id: ${dbPlace.id})`);
+        }
+
+        // Build PlaceResult
+        return {
+          id: dbPlace.id,
+          name: dbPlace.name,
+          summary: info.description || '',
+          coverImage: dbPlace.coverImage || coverImage || '',
+          latitude: dbPlace.latitude || finalLat,
+          longitude: dbPlace.longitude || finalLng,
+          city: dbPlace.city || info.city || '',
+          country: dbPlace.country || info.country || '',
+          rating: dbPlace.rating || info.rating,
+          ratingCount: dbPlace.ratingCount || info.ratingCount,
+          tags: [],
+          isVerified: dbPlace.isVerified || false,
+          source: 'cache',
+          address: dbPlace.address || info.address || undefined,
+          phoneNumber: dbPlace.phoneNumber || info.phoneNumber || undefined,
+          website: dbPlace.website || info.website || undefined,
+          openingHours: dbPlace.openingHours || info.openingHours || undefined,
+        };
+      } catch (dbError) {
+        logger.warn(`[IntentClassifier] Failed to persist place "${info.name}": ${dbError}`);
+        // Return without DB ID
+        return {
+          id: `temp_${Date.now()}`,
+          name: info.name,
+          summary: info.description || '',
+          coverImage: coverImage || '',
+          latitude: finalLat,
+          longitude: finalLng,
+          city: info.city || '',
+          country: info.country || '',
+          rating: info.rating,
+          ratingCount: info.ratingCount,
+          tags: [],
+          isVerified: false,
+          source: 'ai',
+          address: info.address || undefined,
+          phoneNumber: info.phoneNumber || undefined,
+          website: info.website || undefined,
+          openingHours: info.openingHours || undefined,
+        };
+      }
+    } catch (error) {
+      logger.warn(`[IntentClassifier] searchAndPersistPlace failed for "${placeName}": ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Map category string to database category slug
+   */
+  private mapCategoryToSlug(category: string): string {
+    const categoryMap: Record<string, string> = {
+      'museum': 'museum',
+      'art gallery': 'art_gallery',
+      'gallery': 'art_gallery',
+      'cafe': 'cafe',
+      'coffee': 'cafe',
+      'restaurant': 'restaurant',
+      'bar': 'bar',
+      'pub': 'bar',
+      'church': 'church',
+      'cathedral': 'church',
+      'temple': 'temple',
+      'shrine': 'temple',
+      'park': 'park',
+      'garden': 'park',
+      'castle': 'castle',
+      'palace': 'castle',
+      'landmark': 'landmark',
+      'monument': 'landmark',
+      'attraction': 'landmark',
+      'market': 'market',
+      'hotel': 'hotel',
+      'hostel': 'hotel',
+      'bookstore': 'bookstore',
+      'zoo': 'zoo',
+      'aquarium': 'zoo',
+      'university': 'university',
+      'library': 'library',
+      'yarn store': 'yarn_store',
+      'craft store': 'yarn_store',
+      'shop': 'shop',
+      'store': 'shop',
+    };
+    
+    const lower = (category || '').toLowerCase().trim();
+    return categoryMap[lower] || 'landmark';
   }
 
   /**
@@ -1971,8 +2490,35 @@ Rules:
       return { textContent: fallbackMsg };
     }
 
+    let cities = aiResult.cities || [];
+    let mentionedPlaces = aiResult.mentionedPlaces || [];
+
+    // 如果没有识别到城市但有 constraints.requiredCity，使用它作为默认城市
+    if (cities.length === 0 && constraints?.requiredCity) {
+      cities = [constraints.requiredCity];
+      logger.info(`[IntentClassifier] Using requiredCity as default: ${constraints.requiredCity}`);
+    }
+
+    // 如果地点数量偏少，尝试从文本中补充提取
+    if (mentionedPlaces.length < 5) {
+      const extractedPlaces = this.extractPlaceNamesFromText(
+        aiResult.textContent,
+        constraints?.requiredCity || cities[0] || '',
+      );
+      const existingNames = new Set(
+        mentionedPlaces.map((p: MentionedPlace) => (p.name || '').toLowerCase()),
+      );
+      for (const extracted of extractedPlaces) {
+        if (!existingNames.has(extracted.name.toLowerCase())) {
+          mentionedPlaces.push(extracted);
+          existingNames.add(extracted.name.toLowerCase());
+        }
+      }
+      aiResult.mentionedPlaces = mentionedPlaces;
+    }
+
     // Step 2: If no places mentioned, return just the text content
-    if (!aiResult.mentionedPlaces || aiResult.mentionedPlaces.length === 0) {
+    if (!mentionedPlaces || mentionedPlaces.length === 0) {
       logger.info('[IntentClassifier] No places mentioned in response');
       return { textContent: aiResult.textContent };
     }
@@ -1980,8 +2526,7 @@ Rules:
     // Step 3: Match related places from database
     // Use shared translation cache to avoid duplicate AI calls
     const translationCache = new Map<string, string>();
-    const cities = aiResult.cities || [];
-    const result = await this.matchRelatedPlacesWithCache(aiResult.mentionedPlaces, cities, language as 'en' | 'zh', translationCache);
+    const result = await this.matchRelatedPlacesWithCache(mentionedPlaces, cities, language as 'en' | 'zh', translationCache);
 
     let textContent = aiResult.textContent;
     if (language === 'zh') {
@@ -1990,7 +2535,7 @@ Rules:
         : (result.cityPlaces || []).flatMap(group => group.places);
 
       if (allMatched.length > 0) {
-        for (const mentioned of aiResult.mentionedPlaces) {
+        for (const mentioned of mentionedPlaces) {
           const rawName = this.normalizePlaceNameForMatching(mentioned.name || '');
           if (!rawName) continue;
 
@@ -2117,8 +2662,10 @@ Rules:
         // 从 textContent 中提取网站链接并合并到对应的地点
         mentionedPlaces = this.enrichPlacesWithWebsitesFromText(normalizedText, mentionedPlaces);
 
-        // Log first place to check if AI returned rating data
+        // Log all mentioned places for debugging
         if (mentionedPlaces.length > 0) {
+          const placeNames = mentionedPlaces.map((p: MentionedPlace) => p.name).join(', ');
+          logger.info(`[IntentClassifier] All mentioned places: ${placeNames}`);
           const firstPlace = mentionedPlaces[0];
           logger.info(`[IntentClassifier] First place sample: name="${firstPlace.name}", rating=${firstPlace.rating}, ratingCount=${firstPlace.ratingCount}, address="${firstPlace.address?.substring(0, 50)}"`);
         }
@@ -2353,6 +2900,23 @@ Rules:
     const results: PlaceResult[] = [];
     const usedIds = new Set<string>();
 
+    // 常见地点别名映射（AI可能使用不同名称）
+    const placeAliases: Record<string, string[]> = {
+      // Versailles 别名
+      'Château de Versailles': ['Palace of Versailles', 'Versailles Palace'],
+      'Palace of Versailles': ['Château de Versailles', 'Versailles Palace'],
+      'Versailles Palace': ['Palace of Versailles', 'Château de Versailles'],
+      // Paris landmarks
+      'Sacré-Cœur Basilica': ['Basilique du Sacré-Cœur de Montmartre', 'Sacré-Cœur'],
+      'Sacré-Cœur': ['Basilique du Sacré-Cœur de Montmartre', 'Sacré-Cœur Basilica'],
+      'Arc de Triomphe': ['Triumphal Arch', 'Arc de Triomphe de l\'Étoile'],
+      'Jardin des Tuileries': ['Tuileries Garden', 'Tuileries Gardens'],
+      'Trocadéro Gardens': ['Gardens du Trocadéro', 'Jardins du Trocadéro'],
+      'Picasso Museum': ['Musée Picasso', 'Museum National Picasso-Paris'],
+      'Luxembourg Gardens': ['Jardin du Luxembourg'],
+      'Jardin du Luxembourg': ['Luxembourg Gardens'],
+    };
+
     // 获取城市的所有变体名称（如 Rome/Roma, Venice/Venezia 等）
     const cityVariants = this.getCityVariants(this.normalizeCityForMatching(city));
 
@@ -2387,6 +2951,64 @@ Rules:
           continue;
         }
 
+        // 构建所有可能的名称（包括别名）
+        const allNamesToTry = [cleanedName];
+        const aliases = placeAliases[cleanedName] || placeAliases[name];
+        if (aliases) {
+          allNamesToTry.push(...aliases);
+        }
+
+        // 策略1：先尝试精确名字匹配（在指定城市内，包括别名）
+        let exactMatch: any = null;
+        for (const tryName of allNamesToTry) {
+          exactMatch = await prisma.place.findFirst({
+            where: {
+              name: { equals: tryName, mode: 'insensitive' },
+              city: { in: cityVariants, mode: 'insensitive' },
+              AND: [
+                { coverImage: { not: null } },
+                { coverImage: { not: '' } },
+              ],
+            },
+          });
+          if (exactMatch) {
+            if (tryName !== cleanedName) {
+              logger.info(`[IntentClassifier] Matched via alias: "${name}" -> "${tryName}" -> "${exactMatch.name}"`);
+            }
+            break;
+          }
+        }
+        
+        // 策略1.5：如果城市内没找到，尝试不限城市的精确名字匹配
+        // （精确名字匹配足够可靠，如 "Palace of Versailles" 城市是 Versailles 不是 Paris）
+        if (!exactMatch) {
+          for (const tryName of allNamesToTry) {
+            exactMatch = await prisma.place.findFirst({
+              where: {
+                name: { equals: tryName, mode: 'insensitive' },
+                AND: [
+                  { coverImage: { not: null } },
+                  { coverImage: { not: '' } },
+                ],
+              },
+            });
+            if (exactMatch) {
+              logger.info(`[IntentClassifier] Found exact match outside city: "${exactMatch.name}" in ${exactMatch.city}`);
+              break;
+            }
+          }
+        }
+        
+        if (exactMatch && exactMatch.coverImage && exactMatch.coverImage.startsWith('http')) {
+          if (!usedIds.has(exactMatch.id)) {
+            usedIds.add(exactMatch.id);
+            results.push(this.toPlaceResult(exactMatch, language));
+            logger.info(`[IntentClassifier] Exact matched "${name}" -> "${exactMatch.name}"`);
+          }
+          continue; // 精确匹配成功，跳过模糊匹配
+        }
+
+        // 策略2：模糊匹配（增加 take 限制到 10）
         const candidates = await prisma.place.findMany({
           where: {
             OR: nameConditions,
@@ -2397,13 +3019,24 @@ Rules:
               { coverImage: { not: '' } },
             ],
           },
-          take: 5,
+          take: 10,  // 增加到10以确保不遗漏精确匹配
         });
+        
+        logger.info(`[IntentClassifier] DB query for "${name}": found ${candidates.length} candidates in cities [${cityVariants.join(', ')}]`);
+        
+        // Log candidate names for debugging
+        if (candidates.length > 0) {
+          const candidateInfo = candidates.map(c => `"${c.name}" (city: ${c.city})`).join(', ');
+          logger.info(`[IntentClassifier] Candidates for "${name}": ${candidateInfo}`);
+        }
 
         // Filter out candidates without images (double check)
         const withImages = candidates.filter(c => c.coverImage && c.coverImage !== '' && c.coverImage.startsWith('http'));
         
-        if (withImages.length === 0) continue;
+        if (withImages.length === 0) {
+          logger.info(`[IntentClassifier] No candidates with valid images for "${name}"`);
+          continue;
+        }
 
         // Find best match by name similarity
         let bestMatch: any = null;
@@ -2411,6 +3044,7 @@ Rules:
 
         for (const candidate of withImages) {
           const similarity = calculateNameSimilarity(cleanedName || name, candidate.name);
+          logger.info(`[IntentClassifier] Similarity "${cleanedName || name}" vs "${candidate.name}": ${similarity.toFixed(3)}`);
           if (similarity > bestScore && similarity >= CONFIG.NAME_SIMILARITY_THRESHOLD) {
             bestMatch = candidate;
             bestScore = similarity;
@@ -2421,6 +3055,8 @@ Rules:
           usedIds.add(bestMatch.id);
           results.push(this.toPlaceResult(bestMatch, language));
           logger.info(`[IntentClassifier] Matched "${name}" -> "${bestMatch.name}" (score: ${bestScore.toFixed(2)})`);
+        } else if (!bestMatch) {
+          logger.info(`[IntentClassifier] No match found for "${name}" (candidates: ${withImages.length}, threshold: ${CONFIG.NAME_SIMILARITY_THRESHOLD})`);
         }
       } catch (error) {
         logger.warn(`[IntentClassifier] Error matching place "${name}": ${error}`);
@@ -2483,19 +3119,24 @@ Rules:
         const imageUrl = imageMap.get(placeName) || imageMap.get(place.name) || '';
 
         // Try to get coordinates from address using forward geocoding (Nominatim - NOT AI)
+        // IMPORTANT: Always include city in geocoding query to avoid matching wrong locations
         let latitude = 0;
         let longitude = 0;
         const placeAddress = (place as any).address;
-        if (placeAddress) {
-          try {
-            const coords = await geocodeService.forwardGeocode(placeAddress);
-            if (coords) {
-              latitude = coords.lat;
-              longitude = coords.lon;
-            }
-          } catch (geoError) {
-            // Geocoding errors are fine, just continue
+        // Build geocoding query: use address+city if address exists, otherwise use placeName+city
+        const geocodeQuery = placeAddress 
+          ? `${placeAddress}, ${city}`
+          : `${placeName}, ${city}`;
+        
+        try {
+          const coords = await geocodeService.forwardGeocode(geocodeQuery);
+          if (coords) {
+            latitude = coords.lat;
+            longitude = coords.lon;
+            logger.debug(`[IntentClassifier] Geocoded "${placeName}" in ${city}: ${coords.lat}, ${coords.lon}`);
           }
+        } catch (geoError) {
+          // Geocoding errors are fine, just continue
         }
 
         // Create temporary PlaceResult

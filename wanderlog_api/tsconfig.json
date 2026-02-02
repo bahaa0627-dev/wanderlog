@@ -28,6 +28,7 @@
     "src/controllers/publicPlaceController.ts",
     "src/controllers/spotController.ts",
     "src/controllers/authController.ts",
+    "src/controllers/collectionController.ts",
     "src/routes/publicPlaceRoutes.ts",
     "src/services/publicPlaceService.ts",
     "src/services/apifyService.ts",

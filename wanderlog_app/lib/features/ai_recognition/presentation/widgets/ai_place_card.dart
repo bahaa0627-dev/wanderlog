@@ -55,7 +55,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   int _imageRetryCount = 0;
   static const int _maxRetries = 3;
   String? _currentImageUrl;
-  
+
   // 乐观更新状态
   bool? _optimisticWishlistState;
 
@@ -112,7 +112,8 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         }
       });
       debugPrint(
-          '🔄 [AIPlaceCard] Retrying image load for "${widget.place.name}" (attempt $_imageRetryCount/$_maxRetries)',);
+        '🔄 [AIPlaceCard] Retrying image load for "${widget.place.name}" (attempt $_imageRetryCount/$_maxRetries)',
+      );
     }
   }
 
@@ -120,44 +121,47 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   Widget _buildCoverImage(String imageUrl) {
     // AI 地点的占位符 - 使用渐变背景和图标
     Widget buildAIPlaceholder() => Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.primaryYellow.withOpacity(0.3),
-              AppTheme.accentBlue.withOpacity(0.2),
-            ],
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.primaryYellow.withOpacity(0.3),
+                AppTheme.accentBlue.withOpacity(0.2),
+              ],
+            ),
           ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.auto_awesome,
-                size: 40,
-                color: AppTheme.primaryYellow.withOpacity(0.8),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'AI Recommended',
-                style: TextStyle(
-                  color: AppTheme.mediumGray,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  size: 40,
+                  color: AppTheme.primaryYellow.withOpacity(0.8),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  'AI Recommended',
+                  style: TextStyle(
+                    color: AppTheme.mediumGray,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
+        );
 
     const defaultPlaceholder = ColoredBox(
       color: AppTheme.lightGray,
       child: Center(
-        child: Icon(Icons.image_not_supported,
-            size: 48, color: AppTheme.mediumGray,),
+        child: Icon(
+          Icons.image_not_supported,
+          size: 48,
+          color: AppTheme.mediumGray,
+        ),
       ),
     );
 
@@ -199,11 +203,14 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
       },
       errorBuilder: (context, error, stackTrace) {
         debugPrint(
-            '❌ [AIPlaceCard] Image load failed for "${widget.place.name}": $error',);
+          '❌ [AIPlaceCard] Image load failed for "${widget.place.name}": $error',
+        );
         // 如果还有重试次数，延迟后重试
         if (_imageRetryCount < _maxRetries) {
-          Future.delayed(Duration(milliseconds: 500 * (_imageRetryCount + 1)),
-              _retryImageLoad,);
+          Future.delayed(
+            Duration(milliseconds: 500 * (_imageRetryCount + 1)),
+            _retryImageLoad,
+          );
         }
         // 显示加载中状态（等待重试）
         if (_imageRetryCount < _maxRetries) {
@@ -227,8 +234,9 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
 
   /// 构建评分或推荐短语
   Widget _buildRatingOrPhrase(BuildContext context) {
-    // AI-only 地点显示推荐短语
-    if (widget.place.isAIOnly || !widget.place.hasRating) {
+    // 只有真正从 AI 来源的地点才显示 "AI Recommended"
+    // 数据库缓存的地点即使没有评分也不应该显示 AI 标签
+    if (widget.place.isAIOnly) {
       // 使用 AI 返回的推荐短语，如果没有则根据地点特征生成
       final phrase = widget.place.recommendationPhrase?.isNotEmpty ?? false
           ? widget.place.recommendationPhrase!
@@ -236,7 +244,8 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.auto_awesome, size: 12, color: AppTheme.primaryYellow),
+          const Icon(Icons.auto_awesome,
+              size: 12, color: AppTheme.primaryYellow),
           const SizedBox(width: 4),
           Text(
             phrase,
@@ -250,7 +259,10 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
       );
     }
 
-    // 有评分的地点显示评分
+    // 有评分的地点显示评分，没有评分则返回空
+    if (!widget.place.hasRating) {
+      return const SizedBox.shrink();
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -283,29 +295,39 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
     final name = widget.place.name.toLowerCase();
 
     // 根据标签或名称特征选择短语
-    if (tags.any((t) =>
-        t.toLowerCase().contains('museum') ||
-        t.toLowerCase().contains('gallery'),)) {
+    if (tags.any(
+      (t) =>
+          t.toLowerCase().contains('museum') ||
+          t.toLowerCase().contains('gallery'),
+    )) {
       return 'Cultural treasure';
     }
-    if (tags.any((t) =>
-        t.toLowerCase().contains('temple') ||
-        t.toLowerCase().contains('shrine'),)) {
+    if (tags.any(
+      (t) =>
+          t.toLowerCase().contains('temple') ||
+          t.toLowerCase().contains('shrine'),
+    )) {
       return 'Sacred landmark';
     }
-    if (tags.any((t) =>
-        t.toLowerCase().contains('park') ||
-        t.toLowerCase().contains('garden'),)) {
+    if (tags.any(
+      (t) =>
+          t.toLowerCase().contains('park') ||
+          t.toLowerCase().contains('garden'),
+    )) {
       return 'Scenic retreat';
     }
-    if (tags.any((t) =>
-        t.toLowerCase().contains('cafe') ||
-        t.toLowerCase().contains('coffee'),)) {
+    if (tags.any(
+      (t) =>
+          t.toLowerCase().contains('cafe') ||
+          t.toLowerCase().contains('coffee'),
+    )) {
       return 'Local favorite';
     }
-    if (tags.any((t) =>
-        t.toLowerCase().contains('restaurant') ||
-        t.toLowerCase().contains('food'),)) {
+    if (tags.any(
+      (t) =>
+          t.toLowerCase().contains('restaurant') ||
+          t.toLowerCase().contains('food'),
+    )) {
       return 'Culinary gem';
     }
     if (name.contains('castle') || name.contains('palace')) {
@@ -335,21 +357,24 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
     return Wrap(
       spacing: 4,
       runSpacing: 4,
-      children: displayTags.take(2).map((tag) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryYellow,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            tag,
-            style: AppTheme.bodySmall(context).copyWith(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.black,
-            ),
-          ),
-        )).toList(),
+      children: displayTags
+          .take(2)
+          .map((tag) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryYellow,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  tag,
+                  style: AppTheme.bodySmall(context).copyWith(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.black,
+                  ),
+                ),
+              ))
+          .toList(),
     );
   }
 
@@ -361,7 +386,9 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   /// - Show success/error toast message
   /// - Revert state on failure
   Future<void> _handleWishlistTap(
-      bool isInWishlist, String? destinationId,) async {
+    bool isInWishlist,
+    String? destinationId,
+  ) async {
     if (_isSaving) return;
 
     final auth = ref.read(authProvider);
@@ -371,7 +398,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
     }
 
     setState(() => _isSaving = true);
-    
+
     // 乐观更新：立即更新 UI 状态
     final previousState = _optimisticWishlistState;
     setState(() => _optimisticWishlistState = !isInWishlist);
@@ -543,7 +570,9 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   border: Border.all(
-                      color: AppTheme.black, width: AppTheme.borderMedium,),
+                    color: AppTheme.black,
+                    width: AppTheme.borderMedium,
+                  ),
                   boxShadow: AppTheme.cardShadow,
                 ),
                 child: ClipRRect(
@@ -648,86 +677,87 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
   }
 
   /// 构建带有指定收藏状态的卡片（用于 loading/error 状态）
-  Widget _buildCardWithWishlistState(BuildContext context, bool isInWishlist) => GestureDetector(
-      onTap: widget.onTap,
-      child: AspectRatio(
-        aspectRatio: widget.aspectRatio,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            border:
-                Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildCoverImage(widget.place.coverImage),
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.3),
-                          Colors.black.withOpacity(0.75),
-                        ],
-                        stops: const [0.35, 0.65, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: GestureDetector(
-                    onTap: () => _handleWishlistTap(false, null),
+  Widget _buildCardWithWishlistState(BuildContext context, bool isInWishlist) =>
+      GestureDetector(
+        onTap: widget.onTap,
+        child: AspectRatio(
+          aspectRatio: widget.aspectRatio,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              border: Border.all(
+                  color: AppTheme.black, width: AppTheme.borderMedium),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildCoverImage(widget.place.coverImage),
+                  Positioned.fill(
                     child: Container(
-                      width: 32,
-                      height: 32,
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppTheme.black, width: 1.5),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.3),
+                            Colors.black.withOpacity(0.75),
+                          ],
+                          stops: const [0.35, 0.65, 1.0],
+                        ),
                       ),
-                      child: const Icon(Icons.favorite_border,
-                          size: 16, color: AppTheme.black),
                     ),
                   ),
-                ),
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: 12,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildTags(context),
-                      const SizedBox(height: 6),
-                      Text(
-                        widget.place.name,
-                        style: AppTheme.labelLarge(context).copyWith(
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: () => _handleWishlistTap(false, null),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
                           color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppTheme.black, width: 1.5),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        child: const Icon(Icons.favorite_border,
+                            size: 16, color: AppTheme.black),
                       ),
-                      const SizedBox(height: 4),
-                      _buildRatingOrPhrase(context),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildTags(context),
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.place.name,
+                          style: AppTheme.labelLarge(context).copyWith(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        _buildRatingOrPhrase(context),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
 }

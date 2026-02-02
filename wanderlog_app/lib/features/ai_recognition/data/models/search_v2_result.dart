@@ -254,6 +254,9 @@ class SearchV2Result {
           textContent: json['textContent'] is String
               ? _normalizeMarkdownText(json['textContent'] as String)
               : null,
+            supplementText: json['supplementText'] is String
+              ? _normalizeMarkdownText(json['supplementText'] as String)
+              : null,
         );
     }
   }
@@ -303,6 +306,7 @@ class SearchV2Result {
     this.intent,
     this.textContent,
     this.identifiedPlaceName,
+    this.supplementText,
   });
 
   /// 意图类型
@@ -360,6 +364,9 @@ class SearchV2Result {
 
   /// 总结 summary（包含友好的结束语）
   final String overallSummary;
+
+  /// 补充推荐文本（当卡片结果不足用户要求的数量时，用AI生成的纯文本补充）
+  final String? supplementText;
 
   /// 剩余搜索次数
   final int quotaRemaining;
@@ -444,6 +451,7 @@ class SearchV2Result {
       'intent': intentStr,
       'textContent': textContent,
       'identifiedPlaceName': identifiedPlaceName,
+      'supplementText': supplementText,
     };
   }
 

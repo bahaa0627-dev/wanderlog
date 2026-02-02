@@ -169,12 +169,27 @@ class _UnifiedSpotDetailModalState
     try {
       // 优先使用 description（后台设置的描述）
       final description = (widget.spot as dynamic).description as String?;
-      if (description != null && description.isNotEmpty) return description;
+      if (description != null && description.isNotEmpty) {
+        if (!_containsChinese(description)) {
+          return description;
+        }
+      }
       // 回退到 aiSummary（AI 生成的描述）
-      return (widget.spot as dynamic).aiSummary as String?;
+      final aiSummary = (widget.spot as dynamic).aiSummary as String?;
+      if (aiSummary != null && aiSummary.isNotEmpty) {
+        if (!_containsChinese(aiSummary)) {
+          return aiSummary;
+        }
+      }
+      return null;
     } catch (e) {
       return null;
     }
+  }
+
+  /// 检查文本是否包含中文字符
+  bool _containsChinese(String text) {
+    return RegExp(r'[\u4e00-\u9fff]').hasMatch(text);
   }
 
   double? get _spotRating {
@@ -437,6 +452,26 @@ class _UnifiedSpotDetailModalState
       }
     }
     return images;
+  }
+
+  /// 获取有效的图片列表（过滤掉无效 URL）
+  List<String> get _validSpotImages {
+    return _spotImages.where(_isValidImageUrl).toList();
+  }
+
+  /// 检查图片 URL 是否有效
+  bool _isValidImageUrl(String url) {
+    if (url.isEmpty) return false;
+    // 接受 data URI（base64）
+    if (url.startsWith('data:image/')) return true;
+    // 接受 http/https URL
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return false;
+    }
+    // 排除占位符 URL
+    if (url.contains('placeholder')) return false;
+    if (url.contains('example.com')) return false;
+    return true;
   }
 
   Map<String, dynamic>? get _spotOpeningHours {
@@ -911,7 +946,7 @@ class _UnifiedSpotDetailModalState
 
   /// 显示全屏图片查看器，支持左右滑动查看多张图片
   void _showFullScreenImage(int initialIndex) {
-    if (_spotImages.isEmpty) return;
+    if (_validSpotImages.isEmpty) return;
 
     showDialog<void>(
       context: context,
@@ -929,14 +964,14 @@ class _UnifiedSpotDetailModalState
                 // 全屏图片轮播
                 PageView.builder(
                   controller: pageController,
-                  itemCount: _spotImages.length,
+                  itemCount: _validSpotImages.length,
                   onPageChanged: (index) {
                     setDialogState(() {
                       currentIndex = index;
                     });
                   },
                   itemBuilder: (context, index) {
-                    final imageUrl = _spotImages[index];
+                    final imageUrl = _validSpotImages[index];
                     return GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: Container(
@@ -1016,7 +1051,7 @@ class _UnifiedSpotDetailModalState
                   ),
                 ),
                 // 图片指示器（多张图片时显示）
-                if (_spotImages.length > 1)
+                if (_validSpotImages.length > 1)
                   Positioned(
                     bottom: 40,
                     left: 0,
@@ -1024,7 +1059,7 @@ class _UnifiedSpotDetailModalState
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(
-                        _spotImages.length,
+                        _validSpotImages.length,
                         (index) => Container(
                           margin: const EdgeInsets.symmetric(horizontal: 4),
                           width: 8,
@@ -1066,13 +1101,21 @@ class _UnifiedSpotDetailModalState
     final List<String> result = [];
     final Set<String> seen = {};
 
+    bool isValidTag(String tag) {
+      final lower = tag.toLowerCase().trim();
+      if (lower.isEmpty) return false;
+      if (lower == 'place') return false;
+      return true;
+    }
+
     // 1. 优先使用后端计算好的 displayTagsEn
     final displayTags = _spotDisplayTags;
     if (displayTags.isNotEmpty) {
       for (final tag in displayTags) {
         if (result.length >= 4) break;
+        if (!isValidTag(tag)) continue;
         final key = tag.toLowerCase();
-        if (key.isNotEmpty && seen.add(key)) {
+        if (seen.add(key)) {
           result.add(tag);
         }
       }
@@ -1083,7 +1126,7 @@ class _UnifiedSpotDetailModalState
 
     // 2. 回退：先添加分类
     final category = _getCategory();
-    if (category != null && category.isNotEmpty) {
+    if (category != null && isValidTag(category)) {
       final key = category.toLowerCase();
       if (seen.add(key)) {
         result.add(category);
@@ -1104,8 +1147,9 @@ class _UnifiedSpotDetailModalState
         }
       }
 
+      if (!isValidTag(tagStr)) continue;
       final key = tagStr.toLowerCase();
-      if (key.isNotEmpty && seen.add(key)) {
+      if (seen.add(key)) {
         result.add(tagStr);
       }
     }
@@ -1123,6 +1167,7 @@ class _UnifiedSpotDetailModalState
             tagStr = tag;
           }
           if (tagStr.isNotEmpty) {
+            if (!isValidTag(tagStr)) continue;
             final key = tagStr.toLowerCase();
             if (seen.add(key)) {
               result.add(tagStr);
@@ -2783,17 +2828,20 @@ class _UnifiedSpotDetailModalState
       children: [
         // Main modal content
         Container(
-          height: MediaQuery.of(context).size.height * 0.85,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border.all(color: AppTheme.black, width: 2),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               // 1. Image section with close button and collection entry
-              // 只有当有图片时才显示图片区域
-              if (_spotImages.isNotEmpty)
+              // 只有当有有效图片时才显示图片区域
+              if (_validSpotImages.isNotEmpty)
               Stack(
                 children: [
                   // 图片容器 - 详情页图片铺满，无左右边距
@@ -2806,9 +2854,9 @@ class _UnifiedSpotDetailModalState
                               controller: _imagePageController,
                               onPageChanged: (index) =>
                                   setState(() => _currentImageIndex = index),
-                              itemCount: _spotImages.length,
+                              itemCount: _validSpotImages.length,
                               itemBuilder: (context, index) {
-                                final imageSource = _spotImages[index];
+                                final imageSource = _validSpotImages[index];
                                 if (imageSource.startsWith('data:')) {
                                   final bytes = _decodeBase64Image(imageSource);
                                   if (bytes != null) {
@@ -2850,7 +2898,7 @@ class _UnifiedSpotDetailModalState
                             ),
                           ),
                   ),
-                  if (_spotImages.length > 1)
+                  if (_validSpotImages.length > 1)
                     Positioned(
                       bottom: 12,
                       left: 0,
@@ -2858,7 +2906,7 @@ class _UnifiedSpotDetailModalState
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
-                          _spotImages.length,
+                          _validSpotImages.length,
                           (index) => Container(
                             margin: const EdgeInsets.symmetric(horizontal: 4),
                             width: 8,
@@ -2886,65 +2934,16 @@ class _UnifiedSpotDetailModalState
                   if (_hasStillsData())
                     Positioned(
                       right: 16,
-                      bottom: _spotImages.length > 1 ? 32 : 16,
+                      bottom: _validSpotImages.length > 1 ? 32 : 16,
                       child: _buildStillsEntryButton(),
                     ),
-                  // 关闭按钮 - 封面图右上角
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context, _hasStatusChanged),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.7),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: AppTheme.mediumGray,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
-              // 没有图片时，显示一个顶部圆角区域和关闭按钮
-              if (_spotImages.isEmpty)
-                Container(
-                  height: 56,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 16, right: 16),
-                    child: Align(
-                      alignment: Alignment.topRight,
-                      child: GestureDetector(
-                        onTap: () => Navigator.pop(context, _hasStatusChanged),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppTheme.lightGray,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.close,
-                            color: AppTheme.mediumGray,
-                            size: 22,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              // 没有有效图片时，不显示顶部占位区域
+              if (_validSpotImages.isEmpty) const SizedBox(height: 8),
               // Scrollable content
-              Expanded(
+              Flexible(
+                fit: FlexFit.loose,
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
                   child: Column(
@@ -3006,29 +3005,8 @@ class _UnifiedSpotDetailModalState
                         const SizedBox(height: 16),
                       ],
                       // 5. Rating or Recommendation Phrase with Check-in button on the right
-                      // For AI-only places or places without valid rating, show recommendation phrase
-                      if (_isAIOnlySpot || !_hasValidRating) ...[
-                        Row(
-                          children: [
-                            const Icon(Icons.auto_awesome,
-                                size: 20, color: AppTheme.primaryYellow),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _spotRecommendationPhrase ??
-                                    _getDefaultRecommendationPhrase(),
-                                style:
-                                    AppTheme.headlineMedium(context).copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            _buildCheckInButton(),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                      ] else if (_hasValidRating) ...[
+                      // 优先显示评分（如果有有效评分）
+                      if (_hasValidRating) ...[
                         Row(
                           children: [
                             Text(
@@ -3062,8 +3040,30 @@ class _UnifiedSpotDetailModalState
                           ],
                         ),
                         const SizedBox(height: 16),
+                      ] else if (_isAIOnlySpot) ...[
+                        // AI-only 地点：显示推荐短语
+                        Row(
+                          children: [
+                            const Icon(Icons.auto_awesome,
+                                size: 20, color: AppTheme.primaryYellow),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _spotRecommendationPhrase ??
+                                    _getDefaultRecommendationPhrase(),
+                                style:
+                                    AppTheme.headlineMedium(context).copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                            _buildCheckInButton(),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
                       ] else ...[
-                        // Show check-in button even without rating
+                        // 没有评分也不是 AI-only：只显示 Check-in 按钮
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [_buildCheckInButton()],
@@ -3187,6 +3187,27 @@ class _UnifiedSpotDetailModalState
                 ),
               ),
             ],
+          ),
+        ),
+        // 关闭按钮 - 放在详情页外部右上角
+        Positioned(
+          top: -44,
+          right: 16,
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context, _hasStatusChanged),
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.45),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
           ),
         ),
       ],

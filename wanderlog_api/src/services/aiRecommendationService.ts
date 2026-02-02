@@ -116,6 +116,11 @@ PLACE SELECTION RULES (CRITICAL):
 - For specific queries like "cafes", "ramen shops", "restaurants":
   - Focus on that specific category
   - Recommend well-known, highly-rated establishments
+- CHAIN STORES/RESTAURANTS (CRITICAL):
+  - For chain restaurants (e.g., Ichiran, Ippudo, Starbucks, McDonald's), recommend ONE SPECIFIC BRANCH
+  - Include the branch location in the name, e.g., "Ichiran Shibuya" or "Ippudo Times Square"
+  - Use coordinates and address for that SPECIFIC branch, not the general chain
+  - Do NOT just recommend "Ichiran" - always specify which branch
 
 Return ONLY valid JSON (no markdown, no code blocks):
 {
@@ -471,17 +476,17 @@ class AIRecommendationService {
       throw new AIResponseValidationError(`Place ${index + 1}: summary must be a string`);
     }
 
-    // Validate summary length (max 50 chars) - Requirement 3.6
-    if (place.summary.length > 50) {
-      console.warn(`[AIRecommendationService] Place ${index + 1} summary exceeds 50 chars (${place.summary.length}), truncating`);
+    // Validate summary length (max 150 chars) - 允许更详细的摘要
+    if (place.summary.length > 150) {
+      console.warn(`[AIRecommendationService] Place ${index + 1} summary exceeds 150 chars (${place.summary.length}), truncating`);
       // 截断到最后一个完整的句子或词
-      let truncated = place.summary.substring(0, 50);
+      let truncated = place.summary.substring(0, 150);
       const lastPeriod = truncated.lastIndexOf('。');
       const lastDot = truncated.lastIndexOf('.');
       const lastComma = truncated.lastIndexOf('，');
       const lastSpace = truncated.lastIndexOf(' ');
       const cutPoint = Math.max(lastPeriod, lastDot, lastComma, lastSpace);
-      if (cutPoint > 25) {
+      if (cutPoint > 60) {
         truncated = truncated.substring(0, cutPoint + 1);
       }
       place.summary = truncated.trim();

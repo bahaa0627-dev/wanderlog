@@ -11,7 +11,8 @@
 import { logger } from '../utils/logger';
 
 // Configuration
-const MAX_AI_CALLS_PER_REQUEST = 3;
+// 限制为 4 次：1. AI 推荐 2. 摘要生成 3. 开场白+总结 4. 补充推荐
+const MAX_AI_CALLS_PER_REQUEST = 4;
 
 // Counter state
 let aiCallCount = 0;

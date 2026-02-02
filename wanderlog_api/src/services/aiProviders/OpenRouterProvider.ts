@@ -24,7 +24,7 @@ import { R2ImageService } from '../r2ImageService';
 interface OpenRouterConfig {
   apiKey: string;
   baseUrl: string;
-  chatModel: string;
+  chatModels: string[];  // Ordered list of models to try (fallback chain)
   visionModel: string;
 }
 
@@ -99,7 +99,10 @@ export class OpenRouterProvider implements AIProvider {
   private loadConfig(): void {
     const apiKey = process.env.OPENROUTER_API_KEY;
     const baseUrl = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
-    const chatModel = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+    // Model priority: gpt-4o-mini > gpt-4.1-mini > auto
+    // Can be customized via OPENROUTER_MODELS env var (comma-separated)
+    const modelsStr = process.env.OPENROUTER_MODELS || 'openai/gpt-4o-mini,openai/gpt-4.1-mini,openrouter/auto';
+    const chatModels = modelsStr.split(',').map(m => m.trim()).filter(m => m.length > 0);
     const visionModel = process.env.OPENROUTER_VISION_MODEL || 'openai/gpt-4o-mini';
 
     // Validate required configuration
@@ -112,14 +115,14 @@ export class OpenRouterProvider implements AIProvider {
     this.config = {
       apiKey,
       baseUrl: baseUrl.replace(/\/$/, ''), // Remove trailing slash
-      chatModel,
+      chatModels,
       visionModel,
     };
 
     this.configValid = true;
     console.log('[OpenRouter] Provider initialized successfully');
     console.log(`[OpenRouter] Base URL: ${this.config.baseUrl}`);
-    console.log(`[OpenRouter] Chat model: ${this.config.chatModel}`);
+    console.log(`[OpenRouter] Chat models (priority order): ${this.config.chatModels.join(' > ')}`);
     console.log(`[OpenRouter] Vision model: ${this.config.visionModel}`);
   }
 
@@ -184,6 +187,7 @@ export class OpenRouterProvider implements AIProvider {
 
   /**
    * Generate text based on a prompt using OpenRouter Responses API (with web search)
+   * Uses fallback chain: tries each model in order until one succeeds
    * @param prompt User prompt
    * @param systemPrompt Optional system prompt
    * @returns Generated text response
@@ -209,54 +213,67 @@ ${systemPrompt || ''}`;
     // Combine system prompt and user prompt for the responses API
     const fullPrompt = `${systemInstruction}\n\n${prompt}`;
 
-    const requestBody = {
-      model: this.config.chatModel,
-      input: fullPrompt,
-      tools: [{ 
-        type: 'web_search_preview',
-        search_context_size: 'medium', // Balance between speed and context
-      }],
-      tool_choice: 'auto', // Let AI decide whether to use web search
-    };
+    const errors: Error[] = [];
 
-    try {
-      console.log(`[OpenRouter] Sending responses request to: ${url}`);
+    // Try each model in the fallback chain
+    for (const model of this.config.chatModels) {
+      const requestBody = {
+        model,
+        input: fullPrompt,
+        tools: [{ 
+          type: 'web_search_preview',
+          search_context_size: 'medium', // Balance between speed and context
+        }],
+        tool_choice: 'auto', // Let AI decide whether to use web search
+      };
 
-      const response = await axios.post<OpenRouterResponsesResponse>(url, requestBody, {
-        headers: this.getHeaders(),
-        timeout: 90000, // 90 second timeout for web search
-      });
+      try {
+        console.log(`[OpenRouter] Trying model: ${model}`);
 
-      // Extract text content from the response
-      const output = response.data.output;
-      let content = '';
-      
-      for (const item of output) {
-        if (item.type === 'message' && item.content) {
-          for (const contentItem of item.content) {
-            if (contentItem.type === 'output_text' && contentItem.text) {
-              content = contentItem.text;
-              break;
+        const response = await axios.post<OpenRouterResponsesResponse>(url, requestBody, {
+          headers: this.getHeaders(),
+          timeout: 90000, // 90 second timeout for web search
+        });
+
+        // Extract text content from the response
+        const output = response.data.output;
+        let content = '';
+        
+        for (const item of output) {
+          if (item.type === 'message' && item.content) {
+            for (const contentItem of item.content) {
+              if (contentItem.type === 'output_text' && contentItem.text) {
+                content = contentItem.text;
+                break;
+              }
             }
           }
         }
-      }
 
-      if (!content) {
-        throw new Error('Empty response from OpenRouter Responses API');
-      }
+        if (!content) {
+          throw new Error('Empty response from OpenRouter Responses API');
+        }
 
-      console.log(`[OpenRouter] Responses request successful`);
-      console.log(`[OpenRouter] Tokens used: ${response.data.usage?.input_tokens || 'unknown'}`);
-      
-      return content;
-    } catch (error) {
-      throw this.handleError(error, 'generateText');
+        console.log(`[OpenRouter] Success with model: ${model}`);
+        console.log(`[OpenRouter] Tokens used: ${response.data.usage?.input_tokens || 'unknown'}`);
+        
+        return content;
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        console.warn(`[OpenRouter] Model ${model} failed: ${errMsg}`);
+        errors.push(error instanceof Error ? error : new Error(errMsg));
+        // Continue to next model in the chain
+      }
     }
+
+    // All models failed
+    const lastError = errors[errors.length - 1] || new Error('All models failed');
+    throw this.handleError(lastError, 'generateText');
   }
 
   /**
    * Generate text using chat/completions WITHOUT web search.
+   * Uses fallback chain: tries each model in order until one succeeds.
    * This is preferred when you need strict JSON output (web search can add noise).
    */
   async generateTextNoSearch(prompt: string, systemPrompt?: string): Promise<string> {
@@ -270,33 +287,45 @@ ${systemPrompt || ''}`;
 
 ${systemPrompt || ''}`;
 
-    const requestBody = {
-      model: this.config.chatModel,
-      messages: [
-        { role: 'system', content: systemInstruction },
-        { role: 'user', content: prompt },
-      ],
-      max_tokens: 900,
-      temperature: 0.3,
-    };
+    const errors: Error[] = [];
 
-    try {
-      console.log(`[OpenRouter] Sending chat/completions request to: ${url}`);
-      const response = await axios.post<OpenAIChatResponse>(url, requestBody, {
-        headers: this.getHeaders(),
-        timeout: 45000,
-      });
+    // Try each model in the fallback chain
+    for (const model of this.config.chatModels) {
+      const requestBody = {
+        model,
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 900,
+        temperature: 0.3,
+      };
 
-      const content = response.data.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('Empty response from OpenRouter chat/completions API');
+      try {
+        console.log(`[OpenRouter] Trying model (no search): ${model}`);
+        const response = await axios.post<OpenAIChatResponse>(url, requestBody, {
+          headers: this.getHeaders(),
+          timeout: 45000,
+        });
+
+        const content = response.data.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error('Empty response from OpenRouter chat/completions API');
+        }
+
+        console.log(`[OpenRouter] Success with model: ${model}`);
+        return content;
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        console.warn(`[OpenRouter] Model ${model} failed: ${errMsg}`);
+        errors.push(error instanceof Error ? error : new Error(errMsg));
+        // Continue to next model
       }
-
-      console.log('[OpenRouter] chat/completions request successful');
-      return content;
-    } catch (error) {
-      throw this.handleError(error, 'generateTextNoSearch');
     }
+
+    // All models failed
+    const lastError = errors[errors.length - 1] || new Error('All models failed');
+    throw this.handleError(lastError, 'generateTextNoSearch');
   }
 
   /**
@@ -404,7 +433,7 @@ If no direct image URL found, return:
 {"imageUrl": null, "source": null}`;
 
     const requestBody = {
-      model: this.config.chatModel,
+      model: this.config.chatModels[0],  // Use first (highest priority) model
       input: prompt,
       tools: [{ 
         type: 'web_search_preview',
@@ -535,7 +564,7 @@ Return ONLY this JSON array:
 If no image found for a place, set imageUrl to null.`;
 
     const requestBody = {
-      model: this.config.chatModel,
+      model: this.config.chatModels[0],  // Use first (highest priority) model
       input: prompt,
       tools: [{ 
         type: 'web_search_preview',

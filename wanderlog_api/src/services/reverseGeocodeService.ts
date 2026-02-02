@@ -1,3 +1,5 @@
+import mapboxGeocodeService from './mapboxGeocodeService';
+
 export interface ReverseGeocodeResult {
   address?: string;
   city?: string;
@@ -134,14 +136,49 @@ export class ReverseGeocodeService {
 
   /**
    * Forward geocode: convert address to coordinates
+   * 优先使用 Mapbox Geocoding API，失败时回退到 Nominatim
    * @param address Full address string (e.g., "33 Cranbourn St, London WC2H 7AD")
+   * @param options 可选参数
    * @returns Coordinates { lat, lon } or null if not found
    */
-  async forwardGeocode(address: string): Promise<{ lat: number; lon: number } | null> {
+  async forwardGeocode(
+    address: string,
+    options: {
+      country?: string;
+      language?: string;
+      proximity?: { lon: number; lat: number };
+    } = {}
+  ): Promise<{ lat: number; lon: number } | null> {
     if (!address || address.trim().length === 0) {
       return null;
     }
 
+    // 1. 首先尝试使用 Mapbox Geocoding API（命中率更高）
+    if (mapboxGeocodeService.isAvailable()) {
+      try {
+        const mapboxResult = await mapboxGeocodeService.forwardGeocode(address, {
+          country: options.country,
+          language: options.language || 'zh,en', // 支持中文和英文
+          proximity: options.proximity,
+        });
+
+        if (mapboxResult) {
+          console.log(`[Geocode] Mapbox geocoded "${address}" -> (${mapboxResult.lat}, ${mapboxResult.lon})`);
+          return { lat: mapboxResult.lat, lon: mapboxResult.lon };
+        }
+      } catch (error) {
+        console.warn(`[Geocode] Mapbox geocoding failed for "${address}", falling back to Nominatim: ${error}`);
+      }
+    }
+
+    // 2. 回退到 Nominatim
+    return this.forwardGeocodeWithNominatim(address);
+  }
+
+  /**
+   * 使用 Nominatim 进行 forward geocoding（作为 fallback）
+   */
+  private async forwardGeocodeWithNominatim(address: string): Promise<{ lat: number; lon: number } | null> {
     let attempt = 0;
     let lastError: Error | null = null;
 
@@ -187,6 +224,7 @@ export class ReverseGeocodeService {
           const lat = parseFloat(data[0].lat);
           const lon = parseFloat(data[0].lon);
           if (!isNaN(lat) && !isNaN(lon)) {
+            console.log(`[Geocode] Nominatim geocoded "${address}" -> (${lat}, ${lon})`);
             return { lat, lon };
           }
         }
@@ -199,7 +237,7 @@ export class ReverseGeocodeService {
     }
 
     if (lastError) {
-      console.warn(`[Geocode] Forward geocoding failed for "${address}": ${lastError.message}`);
+      console.warn(`[Geocode] Nominatim forward geocoding failed for "${address}": ${lastError.message}`);
     }
     return null;
   }

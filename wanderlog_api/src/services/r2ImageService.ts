@@ -17,6 +17,7 @@ import * as http from 'http';
 import { URL } from 'url';
 import * as crypto from 'crypto';
 import { ImageUploadResult } from '../types/apify';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 // ============================================================================
 // Configuration (defaults only - actual values read from env at runtime)
@@ -283,8 +284,12 @@ export class R2ImageService {
 
       try {
         const url = new URL(`${this.r2PublicUrl}/${r2Key}`);
+        
+        // 使用代理（如果配置了）
+        const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
+        const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
 
-        const options = {
+        const options: https.RequestOptions = {
           hostname: url.hostname,
           port: 443,
           path: url.pathname,
@@ -295,8 +300,7 @@ export class R2ImageService {
             'Content-Length': imageBuffer.length,
             'Cache-Control': 'public, max-age=31536000, immutable',
           },
-          // 绕过全局代理 - R2应该直连
-          agent: false,
+          agent: agent,
         };
 
         const req = https.request(options, (res) => {

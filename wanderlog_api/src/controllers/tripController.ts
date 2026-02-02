@@ -562,7 +562,7 @@ const normalizePlace = (dbPlace: any) => {
         // 如果是对象格式（新格式），提取所有值
         if (value && typeof value === 'object' && !Array.isArray(value)) {
           const result: string[] = [];
-          for (const [key, val] of Object.entries(value)) {
+          for (const [, val] of Object.entries(value)) {
             if (typeof val === 'string' && val.trim()) {
               result.push(val.trim());
             } else if (Array.isArray(val)) {

@@ -1549,6 +1549,7 @@ Provide the following details:
 13. category: Place type (e.g., museum, restaurant, landmark, cafe, temple, park)
 14. coverImageUrl: A publicly accessible image URL of this place (from Wikipedia, official website, or travel sites)
 15. description: A brief 2-3 sentence description${isZh ? ' in Chinese' : ' in English'}
+16. ticketUrl: Official ticket booking URL if available (for museums, attractions, landmarks)
 
 Return JSON only:
 {
@@ -1558,6 +1559,7 @@ Return JSON only:
   "city": "City",
   "country": "Country",
   "website": "https://example.com",
+  "ticketUrl": "https://tickets.example.com",
   "latitude": 35.6892,
   "longitude": 139.6917,
   "rating": 4.5,
@@ -1726,6 +1728,7 @@ Return JSON only:
           phoneNumber: dbPlace.phoneNumber || info.phoneNumber || undefined,
           website: dbPlace.website || info.website || undefined,
           openingHours: dbPlace.openingHours || info.openingHours || undefined,
+          ticketUrl: info.ticketUrl || undefined,
         };
       } catch (dbError) {
         logger.warn(`[IntentClassifier] Failed to persist place "${info.name}": ${dbError}`);
@@ -1748,6 +1751,7 @@ Return JSON only:
           phoneNumber: info.phoneNumber || undefined,
           website: info.website || undefined,
           openingHours: info.openingHours || undefined,
+          ticketUrl: info.ticketUrl || undefined,
         };
       }
     } catch (error) {

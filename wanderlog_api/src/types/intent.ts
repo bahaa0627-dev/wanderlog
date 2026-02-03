@@ -59,6 +59,7 @@ export interface PlaceResult {
   phoneNumber?: string;
   website?: string;
   openingHours?: string;
+  ticketUrl?: string;  // 购票链接（博物馆、景点等）
 }
 
 /**

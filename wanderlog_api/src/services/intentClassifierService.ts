@@ -53,231 +53,13 @@ const CONFIG = {
 
 // ============ Prompt Templates ============
 
-/**
- * AI prompt for generating specific place descriptions
- * 生成结构化的地点介绍，分为 2-4 个段落，标题根据地点类型灵活选择
- */
-const SPECIFIC_PLACE_DESCRIPTION_PROMPT = `Write a structured introduction about "{placeName}" in {language}.
 
-Format with 2-4 sections using markdown headers (##) and bullet points (-).
-Choose section titles that FIT THE SPECIFIC PLACE TYPE - do NOT use the same titles every time.
-
-Section title examples based on place type:
-- For landmarks/attractions: 历史背景/History, 建筑特色/Architecture, 最佳体验/Best Experiences
-- For restaurants/cafes: 招牌菜品/Signature Dishes, 用餐氛围/Dining Atmosphere, 预订建议/Reservation Tips
-- For museums: 主要馆藏/Key Collections, 参观路线/Visiting Route, 特别展览/Special Exhibitions
-- For parks/nature: 自然景观/Natural Features, 徒步路线/Hiking Trails, 最佳季节/Best Seasons
-- For shopping areas: 特色店铺/Featured Shops, 购物攻略/Shopping Guide, 附近美食/Nearby Food
-
-{language} = Chinese example (for Eiffel Tower):
-## 🏗️ 建筑与历史
-- 1889年为巴黎世博会建造的铁塔杰作
-- 高330米，是当时世界最高的人工建筑
-
-## 👀 登塔体验
-- 三层观景台，日落时分景色最佳
-- 二层有米其林餐厅可享用法式料理
-
-## 📷 拍摄建议
-- 特罗卡德罗广场是最佳拍摄角度
-- 每晚整点有5分钟闪烁灯光秀
-
-{language} = English example (for a museum):
-## 🎨 Collections & Exhibitions
-- Home to over 35,000 artworks spanning 5,000 years
-- The Mona Lisa and Venus de Milo are must-sees
-
-## 🚶 Visiting Strategy
-- Start early to avoid crowds at popular galleries
-- Audio guides available in multiple languages
-
-## ☕ Nearby Recommendations
-- Café Marly offers stunning pyramid views
-- Tuileries Garden is perfect for a post-visit stroll
-
-RULES:
-- Write ONLY in {language}
-- 2-4 sections total, choose titles that match this specific place
-- Each section has 2-3 bullet points (total 6-10 bullets)
-- Be specific to THIS place, not generic advice
-- No JSON, just markdown text`;
-
-/**
- * AI prompt for travel consultation responses
- * OPTIMIZED: Reduced from ~150 lines to ~50 lines to save ~70% tokens
- */
-const TRAVEL_CONSULTATION_PROMPT = `You are a travel expert. Answer: {query}
-
-RULES:
-1. Language: {language} only. English names in mentionedPlaces, but summary in {language}
-2. Location: ONLY recommend places in the location user asked about
-3. For itinerary requests (N days/N-day/N天/行程/trip planning):
-   - MUST use day-by-day format: "## 📅 Day 1", "## 📅 Day 2", etc.
-   - Each day MUST have 3 time slots: 🌅 Morning, ☀️ Afternoon, 🌆 Evening
-   - Each time slot: 1-2 places with **Place Name** followed by a new line with description (30-50 chars)
-   - Description MUST be on a new line after the place name, not inline
-   - Include practical tips (transport between places, recommended duration)
-   - Total 3-5 places per day, 10-15 places for 3-day trip
-4. For city recommendation queries (推荐城市/which cities/best cities):
-  - Use COUNTRY FLAG emoji before city name (🇫🇷 France, 🇮🇹 Italy, 🇪🇸 Spain, 🇯🇵 Japan, 🇬🇧 UK, 🇩🇪 Germany, 🇳🇱 Netherlands, 🇦🇹 Austria, 🇨🇿 Czech, 🇬🇷 Greece, 🇵🇹 Portugal, 🇨🇭 Switzerland, etc.)
-  - NO websites for cities (cities are destinations, not places)
-  - Format: ## 🇫🇷 Paris (France)\n- **City Vibe/特色**: 2-3 sentences describing the city atmosphere and what makes it special\n- **Best For/适合人群**: who should visit and why\n- **Best Season/最佳季节**: when to visit\n\n### 🌟 Must-Visit Spots\n1. **Eiffel Tower** - iconic landmark (1 sentence feature)\n2. **Louvre Museum** - world-class art (1 sentence feature)\n3. **Sacré-Cœur** - stunning views (1 sentence feature)\n
-  - Each city MUST have 3 recommended spots under "🌟 Must-Visit Spots" or "🌟 推荐景点"
-  - Include all mentioned spots in mentionedPlaces with detailed summaries
-5. For other queries: Include 5-10 places with practical tips
-6. Each place summary MUST be 30-50 characters (detailed, descriptive)
-
-FORMAT for N-day itinerary (REQUIRED for "N days in City" queries):
-## 📅 Day 1：探索市中心
-
-### 🌅 上午
-**美人鱼雕像**
-哥本哈根的标志性景点，适合早起拍照留念，欣赏海港美景。
-
-**克里斯蒂安堡宫**
-美丽的皇宫，内部装修华丽，可以参观皇家接待厅和历史展览。
-
-### ☀️ 下午  
-**新港**
-色彩缤纷的房子，餐厅和咖啡馆众多，适合漫步探索，感受城市风情。
-💡 Tip: 可以选择乘船游览新港，感受城市风情。
-
-### 🌆 傍晚
-**托尔瓦尔德森博物馆**
-晚上开放，适合艺术爱好者，内部展出多位丹麦艺术家的作品。
-
-## 📅 Day 2：[Theme for the day]
-(repeat Morning/Afternoon/Evening format - **Place Name** on one line, description on next line)
-
-## 💡 实用贴士
-- Transport/budget/timing tips
-
-FORMAT for city recommendations:
-## �🇷 巴黎 (法国)
-- **文化氛围**: 巴黎以浪漫和艺术而闻名，塞纳河畔的咖啡馆文化令人陶醉，适合喜欢历史和艺术的人。
-- **最佳季节**: 春秋季节最为宜人，气候适中，适合观光和漫步于街头。
-
-### 🌟 推荐景点
-1. **埃菲尔铁塔** - 巴黎地标，登塔可俯瞰全城美景
-2. **卢浮宫** - 世界最大艺术博物馆，收藏蒙娜丽莎等名作
-3. **圣心大教堂** - 蒙马特山顶的白色教堂，可欣赏巴黎全景
-
-FORMAT for place recommendations:
-- Use Markdown with ## headings and emoji
-- Places: ### **Place Name** followed by 1-2 sentence description
-- Keep concise (300-500 words)
-
-Return JSON:
-{
-  "textContent": "Markdown response...",
-  "mentionedPlaces": [{"name": "English Name", "city": "City", "summary": "~50 char description in {language}", "address": "Address", "website": "URL", "country": "Country", "rating": 4.5, "ratingCount": 1200}],
-  "cities": ["City1", "City2"]
-}`;
 
 /**
  * AI prompt for non-travel responses
  * OPTIMIZED: Reduced to save tokens
  */
 const NON_TRAVEL_PROMPT = `Answer in {language} using Markdown: {query}. Be concise, use emoji and **bold** for key items. Return plain text.`;
-
-/**
- * AI prompt for regular travel queries
- * 通用旅行查询的 prompt - 城市推荐、交通、门票等通用旅行信息
- * 例如："推荐几个欧洲城市"、"巴黎怎么买地铁票"、"卢浮宫门票怎么买"
- */
-const REGULAR_TRAVEL_PROMPT = `You are a travel expert. Answer: {query}
-
-IMPORTANT RULES:
-1. Provide helpful travel information (city recommendations, transport, tickets, tips, etc.)
-2. DO NOT include any website URLs or links
-3. DO NOT include "网站:" or "Website:" in your response
-4. Format with clear sections using ## headings and bullet points (-)
-
-SPECIAL RULES FOR CITY RECOMMENDATIONS:
-- For queries like "推荐几个欧洲城市": use one city per section
-- Use COUNTRY FLAG emoji (🇫🇷 France, 🇮🇹 Italy, 🇪🇸 Spain, 🇯🇵 Japan, 🇬🇧 UK, 🇩🇪 Germany, 🇳🇱 Netherlands, 🇦🇹 Austria, 🇨🇿 Czech, 🇬🇷 Greece, 🇵🇹 Portugal, 🇨🇭 Switzerland, 🇺🇸 USA, 🇹🇭 Thailand, 🇻🇳 Vietnam, 🇰🇷 Korea, 🇸🇬 Singapore, 🇦🇺 Australia, etc.)
-- Each city section format:
-  ## 🇫🇷 巴黎 (法国)
-  - **城市特色**: 2-3 sentences about city vibe and atmosphere
-  - **适合人群**: who should visit
-  - **最佳季节**: best time to visit
-  
-  ### 🌟 推荐景点
-  1. **Eiffel Tower** - brief feature description
-  2. **Louvre Museum** - brief feature description  
-  3. **Sacré-Cœur** - brief feature description
-
-- Each city MUST include 3 recommended spots under "🌟 推荐景点" or "🌟 Must-Visit"
-- All mentioned spots should be included in mentionedPlaces
-
-FORMAT (must follow):
-## 🏷️ Section Title
-
-- **Key Point 1**: Brief explanation
-- **Key Point 2**: Brief explanation
-- **Key Point 3**: Brief explanation
-
-(Use 2-4 sections as appropriate)
-
-## 💡 Tips
-- Practical travel tips
-
-CRITICAL:
-- Response MUST be in {language}
-- NO website URLs or links anywhere
-- Use bullet points (-) for each item within sections
-- When mentioning specific places/attractions (NOT cities), bold them like **Place Name**
-- Keep each bullet point concise (1-2 sentences)
-
-Return JSON:
-{
-  "textContent": "Markdown response with sections and bullet points...",
-  "mentionedPlaces": ["Place Name 1", "Place Name 2"]
-}
-
-Note: mentionedPlaces should ONLY contain specific attractions/spots (museums, restaurants, landmarks), NOT cities or countries.`;
-
-/**
- * AI prompt for architect/architectural style queries
- * 建筑师/建筑风格查询的 prompt - 先介绍人物/风格，再列出著名建筑
- */
-const ARCHITECT_STYLE_PROMPT = `You are an architecture expert. Answer: {query}
-
-Return ONLY valid JSON:
-{
-  "textContent": "[Markdown text in {language}]",
-  "mentionedPlaces": [{"name": "localized building name in {language}", "nameEn": "English building name", "city": "city in English", "country": "country in English", "summary": "15-20 word feature in {language}"}],
-  "cities": ["City1", "City2"]
-}
-
-textContent structure:
-
-## [Name]'s Architecture
-[2-3 sentences: nationality, philosophy, significance]
-
-## Key Characteristics
-• **[Feature 1]** [emoji]: [One sentence]
-• **[Feature 2]** [emoji]: [One sentence]
-• **[Feature 3]** [emoji]: [One sentence]
-
-## Notable Buildings
-1. [**Building Name in {language}**](place) - City, Country. [15-20 word feature in {language}]
-2. [**Building Name in {language}**](place) - City, Country. [15-20 word feature in {language}]
-(list 5-8 buildings, each with feature description)
-
-CRITICAL RULES:
-- ALL text content MUST be in {language}
-- Building names in textContent: use {language} (e.g., "卢浮宫玻璃金字塔" for Chinese)
-- Use [**Name**](place) format in Notable Buildings
-- Each building MUST have a 15-20 word feature description in {language}
-- mentionedPlaces: 
-  - "name" = localized display name in {language} (must match exactly what appears in textContent)
-  - "nameEn" = English name for database matching (e.g., "Louvre Pyramid", "Bank of China Tower")
-  - city/country = always in English
-  - summary = in {language}
-- Keep under 500 words`;
-
-// ============ Prompt Templates ============
 
 /**
  * AI prompt for intent classification
@@ -709,15 +491,23 @@ const ARCHITECT_STYLE_KEYWORDS = [
   'gaudi', 'zaha hadid', 'frank gehry', 'le corbusier', 'renzo piano',
   'norman foster', 'tadao ando', 'frank lloyd wright', 'i.m. pei', 'rem koolhaas',
   'jean nouvel', 'bjarke ingels', 'kengo kuma', 'herzog & de meuron', 'david chipperfield',
-  'shigeru ban', 'peter zumthor', 'álvaro siza', 'louis kahn', 'mies van der rohe',
+  'shigeru ban', 'peter zumthor', 'álvaro siza', 'louis kahn', 'mies van der rohe','aalto',
+  // Architects (Chinese)
+  '贝聿铭', '安藤忠雄', '扎哈', '扎哈·哈迪德', '哈迪德', '高迪', '隈研吾',
+  '柯布西耶', '勒·柯布西耶', '赖特', '弗兰克·劳埃德·赖特', '诺曼·福斯特','阿尔托',
+  '福斯特', '库哈斯', '伦佐·皮亚诺', '坂茂', '卒姆托', '路易斯·康',
+  '密斯', '密斯·凡·德·罗', '让·努维尔', '努维尔', '比亚克·英格尔斯',
   // Styles (English)
   'brutalism', 'brutalist', 'art deco', 'gothic', 'baroque', 'renaissance',
   'modernism', 'modernist', 'postmodern', 'deconstructivism', 'neoclassical',
   'art nouveau', 'bauhaus', 'minimalism', 'high-tech', 'organic architecture',
+  // Styles (Chinese)
+  '野兽派', '粗野主义', '装饰艺术', '哥特式', '巴洛克', '文艺复兴',
+  '现代主义', '后现代', '解构主义', '新古典', '新艺术', '包豪斯', '极简主义',
   // Patterns (English)
   'architecture', 'architect', 'architectural', 'works of', 'buildings by', 'designed by',
-  // Chinese
-  '建筑师', '建筑风格', '作品', '设计风格',
+  // Patterns (Chinese) - NOTE: 的建筑 pattern is common for "[architect]'s architecture"
+  '建筑师', '建筑风格', '作品', '设计风格', '的建筑', '建筑作品', '代表作',
 ];
 
 // ============ Intent Classifier Service ============
@@ -727,6 +517,388 @@ class IntentClassifierService implements IIntentClassifier {
 
   constructor() {
     this.kouriProvider = new KouriProvider();
+  }
+
+  /**
+   * Generate travel consultation prompt with language-appropriate examples
+   * For English queries: Use English examples to ensure English output
+   * For Chinese queries: Use Chinese examples to ensure Chinese output
+   */
+  private getTravelConsultationPrompt(language: string): string {
+    const exampleSection = language === 'zh' 
+      ? this.getTravelConsultationExampleZh()
+      : this.getTravelConsultationExampleEn();
+    
+    return `You are a travel expert. Answer: {query}
+
+RULES:
+1. Language: {language} only. English names in mentionedPlaces, but summary in {language}
+2. Location: ONLY recommend places in the location user asked about
+3. For itinerary requests (N days/N-day/N天/行程/trip planning):
+   - MUST use day-by-day format: "## 📅 Day 1", "## 📅 Day 2", etc.
+   - Each day MUST have 3 time slots: 🌅 Morning, ☀️ Afternoon, 🌆 Evening
+   - Each time slot: 1-2 places with **Place Name** followed by a new line with description (45-55 chars)
+   - Description MUST be on a new line after the place name, not inline
+   - Description should be rich and detailed: include what makes it special, best activities, atmosphere, and practical tips
+   - Only add 💡 Tip when there's something SPECIAL to note (e.g., need advance booking, best time, money-saving advice). NOT every place needs a tip!
+   - Limit to 1-2 tips per time slot maximum, only for places that really need special attention
+   - Total 3-5 places per day, 10-15 places for 3-day trip
+4. For city recommendation queries (which cities/best cities/recommend cities):
+  - Use COUNTRY FLAG emoji before city name (🇫🇷 France, 🇮🇹 Italy, 🇪🇸 Spain, 🇯🇵 Japan, 🇬🇧 UK, 🇩🇪 Germany, etc.)
+  - NO websites for cities (cities are destinations, not places)
+  - Each city MUST have 3 recommended spots
+  - Include all mentioned spots in mentionedPlaces with detailed summaries
+5. For other queries: Include 5-10 places with practical tips
+6. Each place description MUST be 45-55 characters (detailed, descriptive, covering key features, atmosphere, and practical tips)
+
+${exampleSection}
+
+Return JSON:
+{
+  "textContent": "Markdown response...",
+  "mentionedPlaces": [{"name": "English Name", "displayName": "Display name same as in textContent", "city": "City", "summary": "~50 char description in {language}", "address": "Address", "website": "URL", "country": "Country", "rating": 4.5, "ratingCount": 1200}],
+  "cities": ["City1", "City2"]
+}`;
+  }
+
+  /**
+   * English example section for travel consultation prompt
+   */
+  private getTravelConsultationExampleEn(): string {
+    return `FORMAT for N-day itinerary (REQUIRED for "N days in City" queries):
+## 📅 Day 1: Exploring the City Center
+
+### 🌅 Morning
+**Senso-ji Temple**
+Tokyo's oldest temple, dedicated to Kannon, draws countless visitors with its iconic red gate and morning light.
+
+**Nakamise Street**
+Traditional shopping street leading to Senso-ji, perfect for souvenirs, snacks, and experiencing old Tokyo atmosphere.
+
+### ☀️ Afternoon
+**Ueno Park**
+A relaxing green space with museums and zoo, especially beautiful during cherry blossom season in spring.
+💡 Tip: Rent a bicycle to explore the park more easily.
+
+### 🌆 Evening
+**Akihabara**
+Paradise for electronics and anime lovers, with themed cafes and shops, perfect for night exploration.
+
+## 📅 Day 2: [Theme for the day]
+(repeat Morning/Afternoon/Evening format - **Place Name** on one line, description on next line)
+
+## 💡 Practical Tips
+- Transport/budget/timing tips
+
+FORMAT for city recommendations:
+## 🇫🇷 Paris (France)
+- **City Vibe**: Paris is renowned for romance and art, with café culture along the Seine, ideal for history and art lovers.
+- **Best Season**: Spring and autumn offer pleasant weather, perfect for sightseeing and strolling.
+
+### 🌟 Must-Visit Spots
+1. **Eiffel Tower** - Paris landmark with panoramic city views from the top
+2. **Louvre Museum** - World's largest art museum, home to Mona Lisa
+3. **Sacré-Cœur** - White basilica on Montmartre hill with stunning city views
+
+FORMAT for place recommendations:
+- Use Markdown with ## headings and emoji
+- Places: ### **Place Name** followed by 1-2 sentence description
+- Keep concise (300-500 words)`;
+  }
+
+  /**
+   * Chinese example section for travel consultation prompt
+   */
+  private getTravelConsultationExampleZh(): string {
+    return `FORMAT for N-day itinerary (REQUIRED for "N days in City" queries):
+## Day 1：探索市中心
+
+### 🌅 上午
+**浅草寺**
+东京最古老的寺庙，供奉观音菩萨，吸引无数游客，晨光照耀下尤为壮观。
+
+**仲见世街**
+从浅草寺通往仲见世街，有各种传统手工艺品和小吃，适合购买纪念品。
+
+### ☀️ 下午
+**上野公园**
+一个悠闲的公园，展有动物园和博物馆，春天樱花盛开时最为迷人。
+💡 Tip: 可租借自行车游览，体验更轻松。
+
+### 🌆 傍晚
+**秋叶原**
+电子产品和动漫爱好者的乐园，各种商店和主题咖啡厅，热闹非凡，适合夜游。
+
+## Day 2：[Theme for the day]
+(repeat Morning/Afternoon/Evening format - **Place Name** on one line, description on next line)
+
+## 💡 实用贴士
+- Transport/budget/timing tips
+
+FORMAT for city recommendations:
+## 🇫🇷 巴黎 (法国)
+- **文化氛围**: 巴黎以浪漫和艺术而闻名，塞纳河畔的咖啡馆文化令人陶醉，适合喜欢历史和艺术的人。
+- **最佳季节**: 春秋季节最为宜人，气候适中，适合观光和漫步于街头。
+
+### 🌟 推荐景点
+1. **埃菲尔铁塔** - 巴黎地标，登塔可俯瞰全城美景
+2. **卢浮宫** - 世界最大艺术博物馆，收藏蒙娜丽莎等名作
+3. **圣心大教堂** - 蒙马特山顶的白色教堂，可欣赏巴黎全景
+
+FORMAT for place recommendations:
+- Use Markdown with ## headings and emoji
+- Places: ### **Place Name** followed by 1-2 sentence description
+- Keep concise (300-500 words)`;
+  }
+
+  // ============ Language-aware Regular Travel Prompt ============
+  
+  /**
+   * Generate regular travel prompt with language-appropriate examples
+   */
+  private getRegularTravelPrompt(language: string): string {
+    const exampleSection = language === 'zh' 
+      ? this.getRegularTravelExampleZh()
+      : this.getRegularTravelExampleEn();
+    
+    return `You are a travel expert. Answer: {query}
+
+IMPORTANT RULES:
+1. Provide helpful travel information (city recommendations, transport, tickets, tips, etc.)
+2. DO NOT include any website URLs or links
+3. DO NOT include "网站:" or "Website:" in your response
+4. Format with clear sections using ## headings and bullet points (-)
+5. Response MUST be in {language}
+
+${exampleSection}
+
+Return JSON:
+{
+  "textContent": "Markdown response with sections and bullet points...",
+  "mentionedPlaces": ["Place Name 1", "Place Name 2"]
+}
+
+Note: mentionedPlaces should ONLY contain specific attractions/spots (museums, restaurants, landmarks), NOT cities or countries.`;
+  }
+
+  private getRegularTravelExampleEn(): string {
+    return `SPECIAL RULES FOR CITY RECOMMENDATIONS:
+- For queries like "recommend European cities": use one city per section
+- Use COUNTRY FLAG emoji (🇫🇷 France, 🇮🇹 Italy, 🇪🇸 Spain, 🇯🇵 Japan, 🇬🇧 UK, 🇩🇪 Germany, etc.)
+- Each city section format:
+  ## 🇫🇷 Paris (France)
+  - **City Vibe**: 2-3 sentences about city atmosphere
+  - **Best For**: who should visit
+  - **Best Season**: best time to visit
+  
+  ### 🌟 Must-Visit Spots
+  1. **Eiffel Tower** - brief feature description
+  2. **Louvre Museum** - brief feature description  
+  3. **Sacré-Cœur** - brief feature description
+
+- Each city MUST include 3 recommended spots under "🌟 Must-Visit Spots"
+
+FORMAT (must follow):
+## 🏷️ Section Title
+
+- **Key Point 1**: Brief explanation
+- **Key Point 2**: Brief explanation
+- **Key Point 3**: Brief explanation
+
+(Use 2-4 sections as appropriate)
+
+## 💡 Tips
+- Practical travel tips
+
+CRITICAL:
+- NO website URLs or links anywhere
+- Use bullet points (-) for each item within sections
+- When mentioning specific places/attractions (NOT cities), bold them like **Place Name**
+- Keep each bullet point concise (1-2 sentences)`;
+  }
+
+  private getRegularTravelExampleZh(): string {
+    return `城市推荐的特殊规则：
+- 对于"推荐几个欧洲城市"这类查询：每个城市一个章节
+- 使用国旗 emoji (🇫🇷 法国, 🇮🇹 意大利, 🇪🇸 西班牙, 🇯🇵 日本, 🇬🇧 英国, 🇩🇪 德国等)
+- 每个城市的格式：
+  ## 🇫🇷 巴黎 (法国)
+  - **城市特色**: 2-3 句描述城市氛围
+  - **适合人群**: 适合什么类型的游客
+  - **最佳季节**: 最佳旅行时间
+  
+  ### 🌟 推荐景点
+  1. **埃菲尔铁塔** - 简短特色描述
+  2. **卢浮宫** - 简短特色描述  
+  3. **圣心大教堂** - 简短特色描述
+
+- 每个城市必须包含 3 个推荐景点，放在"🌟 推荐景点"下
+
+格式要求：
+## 🏷️ 章节标题
+
+- **要点1**: 简要说明
+- **要点2**: 简要说明
+- **要点3**: 简要说明
+
+(使用 2-4 个章节)
+
+## 💡 实用贴士
+- 实用旅行建议
+
+重要规则：
+- 不要包含任何网站链接
+- 使用 (-) 作为列表项
+- 提到具体景点时使用粗体如 **景点名称**
+- 每个要点保持简洁（1-2句话）`;
+  }
+
+  // ============ Language-aware Specific Place Description Prompt ============
+
+  /**
+   * Generate specific place description prompt with language-appropriate examples
+   */
+  private getSpecificPlaceDescriptionPrompt(language: string): string {
+    const exampleSection = language === 'zh'
+      ? this.getSpecificPlaceExampleZh()
+      : this.getSpecificPlaceExampleEn();
+    
+    return `Write a structured introduction about "{placeName}" in {language}.
+
+Format with 2-4 sections using markdown headers (##) and bullet points (-).
+Choose section titles that FIT THE SPECIFIC PLACE TYPE - do NOT use the same titles every time.
+
+${exampleSection}
+
+RULES:
+- Write ONLY in {language}
+- 2-4 sections total, choose titles that match this specific place
+- Each section has 2-3 bullet points (total 6-10 bullets)
+- Be specific to THIS place, not generic advice
+- No JSON, just markdown text`;
+  }
+
+  private getSpecificPlaceExampleEn(): string {
+    return `Section title examples based on place type:
+- For landmarks/attractions: History, Architecture, Best Experiences
+- For restaurants/cafes: Signature Dishes, Dining Atmosphere, Reservation Tips
+- For museums: Key Collections, Visiting Route, Special Exhibitions
+- For parks/nature: Natural Features, Hiking Trails, Best Seasons
+- For shopping areas: Featured Shops, Shopping Guide, Nearby Food
+
+Example (for a museum):
+## 🎨 Collections & Exhibitions
+- Home to over 35,000 artworks spanning 5,000 years
+- The Mona Lisa and Venus de Milo are must-sees
+
+## 🚶 Visiting Strategy
+- Start early to avoid crowds at popular galleries
+- Audio guides available in multiple languages
+
+## ☕ Nearby Recommendations
+- Café Marly offers stunning pyramid views
+- Tuileries Garden is perfect for a post-visit stroll`;
+  }
+
+  private getSpecificPlaceExampleZh(): string {
+    return `根据地点类型选择合适的章节标题：
+- 地标/景点: 历史背景, 建筑特色, 最佳体验
+- 餐厅/咖啡馆: 招牌菜品, 用餐氛围, 预订建议
+- 博物馆: 主要馆藏, 参观路线, 特别展览
+- 公园/自然: 自然景观, 徒步路线, 最佳季节
+- 购物区: 特色店铺, 购物攻略, 附近美食
+
+示例（埃菲尔铁塔）：
+## 🏗️ 建筑与历史
+- 1889年为巴黎世博会建造的铁塔杰作
+- 高330米，是当时世界最高的人工建筑
+
+## 👀 登塔体验
+- 三层观景台，日落时分景色最佳
+- 二层有米其林餐厅可享用法式料理
+
+## 📷 拍摄建议
+- 特罗卡德罗广场是最佳拍摄角度
+- 每晚整点有5分钟闪烁灯光秀`;
+  }
+
+  // ============ Language-aware Architect Style Prompt ============
+
+  /**
+   * Generate architect/style prompt with language-appropriate examples
+   */
+  private getArchitectStylePrompt(language: string): string {
+    const exampleSection = language === 'zh'
+      ? this.getArchitectExampleZh()
+      : this.getArchitectExampleEn();
+    
+    return `You are an architecture expert. Answer: {query}
+
+Return ONLY valid JSON:
+{
+  "textContent": "[Markdown text in {language} - MUST have 3 sections: intro, characteristics, buildings]",
+  "mentionedPlaces": [{"name": "building name in {language}", "nameEn": "EXACT official English building name", "city": "city in English", "country": "country in English", "summary": "15-20 word feature in {language}"}],
+  "cities": ["City1", "City2"]
+}
+
+${exampleSection}
+
+CRITICAL RULES:
+- textContent MUST have EXACTLY 3 sections with ## headers:
+  1. ## [Architect Name]'s Architecture (or 建筑风格) - 2-3 sentence intro
+  2. ## Key Characteristics (or 设计特点) - 3 bullet points with emoji
+  3. ## Notable Buildings (or 代表建筑) - numbered list of 5-8 buildings
+- NEVER just list buildings without the first two sections
+- ALL text content MUST be in {language}
+- Building names in textContent: use {language}
+- Use [**Name**](place) - Location format in Notable Buildings (NO ratings - ratings will be added from database)
+- Each building MUST have a 15-20 word feature description in {language}
+- mentionedPlaces: 
+  - "name" = display name in {language} (must match exactly what appears in textContent)
+  - "nameEn" = EXACT official English building name for database matching (e.g., "East Building of the National Gallery of Art" not "National Gallery of Art East Building")
+  - city/country = always in English
+  - summary = in {language}
+- Keep under 500 words`;
+  }
+
+  private getArchitectExampleEn(): string {
+    return `textContent structure (MUST follow this format exactly):
+
+## Zaha Hadid's Architecture
+Zaha Hadid was an Iraqi-British architect known for her innovative and futuristic designs. Her work is characterized by sweeping curves and fragmented forms, often challenging conventional architectural norms.
+
+## Key Characteristics
+• **Fluid Forms** 🌊: Hadid's designs often feature organic shapes that mimic natural landscapes.
+• **Dynamic Spaces** 🔄: Interior designs emphasize flexibility and movement, enhancing user experience.
+• **Bold Use of Materials** 🏗️: Innovative material applications create striking visual effects and structural integrity.
+
+## Notable Buildings
+1. [**Heydar Aliyev Center**](place) - Baku, Azerbaijan. This cultural hub is renowned for its flowing, sculptural form that defies traditional architecture boundaries.
+2. [**MAXXI Museum**](place) - Rome, Italy. The National Museum of 21st Century Arts showcases Hadid's signature curves and dynamic spatial arrangements.
+3. [**Guangzhou Opera House**](place) - Guangzhou, China. Twin boulder-like structures with fluid interiors redefine performing arts architecture.
+(list 5-8 buildings, each with location and 15-20 word feature description, NO ratings)
+
+IMPORTANT: Must include ALL three sections (Architecture intro, Key Characteristics, Notable Buildings). Do NOT just list buildings.`;
+  }
+
+  private getArchitectExampleZh(): string {
+    return `textContent 结构（必须严格遵循此格式）：
+
+## 贝聿铭的建筑风格
+贝聿铭是华裔美籍建筑师，以现代主义风格闻名。他的作品将几何形态与光影巧妙融合，挑战传统建筑的边界。
+
+## 设计特点
+• **几何之美** 📐：善于运用三角形、菱形等几何元素创造独特空间
+• **光影交织** ✨：巧妙利用自然光线，营造富有诗意的室内氛围
+• **东西融合** 🌏：将东方美学与西方现代主义完美结合
+
+## 代表建筑
+1. [**卢浮宫金字塔**](place) - 巴黎，法国。玻璃金字塔成为卢浮宫的标志性入口，融合古典与现代。
+2. [**苏州博物馆**](place) - 苏州，中国。白墙黑瓦的现代诠释，与传统园林水景完美融合。
+3. [**香港中银大厦**](place) - 香港，中国。三角形截面设计，象征竹节节节高升。
+（列出5-8座代表性建筑，每座需包含位置和15-20字特色描述，不要写评分）
+
+IMPORTANT: 必须包含所有三个部分（建筑风格、设计特点、代表建筑），不能只列出建筑列表`;
   }
 
   private async generateTextWithFallback(prompt: string, timeoutMs: number): Promise<string> {
@@ -2335,7 +2507,9 @@ Rules:
    */
   private async generatePlaceDescription(placeName: string, language: string): Promise<string> {
     const languageText = language === 'zh' ? 'Chinese' : 'English';
-    const prompt = SPECIFIC_PLACE_DESCRIPTION_PROMPT
+    // Use language-aware prompt with appropriate examples
+    const basePrompt = this.getSpecificPlaceDescriptionPrompt(language);
+    const prompt = basePrompt
       .replace('{placeName}', placeName)
       .replace(/{language}/g, languageText);
 
@@ -2868,17 +3042,27 @@ Rules:
 
       if (allMatched.length > 0) {
         for (const mentioned of mentionedPlaces) {
-          const rawName = this.normalizePlaceNameForMatching(mentioned.name || '');
-          if (!rawName) continue;
+          // 优先使用 AI 返回的 displayName（textContent 中使用的名称）
+          const displayName = (mentioned as any).displayName || mentioned.name || '';
+          const englishName = mentioned.name || '';
+          
+          if (!displayName || !englishName) continue;
+          
+          // 规范化名称用于匹配
+          const normalizedDisplayName = this.normalizePlaceNameForMatching(displayName);
+          const normalizedEnglishName = this.normalizePlaceNameForMatching(englishName);
+          
+          if (!normalizedDisplayName) continue;
 
-          let candidateName = rawName;
-          if (/[\u4e00-\u9fff]/.test(rawName)) {
-            // Use cached translation to avoid duplicate AI calls
-            if (!translationCache.has(rawName)) {
-              const translated = await this.translatePlaceNameToEnglish(rawName);
-              translationCache.set(rawName, translated || '');
+          // 查找数据库中匹配的地点
+          let candidateName = normalizedEnglishName || normalizedDisplayName;
+          if (/[\u4e00-\u9fff]/.test(candidateName)) {
+            // 如果英文名也是中文，需要翻译
+            if (!translationCache.has(candidateName)) {
+              const translated = await this.translatePlaceNameToEnglish(candidateName);
+              translationCache.set(candidateName, translated || '');
             }
-            const cached = translationCache.get(rawName) || '';
+            const cached = translationCache.get(candidateName) || '';
             if (cached) candidateName = cached;
           }
 
@@ -2887,7 +3071,8 @@ Rules:
           for (const match of allMatched) {
             const score = Math.max(
               calculateNameSimilarity(candidateName, match.name),
-              calculateNameSimilarity(rawName, match.name),
+              calculateNameSimilarity(normalizedDisplayName, match.name),
+              calculateNameSimilarity(normalizedEnglishName, match.name),
             );
             if (score > bestScore) {
               bestScore = score;
@@ -2895,16 +3080,59 @@ Rules:
             }
           }
 
-          if (best && bestScore >= 0.6) {
-            // 添加名称映射（不再替换文本，保留中文显示名，让前端用 nameMapping 匹配）
-            if (rawName !== best.name) {
+          if (best && bestScore >= 0.5) {
+            // 添加名称映射（中文显示名 -> 英文数据库名）
+            if (normalizedDisplayName !== best.name) {
               nameMapping.push({
-                displayName: rawName,
+                displayName: normalizedDisplayName,
                 englishName: best.name,
               });
-              logger.debug(`[IntentClassifier] Added nameMapping: "${rawName}" -> "${best.name}"`);
+              logger.debug(`[IntentClassifier] Added nameMapping: "${normalizedDisplayName}" -> "${best.name}"`);
             }
           }
+        }
+      }
+      
+      // 🆕 补充：从 textContent 中提取 **PlaceName** 格式的地点名，尝试创建额外的映射
+      // 这是因为 AI 可能在 textContent 中使用中文名，但 mentionedPlaces 中使用英文名
+      const boldPlaceRegex = /\*\*([^*]+)\*\*/g;
+      let match;
+      const existingDisplayNames = new Set(nameMapping.map(m => m.displayName.toLowerCase()));
+      
+      while ((match = boldPlaceRegex.exec(textContent)) !== null) {
+        const boldName = match[1].trim();
+        if (!boldName || existingDisplayNames.has(boldName.toLowerCase())) continue;
+        
+        // 只处理中文名称
+        if (!/[\u4e00-\u9fff]/.test(boldName)) continue;
+        
+        // 尝试翻译并匹配
+        let translatedName = boldName;
+        if (!translationCache.has(boldName)) {
+          const translated = await this.translatePlaceNameToEnglish(boldName);
+          translationCache.set(boldName, translated || '');
+        }
+        const cached = translationCache.get(boldName) || '';
+        if (cached) translatedName = cached;
+        
+        // 在数据库匹配的地点中查找
+        let best: PlaceResult | null = null;
+        let bestScore = 0;
+        for (const matched of allMatched) {
+          const score = calculateNameSimilarity(translatedName, matched.name);
+          if (score > bestScore) {
+            bestScore = score;
+            best = matched;
+          }
+        }
+        
+        if (best && bestScore >= 0.5) {
+          nameMapping.push({
+            displayName: boldName,
+            englishName: best.name,
+          });
+          existingDisplayNames.add(boldName.toLowerCase());
+          logger.debug(`[IntentClassifier] Added nameMapping from textContent: "${boldName}" -> "${best.name}"`);
         }
       }
     }
@@ -2931,7 +3159,10 @@ Rules:
     constraints?: { requiredCity?: string; requiredCountry?: string; cityAliases?: string[] },
   ): Promise<TravelConsultationAIResult> {
     const languageText = language === 'zh' ? 'Chinese' : 'English';
-    let prompt = TRAVEL_CONSULTATION_PROMPT
+    
+    // Use language-specific prompt with appropriate examples
+    const basePrompt = this.getTravelConsultationPrompt(language);
+    let prompt = basePrompt
       .replace('{query}', query)
       .replace(/\{language\}/g, languageText);
 
@@ -2945,6 +3176,7 @@ Rules:
         `You MUST ONLY mention places within this location.\n` +
         `Do NOT mention any other cities/countries. If unsure, state you will focus on this location only.`;
     }
+
 
     try {
       const response = await this.generateTextWithFallback(prompt, CONFIG.CONSULTATION_TIMEOUT_MS) || '__TIMEOUT__';
@@ -3222,6 +3454,14 @@ Rules:
       // Portugal
       'lisbon': ['Lisbon', 'Lisboa'],
       'lisboa': ['Lisbon', 'Lisboa'],
+      // USA
+      'washington': ['Washington', 'Washington D.C.', 'Washington, D.C.', 'Washington DC'],
+      'washington d.c.': ['Washington', 'Washington D.C.', 'Washington, D.C.', 'Washington DC'],
+      'washington dc': ['Washington', 'Washington D.C.', 'Washington, D.C.', 'Washington DC'],
+      'new york': ['New York', 'New York City', 'NYC'],
+      'new york city': ['New York', 'New York City', 'NYC'],
+      'los angeles': ['Los Angeles', 'LA'],
+      'san francisco': ['San Francisco', 'SF'],
     };
     
     // 查找变体
@@ -3279,6 +3519,24 @@ Rules:
       'Picasso Museum': ['Musée Picasso', 'Museum National Picasso-Paris'],
       'Luxembourg Gardens': ['Jardin du Luxembourg'],
       'Jardin du Luxembourg': ['Luxembourg Gardens'],
+      // I.M. Pei buildings
+      'National Gallery of Art East Building': ['East Building of the National Gallery of Art', 'NGA East Building', 'East Building of the National Gallery'],
+      'East Building of the National Gallery of Art': ['National Gallery of Art East Building', 'NGA East Building', 'East Building of the National Gallery'],
+      'East Building of the National Gallery': ['East Building of the National Gallery of Art', 'National Gallery of Art East Building', 'NGA East Building'],
+      'Louvre Pyramid': ['Pyramide du Louvre', 'Louvre Glass Pyramid', 'I. M. Pei Pyramid'],
+      // Tadao Ando buildings
+      'Church of the Light': ['光之教堂', 'Ibaraki Kasugaoka Church'],
+      '光之教堂': ['Church of the Light', 'Ibaraki Kasugaoka Church'],
+      'Water Temple': ['水御堂', 'Honpuku-ji Temple'],
+      '水御堂': ['Water Temple', 'Honpuku-ji Temple'],
+      '水之教堂': ['Chapel on the Water', 'Church on the Water'],
+      'Chapel on the Water': ['水之教堂', 'Church on the Water'],
+      // Kengo Kuma buildings
+      'Nezu Museum': ['根津美术馆', 'Nezu Art Museum'],
+      '根津美术馆': ['Nezu Museum', 'Nezu Art Museum'],
+      // General museum aliases
+      '21世纪美术馆': ['21st Century Museum of Contemporary Art, Kanazawa', 'Kanazawa 21st Century Museum'],
+      '21st Century Museum': ['21st Century Museum of Contemporary Art, Kanazawa', 'Kanazawa 21st Century Museum'],
     };
 
     // 获取城市的所有变体名称（如 Rome/Roma, Venice/Venezia 等）
@@ -3370,6 +3628,42 @@ Rules:
             logger.info(`[IntentClassifier] Exact matched "${name}" -> "${exactMatch.name}"`);
           }
           continue; // 精确匹配成功，跳过模糊匹配
+        }
+
+        // 策略1.8：关键词包含匹配（用于长名称如 "National Gallery of Art East Building"）
+        // 如果名称包含多个重要词汇，尝试找到包含这些词汇的数据库记录
+        const significantWords = this.extractSignificantWords(cleanedName || name);
+        if (significantWords.length >= 3) {
+          // 使用最重要的3-4个词进行 contains 搜索
+          const searchWords = significantWords.slice(0, 4);
+          const wordConditions = searchWords.map(word => ({
+            name: { contains: word, mode: 'insensitive' as const },
+          }));
+          
+          const containsMatch = await prisma.place.findFirst({
+            where: {
+              AND: [
+                ...wordConditions,
+                { coverImage: { not: null } },
+                { coverImage: { not: '' } },
+              ],
+            },
+          });
+          
+          if (containsMatch && containsMatch.coverImage?.startsWith('http')) {
+            // 验证匹配质量：确保数据库名称也包含搜索词的大部分
+            const dbWords = this.extractSignificantWords(containsMatch.name);
+            const matchingWords = searchWords.filter(w => 
+              dbWords.some(dw => dw.includes(w) || w.includes(dw))
+            );
+            
+            if (matchingWords.length >= Math.min(3, searchWords.length) && !usedIds.has(containsMatch.id)) {
+              usedIds.add(containsMatch.id);
+              results.push(this.toPlaceResult(containsMatch, language));
+              logger.info(`[IntentClassifier] Contains-matched "${name}" -> "${containsMatch.name}" (matched words: ${matchingWords.join(', ')})`);
+              continue;
+            }
+          }
         }
 
         // 策略2：模糊匹配（增加 take 限制到 10）
@@ -4100,7 +4394,9 @@ Rules:
     language: string
   ): Promise<TravelConsultationAIResult> {
     const languageText = language === 'zh' ? 'Chinese' : 'English';
-    const prompt = ARCHITECT_STYLE_PROMPT
+    // Use language-aware prompt with appropriate examples
+    const basePrompt = this.getArchitectStylePrompt(language);
+    const prompt = basePrompt
       .replace('{query}', query)
       .replace(/\{language\}/g, languageText);
 
@@ -4234,7 +4530,9 @@ Rules:
    */
   private async generateRegularTravelResponse(query: string, language: string): Promise<{ textContent: string; mentionedPlaceNames: string[] }> {
     const languageText = language === 'zh' ? 'Chinese' : 'English';
-    const prompt = REGULAR_TRAVEL_PROMPT
+    // Use language-aware prompt with appropriate examples
+    const basePrompt = this.getRegularTravelPrompt(language);
+    const prompt = basePrompt
       .replace('{query}', query)
       .replace(/\{language\}/g, languageText);
 

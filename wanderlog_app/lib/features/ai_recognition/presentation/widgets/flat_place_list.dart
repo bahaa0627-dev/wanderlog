@@ -70,6 +70,13 @@ Future<void> _openExternalUrl(String url) async {
   }
 }
 
+/// 检测文本是否包含中文字符
+bool _containsChineseText(String text) {
+  if (text.trim().isEmpty) return false;
+  final chineseRegex = RegExp(r'[\u4e00-\u9fff\u3400-\u4dbf]');
+  return chineseRegex.hasMatch(text);
+}
+
 Widget _buildLinkedSummaryText({
   required BuildContext context,
   required String text,
@@ -133,14 +140,28 @@ Widget _buildLinkedSummaryText({
           cleanedText,
           style: baseStyle,
         ),
-      // 网站链接（单独一行）
+      // 网站链接（单独一行，带 Website:/网站: 前缀）
       if (effectiveWebsite != null) ...[
         const SizedBox(height: 4),
         GestureDetector(
           onTap: () => _openExternalUrl(effectiveWebsite!),
-          child: Text(
-            effectiveWebsite.replaceFirst(RegExp(r'^https?://'), ''),
-            style: websiteLinkStyle,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: _containsChineseText(text) ? '网站: ' : 'Website: ',
+                  style: baseStyle.copyWith(
+                    color: AppTheme.black,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+                TextSpan(
+                  text:
+                      effectiveWebsite.replaceFirst(RegExp(r'^https?://'), ''),
+                  style: websiteLinkStyle,
+                ),
+              ],
+            ),
           ),
         ),
       ],

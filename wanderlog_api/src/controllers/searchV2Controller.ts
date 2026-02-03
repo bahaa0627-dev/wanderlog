@@ -84,6 +84,7 @@ interface PlaceResult {
   website?: string;
   openingHours?: string;
   recommendationPhrase?: string;  // AI recommendation phrase (e.g., "Hidden gem", "Local favorite")
+  customFields?: Record<string, unknown>;  // 自定义字段（包含剧照等数据）
 }
 
 interface MentionedPlaceLite {
@@ -1537,6 +1538,7 @@ async function persistAIPlacesToDB(
       phoneNumber: dbPlace.phoneNumber || undefined,
       website: dbPlace.website || undefined,
       openingHours: dbPlace.openingHours || undefined,
+      customFields: dbPlace.customFields || undefined,
     };
   };
 
@@ -2299,6 +2301,7 @@ async function matchMentionedPlacesFromDB(
       phoneNumber: matched.phoneNumber || undefined,
       website: matched.website || undefined,
       openingHours: matched.openingHours || undefined,
+      customFields: matched.customFields || undefined,
     };
 
     results.push(placeResult);
@@ -3406,6 +3409,7 @@ async function matchAIPlacesFromDB(aiPlaces: AIPlace[], language: 'en' | 'zh' = 
         openingHours: bestMatch.openingHours,
         // 🔧 Pass through AI recommendation phrase for display when rating not available
         recommendationPhrase: aiPlace.recommendationPhrase || '',
+        customFields: bestMatch.customFields || undefined,
       });
     }
   }
@@ -4013,6 +4017,7 @@ JSON:{"introduction":"<40字>","categories":[{"title":"☕ Cat","places":[{"name
             phoneNumber: dbPlace.phoneNumber || undefined,
             website: dbPlace.website || undefined,
             openingHours: dbPlace.openingHours || undefined,
+            customFields: dbPlace.customFields || undefined,
           };
           categoryPlaces.push(placeResult);
           allPlaces.push(placeResult);
@@ -4046,6 +4051,7 @@ JSON:{"introduction":"<40字>","categories":[{"title":"☕ Cat","places":[{"name
       phoneNumber: p.phoneNumber || undefined,
       website: p.website || undefined,
       openingHours: p.openingHours || undefined,
+      customFields: p.customFields || undefined,
     }));
     return { places: fallbackPlaces, categories: [], overallSummary: '' };
   }
@@ -4173,12 +4179,33 @@ export const searchV2 = async (req: Request, res: Response) => {
       const duration = Date.now() - startTime;
       logger.info(`[SearchV2] regular_travel completed in ${duration}ms`);
       
+      // Generate nameMapping: map mentioned place names (possibly in Chinese) to matched database places (English names)
+      // This helps frontend match text content to clickable places
+      const nameMapping: Array<{ displayName: string; englishName: string }> = [];
+      if (result.matchedPlaces && result.matchedPlaces.length > 0 && result.mentionedPlaceNames.length > 0) {
+        for (const mentionedName of result.mentionedPlaceNames) {
+          // Find the matched place for this mentioned name
+          const matchedPlace = result.matchedPlaces.find(p => 
+            p.name.toLowerCase().includes(mentionedName.toLowerCase()) ||
+            mentionedName.toLowerCase().includes(p.name.toLowerCase())
+          );
+          if (matchedPlace) {
+            nameMapping.push({
+              displayName: mentionedName,
+              englishName: matchedPlace.name,
+            });
+            logger.info(`[SearchV2] nameMapping: "${mentionedName}" -> "${matchedPlace.name}"`);
+          }
+        }
+      }
+      
       return res.json({
         success: true,
         intent: 'regular_travel',
         textContent: result.textContent,
         mentionedPlaceNames: result.mentionedPlaceNames,
         places: result.matchedPlaces || [],
+        nameMapping: nameMapping.length > 0 ? nameMapping : undefined,
         quotaRemaining,
         stage: 'complete',
         translationStatus,
@@ -4934,6 +4961,7 @@ export const searchV2 = async (req: Request, res: Response) => {
           phoneNumber: p.phoneNumber || undefined,
           website: p.website || undefined,
           openingHours: p.openingHours || undefined,
+          customFields: p.customFields || undefined,
         };
         await addPlace(place);
       }
@@ -5021,6 +5049,7 @@ export const searchV2 = async (req: Request, res: Response) => {
           phoneNumber: p.phoneNumber || undefined,
           website: p.website || undefined,
           openingHours: p.openingHours || undefined,
+          customFields: p.customFields || undefined,
         };
         await addPlace(place);
       }
@@ -5164,6 +5193,7 @@ export const searchV2 = async (req: Request, res: Response) => {
           phoneNumber: p.phoneNumber || undefined,
           website: p.website || undefined,
           openingHours: p.openingHours || undefined,
+          customFields: p.customFields || undefined,
         };
         await addPlace(place);
       }
@@ -5193,6 +5223,7 @@ export const searchV2 = async (req: Request, res: Response) => {
           phoneNumber: p.phoneNumber || undefined,
           website: p.website || undefined,
           openingHours: p.openingHours || undefined,
+          customFields: p.customFields || undefined,
         };
         await addPlace(place);
       }

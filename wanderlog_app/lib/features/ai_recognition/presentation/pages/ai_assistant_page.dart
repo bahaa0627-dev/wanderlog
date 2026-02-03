@@ -23,6 +23,8 @@ import 'package:wanderlog/features/ai_recognition/presentation/widgets/recommend
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/map_page_new.dart'
     show Spot, SpotSource;
+import 'package:wanderlog/features/map/data/models/public_place_dto.dart'
+    show PlaceCustomFields;
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
@@ -664,6 +666,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       phoneNumber: place.phoneNumber,
       website: place.website,
       openingHours: parsedOpeningHours,
+      customFields: place.customFields != null
+          ? PlaceCustomFields.fromJson(place.customFields)
+          : null,
     );
   }
 
@@ -1160,6 +1165,18 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       final isItinerary = _looksLikeItinerary(textContent);
       debugPrint('📅 [_buildSearchV2Result] isItinerary: $isItinerary');
 
+      // 🆕 如果 nameMapping 为空，自动从 textContent 中提取中文地点名并尝试匹配
+      List<PlaceNameMapping>? effectiveNameMapping = result.nameMapping;
+      if ((effectiveNameMapping == null || effectiveNameMapping.isEmpty) &&
+          textPlaces.isNotEmpty) {
+        effectiveNameMapping =
+            _generateNameMappingFromText(textContent, textPlaces);
+        if (effectiveNameMapping.isNotEmpty) {
+          debugPrint(
+              '🗺️ [_buildSearchV2Result] Generated ${effectiveNameMapping.length} name mappings from text');
+        }
+      }
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1167,14 +1184,18 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           // 传入 nameMapping 用于匹配中文地点名到英文数据库名
           if (isItinerary)
             _buildItineraryPlan(textContent,
-                places: textPlaces, nameMapping: result.nameMapping)
+                places: textPlaces, nameMapping: effectiveNameMapping)
           else
             _buildMarkdownText(textContent,
-                places: textPlaces, nameMapping: result.nameMapping),
+                places: textPlaces, nameMapping: effectiveNameMapping),
 
-          // non_travel 和 city_recommendation 意图不显示地点卡片和地图
-          // city_recommendation 是城市推荐（如"推荐欧洲城市"），城市不属于地点
-          if (!result.isNonTravel && !result.isCityRecommendation) ...[
+          // 显示地点卡片和地图的条件：
+          // 1. 不是 non_travel 意图
+          // 2. 不是纯城市推荐（没有具体景点），或者是 regular_travel 且有匹配到的地点
+          // regular_travel 会返回 matchedPlaces（如罗马斗兽场、卢浮宫等具体景点），应该展示
+          if (!result.isNonTravel &&
+              (!result.isCityRecommendation ||
+                  (result.isRegularTravel && placesWithImage.isNotEmpty))) ...[
             // 有图片的地点：显示大卡片
             if (placesWithImage.isNotEmpty) ...[
               const SizedBox(height: 20),
@@ -1387,7 +1408,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       ));
     } else if (isItinerary) {
       // 行程模式
-      widgets.add(_buildItineraryPlan(textContent, places: allPlaces, nameMapping: nameMapping));
+      widgets.add(_buildItineraryPlan(textContent,
+          places: allPlaces, nameMapping: nameMapping));
       // 收集所有有图片的地点在末尾显示
       final allPlacesWithImage = cityPlaces
           .expand((g) => g.places)
@@ -1399,7 +1421,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       }
     } else {
       // 默认模式：文本 + 所有卡片在末尾
-      widgets.add(_buildMarkdownText(textContent, places: allPlaces, nameMapping: nameMapping));
+      widgets.add(_buildMarkdownText(textContent,
+          places: allPlaces, nameMapping: nameMapping));
 
       // 收集所有有图片的地点在末尾显示
       final allPlacesWithImage = <PlaceResult>[];
@@ -1470,7 +1493,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
     if (matches.isEmpty) {
       // 没有检测到城市标题，使用默认模式
-      widgets.add(_buildMarkdownText(textContent, places: allPlaces));
+      widgets.add(_buildMarkdownText(textContent,
+          places: allPlaces, nameMapping: nameMapping));
       return widgets;
     }
 
@@ -1504,7 +1528,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
       if (blockText != null && blockText.isNotEmpty) {
         // 显示该城市的文本
-        widgets.add(_buildMarkdownText(blockText, places: allPlaces));
+        widgets.add(_buildMarkdownText(blockText,
+            places: allPlaces, nameMapping: nameMapping));
       }
 
       // 显示该城市的景点卡片
@@ -1520,7 +1545,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     // 显示未处理的城市文本块（如果有）
     for (final entry in cityBlocks.entries) {
       if (!processedCities.contains(entry.key)) {
-        widgets.add(_buildMarkdownText(entry.value, places: allPlaces));
+        widgets.add(_buildMarkdownText(entry.value,
+            places: allPlaces, nameMapping: nameMapping));
         widgets.add(const SizedBox(height: 12));
       }
     }
@@ -1583,76 +1609,136 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final day in days) ...[
-          // 天数标题（加粗大字）
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 6),
-            child: Text(
-              day.subtitle.isNotEmpty
-                  ? '${day.title}: ${day.subtitle}'
-                  : day.title,
-              style: AppTheme.titleMedium(context).copyWith(
-                color: AppTheme.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
+        for (final day in days) _buildItineraryDay(day, places, nameMapping),
+      ],
+    );
+  }
+
+  /// 构建单个日期的内容
+  Widget _buildItineraryDay(_ItineraryDay day, List<PlaceResult>? places,
+      List<PlaceNameMapping>? nameMapping) {
+    // 检测是否为实用贴士/Tips 类型的 day
+    final isTipsSection = day.title.contains('实用贴士') ||
+        day.title.contains('旅行贴士') ||
+        day.title.toLowerCase().contains('tips');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 天数标题（加粗大字，无 emoji）
+        Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 6),
+          child: Text(
+            _cleanDayTitle(day.subtitle.isNotEmpty
+                ? '${day.title}: ${day.subtitle}'
+                : day.title),
+            style: AppTheme.titleMedium(context).copyWith(
+              color: AppTheme.black,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
             ),
           ),
-          // 时间段内容
-          for (final slot in day.slots) ...[
-            _buildItinerarySlot(slot, places, nameMapping),
-            const SizedBox(height: 8),
-          ],
-          // 备注
-          if (day.notes.isNotEmpty) ...[
-            for (final note in day.notes) ...[
-              _buildRichText(note, places: places, nameMapping: nameMapping),
-              const SizedBox(height: 4),
-            ]
-          ],
+        ),
+        // 时间段内容
+        for (final slot in day.slots) ...[
+          _buildItinerarySlot(slot, places, nameMapping,
+              isTipsSection: isTipsSection),
           const SizedBox(height: 8),
         ],
+        // 备注
+        if (day.notes.isNotEmpty) ...[
+          for (final note in day.notes) ...[
+            _buildRichText(note, places: places, nameMapping: nameMapping),
+            const SizedBox(height: 4),
+          ]
+        ],
+        const SizedBox(height: 8),
       ],
     );
   }
 
   /// 构建单个时间槽的内容
   Widget _buildItinerarySlot(_ItinerarySlot slot, List<PlaceResult>? places,
-      List<PlaceNameMapping>? nameMapping) {
+      List<PlaceNameMapping>? nameMapping,
+      {bool isTipsSection = false}) {
+    // 如果是实用贴士区域，不显示时间标签，直接显示普通文本内容
+    if (isTipsSection) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final item in slot.items) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                item.trim(),
+                style: AppTheme.bodyMedium(context).copyWith(
+                  color: AppTheme.black,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 时间标签（加大字号并加粗：上午/Morning, 下午/Afternoon, 傍晚/Evening）
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryYellow.withOpacity(0.35),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: AppTheme.black, width: 1),
-          ),
-          child: Text(
-            slot.label,
-            style: AppTheme.titleMedium(context).copyWith(
-              color: AppTheme.black,
-              fontWeight: FontWeight.w800,
-              fontSize: 18,
-            ),
+        // 时间标签（纯文字，加粗：上午/Morning, 下午/Afternoon, 傍晚/Evening）
+        Text(
+          slot.label,
+          style: AppTheme.titleMedium(context).copyWith(
+            color: AppTheme.black,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
           ),
         ),
         const SizedBox(height: 8),
-        // 地点条目
-        for (final item in slot.items) ...[
-          _buildPlaceEntry(item, places, nameMapping),
-          const SizedBox(height: 12),
+        // 地点条目（Tip 紧跟上面的描述，地点之间拉开间距）
+        for (int i = 0; i < slot.items.length; i++) ...[
+          _buildPlaceEntry(slot.items[i], places, nameMapping),
+          // Tip 后面间距大一些（12px），普通地点间距正常（6px）
+          // 检测当前 item 是否为 Tip
+          if (_isTipItem(slot.items[i]))
+            const SizedBox(height: 12)
+          else
+            const SizedBox(height: 6),
         ],
       ],
     );
+  }
+
+  /// 检测是否为 Tip 行
+  bool _isTipItem(String text) {
+    return text.trim().startsWith('💡') ||
+        text.trim().toLowerCase().startsWith('tip') ||
+        text.contains('Tip:') ||
+        text.contains('💡 Tip');
   }
 
   /// 构建单个地点条目（带可点击标题和元数据 bullet points）
   Widget _buildPlaceEntry(String text, List<PlaceResult>? places,
       List<PlaceNameMapping>? nameMapping) {
     final parsed = _parseSlotItem(text);
+
+    // 检测是否为 Tip 行（💡 Tip: 或 Tip:）
+    final isTip = parsed.title.contains('Tip') ||
+        parsed.title.contains('💡') ||
+        text.trim().startsWith('💡') ||
+        text.trim().toLowerCase().startsWith('tip');
+
+    if (isTip) {
+      // Tip 不需要点击，也不需要地址描述，普通黑色字体
+      return Text(
+        text.trim(),
+        style: AppTheme.bodyMedium(context).copyWith(
+          color: AppTheme.black,
+          height: 1.4,
+        ),
+      );
+    }
 
     // 查找匹配的地点（使用 nameMapping 支持中文名到英文数据库名的映射）
     PlaceResult? matchedPlace;
@@ -1675,35 +1761,19 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 地点标题（可点击）
-        _buildClickablePlaceTitle(parsed.title, matchedPlace),
+        // 地点标题（可点击）+ 评分
+        _buildClickablePlaceTitleWithRating(parsed.title, matchedPlace),
 
-        // 描述
+        // 描述（30-50字，普通黑色字体）
         if (description != null && description.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(
             description,
             style: AppTheme.bodyMedium(context).copyWith(
-              color: AppTheme.darkGray,
+              color: AppTheme.black,
               height: 1.4,
             ),
           ),
-        ],
-
-        // 元数据 bullet points
-        if (parsed.time != null ||
-            parsed.address != null ||
-            parsed.website != null) ...[
-          const SizedBox(height: 8),
-          // 时间
-          if (parsed.time != null && parsed.time!.isNotEmpty)
-            _buildMetadataBullet('时间', parsed.time!, matchedPlace),
-          // 地址
-          if (parsed.address != null && parsed.address!.isNotEmpty)
-            _buildMetadataBullet('地址', parsed.address!, matchedPlace),
-          // 网站
-          if (parsed.website != null && parsed.website!.isNotEmpty)
-            _buildWebsiteBullet(parsed.website!, matchedPlace),
         ],
       ],
     );
@@ -1722,6 +1792,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
     if (base == null || base.isEmpty) return null;
 
+    // 如果描述太短，尝试合并原始描述和 summary 来丰富内容
     if (base.length < 30 &&
         cleanedSummary.isNotEmpty &&
         base != cleanedSummary) {
@@ -1732,7 +1803,68 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       base = '${cleanedRaw.trim()} ${cleanedSummary.trim()}'.trim();
     }
 
-    return _clampTextRange(base, min: 30, max: 50);
+    String cleaned = base;
+
+    // 移除评分信息（如 "的(4.1⭐)。" "的(4.5☆)。"）
+    // 使用 Unicode 转义来匹配星号 emoji
+    cleaned = cleaned.replaceAll(
+      RegExp(
+          r'的\s*[\(\uff08]\s*[\d\.]+\s*[\u2b50\u2606\u2605\u2729\u272a\u{1F31F}]?\s*[\)\uff09]\s*[。\.]?',
+          unicode: true),
+      '。',
+    );
+    cleaned = cleaned.replaceAll(
+      RegExp(
+          r'[\(\uff08]\s*[\d\.]+\s*[\u2b50\u2606\u2605\u2729\u272a\u{1F31F}]?\s*[\)\uff09]\s*[。\.]?',
+          unicode: true),
+      '',
+    );
+
+    // 移除地理位置信息（如 "位于Copenhagen, Denmark的landmark...")
+    cleaned = cleaned.replaceAll(
+      RegExp(r'位于[A-Za-z\s,\.]+的[a-zA-Z]+\.{0,3}', caseSensitive: false),
+      '',
+    );
+    // 移除英文地点信息（如 "位于Copenhagen, Denmark..."）
+    cleaned = cleaned.replaceAll(
+      RegExp(r'位于[A-Za-z][A-Za-z\s,\.]*\.{0,3}'),
+      '',
+    );
+    cleaned = cleaned.replaceAll(
+      RegExp(r'Located in [A-Za-z\s,]+\.{0,3}', caseSensitive: false),
+      '',
+    );
+    cleaned = cleaned.replaceAll(
+      RegExp(r'\d+th-century [a-zA-Z\s]+ of\.{0,3}', caseSensitive: false),
+      '',
+    );
+    // 移除英文内容（如 "palaces, with a mus..."）
+    cleaned = cleaned.replaceAll(
+      RegExp(r'[a-zA-Z]{3,}[a-zA-Z\s,\.]*\.{2,3}'),
+      '',
+    );
+    // 移除末尾的省略号和英文残留
+    cleaned = cleaned.replaceAll(RegExp(r'[\.\u2026]+$'), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s*[a-zA-Z]+\s*$'), '');
+    // 移除句中的英文单词（保留中文内容）
+    cleaned = cleaned.replaceAll(RegExp(r'\s+[a-zA-Z]+\s+'), ' ');
+    cleaned = cleaned.replaceAll(RegExp(r'。\s*[a-zA-Z].*$'), '。');
+    cleaned = cleaned.trim();
+
+    // 不截断，完整展示
+    return cleaned.isNotEmpty ? cleaned : null;
+  }
+
+  /// 清理日期标题，移除 emoji 和多余空格
+  String _cleanDayTitle(String title) {
+    // 移除常见 emoji（📅、💡、🗓 等）
+    String cleaned = title
+        .replaceAll(
+            RegExp(r'[\u{1F4C5}\u{1F4A1}\u{1F5D3}\u{1F3AF}]', unicode: true),
+            '')
+        .replaceAll(RegExp(r'^[\s：:]+'), '')
+        .trim();
+    return cleaned;
   }
 
   String _cleanItinerarySummary(String? text) {
@@ -1760,12 +1892,14 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
   /// 构建可点击的地点标题
   Widget _buildClickablePlaceTitle(String title, PlaceResult? place) {
-    // 清理标题（移除 markdown 标题符号和 ** 标记）
+    // 清理标题（移除 markdown 标题符号、** 标记和 AI 生成的评分）
     String cleanTitle = title
         .replaceAll(RegExp(r'^#{1,4}\s*'), '') // 移除 #, ##, ###, ####
         .replaceAll(RegExp(r'^\*\*'), '')
         .replaceAll(RegExp(r'\*\*$'), '')
         .trim();
+    // 移除 AI 生成的评分（如 (4.7) 或 (4.7分) 或 （4.7））
+    cleanTitle = _stripRatingFromTitle(cleanTitle);
 
     if (place != null) {
       // 有匹配的地点，显示可点击链接
@@ -1787,6 +1921,78 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       );
     } else {
       // 没有匹配的地点，显示普通加粗文本
+      return Text(
+        cleanTitle,
+        style: AppTheme.titleMedium(context).copyWith(
+          color: AppTheme.black,
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+      );
+    }
+  }
+
+  /// 构建可点击的地点标题（带评分）
+  /// - 匹配到数据库的地点：显示可点击链接 + 数据库评分
+  /// - 未匹配到数据库的地点：只显示名称，不显示评分
+  Widget _buildClickablePlaceTitleWithRating(String title, PlaceResult? place) {
+    // 清理标题（移除 markdown 标题符号、** 标记和 AI 生成的评分）
+    String cleanTitle = title
+        .replaceAll(RegExp(r'^#{1,4}\s*'), '') // 移除 #, ##, ###, ####
+        .replaceAll(RegExp(r'^\*\*'), '')
+        .replaceAll(RegExp(r'\*\*$'), '')
+        .trim();
+    // 移除 AI 生成的评分（如 (4.7) 或 (4.7分) 或 （4.7））
+    cleanTitle = _stripRatingFromTitle(cleanTitle);
+
+    // 只有匹配到数据库的地点才显示评分
+    String? ratingText;
+    if (place != null && place.rating != null && place.rating! > 0) {
+      // 中文显示 "(4.5 分)"，英文显示 "(4.5)"
+      final isChinese = RegExp(r'[\u4e00-\u9fff]').hasMatch(cleanTitle);
+      if (isChinese) {
+        ratingText = '（${place.rating!.toStringAsFixed(1)} 分）';
+      } else {
+        ratingText = ' (${place.rating!.toStringAsFixed(1)})';
+      }
+    }
+
+    if (place != null) {
+      // 有匹配的地点，显示可点击链接 + 数据库评分
+      return GestureDetector(
+        onTap: () {
+          debugPrint('📍 Tapped on itinerary place: ${place.name}');
+          _showPlaceDetail(place);
+        },
+        child: RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: cleanTitle,
+                style: AppTheme.titleMedium(context).copyWith(
+                  color: AppTheme.accentBlue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  decoration: TextDecoration.underline,
+                  decorationColor: AppTheme.accentBlue,
+                ),
+              ),
+              if (ratingText != null)
+                TextSpan(
+                  text: ratingText,
+                  style: AppTheme.titleMedium(context).copyWith(
+                    color: AppTheme.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      // 没有匹配的地点，只显示名称不显示评分
       return Text(
         cleanTitle,
         style: AppTheme.titleMedium(context).copyWith(
@@ -1945,14 +2151,16 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         .where((line) => line.isNotEmpty)
         .toList();
 
-    // 支持多种天数格式：第一天、Day 1、📅 Day 1
+    // 支持多种天数格式：第一天、Day 1、📅 Day 1、💡 实用贴士、Tips
+    // 使用 .{0,4} 来匹配可能的 emoji 前缀（emoji 可能占用多个字符）
     final dayRegex = RegExp(
-      r'^(?:📅\s*)?(第[一二三四五六七八九十0-9]+天|Day\s*\d+)\s*[：:]*\s*(.*)$',
+      r'^.{0,4}(第[一二三四五六七八九十0-9]+天|Day\s*\d+|实用贴士|旅行贴士|Tips|Practical Tips)\s*[：:]*\s*(.*)$',
       caseSensitive: false,
     );
     // 支持多种时间格式：上午、Morning、🌅 上午、🌅 Morning
+    // 修复：时间词必须独立存在（后面是冒号、空格、或行尾），不能后跟中文字符如"晚上开放"
     final timeRegex = RegExp(
-      r'^(?:[🌅☀️🌆🌙]\s*)?(上午|中午|下午|傍晚|晚上|夜晚|清晨|早上|午后|夜间|Morning|Afternoon|Evening|Night)\s*[：:]*\s*(.*)$',
+      r'^(.{0,3}(?:上午|中午|下午|傍晚|晚上|夜晚|清晨|早上|午后|夜间|Morning|Afternoon|Evening|Night))(?:[：:\s]|$)(.*)$',
       caseSensitive: false,
     );
 
@@ -1987,7 +2195,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         }
         currentDay ??= _ItineraryDay(title: '行程安排', subtitle: '');
         if (!days.contains(currentDay)) days.add(currentDay);
-        currentSlot = _ItinerarySlot(label: timeMatch.group(1) ?? line);
+        // 保留完整的时间标签包括 emoji
+        currentSlot = _ItinerarySlot(label: timeMatch.group(1)?.trim() ?? line);
         currentDay.slots.add(currentSlot);
         final inline = (timeMatch.group(2) ?? '').trim();
         if (inline.isNotEmpty) {
@@ -2942,6 +3151,58 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       }
     }
 
+    // 🆕 收集编号列表中的地点名匹配（用于 regular_travel 城市推荐场景）
+    // 匹配格式：N.PlaceName - description 或 N. PlaceName - description
+    // 例如："1.罗马斗兽场 - 古罗马时期的重要竞技场"
+    if (places != null && places.isNotEmpty) {
+      // 编号列表地点名正则：匹配 "数字.地点名" 或 "数字. 地点名" 格式
+      // 地点名可以是中文、英文或混合，以 " - " 或 "–" 或行尾结束
+      final numberedPlaceRegex = RegExp(
+        r'(\d+)\.\s*([^\-–\n]+?)(?:\s*[\-–]|$)',
+        multiLine: true,
+      );
+
+      for (final match in numberedPlaceRegex.allMatches(text)) {
+        final placeName = match.group(2)?.trim() ?? '';
+        if (placeName.isEmpty || placeName.length > 50) continue;
+
+        // 检查这个地点名是否能匹配到 places 列表中的地点
+        final matchedPlace =
+            _findPlaceWithMapping(placeName, places, nameMapping);
+        if (matchedPlace != null) {
+          // 计算地点名在原文中的位置（排除编号部分）
+          final numberPart = '${match.group(1)}.';
+          final placeNameStart = match.start + numberPart.length;
+          // 跳过可能的空格
+          int actualStart = placeNameStart;
+          while (actualStart < text.length && text[actualStart] == ' ') {
+            actualStart++;
+          }
+          final placeNameEnd = actualStart + placeName.length;
+
+          // 检查是否与已有匹配重叠
+          final overlaps = allMatches.any(
+            (m) =>
+                (actualStart >= m.start && actualStart < m.end) ||
+                (placeNameEnd > m.start && placeNameEnd <= m.end),
+          );
+          if (!overlaps) {
+            debugPrint(
+                '📍 Found numbered list place: "$placeName" -> "${matchedPlace.name}" at $actualStart-$placeNameEnd');
+            allMatches.add(
+              _RichTextMatch(
+                start: actualStart,
+                end: placeNameEnd,
+                type: 'numbered_place',
+                text: placeName,
+                place: matchedPlace,
+              ),
+            );
+          }
+        }
+      }
+    }
+
     // 收集购票相关关键词匹配（如果有地点的 website 可用）
     // 关键词: purchase, book tickets, buy tickets, 购票, 在线购买, 在线购票, 网上购票
     String? ticketWebsite;
@@ -3264,6 +3525,29 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             }
           }
         } // 关闭 linkUrl == 'place' 的 else 块
+      } else if (match.type == 'numbered_place' && match.place != null) {
+        // 🆕 编号列表中的地点名 - 仅添加下划线，不改变字体大小和颜色，点击跳转详情页
+        final placeToShow = match.place!;
+        debugPrint(
+            '📍 Creating numbered place link: "${match.text}" -> "${placeToShow.name}"');
+
+        spans.add(
+          TextSpan(
+            text: match.text,
+            style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.black, // 保持原有颜色
+              height: 1.5,
+              decoration: TextDecoration.underline, // 仅添加下划线
+              decorationColor: AppTheme.black,
+              // 不改变字体大小和粗细
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () {
+                debugPrint('📍 Tapped on numbered place: ${placeToShow.name}');
+                _showPlaceDetail(placeToShow);
+              },
+          ),
+        );
       } else if (match.type == 'ticket_link' && match.url != null) {
         // 购票相关关键词链接 - 黑色下划线样式，点击跳转官网
         final ticketUrl = match.url!;
@@ -3649,18 +3933,34 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             ),
           ),
         ],
-        // 网站（单独一行，黑色下划线）
+        // 网站（单独一行，带 Website:/网站: 前缀）
         if (hasWebsite) ...[
           const SizedBox(height: 6),
           GestureDetector(
             onTap: () => _launchUrl(place.website!),
-            child: Text(
-              _formatWebsiteUrl(place.website!),
-              style: AppTheme.bodySmall(context).copyWith(
-                color: AppTheme.black,
-                decoration: TextDecoration.underline,
-                decorationColor: AppTheme.black,
-                fontWeight: FontWeight.normal,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: _containsChinese(place.name) ||
+                            _containsChinese(place.summary)
+                        ? '网站: '
+                        : 'Website: ',
+                    style: AppTheme.bodySmall(context).copyWith(
+                      color: AppTheme.black,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                  TextSpan(
+                    text: _formatWebsiteUrl(place.website!),
+                    style: AppTheme.bodySmall(context).copyWith(
+                      color: AppTheme.black,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppTheme.black,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -4037,6 +4337,323 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     }
 
     return merged;
+  }
+
+  /// 从文本中提取中文地点名并尝试与英文地点列表匹配，生成 nameMapping
+  /// 这是一个前端 fallback，当后端没有返回 nameMapping 时使用
+  /// 采用双向匹配策略：
+  /// 1. 从 textContent 提取中文名，用翻译字典匹配 places
+  /// 2. 从 places 列表提取英文名，用反向翻译字典匹配 textContent
+  List<PlaceNameMapping> _generateNameMappingFromText(
+    String textContent,
+    List<PlaceResult> places,
+  ) {
+    final nameMapping = <PlaceNameMapping>[];
+    if (places.isEmpty) return nameMapping;
+
+    final seenDisplayNames = <String>{};
+    final seenEnglishNames = <String>{};
+
+    // 策略1: 从 textContent 提取 **PlaceName** 格式的中文地点名
+    final boldRegex = RegExp(r'\*\*([^*]+)\*\*');
+    final matches = boldRegex.allMatches(textContent);
+
+    for (final match in matches) {
+      final displayName = match.group(1)?.trim() ?? '';
+      if (displayName.isEmpty) continue;
+      if (seenDisplayNames.contains(displayName.toLowerCase())) continue;
+
+      // 只处理中文名称
+      if (!RegExp(r'[\u4e00-\u9fff]').hasMatch(displayName)) continue;
+
+      // 使用本地翻译字典尝试匹配
+      final englishName = _translateChineseToEnglish(displayName);
+      if (englishName != null) {
+        // 在 places 中查找匹配的地点
+        for (final place in places) {
+          if (seenEnglishNames.contains(place.name.toLowerCase())) continue;
+          if (_matchPlaceName(englishName, place.name)) {
+            nameMapping.add(PlaceNameMapping(
+              displayName: displayName,
+              englishName: place.name,
+            ));
+            seenDisplayNames.add(displayName.toLowerCase());
+            seenEnglishNames.add(place.name.toLowerCase());
+            debugPrint(
+                '🗺️ _generateNameMappingFromText (dict): "$displayName" -> "${place.name}"');
+            break;
+          }
+        }
+      }
+    }
+
+    // 策略2: 从 places 列表反向匹配（用英文名找中文名）
+    // 这样可以覆盖翻译字典没有的地点
+    for (final place in places) {
+      if (seenEnglishNames.contains(place.name.toLowerCase())) continue;
+
+      // 用反向翻译字典查找可能的中文名
+      final possibleChineseNames = _getChineseNamesForEnglish(place.name);
+      for (final chineseName in possibleChineseNames) {
+        // 检查这个中文名是否出现在 textContent 中
+        if (textContent.contains(chineseName) ||
+            textContent.contains('**$chineseName**')) {
+          if (!seenDisplayNames.contains(chineseName.toLowerCase())) {
+            nameMapping.add(PlaceNameMapping(
+              displayName: chineseName,
+              englishName: place.name,
+            ));
+            seenDisplayNames.add(chineseName.toLowerCase());
+            seenEnglishNames.add(place.name.toLowerCase());
+            debugPrint(
+                '🗺️ _generateNameMappingFromText (reverse): "$chineseName" -> "${place.name}"');
+            break;
+          }
+        }
+      }
+    }
+
+    return nameMapping;
+  }
+
+  /// 根据英文名获取可能的中文名列表
+  List<String> _getChineseNamesForEnglish(String englishName) {
+    final results = <String>[];
+    final nameLower = englishName.toLowerCase();
+
+    // 反向翻译字典
+    const reverseDict = {
+      // 日本
+      'senso-ji': ['浅草寺', '浅草'],
+      'senso-ji temple': ['浅草寺', '浅草'],
+      'sensoji': ['浅草寺', '浅草'],
+      'tokyo skytree': ['东京晴空塔', '晴空塔', '天空树'],
+      'skytree': ['晴空塔', '天空树'],
+      'tokyo tower': ['东京塔'],
+      'akihabara': ['秋叶原'],
+      'ueno park': ['上野公园', '上野'],
+      'ueno zoo': ['上野动物园'],
+      'meiji shrine': ['明治神宫'],
+      'meiji jingu': ['明治神宫'],
+      'harajuku': ['原宿'],
+      'takeshita': ['竹下通', '原宿竹下通'],
+      'takeshita street': ['竹下通', '原宿竹下通'],
+      'omotesando': ['表参道'],
+      'shibuya crossing': ['涩谷十字路口', '涩谷路口', '涩谷'],
+      'shibuya': ['涩谷'],
+      'shinjuku': ['新宿'],
+      'ginza': ['银座'],
+      'odaiba': ['台场'],
+      'tokyo national museum': ['东京国立博物馆'],
+      'nakamise': ['仲见世街', '仲见世'],
+      'nakamise shopping street': ['仲见世街', '仲见世'],
+      'imperial palace': ['皇居'],
+      'roppongi': ['六本木'],
+      'roppongi hills': ['六本木新城', '六本木'],
+      'mori art museum': ['森美术馆'],
+      'yoyogi park': ['代代木公园', '代々木公园'],
+      'tsukiji': ['筑地市场', '筑地'],
+      'toyosu market': ['丰洲市场'],
+      'kinkaku-ji': ['金阁寺'],
+      'fushimi inari': ['伏见稻荷大社', '伏见稻荷'],
+      'kiyomizu-dera': ['清水寺'],
+      'arashiyama': ['岚山'],
+      'osaka castle': ['大阪城'],
+      'dotonbori': ['道顿堀'],
+      'shinsaibashi': ['心斋桥'],
+      // 法国
+      'eiffel tower': ['埃菲尔铁塔', '铁塔'],
+      'louvre': ['卢浮宫'],
+      'louvre museum': ['卢浮宫'],
+      'sacré-cœur': ['圣心大教堂', '圣心堂'],
+      'sacre-coeur': ['圣心大教堂', '圣心堂'],
+      'arc de triomphe': ['凯旋门'],
+      'notre-dame': ['巴黎圣母院', '圣母院'],
+      'versailles': ['凡尔赛宫'],
+      'palace of versailles': ['凡尔赛宫'],
+      'montmartre': ['蒙马特'],
+      'champs-élysées': ['香榭丽舍', '香榭丽舍大街'],
+      'champs-elysees': ['香榭丽舍', '香榭丽舍大街'],
+      'seine': ['塞纳河'],
+      'seine river': ['塞纳河'],
+      "musée d'orsay": ['奥赛博物馆'],
+      'orsay museum': ['奥赛博物馆'],
+      // 意大利
+      'colosseum': ['罗马斗兽场', '斗兽场'],
+      'vatican': ['梵蒂冈'],
+      "st. peter's basilica": ['圣彼得大教堂'],
+      'pantheon': ['万神殿'],
+      'trevi fountain': ['特雷维喷泉', '许愿池'],
+      'sistine chapel': ['西斯廷教堂'],
+      'venice': ['威尼斯'],
+      "st. mark's square": ['圣马可广场'],
+      // 英国
+      'big ben': ['大本钟'],
+      'london eye': ['伦敦眼'],
+      'buckingham palace': ['白金汉宫'],
+      'tower bridge': ['塔桥'],
+      'tower of london': ['伦敦塔'],
+      'british museum': ['大英博物馆'],
+      'westminster abbey': ['威斯敏斯特教堂'],
+      // 西班牙
+      'sagrada familia': ['圣家堂'],
+      'casa batlló': ['巴特罗之家'],
+      'casa batllo': ['巴特罗之家'],
+      'casa milà': ['米拉之家'],
+      'casa mila': ['米拉之家'],
+      'park güell': ['古埃尔公园'],
+      'park guell': ['古埃尔公园'],
+      'la rambla': ['兰布拉大道'],
+      // 美国
+      'statue of liberty': ['自由女神像'],
+      'times square': ['时代广场'],
+      'central park': ['中央公园'],
+      'empire state': ['帝国大厦'],
+      'empire state building': ['帝国大厦'],
+      'golden gate': ['金门大桥'],
+      'golden gate bridge': ['金门大桥'],
+      'hollywood': ['好莱坞'],
+      'universal studios': ['环球影城'],
+      'disneyland': ['迪士尼乐园', '迪士尼'],
+      // 中国
+      'forbidden city': ['故宫', '紫禁城'],
+      'great wall': ['长城', '万里长城'],
+      'tiananmen': ['天安门', '天安门广场'],
+      'summer palace': ['颐和园'],
+      'temple of heaven': ['天坛'],
+      'the bund': ['外滩'],
+      'oriental pearl': ['东方明珠'],
+      'oriental pearl tower': ['东方明珠', '东方明珠塔'],
+      'yu garden': ['豫园'],
+      'west lake': ['西湖'],
+      'terracotta army': ['兵马俑'],
+    };
+
+    // 精确匹配
+    if (reverseDict.containsKey(nameLower)) {
+      results.addAll(reverseDict[nameLower]!);
+    }
+
+    // 部分匹配
+    for (final entry in reverseDict.entries) {
+      if (nameLower.contains(entry.key) || entry.key.contains(nameLower)) {
+        for (final cn in entry.value) {
+          if (!results.contains(cn)) {
+            results.add(cn);
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /// 本地中文到英文地点名翻译字典
+  /// 包含常见的旅游景点名称翻译
+  String? _translateChineseToEnglish(String chineseName) {
+    // 常见日本景点
+    const japanPlaces = {
+      '浅草寺': 'Senso-ji Temple',
+      '东京晴空塔': 'Tokyo Skytree',
+      '东京塔': 'Tokyo Tower',
+      '秋叶原': 'Akihabara',
+      '上野公园': 'Ueno Park',
+      '明治神宫': 'Meiji Shrine',
+      '原宿': 'Harajuku',
+      '原宿竹下通': 'Takeshita Street',
+      '竹下通': 'Takeshita Street',
+      '表参道': 'Omotesando',
+      '涩谷': 'Shibuya',
+      '涩谷十字路口': 'Shibuya Crossing',
+      '涩谷路口': 'Shibuya Crossing',
+      '新宿': 'Shinjuku',
+      '银座': 'Ginza',
+      '台场': 'Odaiba',
+      '东京国立博物馆': 'Tokyo National Museum',
+      '上野动物园': 'Ueno Zoo',
+      '仲见世街': 'Nakamise Shopping Street',
+      '仲见世': 'Nakamise Shopping Street',
+      '皇居': 'Imperial Palace',
+      '六本木': 'Roppongi',
+      '六本木新城': 'Roppongi Hills',
+      '森美术馆': 'Mori Art Museum',
+      '代代木公园': 'Yoyogi Park',
+      '筑地市场': 'Tsukiji Market',
+      '�的场市场': 'Toyosu Market',
+      '金阁寺': 'Kinkaku-ji',
+      '伏见稻荷大社': 'Fushimi Inari Shrine',
+      '清水寺': 'Kiyomizu-dera',
+      '�的': 'Arashiyama',
+      '大阪城': 'Osaka Castle',
+      '道顿堀': 'Dotonbori',
+      '心斋桥': 'Shinsaibashi',
+      // 常见欧洲景点
+      '埃菲尔铁塔': 'Eiffel Tower',
+      '卢浮宫': 'Louvre Museum',
+      '圣心大教堂': 'Sacré-Cœur',
+      '凯旋门': 'Arc de Triomphe',
+      '巴黎圣母院': 'Notre-Dame de Paris',
+      '凡尔赛宫': 'Palace of Versailles',
+      '蒙马特': 'Montmartre',
+      '香榭丽舍大街': 'Champs-Élysées',
+      '塞纳河': 'Seine River',
+      '奥赛博物馆': 'Musée d\'Orsay',
+      '罗马斗兽场': 'Colosseum',
+      '梵蒂冈': 'Vatican',
+      '圣彼得大教堂': 'St. Peter\'s Basilica',
+      '万神殿': 'Pantheon',
+      '特雷维喷泉': 'Trevi Fountain',
+      '许愿池': 'Trevi Fountain',
+      '西斯廷教堂': 'Sistine Chapel',
+      '威尼斯': 'Venice',
+      '圣马可广场': 'St. Mark\'s Square',
+      '大本钟': 'Big Ben',
+      '伦敦眼': 'London Eye',
+      '白金汉宫': 'Buckingham Palace',
+      '塔桥': 'Tower Bridge',
+      '伦敦塔': 'Tower of London',
+      '大英博物馆': 'British Museum',
+      '威斯敏斯特教堂': 'Westminster Abbey',
+      '圣家堂': 'Sagrada Familia',
+      '巴特罗之家': 'Casa Batlló',
+      '米拉之家': 'Casa Milà',
+      '古埃尔公园': 'Park Güell',
+      '兰布拉大道': 'La Rambla',
+      // 常见美国景点
+      '自由女神像': 'Statue of Liberty',
+      '时代广场': 'Times Square',
+      '中央公园': 'Central Park',
+      '帝国大厦': 'Empire State Building',
+      '金门大桥': 'Golden Gate Bridge',
+      '好莱坞': 'Hollywood',
+      '环球影城': 'Universal Studios',
+      '迪士尼乐园': 'Disneyland',
+      // 常见中国景点
+      '故宫': 'Forbidden City',
+      '长城': 'Great Wall',
+      '天安门': 'Tiananmen Square',
+      '颐和园': 'Summer Palace',
+      '天坛': 'Temple of Heaven',
+      '外滩': 'The Bund',
+      '东方明珠': 'Oriental Pearl Tower',
+      '豫园': 'Yu Garden',
+      '西湖': 'West Lake',
+      '兵马俑': 'Terracotta Army',
+    };
+
+    // 精确匹配
+    if (japanPlaces.containsKey(chineseName)) {
+      return japanPlaces[chineseName];
+    }
+
+    // 模糊匹配：检查是否包含关键词
+    for (final entry in japanPlaces.entries) {
+      if (chineseName.contains(entry.key) || entry.key.contains(chineseName)) {
+        return entry.value;
+      }
+    }
+
+    return null;
   }
 }
 
@@ -4690,6 +5307,8 @@ class _PlaceDetailLoaderState extends ConsumerState<_PlaceDetailLoader> {
 
 /// 智能地点名称匹配 - 处理各种命名差异
 /// 例如："MAXXI Museum" 应该匹配 "MAXXI - National Museum of 21st Century Arts"
+/// 例如："Sagrada Família" 应该匹配 "Basílica de la Sagrada Família"
+/// 匹配更严格：避免短名称误匹配（如"哥特区"不应匹配任何地点）
 bool _matchPlaceName(String searchName, String dbName) {
   final searchLower = searchName.toLowerCase().trim();
   final dbLower = dbName.toLowerCase().trim();
@@ -4697,18 +5316,109 @@ bool _matchPlaceName(String searchName, String dbName) {
   // 1. 完全匹配
   if (searchLower == dbLower) return true;
 
-  // 2. 包含匹配（双向）
-  if (searchLower.contains(dbLower) || dbLower.contains(searchLower)) {
-    return true;
+  // 2. 包含匹配（双向）- 但要求搜索名长度至少为4个字符（中文2个字），避免短名误匹配
+  final minSearchLength =
+      RegExp(r'[\u4e00-\u9fff]').hasMatch(searchName) ? 4 : 6;
+  if (searchLower.length >= minSearchLength) {
+    if (searchLower.contains(dbLower) || dbLower.contains(searchLower)) {
+      return true;
+    }
+  }
+
+  // 2b. 🆕 移除常见前缀后的包含匹配
+  // 处理如 "Sagrada Família" vs "Basílica de la Sagrada Família" 的情况
+  final commonPrefixes = [
+    'basílica de la ',
+    'basilica de la ',
+    'basilica of ',
+    'cathedral of ',
+    'church of ',
+    'temple of ',
+    'palace of ',
+    'museum of ',
+    'castle of ',
+    'tower of ',
+    'plaza de ',
+    'plaza del ',
+    'piazza ',
+    'piazza del ',
+    'piazza della ',
+    'parque ',
+    'park ',
+    'jardín ',
+    'jardin ',
+    'fontana di ',
+    'fontana della ',
+    'ponte ',
+    'puente ',
+    'the ',
+    'el ',
+    'la ',
+    'los ',
+    'las ',
+    'il ',
+    'lo ',
+    'le ',
+    'les ',
+    'der ',
+    'die ',
+    'das ',
+  ];
+
+  // 移除数据库名称中的常见前缀
+  var dbLowerStripped = dbLower;
+  for (final prefix in commonPrefixes) {
+    if (dbLowerStripped.startsWith(prefix)) {
+      dbLowerStripped = dbLowerStripped.substring(prefix.length).trim();
+      break; // 只移除一个前缀
+    }
+  }
+
+  // 移除搜索名称中的常见前缀
+  var searchLowerStripped = searchLower;
+  for (final prefix in commonPrefixes) {
+    if (searchLowerStripped.startsWith(prefix)) {
+      searchLowerStripped = searchLowerStripped.substring(prefix.length).trim();
+      break;
+    }
+  }
+
+  // 使用去除前缀后的名称再次尝试匹配
+  if (searchLowerStripped.length >= 6 && dbLowerStripped.length >= 6) {
+    if (searchLowerStripped == dbLowerStripped) return true;
+    if (searchLowerStripped.contains(dbLowerStripped) ||
+        dbLowerStripped.contains(searchLowerStripped)) {
+      return true;
+    }
   }
 
   // 3. 提取核心词匹配（第一个有意义的词，忽略 "the", "a", "an" 等）
-  final stopWords = {'the', 'a', 'an', 'of', 'and', 'in', 'at', 'to', 'for'};
+  final stopWords = {
+    'the',
+    'a',
+    'an',
+    'of',
+    'and',
+    'in',
+    'at',
+    'to',
+    'for',
+    'de',
+    'la',
+    'del',
+    'el',
+    'los',
+    'las',
+    'di',
+    'il',
+    'le',
+    'les',
+  };
   List<String> getSignificantWords(String name) {
     return name
-        .replaceAll(RegExp(r'[^\w\s]'), ' ') // 移除标点
+        .replaceAll(RegExp(r'[^\w\s\u00C0-\u017F]'), ' ') // 保留带重音的字母
         .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty && w.length > 1 && !stopWords.contains(w))
+        .where((w) => w.isNotEmpty && w.length > 2 && !stopWords.contains(w))
         .toList();
   }
 
@@ -4718,22 +5428,79 @@ bool _matchPlaceName(String searchName, String dbName) {
   if (searchWords.isEmpty || dbWords.isEmpty) return false;
 
   // 3a. 第一个有意义的词完全匹配（如 "maxxi" == "maxxi"）
-  if (searchWords.first == dbWords.first) return true;
-
-  // 3b. 第一个词包含匹配（如 "heydar" 在 "heydaraliyev"）
-  if (searchWords.first.contains(dbWords.first) ||
-      dbWords.first.contains(searchWords.first)) {
+  // 要求词长度至少为4个字符
+  if (searchWords.first.length >= 4 && searchWords.first == dbWords.first) {
     return true;
   }
 
-  // 4. 多词交集匹配（至少有2个相同的有意义词）
-  final commonWords = searchWords.toSet().intersection(dbWords.toSet());
+  // 3b. 第一个词包含匹配 - 要求被包含的词长度至少为5个字符
+  if (searchWords.first.length >= 5 && dbWords.first.length >= 5) {
+    if (searchWords.first.contains(dbWords.first) ||
+        dbWords.first.contains(searchWords.first)) {
+      return true;
+    }
+  }
+
+  // 4. 多词交集匹配（至少有2个相同的有意义词，且每个词长度>=4）
+  final significantSearchWords =
+      searchWords.where((w) => w.length >= 4).toSet();
+  final significantDbWords = dbWords.where((w) => w.length >= 4).toSet();
+  final commonWords = significantSearchWords.intersection(significantDbWords);
   if (commonWords.length >= 2) return true;
 
-  // 5. 缩写匹配（如 "maxxi" 匹配开头）
-  if (dbLower.startsWith(searchWords.first) ||
-      searchLower.startsWith(dbWords.first)) {
-    return true;
+  // 4b. 🆕 针对带重音字符的特殊匹配
+  // 如 "sagrada família" 应匹配 "sagrada família" 或 "sagrada familia"
+  // 将搜索词和数据库词标准化（移除重音），再检查交集
+  String removeAccents(String s) {
+    const accentsMap = {
+      'á': 'a',
+      'à': 'a',
+      'ã': 'a',
+      'â': 'a',
+      'ä': 'a',
+      'é': 'e',
+      'è': 'e',
+      'ê': 'e',
+      'ë': 'e',
+      'í': 'i',
+      'ì': 'i',
+      'î': 'i',
+      'ï': 'i',
+      'ó': 'o',
+      'ò': 'o',
+      'õ': 'o',
+      'ô': 'o',
+      'ö': 'o',
+      'ú': 'u',
+      'ù': 'u',
+      'û': 'u',
+      'ü': 'u',
+      'ñ': 'n',
+      'ç': 'c',
+    };
+    var result = s;
+    for (final entry in accentsMap.entries) {
+      result = result.replaceAll(entry.key, entry.value);
+    }
+    return result;
+  }
+
+  final searchWordsNormalized = searchWords
+      .map((w) => removeAccents(w))
+      .where((w) => w.length >= 4)
+      .toSet();
+  final dbWordsNormalized =
+      dbWords.map((w) => removeAccents(w)).where((w) => w.length >= 4).toSet();
+  final commonWordsNormalized =
+      searchWordsNormalized.intersection(dbWordsNormalized);
+  if (commonWordsNormalized.length >= 2) return true;
+
+  // 5. 缩写匹配（如 "maxxi" 匹配开头）- 要求长度至少为5
+  if (searchWords.first.length >= 5 && dbWords.first.length >= 5) {
+    if (dbLower.startsWith(searchWords.first) ||
+        searchLower.startsWith(dbWords.first)) {
+      return true;
+    }
   }
 
   return false;
@@ -4754,6 +5521,7 @@ List<String> _filterEnglishTags(List<String>? tags) {
 /// 使用 nameMapping 查找地点
 /// 首先尝试通过 nameMapping 将显示名称映射到英文名称，然后在 places 中查找
 /// 如果 nameMapping 为空或找不到映射，则回退到直接匹配
+/// 🆕 要求匹配的地点必须有封面图（coverUrl），否则不视为有效匹配
 PlaceResult? _findPlaceWithMapping(
   String searchName,
   List<PlaceResult>? places,
@@ -4783,6 +5551,12 @@ PlaceResult? _findPlaceWithMapping(
   if (englishNameToSearch != null) {
     for (final place in places) {
       if (_matchPlaceName(englishNameToSearch, place.name)) {
+        // 🆕 检查是否有封面图
+        if (place.coverImage.isEmpty) {
+          debugPrint(
+              '🗺️ _findPlaceWithMapping: Skipping "${place.name}" - no cover image');
+          continue;
+        }
         debugPrint(
             '🗺️ _findPlaceWithMapping: Matched via mapping to "${place.name}"');
         return place;
@@ -4793,6 +5567,12 @@ PlaceResult? _findPlaceWithMapping(
   // 回退：直接尝试用原始搜索名称匹配
   for (final place in places) {
     if (_matchPlaceName(searchName, place.name)) {
+      // 🆕 检查是否有封面图
+      if (place.coverImage.isEmpty) {
+        debugPrint(
+            '🗺️ _findPlaceWithMapping: Skipping "${place.name}" - no cover image');
+        continue;
+      }
       debugPrint(
           '🗺️ _findPlaceWithMapping: Matched directly "$searchName" to "${place.name}"');
       return place;

@@ -274,6 +274,10 @@ class SearchV2Result {
           error: json['error'] as String?,
           intent: intent,
           textContent: textContent,
+          // 解析 nameMapping 用于匹配中文地点名到英文数据库名
+          nameMapping: (json['nameMapping'] as List?)
+              ?.map((e) => PlaceNameMapping.fromJson(e as Map<String, dynamic>))
+              .toList(),
         );
 
       case IntentType.generalSearch:
@@ -664,6 +668,7 @@ class PlaceResult {
     this.website,
     this.openingHours,
     this.ticketUrl,
+    this.customFields,
   });
 
   /// 从 JSON 创建
@@ -709,6 +714,7 @@ class PlaceResult {
       website: json['website'] as String?,
       openingHours: json['openingHours'] as String?,
       ticketUrl: json['ticketUrl'] as String?,
+      customFields: json['customFields'] as Map<String, dynamic>?,
     );
   }
 
@@ -774,6 +780,9 @@ class PlaceResult {
   final String? openingHours;
   final String? ticketUrl; // 购票链接（博物馆、景点等）
 
+  /// 自定义字段（包含剧照等数据）
+  final Map<String, dynamic>? customFields;
+
   /// 是否是 AI-only 地点（未经 Google 验证）
   bool get isAIOnly => !isVerified && source == PlaceSource.ai;
 
@@ -813,6 +822,7 @@ class PlaceResult {
         'website': website,
         'openingHours': openingHours,
         'ticketUrl': ticketUrl,
+        'customFields': customFields,
       };
 
   /// 解析数据来源

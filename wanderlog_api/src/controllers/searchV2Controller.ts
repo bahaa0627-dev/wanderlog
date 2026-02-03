@@ -5248,6 +5248,7 @@ export const searchV2 = async (req: Request, res: Response) => {
             tags: buildDisplayTags(null, aiPlace.tags, 'en'), // 标签始终用英文
             isVerified: false,
             source: 'ai',
+            recommendationPhrase: aiPlace.recommendationPhrase || '',
             address: aiPlace.address || undefined,
             phoneNumber: undefined,
             website: aiPlace.website || undefined,
@@ -5304,6 +5305,7 @@ export const searchV2 = async (req: Request, res: Response) => {
               tags: buildDisplayTags(null, aiPlace.tags, 'en'), // 标签始终用英文
               isVerified: false,
               source: 'ai',
+              recommendationPhrase: aiPlace.recommendationPhrase || '',
               address: aiPlace.address || undefined,
               phoneNumber: undefined,
               website: aiPlace.website || undefined,
@@ -5464,6 +5466,7 @@ Return the response as plain Markdown text.`;
             tags: [],
             isVerified: false,
             source: 'ai', // 来自 AI 推荐
+            recommendationPhrase: '',
             address: undefined,
             phoneNumber: undefined,
             website: undefined,
@@ -5475,27 +5478,33 @@ Return the response as plain Markdown text.`;
       }
       
       // 为文本中提到的地点获取评分（通过 AI 联网搜索）
-      // 合并 matchedTextPlaces、unmatchedMentioned 和 textOnlyPlaces
-      let allTextPlaces = [...matchedTextPlaces, ...unmatchedMentioned];
-      if (textOnlyPlaces.length > 0) {
+      // 规则：已匹配 >= 3 则未匹配仅文本展示；已匹配 < 3 则未匹配联网补全并可点进详情
+      const matchedCount = matchedTextPlaces.length;
+      const shouldEnrichUnmatched = matchedCount < 3;
+      const unmatchedCandidates = [...textOnlyPlaces, ...unmatchedMentioned];
+      let allTextPlaces = [...matchedTextPlaces];
+
+      if (shouldEnrichUnmatched && unmatchedCandidates.length > 0) {
         // 启用联网搜索，获取完整的地点信息（评分、地址、网站等）
-        logger.info(`[SearchV2] Persisting ${textOnlyPlaces.length} text-only places to database...`);
+        logger.info(`[SearchV2] Matched ${matchedCount} (<3). Enriching ${unmatchedCandidates.length} unmatched places...`);
         const persistedPlaces = await persistAIPlacesToDB(
-          textOnlyPlaces,
+          unmatchedCandidates,
           parsedQuery.city || '',
           parsedQuery.country || '',
           narrativeLanguageCode,
           parsedQuery.category || '',
           { skipWebSearch: false }, // 启用联网搜索获取评分等信息
         );
-        
+
         // 只添加不在 matchedTextPlaces 中的地点
-        const matchedNames = new Set(matchedTextPlaces.map(p => p.name.toLowerCase().trim()));
+        const matchedNameSet = new Set(matchedTextPlaces.map(p => p.name.toLowerCase().trim()));
         for (const p of persistedPlaces) {
-          if (!matchedNames.has(p.name.toLowerCase().trim())) {
+          if (!matchedNameSet.has(p.name.toLowerCase().trim())) {
             allTextPlaces.push(p);
           }
         }
+      } else {
+        logger.info(`[SearchV2] Matched ${matchedCount} (>=3). Skipping enrichment for unmatched places (text-only display).`);
       }
       
       // 为缺失坐标的地点进行地理编码
@@ -5519,10 +5528,13 @@ Return the response as plain Markdown text.`;
       // 只需要清理可能存在的错误格式
       let linkedTextContent = textContent;
       
-      logger.info(`[SearchV2] Cleaning text content, ${allTextPlaces.length} places available for name matching`);
+      const placesForTextCleanup = shouldEnrichUnmatched
+        ? allTextPlaces
+        : [...matchedTextPlaces, ...unmatchedMentioned, ...textOnlyPlaces];
+      logger.info(`[SearchV2] Cleaning text content, ${placesForTextCleanup.length} places available for name matching`);
       
       // 清理可能存在的错误格式
-      for (const place of allTextPlaces) {
+      for (const place of placesForTextCleanup) {
         if (place.name) {
           const escapedName = place.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           

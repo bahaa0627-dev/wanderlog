@@ -3036,62 +3036,62 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               );
             }
           } else {
-            // 检查是否为真正的外部网站链接（URL 格式）
-            final isExternalUrl = linkUrl.startsWith('http://') ||
-                linkUrl.startsWith('https://') ||
-                RegExp(r'^[a-zA-Z0-9][\w\-\.]*\.[a-zA-Z]{2,}')
-                    .hasMatch(linkUrl);
+            // 优先按名称匹配地点（即使是外部 URL），避免跳转到 H5
+            // 🆕 使用 _findPlaceWithMapping 来支持中文显示名称到英文数据库名称的映射
+            final matchedPlace =
+                _findPlaceWithMapping(linkDisplayText, places, nameMapping);
 
-            if (isExternalUrl) {
-              // 外部网站链接 - 黑色正文+下划线，不加粗，不变大，点击打开浏览器
-              final fullUrl =
-                  linkUrl.startsWith('http') ? linkUrl : 'https://$linkUrl';
+            if (matchedPlace != null) {
+              // 匹配到地点，显示可点击链接
+              final placeToShow = matchedPlace;
+              String displayText = linkDisplayText;
+              if (placeToShow.rating != null && placeToShow.rating! > 0) {
+                displayText =
+                    '$linkDisplayText (${placeToShow.rating!.toStringAsFixed(1)})';
+              }
               spans.add(
                 TextSpan(
-                  text: linkDisplayText,
-                  style: AppTheme.bodyMedium(context).copyWith(
-                    color: AppTheme.black,
+                  text: displayText,
+                  style: AppTheme.bodyLarge(context).copyWith(
+                    color: AppTheme.accentBlue,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
                     height: 1.5,
                     decoration: TextDecoration.underline,
-                    decorationColor: AppTheme.black,
+                    decorationColor: AppTheme.accentBlue,
                   ),
                   recognizer: TapGestureRecognizer()
                     ..onTap = () {
-                      debugPrint('🌐 Tapped on external link: $fullUrl');
-                      _launchUrl(fullUrl);
+                      debugPrint(
+                          '📍 Tapped on matched place link: ${placeToShow.name}');
+                      _showPlaceDetail(placeToShow);
                     },
                 ),
               );
             } else {
-              // 可能是按名称匹配的地点链接，尝试匹配
-              // 🆕 使用 _findPlaceWithMapping 来支持中文显示名称到英文数据库名称的映射
-              final matchedPlace =
-                  _findPlaceWithMapping(linkDisplayText, places, nameMapping);
+              // 检查是否为真正的外部网站链接（URL 格式）
+              final isExternalUrl = linkUrl.startsWith('http://') ||
+                  linkUrl.startsWith('https://') ||
+                  RegExp(r'^[a-zA-Z0-9][\w\-\.]*\.[a-zA-Z]{2,}')
+                      .hasMatch(linkUrl);
 
-              if (matchedPlace != null) {
-                // 匹配到地点，显示可点击链接
-                final placeToShow = matchedPlace;
-                String displayText = linkDisplayText;
-                if (placeToShow.rating != null && placeToShow.rating! > 0) {
-                  displayText =
-                      '$linkDisplayText (${placeToShow.rating!.toStringAsFixed(1)})';
-                }
+              if (isExternalUrl) {
+                // 外部网站链接 - 黑色正文+下划线，不加粗，不变大，点击打开浏览器
+                final fullUrl =
+                    linkUrl.startsWith('http') ? linkUrl : 'https://$linkUrl';
                 spans.add(
                   TextSpan(
-                    text: displayText,
-                    style: AppTheme.bodyLarge(context).copyWith(
-                      color: AppTheme.accentBlue,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
+                    text: linkDisplayText,
+                    style: AppTheme.bodyMedium(context).copyWith(
+                      color: AppTheme.black,
                       height: 1.5,
                       decoration: TextDecoration.underline,
-                      decorationColor: AppTheme.accentBlue,
+                      decorationColor: AppTheme.black,
                     ),
                     recognizer: TapGestureRecognizer()
                       ..onTap = () {
-                        debugPrint(
-                            '📍 Tapped on matched place link: ${placeToShow.name}');
-                        _showPlaceDetail(placeToShow);
+                        debugPrint('🌐 Tapped on external link: $fullUrl');
+                        _launchUrl(fullUrl);
                       },
                   ),
                 );

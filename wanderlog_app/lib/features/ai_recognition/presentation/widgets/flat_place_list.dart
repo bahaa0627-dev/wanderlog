@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
@@ -71,60 +70,6 @@ Future<void> _openExternalUrl(String url) async {
   }
 }
 
-List<InlineSpan> _buildSummarySpans({
-  required String text,
-  required TextStyle baseStyle,
-  required TextStyle linkStyle,
-  String? website,
-  String? ticketUrl,  // 购票链接（优先使用）
-}) {
-  final spans = <InlineSpan>[];
-  final pattern = RegExp(r'(https?:\/\/[^\s]+)|在线购买|在线购票|购票|购票链接|购票网站');
-  var currentIndex = 0;
-
-  for (final match in pattern.allMatches(text)) {
-    if (match.start > currentIndex) {
-      spans.add(TextSpan(
-        text: text.substring(currentIndex, match.start),
-        style: baseStyle,
-      ));
-    }
-
-    final matchedText = match.group(0) ?? '';
-    final urlMatch = match.group(1);
-    // 对于购票相关关键词，优先使用 ticketUrl，否则回退到 website
-    final isTicketKeyword = matchedText.contains('购票') || matchedText.contains('购买');
-    final targetUrl = urlMatch ??
-        (isTicketKeyword && ticketUrl?.trim().isNotEmpty == true
-            ? ticketUrl!.trim()
-            : (website?.trim().isNotEmpty == true ? website!.trim() : null));
-
-    if (targetUrl == null || targetUrl.isEmpty) {
-      spans.add(TextSpan(text: matchedText, style: baseStyle));
-    } else {
-      spans.add(TextSpan(
-        text: matchedText,
-        style: linkStyle,
-        recognizer: TapGestureRecognizer()
-          ..onTap = () async {
-            await _openExternalUrl(targetUrl);
-          },
-      ));
-    }
-
-    currentIndex = match.end;
-  }
-
-  if (currentIndex < text.length) {
-    spans.add(TextSpan(
-      text: text.substring(currentIndex),
-      style: baseStyle,
-    ));
-  }
-
-  return spans;
-}
-
 Widget _buildLinkedSummaryText({
   required BuildContext context,
   required String text,
@@ -134,28 +79,72 @@ Widget _buildLinkedSummaryText({
 }) {
   if (text.trim().isEmpty) return const SizedBox.shrink();
 
+  // 1. 从文本中移除网站相关信息，单独展示
+  // 匹配模式：「网站：xxx.com」「网站: xxx」「网站未提供」「Website: xxx」等
+  var cleanedText = text
+      .replaceAll(
+          RegExp(
+              r'[。，,\s]*(?:网站|官网|Website)\s*[：:]\s*[^\s。，,.]+(?:\([^)]*\))?[。，,\s]*',
+              caseSensitive: false),
+          '')
+      .replaceAll(RegExp(r'[。，,\s]*(?:网站|官网)[：:]?\s*未提供[。，,\s]*'), '')
+      .replaceAll(RegExp(r'[。，,\s]*网站未提供[。，,\s]*'), '')
+      .trim();
+
+  // 清理末尾多余的标点符号
+  cleanedText = cleanedText.replaceAll(RegExp(r'[。，,]+$'), '').trim();
+
   final baseStyle = style ??
       AppTheme.bodySmall(context).copyWith(
         color: AppTheme.darkGray,
         height: 1.3,
         fontSize: 13,
       );
-  final linkStyle = baseStyle.copyWith(
-    color: AppTheme.accentBlue,
+
+  // 网站链接样式：黑色、普通粗细、下划线
+  final websiteLinkStyle = baseStyle.copyWith(
+    color: AppTheme.black,
     decoration: TextDecoration.underline,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.normal,
   );
 
-  return Text.rich(
-    TextSpan(
-      children: _buildSummarySpans(
-        text: text,
-        baseStyle: baseStyle,
-        linkStyle: linkStyle,
-        website: website,
-        ticketUrl: ticketUrl,
-      ),
-    ),
+  // 提取有效的网站 URL
+  String? effectiveWebsite;
+  if (website != null && website.trim().isNotEmpty) {
+    effectiveWebsite = website.trim();
+    // 确保 URL 有协议
+    if (!effectiveWebsite.startsWith('http://') &&
+        !effectiveWebsite.startsWith('https://')) {
+      effectiveWebsite = 'https://$effectiveWebsite';
+    }
+  }
+
+  // 如果清理后的文本为空且没有网站，返回空
+  if (cleanedText.isEmpty && effectiveWebsite == null) {
+    return const SizedBox.shrink();
+  }
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // 描述文本
+      if (cleanedText.isNotEmpty)
+        Text(
+          cleanedText,
+          style: baseStyle,
+        ),
+      // 网站链接（单独一行）
+      if (effectiveWebsite != null) ...[
+        const SizedBox(height: 4),
+        GestureDetector(
+          onTap: () => _openExternalUrl(effectiveWebsite!),
+          child: Text(
+            effectiveWebsite.replaceFirst(RegExp(r'^https?://'), ''),
+            style: websiteLinkStyle,
+          ),
+        ),
+      ],
+    ],
   );
 }
 

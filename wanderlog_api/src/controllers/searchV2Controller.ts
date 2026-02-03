@@ -223,10 +223,14 @@ function sortByWeightedScore<T extends { rating: number | null; ratingCount: num
 
 // 分类映射：相关分类合并搜索
 const CATEGORY_MAPPING: Record<string, string[]> = {
+  // ⚠️ 分类值使用小写，查询时使用 mode: 'insensitive' 进行大小写不敏感匹配
   'cafe': ['cafe'],
+  'cafes': ['cafe'],  // 复数形式
   'coffee': ['cafe'],
   'bakery': ['bakery'],
+  'bakeries': ['bakery'],  // 复数形式
   'restaurant': ['restaurant'],
+  'restaurants': ['restaurant'],  // 复数形式
   'ramen': ['restaurant'],
   'sushi': ['restaurant'],
   '拉面': ['restaurant'],
@@ -239,37 +243,89 @@ const CATEGORY_MAPPING: Record<string, string[]> = {
   '面館': ['restaurant'],
   '寿司': ['restaurant'],
   'museum': ['museum'],  // museum 只搜索 museum，不再合并 gallery
+  'museums': ['museum'],  // 复数形式
   'design museum': ['museum'],  // design museum 只搜索 museum
+  'design museums': ['museum'],  // 复数形式
   'gallery': ['gallery'],  // gallery 只搜索 gallery
+  'galleries': ['gallery'],  // 复数形式
   'art gallery': ['gallery'],  // art gallery 只搜索 gallery
+  'art galleries': ['gallery'],  // 复数形式
   'temple': ['temple'],
+  'temples': ['temple'],  // 复数形式
   'shrine': ['shrine'],
+  'shrines': ['shrine'],  // 复数形式
   'park': ['park'],
+  'parks': ['park'],  // 复数形式
   'garden': ['park'],
+  'gardens': ['park'],  // 复数形式
   'bar': ['bar'],
+  'bars': ['bar'],  // 复数形式
   'pub': ['bar'],
+  'pubs': ['bar'],  // 复数形式
   'shop': ['shop'],
+  'shops': ['shop'],  // 复数形式
   'shopping': ['shop'],
   'hotel': ['hotel'],
+  'hotels': ['hotel'],  // 复数形式
   'market': ['market'],  // 市场
+  'markets': ['market'],  // 复数形式
   'food market': ['market'],
+  'food markets': ['market'],  // 复数形式
   'flea market': ['market'],
+  'flea markets': ['market'],  // 复数形式
   'yarn': ['yarn_store'],  // 毛线店
   'yarn store': ['yarn_store'],
+  'yarn stores': ['yarn_store'],  // 复数形式
   'yarn shop': ['yarn_store'],
+  'yarn shops': ['yarn_store'],  // 复数形式
   'knitting': ['yarn_store'],
   'craft store': ['yarn_store', 'shop'],
+  'craft stores': ['yarn_store', 'shop'],  // 复数形式
   '毛线': ['yarn_store'],      // 中文毛线
   '毛线店': ['yarn_store'],    // 中文毛线店
   '编织': ['yarn_store'],      // 中文编织
   '编织店': ['yarn_store'],    // 中文编织店
   'bookstore': ['bookstore'],
+  'bookstores': ['bookstore'],  // 复数形式
   'thrift store': ['thrift_store'],
+  'thrift stores': ['thrift_store'],  // 复数形式
   'vintage shop': ['thrift_store'],
+  'vintage shops': ['thrift_store'],  // 复数形式
   'cemetery': ['cemetery'],
+  'cemeteries': ['cemetery'],  // 复数形式
   'graveyard': ['cemetery'],
+  'graveyards': ['cemetery'],  // 复数形式
   '墓园': ['cemetery'],
   '公墓': ['cemetery'],
+  // 其他常见分类的单复数
+  'church': ['church'],
+  'churches': ['church'],
+  'castle': ['castle'],
+  'castles': ['castle'],
+  'beach': ['beach'],
+  'beaches': ['beach'],
+  'bridge': ['bridge'],
+  'bridges': ['bridge'],
+  'library': ['library'],
+  'libraries': ['library'],
+  'theater': ['theater'],
+  'theaters': ['theater'],
+  'theatre': ['theater'],
+  'theatres': ['theater'],
+  'stadium': ['stadium'],
+  'stadiums': ['stadium'],
+  'university': ['university'],
+  'universities': ['university'],
+  'square': ['square'],
+  'squares': ['square'],
+  'palace': ['palace'],
+  'palaces': ['palace'],
+  'monument': ['monument'],
+  'monuments': ['monument'],
+  'tower': ['tower'],
+  'towers': ['tower'],
+  'fountain': ['fountain'],
+  'fountains': ['fountain'],
 };
 
 const COUNTRY_KEYWORD_MAP: Record<string, string> = {
@@ -465,17 +521,29 @@ async function generateCombinedTexts(
   const lang = language === 'zh' ? 'Chinese' : 'English';
   const city = parsedQuery.city?.trim() || '';
   
-  // 🚀 优化：只取前5个地点，减少token
-  const placesToSummarize = places.slice(0, 5);
+  // 🚀 优化：取前14个地点生成 summary（确保所有返回的地点都有）
+  const placesToSummarize = places.slice(0, 14);
   const placesList = placesToSummarize.map(p => `${p.id}:${p.name}`).join(';');
   
-  // 🚀 超精简 prompt（从~800字符减到~200字符）
-  const prompt = `${lang}. Query:"${query}"${city ? ` City:${city}` : ''}
-Places:${placesList}
-JSON:{"acknowledgment":"<50-80字开场>","overallSummary":"<30字结语>","placeSummaries":[{"id":"<id>","summary":"<50字描述>"}]}`;
+  // � 改进 prompt：更明确地要求 JSON 输出
+  const prompt = `You are a travel assistant. Generate JSON response ONLY.
+
+Language: ${lang}
+Query: "${query}"${city ? `\nCity: ${city}` : ''}
+Places (id:name): ${placesList}
+
+Return ONLY this exact JSON structure (no markdown, no explanation):
+{"acknowledgment":"<50-100 char opening that introduces the search topic/location with a warm, specific greeting>","overallSummary":"<50-80 char closing: wish pleasant trip + invite follow-up questions>","placeSummaries":[{"id":"<place id>","summary":"<50-100 char vivid description highlighting what makes this place special, its atmosphere and why worth visiting>"}]}
+
+IMPORTANT: 
+- acknowledgment: 50-100 chars, must mention the query topic/category/location specifically
+- overallSummary: 50-80 chars, wish user a pleasant trip AND invite them to ask more questions
+- Each place summary: 50-100 chars
+Include ALL places in placeSummaries array. JSON only:`;
 
   try {
     const response = await generateTextWithFallback(prompt, 15000);
+    logger.info(`[SearchV2] generateCombinedTexts AI response: ${response?.substring(0, 500) || 'EMPTY'}`);
     if (!response) {
       return {
         acknowledgment: generateAcknowledgmentTemplate(query, language, parsedQuery),
@@ -488,6 +556,8 @@ JSON:{"acknowledgment":"<50-80字开场>","overallSummary":"<30字结语>","plac
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       const placeSummaries = new Map<string, string>();
+      
+      logger.info(`[SearchV2] Parsed placeSummaries: ${JSON.stringify(parsed.placeSummaries)?.substring(0, 500)}`);
       
       if (parsed.placeSummaries && Array.isArray(parsed.placeSummaries)) {
         for (const item of parsed.placeSummaries) {
@@ -2759,6 +2829,9 @@ function parseQuery(query: string, options: { allowChinese?: boolean } = {}): Pa
     /([A-Z][a-zA-Z]+)\s+(?:cafes?|restaurants?|places?|spots?|museums?|temples?|shrines?|bars?)/i,
   ];
   
+  // 获取所有地区关键词用于排除
+  const regionKeywordsLower = Object.keys(REGION_KEYWORD_MAP).map(k => k.toLowerCase());
+  
   for (const pattern of cityPatterns) {
     const match = query.match(pattern);
     if (match && match[1]) {
@@ -2767,7 +2840,10 @@ function parseQuery(query: string, options: { allowChinese?: boolean } = {}): Pa
       const nonCityWords = ['help', 'find', 'show', 'recommend', 'interesting', 'best', 'good', 'nice', 'great', 'some', 'any', 'the', 'me', 'please', 'design'];
       const potentialCityLower = potentialCity.toLowerCase();
       const categoryKeywordsLower = Object.keys(CATEGORY_MAPPING).map(k => k.toLowerCase());
-      if (!nonCityWords.includes(potentialCityLower) && !categoryKeywordsLower.includes(potentialCityLower)) {
+      // 🌍 排除地区/大洲名称，避免把 Europe, Asia 等误认为城市
+      if (!nonCityWords.includes(potentialCityLower) && 
+          !categoryKeywordsLower.includes(potentialCityLower) &&
+          !regionKeywordsLower.includes(potentialCityLower)) {
         result.city = correctCityName(potentialCity);
         break;
       }
@@ -3299,10 +3375,11 @@ async function getPlacesByCategory(
   };
   
   // 构建 category 条件（case-insensitive）
+  // 注意：数据库中 categoryEn 可能是 "Cemetery" 或 "cemetery"，需要同时匹配
   const categoryCondition = categoryValues.length > 0
     ? {
         OR: [
-          { categorySlug: { in: categoryValues } },
+          { categorySlug: { in: categoryValues, mode: 'insensitive' as const } },
           { categoryEn: { in: categoryValues, mode: 'insensitive' as const } },
           { category: { in: categoryValues, mode: 'insensitive' as const } },
         ],
@@ -3334,10 +3411,16 @@ async function getPlacesByCategory(
       logger.info(`[SearchV2] Using region filter: ${region} (${REGION_COUNTRIES[region]?.length || 0} countries)`);
     }
     
-    // 多取一些数据，然后按加权评分排序
+    // 多取一些数据，按评价数降序排序，优先返回高评价的地点
+    // 注意：必须在数据库层面排序，否则只取 limit*3 条可能漏掉高评价地点
+    // 使用 nulls: 'last' 确保没有评价数的地点排在最后
     const rawPlaces = await prisma.place.findMany({
       where: { AND: whereConditions },
       take: limit * 3, // 多取3倍数据用于筛选
+      orderBy: [
+        { ratingCount: { sort: 'desc', nulls: 'last' } },  // 优先按评价数降序，null 排最后
+        { rating: { sort: 'desc', nulls: 'last' } },       // 其次按评分降序
+      ],
     });
 
     // Ramen intent: bias toward places that look like ramen (name/tags/ai_tags/category fields)
@@ -3351,17 +3434,11 @@ async function getPlacesByCategory(
         })
       : sortByWeightedScore(rawPlaces);
     
-    // 随机打乱数组（Fisher-Yates shuffle）- 在排序后的基础上轻微打乱
-    // For ramen intent, keep deterministic ordering to preserve relevance.
-    const shuffled = ramenCategoryIntent ? [...sortedPlaces] : [...sortedPlaces];
-    if (!ramenCategoryIntent) {
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-    }
+    // ⚠️ 不再随机打乱结果，保持按评价数排序
+    // 这样高评价的地点会优先返回（如 Père Lachaise Cemetery 有 4000+ 评价）
+    // 之前的随机打乱会导致低评价的地点被优先返回
     
-    for (const p of shuffled) {
+    for (const p of sortedPlaces) {
       const normalizedName = p.name.toLowerCase().trim();
       if (!seenNames.has(normalizedName) && places.length < limit) {
         places.push(p);
@@ -5552,20 +5629,38 @@ Return JSON only:
       }
 
       // 应用所有 summary
+      // 注意：如果数据库中已有描述（place.summary 非空），优先保留原有内容
+      // 只有当地点没有 summary 时，才使用 AI 生成的 summary
+      logger.info(`[SearchV2] aiSummaries has ${aiSummaries.size} entries: ${[...aiSummaries.keys()].join(', ')}`);
       for (const place of finalPlaces) {
+        // 如果已有 summary，保留原有内容
+        if (place.summary && place.summary.trim()) {
+          logger.info(`[SearchV2] Keeping existing summary for "${place.name}" (id=${place.id})`);
+          continue;
+        }
         const s = aiSummaries.get(place.id);
-        const accept = summaryLanguageCode === 'zh' ? true : isSummaryRelevant(place.name, s || '');
-        if (s && s.trim() && accept) {
+        if (s && s.trim()) {
           place.summary = s.trim();
+          logger.info(`[SearchV2] Applied AI summary to finalPlace "${place.name}" (id=${place.id})`);
         }
       }
 
       // 同时更新 categories 中的地点
+      logger.info(`[SearchV2] Updating ${finalCategories.length} categories with summaries`);
       for (const cat of finalCategories) {
         for (const p of cat.places) {
+          // 如果已有 summary，保留原有内容
+          if (p.summary && p.summary.trim()) {
+            logger.info(`[SearchV2] Keeping existing summary for category place "${p.name}" (id=${p.id})`);
+            continue;
+          }
           const s = aiSummaries.get(p.id);
-          const accept = summaryLanguageCode === 'zh' ? true : isSummaryRelevant(p.name, s || '');
-          if (s && s.trim() && accept) p.summary = s.trim();
+          if (s && s.trim()) {
+            p.summary = s.trim();
+            logger.info(`[SearchV2] Applied AI summary to category place "${p.name}" (id=${p.id})`);
+          } else {
+            logger.info(`[SearchV2] No summary for category place "${p.name}" (id=${p.id}, hasS=${!!s})`);
+          }
         }
       }
     }

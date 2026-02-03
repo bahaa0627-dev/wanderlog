@@ -476,6 +476,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       );
     });
 
+    // 🚀 修复：添加结果后自动滚动到底部，确保用户能看到完整响应
+    _scrollToBottomWithRetry();
+
     // 保存历史记录（保存完整的 SearchV2Result）
     if (result.success) {
       final spots = result.allPlaces.map(_placeResultToSpot).toList();
@@ -944,7 +947,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           if (index == _messages.length) return _buildLoadingIndicator();
           final message = _messages[index];
           return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(bottom: 24),
             child: message.isUser
                 ? _buildUserMessage(message)
                 : _AnimatedAIMessage(
@@ -1295,10 +1298,19 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
         // Text-only places intentionally hidden
 
-        const SizedBox(height: 20),
+        // 地图展示 - 放在卡片后面，间距 12px
+        // 显示所有有坐标的地点（包括没有图片的文本补充地点）
+        if (_getAllPlacesWithCoordinates(result).isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildMapWithBottomCards(
+            _getAllPlacesWithCoordinates(result),
+            isEnglish: !_containsChinese(result.acknowledgment),
+          ),
+        ],
 
-        // 有分类时，在地点列表后显示 overallSummary（如果有的话）
-        if (shouldShowCategories && result.overallSummary.isNotEmpty) ...[
+        // 结束语 - 放在地图后面
+        if (result.overallSummary.isNotEmpty) ...[
+          const SizedBox(height: 12),
           Text(
             result.overallSummary,
             style: AppTheme.bodyMedium(context).copyWith(
@@ -1306,25 +1318,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 20),
         ],
 
         // 补充推荐文本（当卡片结果不足用户要求的数量时显示）
-        // 放在地图之前，让地图始终在最底部
         if (result.supplementText != null &&
             result.supplementText!.isNotEmpty) ...[
           const SizedBox(height: 24),
           _buildMarkdownText(result.supplementText!, places: textPlaces),
-        ],
-
-        // 地图展示 - 放在所有内容最下面
-        // 显示所有有坐标的地点（包括没有图片的文本补充地点）
-        if (_getAllPlacesWithCoordinates(result).isNotEmpty) ...[
-          const SizedBox(height: 20),
-          _buildMapWithBottomCards(
-            _getAllPlacesWithCoordinates(result),
-            isEnglish: !_containsChinese(result.acknowledgment),
-          ),
         ],
       ],
     );
@@ -1627,6 +1627,14 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     normalized = normalized
         .replaceFirst(RegExp(r'^[\[\{\"\s]+'), '')
         .replaceFirst(RegExp(r'[\]\}\"\s]+$'), '');
+    // Remove horizontal rule separators (---, ***, ___) that appear on their own line
+    normalized =
+        normalized.replaceAll(RegExp(r'(?:^|\n)\s*[-*_]{3,}\s*(?=\n|$)'), '\n');
+    // Ensure Website:/网站:/官网: labels start on a new line
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'(?<!\n)\s*((?:Website|网站|官网)[：:]\s*)', caseSensitive: false),
+      (m) => '\n${m.group(1)}',
+    );
     // Normalize inline bullet markers so each place appears on its own line.
     normalized =
         normalized.replaceAll(RegExp(r'(^|[\s\u3000])\*(?!\*)(?=\s)'), '\n- ');
@@ -2492,7 +2500,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          isEnglish ? 'Explore more on map' : '在地图上探索更多',
+          isEnglish ? 'Explore them on map' : '在地图中查看',
           style: AppTheme.bodySmall(context).copyWith(
             color: AppTheme.darkGray,
             height: 1.4,

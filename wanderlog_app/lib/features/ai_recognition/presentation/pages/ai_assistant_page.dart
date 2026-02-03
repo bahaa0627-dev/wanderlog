@@ -1167,10 +1167,15 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           if (isItinerary)
             _buildItineraryPlan(textContent, places: textPlaces)
           else
-            _buildMarkdownText(textContent,
-                places: textPlaces, nameMapping: result.nameMapping),
+            _buildMarkdownText(
+              textContent,
+              places: textPlaces,
+              nameMapping: result.nameMapping,
+              useBlackPlaceLinks: result.isRegularTravel,
+              allowPlaceLinksInBullets: result.isRegularTravel,
+            ),
 
-          // non_travel 意图不显示地点卡片和地图（如天气、技术问题等）
+          // non_travel 意图不显示地点卡片和地图
           if (!result.isNonTravel) ...[
             // 有图片的地点：显示大卡片
             if (placesWithImage.isNotEmpty) ...[
@@ -1621,9 +1626,10 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           ),
           child: Text(
             slot.label,
-            style: AppTheme.bodySmall(context).copyWith(
+            style: AppTheme.titleMedium(context).copyWith(
               color: AppTheme.black,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
             ),
           ),
         ),
@@ -1653,6 +1659,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       matchedPlace = _findPlaceByName(cleanTitle, places);
     }
 
+    final description = _formatItineraryDescription(
+      parsed.description,
+      matchedPlace,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1660,10 +1671,10 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         _buildClickablePlaceTitle(parsed.title, matchedPlace),
 
         // 描述
-        if (parsed.description != null && parsed.description!.isNotEmpty) ...[
-          const SizedBox(height: 4),
+        if (description != null && description.isNotEmpty) ...[
+          const SizedBox(height: 6),
           Text(
-            parsed.description!,
+            description,
             style: AppTheme.bodyMedium(context).copyWith(
               color: AppTheme.darkGray,
               height: 1.4,
@@ -1688,6 +1699,51 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         ],
       ],
     );
+  }
+
+  String? _formatItineraryDescription(String? raw, PlaceResult? place) {
+    final cleanedRaw = _cleanItinerarySummary(raw);
+    final cleanedSummary = _cleanItinerarySummary(place?.summary);
+
+    String? base;
+    if (cleanedRaw.isNotEmpty) {
+      base = cleanedRaw;
+    } else if (cleanedSummary.isNotEmpty) {
+      base = cleanedSummary;
+    }
+
+    if (base == null || base.isEmpty) return null;
+
+    if (base.length < 30 && cleanedSummary.isNotEmpty && base != cleanedSummary) {
+      base = '${base.trim()} ${cleanedSummary.trim()}'.trim();
+    } else if (base.length < 30 && cleanedSummary.isNotEmpty && cleanedRaw.isNotEmpty) {
+      base = '${cleanedRaw.trim()} ${cleanedSummary.trim()}'.trim();
+    }
+
+    return _clampTextRange(base, min: 30, max: 50);
+  }
+
+  String _cleanItinerarySummary(String? text) {
+    if (text == null || text.trim().isEmpty) return '';
+    String cleaned = text.trim();
+    cleaned = cleaned.replaceAll(
+      RegExp(r'(?:Website|网站|官网)[:：]\s*\S+', caseSensitive: false),
+      '',
+    );
+    cleaned = cleaned.replaceAll(RegExp(r'https?://\S+'), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return cleaned;
+  }
+
+  String _clampTextRange(String text, {required int min, required int max}) {
+    if (text.length < min) {
+      return text;
+    }
+    if (text.length > max) {
+      final end = max > 1 ? max - 1 : max;
+      return '${text.substring(0, end).trimRight()}…';
+    }
+    return text;
   }
 
   /// 构建可点击的地点标题
@@ -1954,8 +2010,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
   /// 构建 Markdown 文本（简单实现）
   /// [nameMapping] 用于匹配中文地点名到英文数据库名
-  Widget _buildMarkdownText(String text,
-      {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
+  Widget _buildMarkdownText(
+    String text, {
+    List<PlaceResult>? places,
+    List<PlaceNameMapping>? nameMapping,
+    bool useBlackPlaceLinks = false,
+    bool allowPlaceLinksInBullets = false,
+  }) {
     // Debug: 打印原始文本内容
     debugPrint('📝 _buildMarkdownText input (first 500 chars):');
     debugPrint(text.substring(0, text.length > 500 ? 500 : text.length));
@@ -2142,12 +2203,16 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         widgets.add(
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 4),
-            child: _buildClickableHeader(titleText,
-                places: places, nameMapping: nameMapping),
+            child: _buildClickableHeader(
+              titleText,
+              places: places,
+              nameMapping: nameMapping,
+              useBlackPlaceLinks: useBlackPlaceLinks,
+            ),
           ),
         );
       } else if (line.startsWith('- ') || line.startsWith('  - ')) {
-        // 无序列表项 (- 格式) - 不添加地点链接
+        // 无序列表项 (- 格式) - 默认不添加地点链接（regular_travel 可开启）
         final indent = line.startsWith('  - ') ? 16.0 : 0.0;
         final content =
             line.startsWith('  - ') ? line.substring(4) : line.substring(2);
@@ -2161,8 +2226,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                     style: AppTheme.bodyMedium(context)
                         .copyWith(color: AppTheme.black)),
                 Expanded(
-                  child: _buildRichText(content,
-                      places: null), // 不传places，禁用正文地点链接
+                  child: _buildRichText(
+                    content,
+                    places: allowPlaceLinksInBullets ? places : null,
+                    nameMapping: allowPlaceLinksInBullets ? nameMapping : null,
+                    useBlackPlaceLinks: useBlackPlaceLinks,
+                  ),
                 ),
               ],
             ),
@@ -2172,13 +2241,17 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         // Bullet point 列表项 (• 或 · 格式) - 移除bullet，直接显示内容
         final trimmed = line.trim();
         final content = trimmed.substring(1).trim();
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 2, bottom: 2),
-            child: _buildRichText(content,
-                places: places, nameMapping: nameMapping),
-          ),
-        );
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: 2),
+              child: _buildRichText(
+                content,
+                places: places,
+                nameMapping: nameMapping,
+                useBlackPlaceLinks: useBlackPlaceLinks,
+              ),
+            ),
+          );
       } else if (RegExp(r'^\d+\.\s*').hasMatch(line.trim())) {
         // 有序列表项（如 "1. [Site Name](URL) - description" 或 "1.**Name**"）
         final match = RegExp(r'^(\d+)\.\s*(.*)$').firstMatch(line.trim());
@@ -2195,8 +2268,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                       style: AppTheme.bodyMedium(context)
                           .copyWith(color: AppTheme.black)),
                   Expanded(
-                    child: _buildRichText(content,
-                        places: places, nameMapping: nameMapping),
+                    child: _buildRichText(
+                      content,
+                      places: places,
+                      nameMapping: nameMapping,
+                      useBlackPlaceLinks: useBlackPlaceLinks,
+                    ),
                   ),
                 ],
               ),
@@ -2205,12 +2282,24 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         } else {
           // fallback: 直接渲染
           widgets.add(
-              _buildRichText(line, places: places, nameMapping: nameMapping));
+            _buildRichText(
+              line,
+              places: places,
+              nameMapping: nameMapping,
+              useBlackPlaceLinks: useBlackPlaceLinks,
+            ),
+          );
         }
       } else {
         // 普通段落 - 支持内联加粗
         widgets.add(
-            _buildRichText(line, places: places, nameMapping: nameMapping));
+          _buildRichText(
+            line,
+            places: places,
+            nameMapping: nameMapping,
+            useBlackPlaceLinks: useBlackPlaceLinks,
+          ),
+        );
       }
     }
 
@@ -2224,8 +2313,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 用于 ### 级别标题，匹配地点名称后变为可点击样式
   /// 支持 "金田家 Kanada-Ya" 格式（中文名 + 英文名）
   /// [nameMapping] 用于将中文显示名称映射到英文数据库名称
-  Widget _buildClickableHeader(String titleText,
-      {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
+  Widget _buildClickableHeader(
+    String titleText, {
+    List<PlaceResult>? places,
+    List<PlaceNameMapping>? nameMapping,
+    bool useBlackPlaceLinks = false,
+  }) {
     // 🔧 清理可能遗留的 markdown 标题符号
     String cleanedTitle = titleText;
     if (cleanedTitle.startsWith('#### ')) {
@@ -2312,6 +2405,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       if (placeToShow.rating != null && placeToShow.rating! > 0) {
         displayText = '$placeName (${placeToShow.rating!.toStringAsFixed(1)})';
       }
+      final linkColor =
+          useBlackPlaceLinks ? AppTheme.black : AppTheme.accentBlue;
       return GestureDetector(
         onTap: () {
           debugPrint('📍 Tapped on header place: ${placeToShow.name}');
@@ -2320,11 +2415,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         child: Text(
           displayText,
           style: AppTheme.bodyLarge(context).copyWith(
-            color: AppTheme.accentBlue,
+            color: linkColor,
             fontWeight: FontWeight.w700,
             fontSize: 18,
             decoration: TextDecoration.underline,
-            decorationColor: AppTheme.accentBlue,
+            decorationColor: linkColor,
           ),
         ),
       );
@@ -2345,9 +2440,23 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// **地点名** 会显示为加粗可点击的样式，点击打开详情页
   /// [链接文字](URL) 会显示为可点击的蓝色链接
   /// [nameMapping] 用于将中文显示名称映射到英文数据库名称
-  Widget _buildRichText(String text,
-      {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
+  Widget _buildRichText(
+    String text, {
+    List<PlaceResult>? places,
+    List<PlaceNameMapping>? nameMapping,
+    bool useBlackPlaceLinks = false,
+  }) {
     final spans = <InlineSpan>[];
+    final placeLinkColor =
+        useBlackPlaceLinks ? AppTheme.black : AppTheme.accentBlue;
+    final placeLinkStyle = AppTheme.bodyLarge(context).copyWith(
+      color: placeLinkColor,
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      height: 1.5,
+      decoration: TextDecoration.underline,
+      decorationColor: placeLinkColor,
+    );
 
     // 🔧 清理 markdown 标题符号（####、###、##、# 开头）
     String cleanedText = text;
@@ -2591,14 +2700,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           spans.add(
             TextSpan(
               text: displayText,
-              style: AppTheme.bodyLarge(context).copyWith(
-                color: AppTheme.accentBlue,
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                height: 1.5,
-                decoration: TextDecoration.underline,
-                decorationColor: AppTheme.accentBlue,
-              ),
+              style: placeLinkStyle,
               recognizer: TapGestureRecognizer()
                 ..onTap = () {
                   debugPrint('📍 Tapped on bold place: ${placeToShow.name}');
@@ -2656,14 +2758,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             spans.add(
               TextSpan(
                 text: displayText,
-                style: AppTheme.bodyLarge(context).copyWith(
-                  color: AppTheme.accentBlue,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                  height: 1.5,
-                  decoration: TextDecoration.underline,
-                  decorationColor: AppTheme.accentBlue,
-                ),
+                style: placeLinkStyle,
                 recognizer: TapGestureRecognizer()
                   ..onTap = () {
                     debugPrint(
@@ -2715,14 +2810,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               spans.add(
                 TextSpan(
                   text: displayText,
-                  style: AppTheme.bodyLarge(context).copyWith(
-                    color: AppTheme.accentBlue,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    height: 1.5,
-                    decoration: TextDecoration.underline,
-                    decorationColor: AppTheme.accentBlue,
-                  ),
+                  style: placeLinkStyle,
                   recognizer: TapGestureRecognizer()
                     ..onTap = () {
                       debugPrint(
@@ -2790,14 +2878,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                 spans.add(
                   TextSpan(
                     text: displayText,
-                    style: AppTheme.bodyLarge(context).copyWith(
-                      color: AppTheme.accentBlue,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                      height: 1.5,
-                      decoration: TextDecoration.underline,
-                      decorationColor: AppTheme.accentBlue,
-                    ),
+                    style: placeLinkStyle,
                     recognizer: TapGestureRecognizer()
                       ..onTap = () {
                         debugPrint(
@@ -4475,6 +4556,20 @@ _ParsedPlaceEntry _parseSlotItem(String text) {
       !remaining.contains('时间:') &&
       !remaining.contains('地址:')) {
     description = remaining;
+  }
+
+  if ((description == null || description.isEmpty) && title.isNotEmpty) {
+    final periodIndex = title.indexOf('。');
+    if (periodIndex > 0 && periodIndex < title.length - 1) {
+      description = title.substring(periodIndex + 1).trim();
+      title = title.substring(0, periodIndex + 1).trim();
+    } else {
+      final dotIndex = title.indexOf('. ');
+      if (dotIndex > 0 && dotIndex < title.length - 2) {
+        description = title.substring(dotIndex + 2).trim();
+        title = title.substring(0, dotIndex + 1).trim();
+      }
+    }
   }
 
   return _ParsedPlaceEntry(

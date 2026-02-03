@@ -6,7 +6,7 @@
  * - general_search: Finding multiple places with criteria
  * - specific_place: Getting info about a specific named place
  * - travel_consultation: Travel advice without specific place requests
- * - city_recommendation: Recommending cities/destinations (NOT places within a city)
+ * - regular_travel: General travel info (city recommendations, transport, tickets, etc.) with optional place matching
  * - non_travel: Non-travel related queries
  */
 
@@ -19,7 +19,7 @@ export type IntentType =
   | 'general_search' 
   | 'specific_place' 
   | 'travel_consultation' 
-  | 'city_recommendation'
+  | 'regular_travel'
   | 'non_travel';
 
 /**
@@ -202,20 +202,24 @@ export interface NonTravelResponse extends BaseSearchResponse {
 }
 
 /**
- * Handler result for city_recommendation processing
- * 城市推荐查询的处理结果（如"推荐欧洲城市"、"第一次去哪个城市"）
+ * Handler result for regular_travel processing
+ * 通用旅行信息的处理结果（城市推荐、交通、门票等）
+ * 包含可选的匹配地点（仅展示数据库中有封面图的地点）
  */
-export interface CityRecommendationHandlerResult {
-  textContent: string;          // Markdown formatted response (pure text, no places)
+export interface RegularTravelHandlerResult {
+  textContent: string;          // Markdown formatted response
+  mentionedPlaceNames: string[]; // Place names mentioned in the response (for database matching)
+  matchedPlaces?: PlaceResult[]; // Places matched from database (with cover images)
 }
 
 /**
- * Response for city_recommendation intent
- * 城市推荐意图的响应 - 纯文本，不包含地点卡片和网站
+ * Response for regular_travel intent
+ * 通用旅行意图的响应 - 文本 + 可选的匹配地点卡片
  */
-export interface CityRecommendationResponse extends BaseSearchResponse {
-  intent: 'city_recommendation';
+export interface RegularTravelResponse extends BaseSearchResponse {
+  intent: 'regular_travel';
   textContent: string;          // Markdown formatted response
+  matchedPlaces?: PlaceResult[]; // Places matched from database (for cards and map)
 }
 
 /**
@@ -225,7 +229,7 @@ export type SearchResponse =
   | GeneralSearchResponse 
   | SpecificPlaceResponse 
   | TravelConsultationResponse 
-  | CityRecommendationResponse
+  | RegularTravelResponse
   | NonTravelResponse;
 
 // ============ Intent Classifier Interface ============

@@ -28,6 +28,7 @@ enum IntentType {
   generalSearchText, // 通用搜索但数量不足（返回文本格式）
   specificPlace, // 特定地点查询（返回单个地点）
   travelConsultation, // 旅行咨询（返回文本 + 相关地点）
+  regularTravel, // 通用旅行信息（城市推荐、交通、门票等，返回文本 + 可选匹配地点）
   nonTravel, // 非旅行问题（返回纯文本）
 }
 
@@ -249,7 +250,34 @@ class SearchV2Result {
               .toList(),
         );
 
+      case IntentType.regularTravel:
+        // regular_travel 意图返回文本（城市推荐、交通、门票等）+ 可选匹配地点
+        final textContent =
+            _normalizeMarkdownText(json['textContent'] as String? ?? '');
+        final matchedPlaces = (json['places'] as List?)
+                ?.map((e) => PlaceResult.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [];
+
+        return SearchV2Result(
+          success: json['success'] as bool? ?? false,
+          acknowledgment: '',
+          categories: null,
+          places: matchedPlaces, // 匹配到的地点（有封面图的spots）
+          textOnlyPlaces: [],
+          translatedQuery: json['translatedQuery'] as String?,
+          translationStatus: json['translationStatus'] as String?,
+          mapPlaces: matchedPlaces.isNotEmpty ? matchedPlaces : null, // 用于地图展示
+          overallSummary: '',
+          quotaRemaining: json['quotaRemaining'] as int? ?? 0,
+          stage: _parseStage(json['stage'] as String?),
+          error: json['error'] as String?,
+          intent: intent,
+          textContent: textContent,
+        );
+
       case IntentType.generalSearch:
+      case IntentType.generalSearchText:
       default:
         // general_search 意图使用原有逻辑
         return SearchV2Result(
@@ -362,6 +390,8 @@ class SearchV2Result {
         return IntentType.nonTravel;
       case 'travel_consultation':
         return IntentType.travelConsultation;
+      case 'regular_travel':
+        return IntentType.regularTravel;
       case 'general_search_text':
         return IntentType.generalSearchText;
       case 'general_search':
@@ -415,9 +445,20 @@ class SearchV2Result {
   /// 是否是非旅行查询（天气、技术、情感等，不应该显示地图）
   bool get isNonTravel => intent == IntentType.nonTravel;
 
-  /// 是否是文本响应（non_travel、travel_consultation 或 general_search_text）
+  /// 是否是通用旅行信息查询（城市推荐、交通、门票等）
+  bool get isRegularTravel => intent == IntentType.regularTravel;
+
+  /// 是否是城市推荐模式（多个城市，每个城市有简短描述）
+  /// 特征：多个城市（>=3）且每个城市的地点数较少（<=5）
+  bool get isCityRecommendation =>
+      cityPlaces != null &&
+      cityPlaces!.length >= 3 &&
+      cityPlaces!.every((g) => g.places.length <= 5);
+
+  /// 是否是文本响应（non_travel、regular_travel、travel_consultation 或 general_search_text）
   bool get isTextResponse =>
       intent == IntentType.nonTravel ||
+      intent == IntentType.regularTravel ||
       intent == IntentType.travelConsultation ||
       intent == IntentType.generalSearchText;
 
@@ -453,6 +494,9 @@ class SearchV2Result {
           break;
         case IntentType.travelConsultation:
           intentStr = 'travel_consultation';
+          break;
+        case IntentType.regularTravel:
+          intentStr = 'regular_travel';
           break;
         case IntentType.nonTravel:
           intentStr = 'non_travel';
@@ -729,7 +773,7 @@ class PlaceResult {
   final String? phoneNumber;
   final String? website;
   final String? openingHours;
-  final String? ticketUrl;  // 购票链接（博物馆、景点等）
+  final String? ticketUrl; // 购票链接（博物馆、景点等）
 
   /// 是否是 AI-only 地点（未经 Google 验证）
   bool get isAIOnly => !isVerified && source == PlaceSource.ai;

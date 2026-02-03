@@ -4,8 +4,8 @@
  * Classifies user queries into five intent types:
  * - general_search: Finding multiple places with criteria
  * - specific_place: Getting info about a specific named place
- * - travel_consultation: Travel advice without specific place requests
- * - city_recommendation: Recommending cities/destinations (NOT places within a city)
+ * - travel_consultation: Detailed itinerary planning
+ * - regular_travel: General travel info (cities, transport, tickets, etc.)
  * - non_travel: Non-travel related queries
  * 
  * Uses KouriProvider for AI classification with rule-based fallback.
@@ -32,7 +32,7 @@ import {
   CityPlacesGroup,
   NonTravelHandlerResult,
   ArchitectQueryHandlerResult,
-  CityRecommendationHandlerResult,
+  RegularTravelHandlerResult,
 } from '../types/intent';
 
 // ============ Configuration ============
@@ -43,7 +43,7 @@ const CONFIG = {
   CONSULTATION_TIMEOUT_MS: 90000, // 90 second timeout for travel consultation (increased for web search)
   NON_TRAVEL_TIMEOUT_MS: 60000, // 60 second timeout for non-travel responses (increased)
   ARCHITECT_QUERY_TIMEOUT_MS: 90000, // 90 second timeout for architect/style queries (increased)
-  CITY_RECOMMENDATION_TIMEOUT_MS: 45000, // 45 second timeout for city recommendations
+  CITY_RECOMMENDATION_TIMEOUT_MS: 45000, // 45 second timeout for regular travel responses
   NAME_SIMILARITY_THRESHOLD: 0.6, // Minimum similarity score for place matching
   SPECIFIC_PLACE_SIMILARITY_THRESHOLD: 0.75, // Higher threshold for specific_place to avoid wrong matches
   MAX_DESCRIPTION_WORDS: 300, // Maximum words in description (increased for structured sections)
@@ -171,35 +171,44 @@ Return JSON:
 const NON_TRAVEL_PROMPT = `Answer in {language} using Markdown: {query}. Be concise, use emoji and **bold** for key items. Return plain text.`;
 
 /**
- * AI prompt for city recommendation queries
- * 城市推荐查询的 prompt - 推荐城市而非地点，不包含网站链接
- * 例如："推荐几个欧洲城市"、"第一次去日本去哪个城市"、"适合情侣的城市"
+ * AI prompt for regular travel queries
+ * 通用旅行查询的 prompt - 城市推荐、交通、门票等通用旅行信息
+ * 例如："推荐几个欧洲城市"、"巴黎怎么买地铁票"、"卢浮宫门票怎么买"
  */
-const CITY_RECOMMENDATION_PROMPT = `You are a travel expert. Answer: {query}
+const REGULAR_TRAVEL_PROMPT = `You are a travel expert. Answer: {query}
 
 IMPORTANT RULES:
-1. You are recommending CITIES/DESTINATIONS, not specific places within cities
+1. Provide helpful travel information (city recommendations, transport, tickets, tips, etc.)
 2. DO NOT include any website URLs or links
 3. DO NOT include "网站:" or "Website:" in your response
-4. Keep descriptions concise and travel-focused
+4. Format with clear sections using ## headings and bullet points (-)
 
-FORMAT (must follow exactly):
-## 🏙️ City Name
+FORMAT (must follow):
+## 🏷️ Section Title
 
-Brief description of the city's highlights and why it's worth visiting (2-3 sentences, 50-80 characters).
+- **Key Point 1**: Brief explanation
+- **Key Point 2**: Brief explanation
+- **Key Point 3**: Brief explanation
 
-(Repeat for each city, recommend 4-6 cities)
+(Use 2-4 sections as appropriate)
 
 ## 💡 Tips
-- Brief travel tips for first-time visitors
+- Practical travel tips
 
 CRITICAL:
 - Response MUST be in {language}
-- NO website URLs or links anywhere in the response
-- Focus on city characteristics, culture, and travel experience
-- Each city section should be a short paragraph, not bullet points of places
+- NO website URLs or links anywhere
+- Use bullet points (-) for each item within sections
+- When mentioning specific places/attractions (NOT cities), bold them like **Place Name**
+- Keep each bullet point concise (1-2 sentences)
 
-Return plain text in Markdown format.`;
+Return JSON:
+{
+  "textContent": "Markdown response with sections and bullet points...",
+  "mentionedPlaces": ["Place Name 1", "Place Name 2"]
+}
+
+Note: mentionedPlaces should ONLY contain specific attractions/spots (museums, restaurants, landmarks), NOT cities or countries.`;
 
 /**
  * AI prompt for architect/architectural style queries
@@ -254,15 +263,15 @@ Query: "{query}"
 INTENTS:
 1. "general_search" - Finding places/venues (cafes, restaurants, museums). "what to eat" = general_search
 2. "specific_place" - Info about ONE named place ("Eiffel Tower", "what is Louvre")
-3. "travel_consultation" - Travel advice, itinerary planning, how-to, tickets, budget, transport, visa, packing, architecture styles
-4. "city_recommendation" - Recommending which CITIES to visit (NOT places within a city). E.g., "which European cities", "recommend cities for first trip", "best cities in Japan"
+3. "travel_consultation" - Detailed itinerary planning with day-by-day schedules
+4. "regular_travel" - General travel info: city recommendations, transport tips, ticket buying, visa, packing, etc.
 5. "non_travel" - Weather queries or non-travel topics (health, tech, emotions)
 
 CRITICAL RULES:
-- "N days in City" or "N-day trip" = travel_consultation (itinerary planning)
-- "recommend cities" or "which cities" or "first time to [region]" = city_recommendation
+- "N days in City" or "N-day trip" = travel_consultation (detailed itinerary)
+- "recommend cities" or "which cities" or "first time to [region]" = regular_travel
+- "how to buy tickets" or "transport" or "visa" = regular_travel (unless asking about specific place)
 - weather→non_travel
-- "how to"→travel_consultation
 - category+find→general_search
 - just place name→specific_place
 
@@ -270,26 +279,37 @@ Examples:
 - "3 days in Copenhagen" → travel_consultation (itinerary)
 - "best cafes in Paris" → general_search
 - "Eiffel Tower" → specific_place
-- "how to buy tickets for Louvre" → travel_consultation
-- "recommend European cities for first trip" → city_recommendation
-- "which cities in Japan should I visit" → city_recommendation
+- "how to buy tickets for Louvre" → regular_travel
+- "recommend European cities for first trip" → regular_travel
+- "Paris metro tickets" → regular_travel
 
 JSON: {"intent":"...", "placeName":"if specific", "city":"if mentioned", "category":"if mentioned", "count":N, "confidence":0.0-1.0}`;
 
 // ============ Rule-Based Detection Patterns ============
 
 /**
- * Patterns for detecting city recommendation queries
- * 城市推荐查询的关键词和模式
+ * Patterns for detecting regular travel queries
+ * 通用旅行查询的关键词和模式（城市推荐、交通、门票等）
  */
-const CITY_RECOMMENDATION_PATTERNS = [
-  // Chinese patterns
+const REGULAR_TRAVEL_PATTERNS = [
+  // City recommendation patterns
   /推荐.*(城市|地方|去处)/i,
   /第一次.*(去|到|玩|旅[行游])/i,
   /(哪些?|什么)(城市|地方).*(值得|适合|推荐)/i,
   /(值得|适合|推荐).*(城市|目的地)/i,
   /去(哪个?|什么)(城市|国家)/i,
   /(欧洲|亚洲|美洲|日本|东南亚|北美|南美).*(城市|推荐)/i,
+  // Transport patterns
+  /怎么(买|购买|坐|乘).*(票|地铁|公交|火车|巴士)/i,
+  /(地铁|公交|火车|巴士|交通).*(怎么|如何|攻略)/i,
+  /metro|subway|train|bus.*ticket/i,
+  /how\s+to\s+(buy|get|take)/i,
+  // Ticket patterns
+  /(门票|票|pass).*(怎么|如何|哪里|购买)/i,
+  /ticket.*buy|buy.*ticket/i,
+  // Visa/packing patterns
+  /签证|护照|visa|passport/i,
+  /带什么|打包|pack|bring/i,
   // English patterns
   /recommend.*(cities?|destinations?)/i,
   /which\s+(cities?|places?)\s+(to|should|for)/i,
@@ -300,19 +320,27 @@ const CITY_RECOMMENDATION_PATTERNS = [
 ];
 
 /**
- * Keywords that indicate city recommendation (not place search)
+ * Keywords that indicate regular travel (general travel info)
  */
-const CITY_RECOMMENDATION_KEYWORDS = [
-  // Chinese
+const REGULAR_TRAVEL_KEYWORDS = [
+  // City recommendation
   '推荐城市', '推荐目的地', '去哪个城市', '去哪些城市', '哪个城市', '什么城市',
   '第一次去', '第一次旅行', '第一次出国', '首次', '初次',
   '值得去的城市', '适合去的城市', '好玩的城市',
   '欧洲城市', '亚洲城市', '日本城市', '美国城市',
+  // Transport
+  '怎么买票', '地铁票', '公交票', '火车票', '交通攻略', '怎么坐',
+  'metro ticket', 'subway pass', 'train ticket', 'bus ticket',
+  // Tickets
+  '门票怎么买', '怎么买门票', '购票', '订票',
+  'how to buy tickets', 'where to buy tickets',
+  // Visa/packing
+  '签证', '护照', '带什么', '准备什么',
+  'visa', 'passport', 'what to pack', 'what to bring',
   // English
   'recommend cities', 'which cities', 'which city', 'best cities', 'best city',
   'first time', 'first trip', 'first visit',
   'cities to visit', 'destinations to visit',
-  'european cities', 'asian cities', 'japanese cities',
 ];
 
 /**
@@ -1143,8 +1171,8 @@ Return JSON:
    * - travel_consultation: advice, tips, how-to questions
    * - general_search: finding multiple places by category/criteria
    * - specific_place: info about one specific named place
-   * - city_recommendation: recommending which cities to visit (not places within a city)
-   * - non_travel: non-travel related queries
+  * - regular_travel: general travel info (cities, transport, tickets, etc.)
+  * - non_travel: non-travel related queries
    */
   async classify(query: string, language: string): Promise<IntentResult> {
     logger.info(`[IntentClassifier] Classifying query: "${query}"`);
@@ -1164,12 +1192,12 @@ Return JSON:
       };
     }
     
-    // SECOND: Check for city recommendation queries - these go to city_recommendation
-    // e.g., "推荐几个欧洲城市，第一次去", "which cities in Japan should I visit"
-    if (this.isCityRecommendationQuery(query)) {
-      logger.info(`[IntentClassifier] Detected city recommendation query, forcing city_recommendation`);
+    // SECOND: Check for regular travel queries - these go to regular_travel
+    // e.g., "推荐几个欧洲城市", "巴黎地铁票怎么买", "卢浮宫门票"
+    if (this.isRegularTravelQuery(query)) {
+      logger.info(`[IntentClassifier] Detected regular travel query, forcing regular_travel`);
       return {
-        intent: 'city_recommendation',
+        intent: 'regular_travel',
         confidence: 0.95,
       };
     }
@@ -1184,19 +1212,19 @@ Return JSON:
         // This catches "3 days in Copenhagen" which AI might misclassify as general_search
         if (aiResult.intent === 'general_search' && this.isItineraryRequest(lower)) {
           logger.info(`[IntentClassifier] Overriding AI result: general_search → travel_consultation (itinerary pattern detected)`);
-        }
-        
-        // Override AI result if it returns travel_consultation but query is clearly a city recommendation
-        if ((aiResult.intent === 'travel_consultation' || aiResult.intent === 'general_search') && this.isCityRecommendationQuery(query)) {
-          logger.info(`[IntentClassifier] Overriding AI result: ${aiResult.intent} → city_recommendation (city recommendation pattern detected)`);
           return {
-            intent: 'city_recommendation',
-            confidence: 0.95,
-          };
-        }          return {
             intent: 'travel_consultation',
             city: aiResult.city,
             confidence: 0.9,
+          };
+        }
+        
+        // Override AI result if it returns travel_consultation but query is clearly a regular travel query
+        if ((aiResult.intent === 'travel_consultation' || aiResult.intent === 'general_search') && this.isRegularTravelQuery(query)) {
+          logger.info(`[IntentClassifier] Overriding AI result: ${aiResult.intent} → regular_travel (regular travel pattern detected)`);
+          return {
+            intent: 'regular_travel',
+            confidence: 0.95,
           };
         }
         
@@ -1266,7 +1294,7 @@ Return JSON:
       const parsed = JSON.parse(jsonMatch[0]);
       
       // Validate intent type
-      const validIntents = ['general_search', 'specific_place', 'travel_consultation', 'non_travel'];
+      const validIntents = ['general_search', 'specific_place', 'travel_consultation', 'regular_travel', 'non_travel'];
       if (!parsed.intent || !validIntents.includes(parsed.intent)) {
         logger.warn(`[IntentClassifier] Invalid intent from AI: ${parsed.intent}`);
         return null;
@@ -1327,7 +1355,17 @@ Return JSON:
       };
     }
 
-    // 3. Check for travel consultation (how-to questions, tips, booking, etc.)
+    // 3. Check for regular travel queries
+    // e.g., "推荐几个欧洲城市", "which cities in Japan should I visit", "巴黎怎么买地铁票"
+    if (this.isRegularTravelQuery(query)) {
+      logger.info('[IntentClassifier] Fallback: regular_travel');
+      return {
+        intent: 'regular_travel',
+        confidence: 0.9,
+      };
+    }
+
+    // 4. Check for travel consultation (how-to questions, tips, booking, etc.)
     // This ensures "how to buy ticket of Sagrada Familia" is travel_consultation, not specific_place
     if (this.isTravelConsultation(lower)) {
       logger.info('[IntentClassifier] Fallback: travel_consultation');
@@ -1551,25 +1589,25 @@ Return JSON:
   }
 
   /**
-   * Check if query is a city/destination recommendation request
-   * 检测是否是城市推荐查询（推荐城市，而非城市内的地点）
-   * e.g., "推荐几个欧洲城市", "第一次去日本去哪个城市", "which European cities should I visit"
+   * Check if query is a regular travel query (city recommendations, transport, tickets, etc.)
+   * 检测是否是通用旅行查询（城市推荐、交通、门票等）
+   * e.g., "推荐几个欧洲城市", "巴黎地铁票怎么买", "卢浮宫门票"
    */
-  private isCityRecommendationQuery(query: string): boolean {
+  private isRegularTravelQuery(query: string): boolean {
     const lower = query.toLowerCase();
     
     // Check for patterns
-    for (const pattern of CITY_RECOMMENDATION_PATTERNS) {
+    for (const pattern of REGULAR_TRAVEL_PATTERNS) {
       if (pattern.test(query)) {
-        logger.info(`[IntentClassifier] Matched city recommendation pattern: ${pattern}`);
+        logger.info(`[IntentClassifier] Matched regular travel pattern: ${pattern}`);
         return true;
       }
     }
     
     // Check for keywords
-    for (const keyword of CITY_RECOMMENDATION_KEYWORDS) {
+    for (const keyword of REGULAR_TRAVEL_KEYWORDS) {
       if (lower.includes(keyword.toLowerCase())) {
-        logger.info(`[IntentClassifier] Matched city recommendation keyword: ${keyword}`);
+        logger.info(`[IntentClassifier] Matched regular travel keyword: ${keyword}`);
         return true;
       }
     }
@@ -1577,7 +1615,7 @@ Return JSON:
     // Special case: "第一次去 + region" without specific city
     // This indicates destination/city recommendation
     if (/第一次.*(欧洲|亚洲|日本|美国|东南亚|北美|南美|非洲|澳洲)/i.test(query)) {
-      logger.info(`[IntentClassifier] Matched city recommendation: first time to region`);
+      logger.info(`[IntentClassifier] Matched regular travel: first time to region`);
       return true;
     }
     
@@ -4126,34 +4164,48 @@ Rules:
     }
   }
 
-  // ============ Non-Travel Handler Methods ============
+  // ============ Regular Travel Handler Methods ============
 
   /**
-   * Handle city_recommendation intent - generates Markdown response for city/destination recommendations
-   * NO database queries, NO website links, NO place cards
-   * @param query User's city recommendation query
+   * Handle regular_travel intent - generates Markdown response for general travel info
+   * Includes city recommendations, transport tips, ticket info, etc.
+   * Matches mentioned places with database and returns those with cover images
+   * @param query User's travel query
    * @param language User's preferred language ('en' or 'zh')
-   * @returns Handler result with textContent only
+   * @returns Handler result with textContent and optional matched places
    */
-  async handleCityRecommendation(query: string, language: string): Promise<CityRecommendationHandlerResult> {
-    logger.info(`[IntentClassifier] Handling city recommendation query: "${query}"`);
+  async handleRegularTravel(query: string, language: string): Promise<RegularTravelHandlerResult> {
+    logger.info(`[IntentClassifier] Handling regular travel query: "${query}"`);
 
-    const textContent = await this.generateCityRecommendationResponse(query, language);
+    const aiResult = await this.generateRegularTravelResponse(query, language);
+    let textContent = aiResult.textContent;
+    const mentionedPlaceNames = aiResult.mentionedPlaceNames;
 
-    logger.info(`[IntentClassifier] City recommendation result: textContent=${textContent.length} chars`);
+    logger.info(`[IntentClassifier] Regular travel AI result: textContent=${textContent.length} chars, mentionedPlaces=${mentionedPlaceNames.length}`);
 
-    return { textContent };
+    // Match mentioned places with database (only spots, not cities)
+    let matchedPlaces: PlaceResult[] = [];
+    if (mentionedPlaceNames.length > 0) {
+      matchedPlaces = await this.matchPlacesFromDatabase(mentionedPlaceNames);
+      logger.info(`[IntentClassifier] Matched ${matchedPlaces.length} places from database`);
+    }
+
+    return { 
+      textContent, 
+      mentionedPlaceNames,
+      matchedPlaces: matchedPlaces.length > 0 ? matchedPlaces : undefined,
+    };
   }
 
   /**
-   * Generate AI response for city recommendation queries
+   * Generate AI response for regular travel queries
    * @param query User's query
    * @param language User's preferred language
-   * @returns Markdown formatted response text (no websites, no place cards)
+   * @returns Markdown formatted response text and mentioned place names
    */
-  private async generateCityRecommendationResponse(query: string, language: string): Promise<string> {
+  private async generateRegularTravelResponse(query: string, language: string): Promise<{ textContent: string; mentionedPlaceNames: string[] }> {
     const languageText = language === 'zh' ? 'Chinese' : 'English';
-    const prompt = CITY_RECOMMENDATION_PROMPT
+    const prompt = REGULAR_TRAVEL_PROMPT
       .replace('{query}', query)
       .replace(/\{language\}/g, languageText);
 
@@ -4161,32 +4213,118 @@ Rules:
       const response = await this.generateTextWithFallback(prompt, CONFIG.CITY_RECOMMENDATION_TIMEOUT_MS) || '__TIMEOUT__';
 
       if (!response || response === '__TIMEOUT__') {
-        logger.warn('[IntentClassifier] City recommendation response generation timed out');
-        return language === 'zh' 
-          ? '抱歉，响应超时了。请稍后再试。'
-          : 'Sorry, the request timed out. Please try again.';
+        logger.warn('[IntentClassifier] Regular travel response generation timed out');
+        return {
+          textContent: language === 'zh' 
+            ? '抱歉，响应超时了。请稍后再试。'
+            : 'Sorry, the request timed out. Please try again.',
+          mentionedPlaceNames: [],
+        };
       }
 
-      // Clean up the response - remove any JSON wrapping and website links
-      let textContent = this.normalizeMarkdownOutput(response);
+      // Try to parse JSON response
+      let textContent = '';
+      let mentionedPlaceNames: string[] = [];
       
-      // Remove any website links that AI might have included despite instructions
+      try {
+        // Find JSON in response
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          textContent = parsed.textContent || '';
+          mentionedPlaceNames = parsed.mentionedPlaces || [];
+        } else {
+          // No JSON found, use raw response as text
+          textContent = response;
+        }
+      } catch (parseError) {
+        // JSON parse failed, use raw response
+        textContent = response;
+      }
+      
+      // Normalize and clean up
+      textContent = this.normalizeMarkdownOutput(textContent);
       textContent = this.removeWebsiteLinks(textContent);
 
-      logger.info(`[IntentClassifier] Generated city recommendation response: ${textContent.length} chars`);
-      return textContent;
+      logger.info(`[IntentClassifier] Generated regular travel response: ${textContent.length} chars, ${mentionedPlaceNames.length} places`);
+      return { textContent, mentionedPlaceNames };
 
     } catch (error) {
-      logger.warn(`[IntentClassifier] Failed to generate city recommendation response: ${error}`);
-      return language === 'zh' 
-        ? '抱歉，处理请求时出错了。请稍后再试。'
-        : 'Sorry, something went wrong. Please try again.';
+      logger.warn(`[IntentClassifier] Failed to generate regular travel response: ${error}`);
+      return {
+        textContent: language === 'zh' 
+          ? '抱歉，处理请求时出错了。请稍后再试。'
+          : 'Sorry, something went wrong. Please try again.',
+        mentionedPlaceNames: [],
+      };
     }
   }
 
   /**
+   * Match place names with database
+   * Only returns places that have valid cover images (spots level, not cities)
+   */
+  private async matchPlacesFromDatabase(placeNames: string[]): Promise<PlaceResult[]> {
+    if (placeNames.length === 0) return [];
+    
+    const matchedPlaces: PlaceResult[] = [];
+    
+    for (const name of placeNames) {
+      try {
+        // Search by name (case insensitive, partial match)
+        const places = await prisma.place.findMany({
+          where: {
+            name: {
+              contains: name,
+              mode: 'insensitive',
+            },
+            coverImage: {
+              not: null,
+            },
+          },
+          take: 1,
+          orderBy: {
+            rating: 'desc',
+          },
+        });
+        
+        if (places.length > 0) {
+          const place = places[0];
+          // Validate cover image
+          if (place.coverImage && place.coverImage.length > 0) {
+            matchedPlaces.push({
+              id: place.id,
+              name: place.name,
+              summary: place.description || '',
+              coverImage: place.coverImage,
+              images: place.images || undefined,
+              latitude: place.latitude || 0,
+              longitude: place.longitude || 0,
+              city: place.city || '',
+              country: place.country || '',
+              rating: place.rating,
+              ratingCount: place.ratingCount,
+              tags: place.tags || [],
+              isVerified: true,
+              source: 'cache',
+              address: place.address || undefined,
+              phoneNumber: place.phoneNumber || undefined,
+              website: place.website || undefined,
+            });
+            logger.info(`[IntentClassifier] Matched place: "${name}" -> "${place.name}"`);
+          }
+        }
+      } catch (error) {
+        logger.warn(`[IntentClassifier] Failed to match place "${name}": ${error}`);
+      }
+    }
+    
+    return matchedPlaces;
+  }
+
+  /**
    * Remove website links from text content
-   * Used for city_recommendation to ensure clean output
+   * Used for regular_travel to ensure clean output
    */
   private removeWebsiteLinks(text: string): string {
     // Remove "网站:xxx.com" or "Website:xxx.com" patterns
@@ -4203,6 +4341,8 @@ Rules:
     
     return cleaned.trim();
   }
+
+  // ============ Non-Travel Handler Methods ============
 
   /**
    * Handle non_travel intent - generates Markdown response without database queries

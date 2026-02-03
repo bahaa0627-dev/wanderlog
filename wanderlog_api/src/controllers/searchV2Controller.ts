@@ -4154,6 +4154,38 @@ export const searchV2 = async (req: Request, res: Response) => {
       });
     }
     
+    // ========== 处理 regular_travel 意图 ==========
+    if (intentResult.intent === 'regular_travel') {
+      logger.info('[SearchV2] Handling regular_travel intent');
+      const result = await intentClassifierService.handleRegularTravel(query, narrativeLanguage);
+      
+      // 消耗配额
+      let quotaRemaining = 10;
+      if (userId) {
+        try {
+          await quotaService.consumeQuota(userId);
+          quotaRemaining = await quotaService.getRemainingQuota(userId);
+        } catch (error) {
+          logger.warn(`[SearchV2] Quota error: ${error}`);
+        }
+      }
+      
+      const duration = Date.now() - startTime;
+      logger.info(`[SearchV2] regular_travel completed in ${duration}ms`);
+      
+      return res.json({
+        success: true,
+        intent: 'regular_travel',
+        textContent: result.textContent,
+        mentionedPlaceNames: result.mentionedPlaceNames,
+        places: result.matchedPlaces || [],
+        quotaRemaining,
+        stage: 'complete',
+        translationStatus,
+        translatedQuery,
+      });
+    }
+    
     // ========== 处理 travel_consultation 意图 ==========
     if (intentResult.intent === 'travel_consultation') {
       // 检查是否是建筑师/风格查询 - 使用专门的处理方法，不进行联网搜索

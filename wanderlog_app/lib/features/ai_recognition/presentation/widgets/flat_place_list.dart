@@ -76,6 +76,7 @@ List<InlineSpan> _buildSummarySpans({
   required TextStyle baseStyle,
   required TextStyle linkStyle,
   String? website,
+  String? ticketUrl,  // 购票链接（优先使用）
 }) {
   final spans = <InlineSpan>[];
   final pattern = RegExp(r'(https?:\/\/[^\s]+)|在线购买|在线购票|购票|购票链接|购票网站');
@@ -91,8 +92,12 @@ List<InlineSpan> _buildSummarySpans({
 
     final matchedText = match.group(0) ?? '';
     final urlMatch = match.group(1);
+    // 对于购票相关关键词，优先使用 ticketUrl，否则回退到 website
+    final isTicketKeyword = matchedText.contains('购票') || matchedText.contains('购买');
     final targetUrl = urlMatch ??
-        (website?.trim().isNotEmpty == true ? website!.trim() : null);
+        (isTicketKeyword && ticketUrl?.trim().isNotEmpty == true
+            ? ticketUrl!.trim()
+            : (website?.trim().isNotEmpty == true ? website!.trim() : null));
 
     if (targetUrl == null || targetUrl.isEmpty) {
       spans.add(TextSpan(text: matchedText, style: baseStyle));
@@ -124,6 +129,7 @@ Widget _buildLinkedSummaryText({
   required BuildContext context,
   required String text,
   String? website,
+  String? ticketUrl,
   TextStyle? style,
 }) {
   if (text.trim().isEmpty) return const SizedBox.shrink();
@@ -137,7 +143,7 @@ Widget _buildLinkedSummaryText({
   final linkStyle = baseStyle.copyWith(
     color: AppTheme.accentBlue,
     decoration: TextDecoration.underline,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
   );
 
   return Text.rich(
@@ -147,6 +153,7 @@ Widget _buildLinkedSummaryText({
         baseStyle: baseStyle,
         linkStyle: linkStyle,
         website: website,
+        ticketUrl: ticketUrl,
       ),
     ),
   );
@@ -356,6 +363,7 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
                       context: context,
                       text: displayDescription,
                       website: widget.place.website,
+                      ticketUrl: widget.place.ticketUrl,
                       style: AppTheme.bodyMedium(context).copyWith(
                         color: AppTheme.darkGray,
                         height: 1.4,
@@ -908,6 +916,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
             context: context,
             text: widget.place.summary,
             website: widget.place.website,
+            ticketUrl: widget.place.ticketUrl,
           ),
       ],
     );

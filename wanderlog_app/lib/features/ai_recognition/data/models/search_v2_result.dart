@@ -620,6 +620,7 @@ class PlaceResult {
     this.phoneNumber,
     this.website,
     this.openingHours,
+    this.ticketUrl,
   });
 
   /// 从 JSON 创建
@@ -664,6 +665,7 @@ class PlaceResult {
       phoneNumber: json['phoneNumber'] as String?,
       website: json['website'] as String?,
       openingHours: json['openingHours'] as String?,
+      ticketUrl: json['ticketUrl'] as String?,
     );
   }
 
@@ -727,6 +729,7 @@ class PlaceResult {
   final String? phoneNumber;
   final String? website;
   final String? openingHours;
+  final String? ticketUrl;  // 购票链接（博物馆、景点等）
 
   /// 是否是 AI-only 地点（未经 Google 验证）
   bool get isAIOnly => !isVerified && source == PlaceSource.ai;
@@ -766,6 +769,7 @@ class PlaceResult {
         'phoneNumber': phoneNumber,
         'website': website,
         'openingHours': openingHours,
+        'ticketUrl': ticketUrl,
       };
 
   /// 解析数据来源
@@ -839,6 +843,7 @@ class PlaceResult {
     String? phoneNumber,
     String? website,
     String? openingHours,
+    String? ticketUrl,
   }) =>
       PlaceResult(
         id: id ?? this.id,
@@ -863,6 +868,7 @@ class PlaceResult {
         phoneNumber: phoneNumber ?? this.phoneNumber,
         website: website ?? this.website,
         openingHours: openingHours ?? this.openingHours,
+        ticketUrl: ticketUrl ?? this.ticketUrl,
       );
 }
 

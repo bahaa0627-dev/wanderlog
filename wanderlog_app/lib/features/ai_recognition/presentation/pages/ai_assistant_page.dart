@@ -1155,13 +1155,20 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       debugPrint(
           '🖼️ [_buildSearchV2Result] Places: ${placesWithImage.length} with image, ${placesWithCoordinates.length} with coordinates');
 
+      // 检查是否为行程类文本（Day 1/第一天 + 时间段格式）
+      final isItinerary = _looksLikeItinerary(textContent);
+      debugPrint('📅 [_buildSearchV2Result] isItinerary: $isItinerary');
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 文本内容 - 支持 Markdown 格式，地点名可点击
+          // 文本内容 - 行程使用卡片式展示，普通文本使用 Markdown
           // 传入 nameMapping 用于匹配中文地点名到英文数据库名
-          _buildMarkdownText(textContent,
-              places: textPlaces, nameMapping: result.nameMapping),
+          if (isItinerary)
+            _buildItineraryPlan(textContent, places: textPlaces)
+          else
+            _buildMarkdownText(textContent,
+                places: textPlaces, nameMapping: result.nameMapping),
 
           // non_travel 意图不显示地点卡片和地图（如天气、技术问题等）
           if (!result.isNonTravel) ...[
@@ -1272,17 +1279,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           const SizedBox(height: 20),
         ],
 
-        // 没有分类时，在地点列表前显示 overallSummary 作为开头介绍
-        if (!shouldShowCategories && result.overallSummary.isNotEmpty) ...[
-          Text(
-            result.overallSummary,
-            style: AppTheme.bodyMedium(context).copyWith(
-              color: AppTheme.black,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
+        // overallSummary 只在最后作为结束语显示，不在地点列表前重复
 
         // 地点展示逻辑：
         // 1. 有分类且超过5个地点 -> 分类展示
@@ -1319,16 +1316,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               fontSize: 18,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            _containsChinese(result.acknowledgment)
-                ? '以下是更多符合你搜索条件的地点：'
-                : 'Here are more places matching your search:',
-            style: AppTheme.bodyMedium(context).copyWith(
-              color: AppTheme.mediumGray,
-              height: 1.5,
-            ),
-          ),
           const SizedBox(height: 12),
           _buildTextOnlyPlacesList(result.textOnlyPlaces),
         ],
@@ -1359,7 +1346,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
 
   /// 构建城市内容展示（文本 + 卡片 + 地图）
-  /// 改进版：所有卡片和地图始终显示在文本末尾，不再穿插在中间
+  /// 改进版：检测是否为城市推荐模式，如果是则在每个城市后显示该城市的地点卡片
   Widget _buildInterleavedCityContent(
     String textContent,
     List<CityPlacesGroup> cityPlaces, {
@@ -1376,26 +1363,56 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     debugPrint(
         '🏙️ Building city content for ${cityPlaces.length} city groups, total ${allPlaces.length} places');
 
-    // Step 1: 先显示完整的文本内容（markdown格式，地点名可点击）
-    widgets.add(_buildMarkdownText(textContent, places: allPlaces));
+    // 检测是否为城市推荐模式（多个城市，每个城市有简短描述）
+    // 特征：多个城市（>=3）且每个城市的地点数较少（<=5）
+    final isCityRecommendation =
+        cityPlaces.length >= 3 && cityPlaces.every((g) => g.places.length <= 5);
+    debugPrint(
+        '🏙️ [_buildInterleavedCityContent] isCityRecommendation: $isCityRecommendation');
 
-    // Step 2: 收集所有有图片的地点，统一在末尾显示横滑卡片
-    final allPlacesWithImage = <PlaceResult>[];
-    for (final group in cityPlaces) {
-      final placesWithImage =
-          group.places.where((p) => p.hasValidCoverImage).toList();
-      allPlacesWithImage.addAll(placesWithImage);
-      debugPrint(
-          '🏙️ [_buildInterleavedCityContent] City "${group.city}": ${group.places.length} total, ${placesWithImage.length} with images');
+    final isItinerary = _looksLikeItinerary(textContent);
+    debugPrint('📅 [_buildInterleavedCityContent] isItinerary: $isItinerary');
+
+    if (isCityRecommendation && !isItinerary) {
+      // 城市推荐模式：按城市分段显示，每个城市后显示该城市的景点卡片
+      widgets.addAll(_buildCityRecommendationContent(
+        textContent,
+        cityPlaces,
+        allPlaces,
+      ));
+    } else if (isItinerary) {
+      // 行程模式
+      widgets.add(_buildItineraryPlan(textContent, places: allPlaces));
+      // 收集所有有图片的地点在末尾显示
+      final allPlacesWithImage = cityPlaces
+          .expand((g) => g.places)
+          .where((p) => p.hasValidCoverImage)
+          .toList();
+      if (allPlacesWithImage.isNotEmpty) {
+        widgets.add(const SizedBox(height: 20));
+        widgets.add(_buildHorizontalSpotCards(allPlacesWithImage));
+      }
+    } else {
+      // 默认模式：文本 + 所有卡片在末尾
+      widgets.add(_buildMarkdownText(textContent, places: allPlaces));
+
+      // 收集所有有图片的地点在末尾显示
+      final allPlacesWithImage = <PlaceResult>[];
+      for (final group in cityPlaces) {
+        final placesWithImage =
+            group.places.where((p) => p.hasValidCoverImage).toList();
+        allPlacesWithImage.addAll(placesWithImage);
+        debugPrint(
+            '🏙️ [_buildInterleavedCityContent] City "${group.city}": ${group.places.length} total, ${placesWithImage.length} with images');
+      }
+
+      if (allPlacesWithImage.isNotEmpty) {
+        widgets.add(const SizedBox(height: 20));
+        widgets.add(_buildHorizontalSpotCards(allPlacesWithImage));
+      }
     }
 
-    // 只显示有图片的地点卡片（横向滚动）
-    if (allPlacesWithImage.isNotEmpty) {
-      widgets.add(const SizedBox(height: 20));
-      widgets.add(_buildHorizontalSpotCards(allPlacesWithImage));
-    }
-
-    // Step 3: 最底部显示地图（有坐标的地点）
+    // 最底部显示地图（有坐标的地点）
     final placesWithCoordinates =
         allPlaces.where((p) => p.latitude != 0 && p.longitude != 0).toList();
     debugPrint(
@@ -1421,6 +1438,85 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: widgets,
     );
+  }
+
+  /// 构建城市推荐内容：按城市分段显示，每个城市后显示该城市的景点卡片
+  List<Widget> _buildCityRecommendationContent(
+    String textContent,
+    List<CityPlacesGroup> cityPlaces,
+    List<PlaceResult> allPlaces,
+  ) {
+    final widgets = <Widget>[];
+
+    // 按城市名称分割文本内容
+    // 城市标题格式：## 🏙️ CityName (Country) 或 ## **CityName**
+    final cityHeaderRegex = RegExp(
+      r'^##\s*(?:🏙️\s*)?(?:\*\*)?([A-Za-z\u4e00-\u9fff]+(?:\s*[A-Za-z\u4e00-\u9fff]+)*)(?:\*\*)?\s*(?:\([^)]+\))?',
+      multiLine: true,
+    );
+
+    // 将文本分割成城市块
+    final cityBlocks = <String, String>{};
+    final matches = cityHeaderRegex.allMatches(textContent).toList();
+
+    if (matches.isEmpty) {
+      // 没有检测到城市标题，使用默认模式
+      widgets.add(_buildMarkdownText(textContent, places: allPlaces));
+      return widgets;
+    }
+
+    for (int i = 0; i < matches.length; i++) {
+      final match = matches[i];
+      final cityName = match.group(1)?.trim() ?? '';
+      final startIndex = match.start;
+      final endIndex =
+          i < matches.length - 1 ? matches[i + 1].start : textContent.length;
+      final blockText = textContent.substring(startIndex, endIndex).trim();
+      cityBlocks[cityName.toLowerCase()] = blockText;
+      debugPrint(
+          '🏙️ [_buildCityRecommendationContent] City block "$cityName": ${blockText.length} chars');
+    }
+
+    // 按 cityPlaces 顺序显示每个城市
+    final processedCities = <String>{};
+
+    for (final group in cityPlaces) {
+      final cityLower = group.city.toLowerCase();
+
+      // 查找对应的文本块
+      String? blockText;
+      for (final key in cityBlocks.keys) {
+        if (key.contains(cityLower) || cityLower.contains(key)) {
+          blockText = cityBlocks[key];
+          processedCities.add(key);
+          break;
+        }
+      }
+
+      if (blockText != null && blockText.isNotEmpty) {
+        // 显示该城市的文本
+        widgets.add(_buildMarkdownText(blockText, places: allPlaces));
+      }
+
+      // 显示该城市的景点卡片
+      final placesWithImage =
+          group.places.where((p) => p.hasValidCoverImage).toList();
+      if (placesWithImage.isNotEmpty) {
+        widgets.add(const SizedBox(height: 12));
+        widgets.add(_buildHorizontalSpotCards(placesWithImage));
+        widgets.add(const SizedBox(height: 16));
+      }
+    }
+
+    // 显示未处理的城市文本块（如果有）
+    for (final entry in cityBlocks.entries) {
+      if (!processedCities.contains(entry.key)) {
+        widgets.add(_buildMarkdownText(entry.value, places: allPlaces));
+        widgets.add(const SizedBox(height: 12));
+      }
+    }
+
+    return widgets;
   }
 
   /// 构建横滑 Spot 卡片（使用 AI 搜索的卡片样式）
@@ -1457,10 +1553,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
 
   bool _looksLikeItinerary(String text) {
-    final dayRegex =
-        RegExp(r'(第[一二三四五六七八九十0-9]+天|Day\s*\d+)', caseSensitive: false);
+    // 支持多种天数格式：第一天、Day 1、📅 Day 1
+    final dayRegex = RegExp(r'(第[一二三四五六七八九十0-9]+天|Day\s*\d+|📅\s*Day\s*\d+)',
+        caseSensitive: false);
+    // 支持多种时间格式：上午、Morning、🌅 上午、🌅 Morning
     final timeRegex = RegExp(
-      r'(上午|中午|下午|傍晚|晚上|夜晚|清晨|早上|午后|夜间|Morning|Afternoon|Evening|Night)',
+      r'(上午|中午|下午|傍晚|晚上|夜晚|清晨|早上|午后|夜间|Morning|Afternoon|Evening|Night|🌅|☀️|🌆|🌙)',
       caseSensitive: false,
     );
     return dayRegex.hasMatch(text) && timeRegex.hasMatch(text);
@@ -1476,97 +1574,300 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final day in days) ...[
-          Container(
-            margin: const EdgeInsets.only(bottom: 14),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.black, width: 1.2),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  day.title,
-                  style: AppTheme.titleMedium(context).copyWith(
-                    color: AppTheme.black,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                if (day.subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    day.subtitle,
-                    style: AppTheme.bodySmall(context).copyWith(
-                      color: AppTheme.darkGray,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                for (final slot in day.slots) ...[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryYellow.withOpacity(0.35),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: AppTheme.black, width: 1),
-                        ),
-                        child: Text(
-                          slot.label,
-                          style: AppTheme.bodySmall(context).copyWith(
-                            color: AppTheme.black,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            for (final item in slot.items)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 6),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('• ',
-                                        style: AppTheme.bodyMedium(context)
-                                            .copyWith(color: AppTheme.black)),
-                                    Expanded(
-                                      child:
-                                          _buildRichText(item, places: places),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                if (day.notes.isNotEmpty) ...[
-                  for (final note in day.notes) ...[
-                    _buildRichText(note, places: places),
-                    const SizedBox(height: 6),
-                  ]
-                ],
-              ],
+          // 天数标题（加粗大字）
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 6),
+            child: Text(
+              day.subtitle.isNotEmpty
+                  ? '${day.title}: ${day.subtitle}'
+                  : day.title,
+              style: AppTheme.titleMedium(context).copyWith(
+                color: AppTheme.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
             ),
           ),
+          // 时间段内容
+          for (final slot in day.slots) ...[
+            _buildItinerarySlot(slot, places),
+            const SizedBox(height: 8),
+          ],
+          // 备注
+          if (day.notes.isNotEmpty) ...[
+            for (final note in day.notes) ...[
+              _buildRichText(note, places: places),
+              const SizedBox(height: 4),
+            ]
+          ],
+          const SizedBox(height: 8),
         ],
       ],
     );
+  }
+
+  /// 构建单个时间槽的内容
+  Widget _buildItinerarySlot(_ItinerarySlot slot, List<PlaceResult>? places) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 时间标签
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryYellow.withOpacity(0.35),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppTheme.black, width: 1),
+          ),
+          child: Text(
+            slot.label,
+            style: AppTheme.bodySmall(context).copyWith(
+              color: AppTheme.black,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // 地点条目
+        for (final item in slot.items) ...[
+          _buildPlaceEntry(item, places),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  /// 构建单个地点条目（带可点击标题和元数据 bullet points）
+  Widget _buildPlaceEntry(String text, List<PlaceResult>? places) {
+    final parsed = _parseSlotItem(text);
+
+    // 查找匹配的地点
+    PlaceResult? matchedPlace;
+    if (places != null && places.isNotEmpty) {
+      // 清理标题（移除可能的 ** 标记和 markdown 标题符号）
+      String cleanTitle = parsed.title
+          .replaceAll(RegExp(r'^#{1,4}\s*'), '') // 移除 #, ##, ###, ####
+          .replaceAll(RegExp(r'^\*\*'), '')
+          .replaceAll(RegExp(r'\*\*$'), '')
+          .trim();
+      matchedPlace = _findPlaceByName(cleanTitle, places);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 地点标题（可点击）
+        _buildClickablePlaceTitle(parsed.title, matchedPlace),
+
+        // 描述
+        if (parsed.description != null && parsed.description!.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            parsed.description!,
+            style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.darkGray,
+              height: 1.4,
+            ),
+          ),
+        ],
+
+        // 元数据 bullet points
+        if (parsed.time != null ||
+            parsed.address != null ||
+            parsed.website != null) ...[
+          const SizedBox(height: 8),
+          // 时间
+          if (parsed.time != null && parsed.time!.isNotEmpty)
+            _buildMetadataBullet('时间', parsed.time!, matchedPlace),
+          // 地址
+          if (parsed.address != null && parsed.address!.isNotEmpty)
+            _buildMetadataBullet('地址', parsed.address!, matchedPlace),
+          // 网站
+          if (parsed.website != null && parsed.website!.isNotEmpty)
+            _buildWebsiteBullet(parsed.website!, matchedPlace),
+        ],
+      ],
+    );
+  }
+
+  /// 构建可点击的地点标题
+  Widget _buildClickablePlaceTitle(String title, PlaceResult? place) {
+    // 清理标题（移除 markdown 标题符号和 ** 标记）
+    String cleanTitle = title
+        .replaceAll(RegExp(r'^#{1,4}\s*'), '') // 移除 #, ##, ###, ####
+        .replaceAll(RegExp(r'^\*\*'), '')
+        .replaceAll(RegExp(r'\*\*$'), '')
+        .trim();
+
+    if (place != null) {
+      // 有匹配的地点，显示可点击链接
+      return GestureDetector(
+        onTap: () {
+          debugPrint('📍 Tapped on itinerary place: ${place.name}');
+          _showPlaceDetail(place);
+        },
+        child: Text(
+          cleanTitle,
+          style: AppTheme.titleMedium(context).copyWith(
+            color: AppTheme.accentBlue,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            decoration: TextDecoration.underline,
+            decorationColor: AppTheme.accentBlue,
+          ),
+        ),
+      );
+    } else {
+      // 没有匹配的地点，显示普通加粗文本
+      return Text(
+        cleanTitle,
+        style: AppTheme.titleMedium(context).copyWith(
+          color: AppTheme.black,
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+      );
+    }
+  }
+
+  /// 构建元数据 bullet point
+  Widget _buildMetadataBullet(String label, String value, PlaceResult? place) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '• ',
+            style: AppTheme.bodySmall(context).copyWith(
+              color: AppTheme.darkGray,
+            ),
+          ),
+          Text(
+            '$label: ',
+            style: AppTheme.bodySmall(context).copyWith(
+              color: AppTheme.darkGray,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppTheme.bodySmall(context).copyWith(
+                color: AppTheme.darkGray,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建网站 bullet point（带可点击链接）
+  Widget _buildWebsiteBullet(String websiteText, PlaceResult? place) {
+    // 确定要显示的 URL
+    String displayUrl = websiteText;
+    String? actualUrl;
+
+    // 检查 websiteText 是否已经是 URL
+    if (websiteText.startsWith('http://') ||
+        websiteText.startsWith('https://')) {
+      actualUrl = websiteText;
+      // 显示简化的域名
+      try {
+        final uri = Uri.parse(websiteText);
+        displayUrl = uri.host.replaceFirst('www.', '');
+      } catch (_) {
+        displayUrl = websiteText;
+      }
+    } else if (RegExp(r'^[a-zA-Z0-9][\w\-\.]*\.[a-zA-Z]{2,}')
+        .hasMatch(websiteText)) {
+      // 看起来像域名
+      actualUrl = 'https://$websiteText';
+      displayUrl = websiteText;
+    } else if (place?.website != null && place!.website!.isNotEmpty) {
+      // 使用地点的实际网站 URL
+      actualUrl = place.website;
+      try {
+        final uri = Uri.parse(place.website!);
+        displayUrl = uri.host.replaceFirst('www.', '');
+      } catch (_) {
+        displayUrl = place.website!;
+      }
+    } else {
+      // websiteText 可能是地点名称（AI 生成的错误格式），尝试从 place 获取
+      if (place?.website != null && place!.website!.isNotEmpty) {
+        actualUrl = place.website;
+        try {
+          final uri = Uri.parse(place.website!);
+          displayUrl = uri.host.replaceFirst('www.', '');
+        } catch (_) {
+          displayUrl = place.website!;
+        }
+      } else {
+        // 没有有效的 URL，显示为普通文本
+        actualUrl = null;
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '• ',
+            style: AppTheme.bodySmall(context).copyWith(
+              color: AppTheme.darkGray,
+            ),
+          ),
+          Text(
+            '网站: ',
+            style: AppTheme.bodySmall(context).copyWith(
+              color: AppTheme.darkGray,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Expanded(
+            child: actualUrl != null
+                ? GestureDetector(
+                    onTap: () {
+                      debugPrint('🌐 Tapped on website: $actualUrl');
+                      _launchUrl(actualUrl!);
+                    },
+                    child: Text(
+                      displayUrl,
+                      style: AppTheme.bodySmall(context).copyWith(
+                        color: AppTheme.accentBlue,
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppTheme.accentBlue,
+                      ),
+                    ),
+                  )
+                : Text(
+                    displayUrl,
+                    style: AppTheme.bodySmall(context).copyWith(
+                      color: AppTheme.darkGray,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 通过名称查找地点（支持中英文匹配）
+  PlaceResult? _findPlaceByName(String name, List<PlaceResult>? places) {
+    if (places == null || places.isEmpty) return null;
+
+    final searchLower = name.toLowerCase().trim();
+
+    for (final place in places) {
+      if (_matchPlaceName(searchLower, place.name)) {
+        return place;
+      }
+    }
+    return null;
   }
 
   List<_ItineraryDay> _parseItinerary(String text) {
@@ -1578,16 +1879,31 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
     final lines = normalized
         .split('\n')
-        .map((line) => line.trim())
+        .map((line) {
+          var trimmed = line.trim();
+          // 移除 markdown 标题符号 (###, ####, ##, #)
+          if (trimmed.startsWith('#### ')) {
+            trimmed = trimmed.substring(5);
+          } else if (trimmed.startsWith('### ')) {
+            trimmed = trimmed.substring(4);
+          } else if (trimmed.startsWith('## ')) {
+            trimmed = trimmed.substring(3);
+          } else if (trimmed.startsWith('# ')) {
+            trimmed = trimmed.substring(2);
+          }
+          return trimmed;
+        })
         .where((line) => line.isNotEmpty)
         .toList();
 
+    // 支持多种天数格式：第一天、Day 1、📅 Day 1
     final dayRegex = RegExp(
-      r'^(第[一二三四五六七八九十0-9]+天|Day\s*\d+)\s*[：:]*\s*(.*)$',
+      r'^(?:📅\s*)?(第[一二三四五六七八九十0-9]+天|Day\s*\d+)\s*[：:]*\s*(.*)$',
       caseSensitive: false,
     );
+    // 支持多种时间格式：上午、Morning、🌅 上午、🌅 Morning
     final timeRegex = RegExp(
-      r'^(上午|中午|下午|傍晚|晚上|夜晚|清晨|早上|午后|夜间|Morning|Afternoon|Evening|Night)\s*[：:]*\s*(.*)$',
+      r'^(?:[🌅☀️🌆🌙]\s*)?(上午|中午|下午|傍晚|晚上|夜晚|清晨|早上|午后|夜间|Morning|Afternoon|Evening|Night)\s*[：:]*\s*(.*)$',
       caseSensitive: false,
     );
 
@@ -1745,6 +2061,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         processedLines.add(''); // 保留空行
       } else if (trimmed.startsWith('## ') ||
           trimmed.startsWith('### ') ||
+          trimmed.startsWith('#### ') ||
           trimmed.startsWith('- ') ||
           trimmed.startsWith('  - ') ||
           RegExp(r'^\d+\.\s').hasMatch(trimmed)) {
@@ -1774,7 +2091,27 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         continue;
       }
 
-      if (line.startsWith('## ')) {
+      if (line.startsWith('#### ')) {
+        // 四级标题（时间段如 上午/下午）- 加粗显示
+        var titleText = line.substring(5);
+        titleText = titleText.replaceAllMapped(
+          RegExp(r'\*\*([^*]+)\*\*'),
+          (match) => match.group(1) ?? '',
+        );
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 4),
+            child: Text(
+              titleText,
+              style: AppTheme.bodyMedium(context).copyWith(
+                color: AppTheme.black,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        );
+      } else if (line.startsWith('## ')) {
         // 二级标题 - 移除 ** 标记
         var titleText = line.substring(3);
         titleText = titleText.replaceAllMapped(
@@ -1891,7 +2228,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
     // 🔧 清理可能遗留的 markdown 标题符号
     String cleanedTitle = titleText;
-    if (cleanedTitle.startsWith('### ')) {
+    if (cleanedTitle.startsWith('#### ')) {
+      cleanedTitle = cleanedTitle.substring(5);
+    } else if (cleanedTitle.startsWith('### ')) {
       cleanedTitle = cleanedTitle.substring(4);
     } else if (cleanedTitle.startsWith('## ')) {
       cleanedTitle = cleanedTitle.substring(3);
@@ -2010,9 +2349,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
     final spans = <InlineSpan>[];
 
-    // 🔧 清理 markdown 标题符号（###、##、# 开头）
+    // 🔧 清理 markdown 标题符号（####、###、##、# 开头）
     String cleanedText = text;
-    if (cleanedText.startsWith('### ')) {
+    if (cleanedText.startsWith('#### ')) {
+      cleanedText = cleanedText.substring(5);
+    } else if (cleanedText.startsWith('### ')) {
       cleanedText = cleanedText.substring(4);
     } else if (cleanedText.startsWith('## ')) {
       cleanedText = cleanedText.substring(3);
@@ -2158,6 +2499,44 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             text: match.group(1)!,
           ),
         );
+      }
+    }
+
+    // 收集购票相关关键词匹配（如果有地点的 website 可用）
+    // 关键词: purchase, book tickets, buy tickets, 购票, 在线购买, 在线购票, 网上购票
+    String? ticketWebsite;
+    if (places != null && places.isNotEmpty) {
+      for (final p in places) {
+        if (p.website != null && p.website!.isNotEmpty) {
+          ticketWebsite = p.website;
+          break;
+        }
+      }
+    }
+
+    if (ticketWebsite != null && ticketWebsite.isNotEmpty) {
+      final ticketKeywordRegex = RegExp(
+        r'(Purchase tickets online|Book tickets online|buy tickets online|purchase online|book online|购票|在线购买|在线购票|网上购票|提前购票|线上购票)',
+        caseSensitive: false,
+      );
+
+      for (final match in ticketKeywordRegex.allMatches(text)) {
+        final overlaps = allMatches.any(
+          (m) =>
+              (match.start >= m.start && match.start < m.end) ||
+              (match.end > m.start && match.end <= m.end),
+        );
+        if (!overlaps) {
+          allMatches.add(
+            _RichTextMatch(
+              start: match.start,
+              end: match.end,
+              type: 'ticket_link',
+              text: match.group(0)!,
+              url: ticketWebsite,
+            ),
+          );
+        }
       }
     }
 
@@ -2368,55 +2747,104 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               );
             }
           } else {
-            // 可能是按名称匹配的地点链接，尝试匹配
-            // 🆕 使用 _findPlaceWithMapping 来支持中文显示名称到英文数据库名称的映射
-            final matchedPlace =
-                _findPlaceWithMapping(linkDisplayText, places, nameMapping);
+            // 检查是否为真正的外部网站链接（URL 格式）
+            final isExternalUrl = linkUrl.startsWith('http://') ||
+                linkUrl.startsWith('https://') ||
+                RegExp(r'^[a-zA-Z0-9][\w\-\.]*\.[a-zA-Z]{2,}')
+                    .hasMatch(linkUrl);
 
-            if (matchedPlace != null) {
-              // 匹配到地点，显示可点击链接
-              final placeToShow = matchedPlace;
-              String displayText = linkDisplayText;
-              if (placeToShow.rating != null && placeToShow.rating! > 0) {
-                displayText =
-                    '$linkDisplayText (${placeToShow.rating!.toStringAsFixed(1)})';
-              }
+            if (isExternalUrl) {
+              // 外部网站链接 - 黑色正文+下划线，不加粗，不变大，点击打开浏览器
+              final fullUrl =
+                  linkUrl.startsWith('http') ? linkUrl : 'https://$linkUrl';
               spans.add(
                 TextSpan(
-                  text: displayText,
-                  style: AppTheme.bodyLarge(context).copyWith(
-                    color: AppTheme.accentBlue,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
+                  text: linkDisplayText,
+                  style: AppTheme.bodyMedium(context).copyWith(
+                    color: AppTheme.black,
                     height: 1.5,
                     decoration: TextDecoration.underline,
-                    decorationColor: AppTheme.accentBlue,
+                    decorationColor: AppTheme.black,
                   ),
                   recognizer: TapGestureRecognizer()
                     ..onTap = () {
-                      debugPrint(
-                          '📍 Tapped on matched place link: ${placeToShow.name}');
-                      _showPlaceDetail(placeToShow);
+                      debugPrint('🌐 Tapped on external link: $fullUrl');
+                      _launchUrl(fullUrl);
                     },
                 ),
               );
             } else {
-              // 外部链接或无法匹配 - 显示为普通加粗文本（不可点击）
-              // 因为无法确定目标，不提供点击功能
-              spans.add(
-                TextSpan(
-                  text: linkDisplayText,
-                  style: AppTheme.bodyLarge(context).copyWith(
-                    color: AppTheme.black,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    height: 1.5,
+              // 可能是按名称匹配的地点链接，尝试匹配
+              // 🆕 使用 _findPlaceWithMapping 来支持中文显示名称到英文数据库名称的映射
+              final matchedPlace =
+                  _findPlaceWithMapping(linkDisplayText, places, nameMapping);
+
+              if (matchedPlace != null) {
+                // 匹配到地点，显示可点击链接
+                final placeToShow = matchedPlace;
+                String displayText = linkDisplayText;
+                if (placeToShow.rating != null && placeToShow.rating! > 0) {
+                  displayText =
+                      '$linkDisplayText (${placeToShow.rating!.toStringAsFixed(1)})';
+                }
+                spans.add(
+                  TextSpan(
+                    text: displayText,
+                    style: AppTheme.bodyLarge(context).copyWith(
+                      color: AppTheme.accentBlue,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      height: 1.5,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppTheme.accentBlue,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        debugPrint(
+                            '📍 Tapped on matched place link: ${placeToShow.name}');
+                        _showPlaceDetail(placeToShow);
+                      },
                   ),
-                ),
-              );
+                );
+              } else {
+                // 外部链接或无法匹配 - 显示为普通加粗文本（不可点击）
+                // 因为无法确定目标，不提供点击功能
+                spans.add(
+                  TextSpan(
+                    text: linkDisplayText,
+                    style: AppTheme.bodyLarge(context).copyWith(
+                      color: AppTheme.black,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                  ),
+                );
+              }
             }
           }
         } // 关闭 linkUrl == 'place' 的 else 块
+      } else if (match.type == 'ticket_link' && match.url != null) {
+        // 购票相关关键词链接 - 黑色下划线样式，点击跳转官网
+        final ticketUrl = match.url!;
+        debugPrint('🎫 Creating ticket link: "${match.text}" -> "$ticketUrl"');
+
+        spans.add(
+          TextSpan(
+            text: match.text,
+            style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.black,
+              height: 1.5,
+              decoration: TextDecoration.underline,
+              decorationColor: AppTheme.black,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () {
+                debugPrint('🎫 Tapped on ticket link: $ticketUrl');
+                _launchUrl(ticketUrl);
+              },
+          ),
+        );
       }
       // 注意：place_link 类型已移除，正文内容不再有地点链接
 
@@ -2462,9 +2890,46 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
   /// 构建带 summary 的横滑地点卡片列表
   /// 横向滚动，每个卡片下方显示 AI 生成的简介（黑色小字）
+  /// 如果只有 1 个地点，则撑满宽度显示
   Widget _buildHorizontalPlaceCardsWithSummary(List<PlaceResult> places) {
     // 过滤掉没有图片的地点
     final placesWithImage = places.where((p) => p.hasValidCoverImage).toList();
+
+    // 如果只有 1 个地点（无论有无图片），特殊处理
+    if (places.length == 1) {
+      final place = places.first;
+      final spot = _placeResultToSpot(place);
+
+      // 没有图片：显示横向小卡片
+      if (!place.hasValidCoverImage) {
+        return _buildNoImagePlaceCard(place, spot);
+      }
+
+      // 有图片：全宽卡片
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 230,
+            width: double.infinity,
+            child: _SpotCardOverlay(spot: spot),
+          ),
+          if (place.summary.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              place.summary,
+              style: AppTheme.bodySmall(context).copyWith(
+                color: AppTheme.black,
+                height: 1.4,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
+      );
+    }
+
     if (placesWithImage.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
@@ -2510,6 +2975,97 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     );
   }
 
+  /// 构建无图片地点卡片（单个地点无封面图时使用）
+  /// 横向小卡片，仅展示：标题、评分、评分人数、收藏状态
+  Widget _buildNoImagePlaceCard(PlaceResult place, Spot spot) {
+    final hasRating = place.rating != null && place.rating! > 0;
+
+    return GestureDetector(
+      onTap: () => _showPlaceDetail(place),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.black, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // 标题和评分
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 标题
+                  Text(
+                    place.name,
+                    style: AppTheme.titleMedium(context).copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.black,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (hasRating) ...[
+                    const SizedBox(height: 6),
+                    // 评分行
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.star,
+                          color: AppTheme.primaryYellow,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          place.rating!.toStringAsFixed(1),
+                          style: AppTheme.bodyMedium(context).copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.black,
+                          ),
+                        ),
+                        if (place.ratingCount != null &&
+                            place.ratingCount! > 0) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '(${_formatRatingCount(place.ratingCount!)})',
+                            style: AppTheme.bodySmall(context).copyWith(
+                              color: AppTheme.mediumGray,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // 收藏按钮
+            const SizedBox(width: 12),
+            _CompactSaveButton(spot: spot),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 格式化评分人数
+  String _formatRatingCount(int count) {
+    if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k';
+    }
+    return count.toString();
+  }
+
   /// 构建横滑地点卡片列表
   Widget _buildHorizontalPlaceCards(List<PlaceResult> places) {
     // 过滤掉没有图片的地点
@@ -2544,7 +3100,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: places.map((place) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: 16),
           child: _buildTextOnlyPlaceItem(place),
         );
       }).toList(),
@@ -2555,8 +3111,23 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 结构：标题（带评分，可点击）、简介、网站
   Widget _buildTextOnlyPlaceItem(PlaceResult place) {
     final hasWebsite = place.website != null && place.website!.isNotEmpty;
-    final hasDescription = place.summary.isNotEmpty;
     final hasRating = place.rating != null && place.rating! > 0;
+
+    // 清理 summary 中的网站信息（因为网站会单独显示）
+    String cleanedSummary = place.summary;
+    // 移除 "网站:xxx.com" 或 "Website: xxx.com" 格式的文本（可能在句中或句末）
+    cleanedSummary = cleanedSummary
+        .replaceAll(
+            RegExp(r'[。\.\s]*网站[:：]\s*[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}[/\w\-\.]*',
+                caseSensitive: false),
+            '')
+        .replaceAll(
+            RegExp(
+                r'[。\.\s]*Website[:：]\s*[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}[/\w\-\.]*',
+                caseSensitive: false),
+            '')
+        .trim();
+    final hasDescription = cleanedSummary.isNotEmpty;
 
     // 构建标题文本：名称 + 评分（如果有）
     String titleText = place.name;
@@ -2584,7 +3155,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         if (hasDescription) ...[
           const SizedBox(height: 6),
           Text(
-            place.summary,
+            cleanedSummary,
             style: AppTheme.bodyMedium(context).copyWith(
               color: AppTheme.black,
               height: 1.5,
@@ -2608,9 +3179,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                   TextSpan(
                     text: _formatWebsiteUrl(place.website!),
                     style: AppTheme.bodySmall(context).copyWith(
-                      color: AppTheme.accentBlue,
+                      color: AppTheme.black,
                       decoration: TextDecoration.underline,
-                      decorationColor: AppTheme.accentBlue,
+                      decorationColor: AppTheme.black,
                     ),
                   ),
                 ],
@@ -3692,6 +4263,18 @@ bool _matchPlaceName(String searchName, String dbName) {
   return false;
 }
 
+/// 过滤标签，只保留英文标签（排除中文字符）
+List<String> _filterEnglishTags(List<String>? tags) {
+  if (tags == null || tags.isEmpty) return [];
+
+  // 匹配中文字符的正则表达式
+  final chineseRegex = RegExp(r'[\u4e00-\u9fff]');
+
+  return tags
+      .where((tag) => tag.isNotEmpty && !chineseRegex.hasMatch(tag))
+      .toList();
+}
+
 /// 使用 nameMapping 查找地点
 /// 首先尝试通过 nameMapping 将显示名称映射到英文名称，然后在 places 中查找
 /// 如果 nameMapping 为空或找不到映射，则回退到直接匹配
@@ -3778,6 +4361,129 @@ class _ItinerarySlot {
 
   final String label;
   final List<String> items = [];
+}
+
+/// 解析后的地点条目（包含标题、描述、元数据）
+class _ParsedPlaceEntry {
+  _ParsedPlaceEntry({
+    required this.title,
+    this.description,
+    this.time,
+    this.address,
+    this.website,
+  });
+
+  final String title;
+  final String? description;
+  final String? time;
+  final String? address;
+  final String? website;
+}
+
+/// 解析地点条目文本，提取标题、描述和元数据
+_ParsedPlaceEntry _parseSlotItem(String text) {
+  // 尝试匹配标题行（通常是第一行，可能带 ** 加粗）
+  String remaining = text.trim();
+
+  // 提取标题（第一行或 **加粗** 的内容）
+  String title = '';
+  String? description;
+
+  // 先尝试匹配 **title** 格式
+  final boldTitleMatch = RegExp(r'^\*\*([^*]+)\*\*').firstMatch(remaining);
+  if (boldTitleMatch != null) {
+    title = boldTitleMatch.group(1)!.trim();
+    remaining = remaining.substring(boldTitleMatch.end).trim();
+  } else {
+    // 按换行或句号分割，第一部分作为标题
+    final firstLineEnd = remaining.indexOf('\n');
+    if (firstLineEnd > 0) {
+      title = remaining.substring(0, firstLineEnd).trim();
+      remaining = remaining.substring(firstLineEnd + 1).trim();
+    } else {
+      // 没有换行，尝试按 "。" 分割（中文句号后可能是描述）
+      // 但如果包含 "时间:" 或 "地址:" 则不分割
+      if (!remaining.contains('时间:') && !remaining.contains('地址:')) {
+        final periodEnd = remaining.indexOf('。');
+        if (periodEnd > 0 && periodEnd < 30) {
+          // 短标题
+          title = remaining.substring(0, periodEnd + 1).trim();
+          remaining = remaining.substring(periodEnd + 1).trim();
+        } else {
+          title = remaining;
+          remaining = '';
+        }
+      } else {
+        // 包含元数据，需要更复杂的解析
+        title = remaining;
+        remaining = '';
+      }
+    }
+  }
+
+  // 从 remaining 或 title 中提取元数据
+  String textToParse = remaining.isNotEmpty ? remaining : title;
+
+  // 提取时间 (时间: xxx)
+  String? time;
+  final timeMatch = RegExp(r'时间[:：]\s*([^地网官]+?)(?=\s*(?:地址|网站|官方|$))')
+      .firstMatch(textToParse);
+  if (timeMatch != null) {
+    time = timeMatch.group(1)?.trim();
+  }
+
+  // 提取地址 (地址: xxx)
+  String? address;
+  final addressMatch = RegExp(r'地址[:：]\s*([^网官时]+?)(?=\s*(?:网站|官方|时间|$))')
+      .firstMatch(textToParse);
+  if (addressMatch != null) {
+    address = addressMatch.group(1)?.trim();
+  }
+
+  // 提取网站 (网站: xxx 或 官方 网站: xxx 或 官网: xxx)
+  String? website;
+  final websiteMatch =
+      RegExp(r'(?:官方\s*)?(?:网站|官网)[:：]\s*(\S+)').firstMatch(textToParse);
+  if (websiteMatch != null) {
+    website = websiteMatch.group(1)?.trim();
+  }
+
+  // 如果 title 包含元数据，需要清理
+  if (title.contains('时间:') || title.contains('地址:') || title.contains('网站:')) {
+    // 从 title 中提取纯标题部分
+    final metaStart =
+        title.indexOf(RegExp(r'时间[:：]|地址[:：]|(?:官方\s*)?(?:网站|官网)[:：]'));
+    if (metaStart > 0) {
+      final cleanTitle = title.substring(0, metaStart).trim();
+      final descEnd = cleanTitle.lastIndexOf('。');
+      if (descEnd > 0 && descEnd < cleanTitle.length - 1) {
+        title = cleanTitle.substring(0, descEnd + 1);
+        description = cleanTitle.substring(descEnd + 1).trim();
+      } else {
+        // 尝试按句号分割
+        final parts = cleanTitle.split('。');
+        if (parts.length >= 2) {
+          title = parts[0].trim();
+          description = parts.sublist(1).join('。').trim();
+          if (description.isEmpty) description = null;
+        } else {
+          title = cleanTitle;
+        }
+      }
+    }
+  } else if (remaining.isNotEmpty &&
+      !remaining.contains('时间:') &&
+      !remaining.contains('地址:')) {
+    description = remaining;
+  }
+
+  return _ParsedPlaceEntry(
+    title: title,
+    description: description,
+    time: time,
+    address: address,
+    website: website,
+  );
 }
 
 /// 大尺寸地点卡片 - 用于单个地点展示
@@ -3921,6 +4627,8 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
     });
 
     final displayTags = widget.place.displayTagsEn ?? widget.place.tags ?? [];
+    // 过滤掉中文标签，只保留英文
+    final englishOnlyTags = _filterEnglishTags(displayTags);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4038,12 +4746,12 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // 标签
-                          if (displayTags.isNotEmpty)
+                          // 标签 - 只显示英文标签
+                          if (englishOnlyTags.isNotEmpty)
                             Wrap(
                               spacing: 6,
                               runSpacing: 4,
-                              children: displayTags
+                              children: englishOnlyTags
                                   .take(2)
                                   .map((tag) => Container(
                                         padding: const EdgeInsets.symmetric(
@@ -4137,13 +4845,13 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
         ),
         // 卡片下方的丰富信息
         const SizedBox(height: 12),
-        // 标签展示（更多标签）
-        if (displayTags.length > 2) ...[
+        // 标签展示（更多标签）- 只显示英文标签
+        if (englishOnlyTags.length > 2) ...[
           const SizedBox(height: 12),
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: displayTags
+            children: englishOnlyTags
                 .skip(2)
                 .take(4)
                 .map((tag) => Container(
@@ -4339,6 +5047,140 @@ class _TypingIndicatorState extends State<_TypingIndicator>
             ),
           );
         }),
+      ),
+    );
+  }
+}
+
+/// 紧凑型收藏按钮（用于无图片的小卡片）
+class _CompactSaveButton extends ConsumerStatefulWidget {
+  const _CompactSaveButton({required this.spot});
+  final Spot spot;
+
+  @override
+  ConsumerState<_CompactSaveButton> createState() => _CompactSaveButtonState();
+}
+
+class _CompactSaveButtonState extends ConsumerState<_CompactSaveButton> {
+  bool _isInWishlist = false;
+  String? _destinationId;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkWishlistStatus();
+  }
+
+  void _checkWishlistStatus() {
+    final statusAsync = ref.read(wishlistStatusProvider);
+    statusAsync.whenData((statusMap) {
+      final spotId = widget.spot.id;
+      final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
+      if (mounted &&
+          (isInWishlist != _isInWishlist || destId != _destinationId)) {
+        setState(() {
+          _isInWishlist = isInWishlist;
+          _destinationId = destId;
+        });
+      }
+    });
+  }
+
+  Future<void> _handleWishlistTap() async {
+    final spotId = widget.spot.id;
+
+    if (_isInWishlist) {
+      setState(() => _isInWishlist = false);
+      CustomToast.showSuccess(context, 'Removed from Wishlist');
+
+      try {
+        if (_destinationId != null) {
+          await ref.read(tripRepositoryProvider).manageTripSpot(
+                tripId: _destinationId!,
+                spotId: spotId,
+                remove: true,
+              );
+          ref.invalidate(wishlistStatusProvider);
+        }
+      } catch (e) {
+        if (mounted) setState(() => _isInWishlist = true);
+        CustomToast.showError(context, 'Failed to remove');
+      }
+    } else {
+      setState(() => _isInWishlist = true);
+      CustomToast.showSuccess(context, 'Saved');
+
+      try {
+        final authed = await requireAuth(context, ref);
+        if (!authed) {
+          if (mounted) setState(() => _isInWishlist = false);
+          return;
+        }
+
+        final cityName =
+            (widget.spot.city.isNotEmpty) ? widget.spot.city : 'Saved Places';
+        final destId = await ensureDestinationForCity(ref, cityName);
+        if (destId == null) {
+          if (mounted) setState(() => _isInWishlist = false);
+          CustomToast.showError(context, 'Failed to save');
+          return;
+        }
+
+        _destinationId = destId;
+        await ref.read(tripRepositoryProvider).manageTripSpot(
+          tripId: destId,
+          spotId: spotId,
+          status: TripSpotStatus.wishlist,
+          spotPayload: {
+            'name': widget.spot.name,
+            'city': widget.spot.city,
+            'latitude': widget.spot.latitude,
+            'longitude': widget.spot.longitude,
+            'coverImage': widget.spot.coverImage,
+            'rating': widget.spot.rating,
+            'ratingCount': widget.spot.ratingCount,
+          },
+        );
+        ref.invalidate(wishlistStatusProvider);
+      } catch (e) {
+        if (mounted) setState(() => _isInWishlist = false);
+        CustomToast.showError(context, 'Failed to save');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<AsyncValue<Map<String, String?>>>(wishlistStatusProvider,
+        (prev, next) {
+      next.whenData((statusMap) {
+        final spotId = widget.spot.id;
+        final (isInWishlist, destId) = checkWishlistStatus(statusMap, spotId);
+        if (mounted &&
+            (isInWishlist != _isInWishlist || destId != _destinationId)) {
+          setState(() {
+            _isInWishlist = isInWishlist;
+            _destinationId = destId;
+          });
+        }
+      });
+    });
+
+    return GestureDetector(
+      onTap: _handleWishlistTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
+        ),
+        child: Icon(
+          _isInWishlist ? Icons.favorite : Icons.favorite_border,
+          color: _isInWishlist ? Colors.red : AppTheme.black,
+          size: 20,
+        ),
       ),
     );
   }

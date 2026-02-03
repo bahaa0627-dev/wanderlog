@@ -2,22 +2,24 @@
  * Intent Recognition Types
  * 
  * Defines types for the AI intent classification system that extends
- * the existing searchV2 functionality with four intent types:
+ * the existing searchV2 functionality with five intent types:
  * - general_search: Finding multiple places with criteria
  * - specific_place: Getting info about a specific named place
  * - travel_consultation: Travel advice without specific place requests
+ * - city_recommendation: Recommending cities/destinations (NOT places within a city)
  * - non_travel: Non-travel related queries
  */
 
 // ============ Intent Types ============
 
 /**
- * The four supported intent types
+ * The five supported intent types
  */
 export type IntentType = 
   | 'general_search' 
   | 'specific_place' 
   | 'travel_consultation' 
+  | 'city_recommendation'
   | 'non_travel';
 
 /**
@@ -53,6 +55,7 @@ export interface PlaceResult {
   rating: number | null;
   ratingCount: number | null;
   tags: string[];
+  display_tags_en?: string[];  // 展示标签（英文）- category + ai_tags
   isVerified: boolean;
   source: 'cache' | 'ai';
   address?: string;
@@ -199,12 +202,30 @@ export interface NonTravelResponse extends BaseSearchResponse {
 }
 
 /**
+ * Handler result for city_recommendation processing
+ * 城市推荐查询的处理结果（如"推荐欧洲城市"、"第一次去哪个城市"）
+ */
+export interface CityRecommendationHandlerResult {
+  textContent: string;          // Markdown formatted response (pure text, no places)
+}
+
+/**
+ * Response for city_recommendation intent
+ * 城市推荐意图的响应 - 纯文本，不包含地点卡片和网站
+ */
+export interface CityRecommendationResponse extends BaseSearchResponse {
+  intent: 'city_recommendation';
+  textContent: string;          // Markdown formatted response
+}
+
+/**
  * Union type for all search responses
  */
 export type SearchResponse = 
   | GeneralSearchResponse 
   | SpecificPlaceResponse 
   | TravelConsultationResponse 
+  | CityRecommendationResponse
   | NonTravelResponse;
 
 // ============ Intent Classifier Interface ============

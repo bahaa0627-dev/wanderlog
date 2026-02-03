@@ -1,10 +1,11 @@
 /**
  * Intent Classifier Service
  * 
- * Classifies user queries into four intent types:
+ * Classifies user queries into five intent types:
  * - general_search: Finding multiple places with criteria
  * - specific_place: Getting info about a specific named place
  * - travel_consultation: Travel advice without specific place requests
+ * - city_recommendation: Recommending cities/destinations (NOT places within a city)
  * - non_travel: Non-travel related queries
  * 
  * Uses KouriProvider for AI classification with rule-based fallback.
@@ -31,6 +32,7 @@ import {
   CityPlacesGroup,
   NonTravelHandlerResult,
   ArchitectQueryHandlerResult,
+  CityRecommendationHandlerResult,
 } from '../types/intent';
 
 // ============ Configuration ============
@@ -41,9 +43,11 @@ const CONFIG = {
   CONSULTATION_TIMEOUT_MS: 90000, // 90 second timeout for travel consultation (increased for web search)
   NON_TRAVEL_TIMEOUT_MS: 60000, // 60 second timeout for non-travel responses (increased)
   ARCHITECT_QUERY_TIMEOUT_MS: 90000, // 90 second timeout for architect/style queries (increased)
+  CITY_RECOMMENDATION_TIMEOUT_MS: 45000, // 45 second timeout for city recommendations
   NAME_SIMILARITY_THRESHOLD: 0.6, // Minimum similarity score for place matching
   SPECIFIC_PLACE_SIMILARITY_THRESHOLD: 0.75, // Higher threshold for specific_place to avoid wrong matches
-  MAX_DESCRIPTION_WORDS: 140, // Maximum words in description
+  MAX_DESCRIPTION_WORDS: 300, // Maximum words in description (increased for structured sections)
+  MAX_DESCRIPTION_CHARS_ZH: 600, // Maximum chars for Chinese descriptions (increased for structured sections)
   MIN_PLACES_PER_CITY: 3, // Minimum places per city section
 };
 
@@ -51,9 +55,52 @@ const CONFIG = {
 
 /**
  * AI prompt for generating specific place descriptions
- * OPTIMIZED: Reduced to save tokens
+ * 生成结构化的地点介绍，分为 2-4 个段落，标题根据地点类型灵活选择
  */
-const SPECIFIC_PLACE_DESCRIPTION_PROMPT = `Write 3-5 sentences about "{placeName}" in {language}. Include: what it is, why notable, 1-2 visiting tips. No JSON.`;
+const SPECIFIC_PLACE_DESCRIPTION_PROMPT = `Write a structured introduction about "{placeName}" in {language}.
+
+Format with 2-4 sections using markdown headers (##) and bullet points (-).
+Choose section titles that FIT THE SPECIFIC PLACE TYPE - do NOT use the same titles every time.
+
+Section title examples based on place type:
+- For landmarks/attractions: 历史背景/History, 建筑特色/Architecture, 最佳体验/Best Experiences
+- For restaurants/cafes: 招牌菜品/Signature Dishes, 用餐氛围/Dining Atmosphere, 预订建议/Reservation Tips
+- For museums: 主要馆藏/Key Collections, 参观路线/Visiting Route, 特别展览/Special Exhibitions
+- For parks/nature: 自然景观/Natural Features, 徒步路线/Hiking Trails, 最佳季节/Best Seasons
+- For shopping areas: 特色店铺/Featured Shops, 购物攻略/Shopping Guide, 附近美食/Nearby Food
+
+{language} = Chinese example (for Eiffel Tower):
+## 🏗️ 建筑与历史
+- 1889年为巴黎世博会建造的铁塔杰作
+- 高330米，是当时世界最高的人工建筑
+
+## 👀 登塔体验
+- 三层观景台，日落时分景色最佳
+- 二层有米其林餐厅可享用法式料理
+
+## 📷 拍摄建议
+- 特罗卡德罗广场是最佳拍摄角度
+- 每晚整点有5分钟闪烁灯光秀
+
+{language} = English example (for a museum):
+## 🎨 Collections & Exhibitions
+- Home to over 35,000 artworks spanning 5,000 years
+- The Mona Lisa and Venus de Milo are must-sees
+
+## 🚶 Visiting Strategy
+- Start early to avoid crowds at popular galleries
+- Audio guides available in multiple languages
+
+## ☕ Nearby Recommendations
+- Café Marly offers stunning pyramid views
+- Tuileries Garden is perfect for a post-visit stroll
+
+RULES:
+- Write ONLY in {language}
+- 2-4 sections total, choose titles that match this specific place
+- Each section has 2-3 bullet points (total 6-10 bullets)
+- Be specific to THIS place, not generic advice
+- No JSON, just markdown text`;
 
 /**
  * AI prompt for travel consultation responses
@@ -64,11 +111,48 @@ const TRAVEL_CONSULTATION_PROMPT = `You are a travel expert. Answer: {query}
 RULES:
 1. Language: {language} only. English names in mentionedPlaces, but summary in {language}
 2. Location: ONLY recommend places in the location user asked about
-3. Include 5-10 places with practical tips
-4. For itinerary requests (N-day/行程): Use day-by-day format with time slots
-5. Each place summary MUST be around 50 characters (45-55 chars), describing unique features and why it's worth visiting
+3. For itinerary requests (N days/N-day/N天/行程/trip planning):
+   - MUST use day-by-day format: "## 📅 Day 1", "## 📅 Day 2", etc.
+   - Each day MUST have 3 time slots: 🌅 Morning, ☀️ Afternoon, 🌆 Evening
+   - Each time slot: 1-2 places with **Place Name**: brief description
+   - Include practical tips (transport between places, recommended duration)
+   - Total 3-5 places per day, 10-15 places for 3-day trip
+4. For city recommendation queries (推荐城市/which cities/best cities):
+   - SHORT paragraphs with bullet points for each city
+   - NO websites for cities (cities are destinations, not places)
+   - Format: ## 🏙️ CityName (Country)\n- brief description (1-2 sentences, 30-50 chars)\n
+   - Include 2-3 famous attractions per city in mentionedPlaces
+5. For other queries: Include 5-10 places with practical tips
+6. Each place summary MUST be around 50 characters (45-55 chars)
 
-FORMAT:
+FORMAT for N-day itinerary (REQUIRED for "N days in City" queries):
+## 📅 Day 1：探索市中心
+
+### 🌅 上午
+- **Place Name 1**: 1-sentence description with must-see highlights
+- **Place Name 2**: 1-sentence description
+
+### ☀️ 下午  
+- **Place Name 3**: 1-sentence description
+- 💡 Tip: practical advice (e.g., book tickets online, best photo spot)
+
+### 🌆 傍晚
+- **Place Name 4**: 1-sentence description (e.g., dinner spot or sunset view)
+
+## 📅 Day 2：[Theme for the day]
+(repeat Morning/Afternoon/Evening format)
+
+## 📅 Day 3：[Theme for the day]
+(repeat format)
+
+## 💡 实用贴士
+- Transport/budget/timing tips
+
+FORMAT for city recommendations:
+## 🏙️ Paris (France)
+- 浪漫之都，艺术与美食的天堂
+
+FORMAT for place recommendations:
 - Use Markdown with ## headings and emoji
 - Places: ### **Place Name** followed by 1-2 sentence description
 - Keep concise (300-500 words)
@@ -76,8 +160,8 @@ FORMAT:
 Return JSON:
 {
   "textContent": "Markdown response...",
-  "mentionedPlaces": [{"name": "English Name", "city": "City", "summary": "~50 char description in {language}, e.g. '流线型当代艺术博物馆，扎哈·哈迪德标志性曲线建筑代表作'", "address": "Address", "website": "URL", "country": "Country", "rating": 4.5, "ratingCount": 1200}],
-  "cities": ["City1"]
+  "mentionedPlaces": [{"name": "English Name", "city": "City", "summary": "~50 char description in {language}", "address": "Address", "website": "URL", "country": "Country", "rating": 4.5, "ratingCount": 1200}],
+  "cities": ["City1", "City2"]
 }`;
 
 /**
@@ -85,6 +169,37 @@ Return JSON:
  * OPTIMIZED: Reduced to save tokens
  */
 const NON_TRAVEL_PROMPT = `Answer in {language} using Markdown: {query}. Be concise, use emoji and **bold** for key items. Return plain text.`;
+
+/**
+ * AI prompt for city recommendation queries
+ * 城市推荐查询的 prompt - 推荐城市而非地点，不包含网站链接
+ * 例如："推荐几个欧洲城市"、"第一次去日本去哪个城市"、"适合情侣的城市"
+ */
+const CITY_RECOMMENDATION_PROMPT = `You are a travel expert. Answer: {query}
+
+IMPORTANT RULES:
+1. You are recommending CITIES/DESTINATIONS, not specific places within cities
+2. DO NOT include any website URLs or links
+3. DO NOT include "网站:" or "Website:" in your response
+4. Keep descriptions concise and travel-focused
+
+FORMAT (must follow exactly):
+## 🏙️ City Name
+
+Brief description of the city's highlights and why it's worth visiting (2-3 sentences, 50-80 characters).
+
+(Repeat for each city, recommend 4-6 cities)
+
+## 💡 Tips
+- Brief travel tips for first-time visitors
+
+CRITICAL:
+- Response MUST be in {language}
+- NO website URLs or links anywhere in the response
+- Focus on city characteristics, culture, and travel experience
+- Each city section should be a short paragraph, not bullet points of places
+
+Return plain text in Markdown format.`;
 
 /**
  * AI prompt for architect/architectural style queries
@@ -139,14 +254,66 @@ Query: "{query}"
 INTENTS:
 1. "general_search" - Finding places/venues (cafes, restaurants, museums). "what to eat" = general_search
 2. "specific_place" - Info about ONE named place ("Eiffel Tower", "what is Louvre")
-3. "travel_consultation" - Travel advice (how-to, tickets, budget, transport, visa, packing, architecture styles)
-4. "non_travel" - Weather queries or non-travel topics (health, tech, emotions)
+3. "travel_consultation" - Travel advice, itinerary planning, how-to, tickets, budget, transport, visa, packing, architecture styles
+4. "city_recommendation" - Recommending which CITIES to visit (NOT places within a city). E.g., "which European cities", "recommend cities for first trip", "best cities in Japan"
+5. "non_travel" - Weather queries or non-travel topics (health, tech, emotions)
 
-RULES: weather→non_travel | "how to"→consultation | category+find→general_search | just place name→specific_place
+CRITICAL RULES:
+- "N days in City" or "N-day trip" = travel_consultation (itinerary planning)
+- "recommend cities" or "which cities" or "first time to [region]" = city_recommendation
+- weather→non_travel
+- "how to"→travel_consultation
+- category+find→general_search
+- just place name→specific_place
+
+Examples:
+- "3 days in Copenhagen" → travel_consultation (itinerary)
+- "best cafes in Paris" → general_search
+- "Eiffel Tower" → specific_place
+- "how to buy tickets for Louvre" → travel_consultation
+- "recommend European cities for first trip" → city_recommendation
+- "which cities in Japan should I visit" → city_recommendation
 
 JSON: {"intent":"...", "placeName":"if specific", "city":"if mentioned", "category":"if mentioned", "count":N, "confidence":0.0-1.0}`;
 
 // ============ Rule-Based Detection Patterns ============
+
+/**
+ * Patterns for detecting city recommendation queries
+ * 城市推荐查询的关键词和模式
+ */
+const CITY_RECOMMENDATION_PATTERNS = [
+  // Chinese patterns
+  /推荐.*(城市|地方|去处)/i,
+  /第一次.*(去|到|玩|旅[行游])/i,
+  /(哪些?|什么)(城市|地方).*(值得|适合|推荐)/i,
+  /(值得|适合|推荐).*(城市|目的地)/i,
+  /去(哪个?|什么)(城市|国家)/i,
+  /(欧洲|亚洲|美洲|日本|东南亚|北美|南美).*(城市|推荐)/i,
+  // English patterns
+  /recommend.*(cities?|destinations?)/i,
+  /which\s+(cities?|places?)\s+(to|should|for)/i,
+  /best\s+(cities?|destinations?)\s+(to|for|in)/i,
+  /first\s+time\s+(to|in|visiting)/i,
+  /(cities?|destinations?)\s+to\s+visit/i,
+  /where\s+should\s+i\s+(go|travel|visit)\s+(first|for)/i,
+];
+
+/**
+ * Keywords that indicate city recommendation (not place search)
+ */
+const CITY_RECOMMENDATION_KEYWORDS = [
+  // Chinese
+  '推荐城市', '推荐目的地', '去哪个城市', '去哪些城市', '哪个城市', '什么城市',
+  '第一次去', '第一次旅行', '第一次出国', '首次', '初次',
+  '值得去的城市', '适合去的城市', '好玩的城市',
+  '欧洲城市', '亚洲城市', '日本城市', '美国城市',
+  // English
+  'recommend cities', 'which cities', 'which city', 'best cities', 'best city',
+  'first time', 'first trip', 'first visit',
+  'cities to visit', 'destinations to visit',
+  'european cities', 'asian cities', 'japanese cities',
+];
 
 /**
  * Patterns for detecting specific place queries
@@ -976,6 +1143,7 @@ Return JSON:
    * - travel_consultation: advice, tips, how-to questions
    * - general_search: finding multiple places by category/criteria
    * - specific_place: info about one specific named place
+   * - city_recommendation: recommending which cities to visit (not places within a city)
    * - non_travel: non-travel related queries
    */
   async classify(query: string, language: string): Promise<IntentResult> {
@@ -996,11 +1164,42 @@ Return JSON:
       };
     }
     
+    // SECOND: Check for city recommendation queries - these go to city_recommendation
+    // e.g., "推荐几个欧洲城市，第一次去", "which cities in Japan should I visit"
+    if (this.isCityRecommendationQuery(query)) {
+      logger.info(`[IntentClassifier] Detected city recommendation query, forcing city_recommendation`);
+      return {
+        intent: 'city_recommendation',
+        confidence: 0.95,
+      };
+    }
+    
     // Try AI classification for other queries
     try {
       const aiResult = await this.classifyWithAI(query, language);
       if (aiResult && aiResult.intent) {
         logger.info(`[IntentClassifier] AI classification: ${aiResult.intent} (confidence: ${aiResult.confidence})`);
+        
+        // Override AI result if it returns general_search but query is clearly an itinerary request
+        // This catches "3 days in Copenhagen" which AI might misclassify as general_search
+        if (aiResult.intent === 'general_search' && this.isItineraryRequest(lower)) {
+          logger.info(`[IntentClassifier] Overriding AI result: general_search → travel_consultation (itinerary pattern detected)`);
+        }
+        
+        // Override AI result if it returns travel_consultation but query is clearly a city recommendation
+        if ((aiResult.intent === 'travel_consultation' || aiResult.intent === 'general_search') && this.isCityRecommendationQuery(query)) {
+          logger.info(`[IntentClassifier] Overriding AI result: ${aiResult.intent} → city_recommendation (city recommendation pattern detected)`);
+          return {
+            intent: 'city_recommendation',
+            confidence: 0.95,
+          };
+        }          return {
+            intent: 'travel_consultation',
+            city: aiResult.city,
+            confidence: 0.9,
+          };
+        }
+        
         return aiResult;
       }
     } catch (error) {
@@ -1010,6 +1209,26 @@ Return JSON:
     // Fallback to rule-based classification
     logger.info(`[IntentClassifier] Using fallback classification for: "${query}"`);
     return this.fallbackClassify(query, language);
+  }
+
+  /**
+   * Check if query is clearly an itinerary/trip planning request
+   * Used to override AI classification when it misses obvious patterns
+   */
+  private isItineraryRequest(lower: string): boolean {
+    const itineraryPatterns = [
+      /\d+\s*days?\s+in\s+/i,           // "3 days in Copenhagen"
+      /\d+\s*-?\s*day\s+trip/i,         // "5-day trip", "5 day trip"
+      /\d+\s*-?\s*day\s+itinerary/i,    // "3-day itinerary"
+      /\d+\s*nights?\s+in\s+/i,         // "4 nights in Tokyo"
+      /weekend\s+in\s+/i,               // "weekend in Paris"
+      /week\s+in\s+/i,                  // "week in London"
+      /一周.*行程/,                      // "一周东京行程"
+      /.*行程.*[一二三四五六七0-9]+天/,  // "东京行程3天"
+      /[一二三四五六七0-9]+天.*游/,      // "3天游"
+      /[一二三四五六七0-9]+日.*游/,      // "3日游"
+    ];
+    return itineraryPatterns.some(pattern => pattern.test(lower));
   }
 
   /**
@@ -1271,6 +1490,22 @@ Return JSON:
       return true;
     }
 
+    // === 行程规划模式检测 (HIGHEST PRIORITY) ===
+    // "3 days in Copenhagen", "5 day trip to Paris", "一周东京行程"
+    const itineraryPatterns = [
+      /\d+\s*days?\s+in\s+/i,           // "3 days in Copenhagen"
+      /\d+\s*-?\s*day\s+trip/i,         // "5-day trip", "5 day trip"
+      /\d+\s*-?\s*day\s+itinerary/i,    // "3-day itinerary"
+      /\d+\s*nights?\s+in\s+/i,         // "4 nights in Tokyo"
+      /weekend\s+in\s+/i,               // "weekend in Paris"
+      /week\s+in\s+/i,                  // "week in London"
+      /一周.*行程/,                      // "一周东京行程"
+      /.*行程.*[一二三四五六七0-9]+天/,  // "东京行程3天"
+    ];
+    if (itineraryPatterns.some(pattern => pattern.test(lower))) {
+      return true;
+    }
+
     // 中文天数模式：3天、三日
     const chineseDayPattern = /(\d+|[一二三四五六七八九十]+)\s*(天|日)/;
     // 英文天数模式：3 days, 5-day trip, week in Paris, weekend in
@@ -1313,6 +1548,40 @@ Return JSON:
    */
   private isArchitectStyleQuery(lower: string): boolean {
     return ARCHITECT_STYLE_KEYWORDS.some(keyword => lower.includes(keyword));
+  }
+
+  /**
+   * Check if query is a city/destination recommendation request
+   * 检测是否是城市推荐查询（推荐城市，而非城市内的地点）
+   * e.g., "推荐几个欧洲城市", "第一次去日本去哪个城市", "which European cities should I visit"
+   */
+  private isCityRecommendationQuery(query: string): boolean {
+    const lower = query.toLowerCase();
+    
+    // Check for patterns
+    for (const pattern of CITY_RECOMMENDATION_PATTERNS) {
+      if (pattern.test(query)) {
+        logger.info(`[IntentClassifier] Matched city recommendation pattern: ${pattern}`);
+        return true;
+      }
+    }
+    
+    // Check for keywords
+    for (const keyword of CITY_RECOMMENDATION_KEYWORDS) {
+      if (lower.includes(keyword.toLowerCase())) {
+        logger.info(`[IntentClassifier] Matched city recommendation keyword: ${keyword}`);
+        return true;
+      }
+    }
+    
+    // Special case: "第一次去 + region" without specific city
+    // This indicates destination/city recommendation
+    if (/第一次.*(欧洲|亚洲|日本|美国|东南亚|北美|南美|非洲|澳洲)/i.test(query)) {
+      logger.info(`[IntentClassifier] Matched city recommendation: first time to region`);
+      return true;
+    }
+    
+    return false;
   }
 
   /**
@@ -1393,8 +1662,29 @@ Return JSON:
 
   /**
    * Detect count/quantity from query
+   * 排除时间相关的数字（如 "3 days", "5-day trip", "2 weeks"）
    */
   private detectCount(query: string): number | null {
+    const lower = query.toLowerCase();
+    
+    // 排除时间相关模式：N days, N-day, N weeks, N week, N nights, N night
+    // 这些表示行程天数，不是地点数量
+    const timePatterns = [
+      /(\d+)\s*-?\s*days?\b/i,
+      /(\d+)\s*-?\s*weeks?\b/i,
+      /(\d+)\s*-?\s*nights?\b/i,
+      /(\d+)\s*-?\s*hours?\b/i,
+    ];
+    
+    // 检查是否有时间模式
+    for (const pattern of timePatterns) {
+      if (pattern.test(lower)) {
+        // 如果查询包含时间模式，不提取数量（这是行程规划查询）
+        return null;
+      }
+    }
+    
+    // 只匹配明确的数量请求（如 "5 restaurants", "8 cafes"）
     const match = query.match(/(\d+)\s+/);
     if (match) {
       const count = parseInt(match[1], 10);
@@ -1709,6 +1999,12 @@ Return JSON only:
           logger.info(`[IntentClassifier] Created new place "${dbPlace.name}" (id: ${dbPlace.id})`);
         }
 
+        // Build display category for tags (capitalize first letter)
+        const displayCategory = (info.category || 'Landmark')
+          .split(' ')
+          .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+
         // Build PlaceResult
         return {
           id: dbPlace.id,
@@ -1722,6 +2018,7 @@ Return JSON only:
           rating: dbPlace.rating || info.rating,
           ratingCount: dbPlace.ratingCount || info.ratingCount,
           tags: [],
+          display_tags_en: [displayCategory],
           isVerified: dbPlace.isVerified || false,
           source: 'cache',
           address: dbPlace.address || info.address || undefined,
@@ -1732,6 +2029,11 @@ Return JSON only:
         };
       } catch (dbError) {
         logger.warn(`[IntentClassifier] Failed to persist place "${info.name}": ${dbError}`);
+        // Build display category for tags (capitalize first letter)
+        const fallbackDisplayCategory = (info.category || 'Landmark')
+          .split(' ')
+          .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
         // Return without DB ID
         return {
           id: `temp_${Date.now()}`,
@@ -1745,6 +2047,7 @@ Return JSON only:
           rating: info.rating,
           ratingCount: info.ratingCount,
           tags: [],
+          display_tags_en: [fallbackDisplayCategory],
           isVerified: false,
           source: 'ai',
           address: info.address || undefined,
@@ -1969,7 +2272,7 @@ Rules:
     const languageText = language === 'zh' ? 'Chinese' : 'English';
     const prompt = SPECIFIC_PLACE_DESCRIPTION_PROMPT
       .replace('{placeName}', placeName)
-      .replace('{language}', languageText);
+      .replace(/{language}/g, languageText);
 
     try {
       // Use simple text generation (no web search) for faster, more reliable results
@@ -1991,10 +2294,9 @@ Rules:
       }
 
       if (language === 'zh') {
-        const maxChars = 220;
-        if (description.length > maxChars) {
-          description = description.slice(0, maxChars) + '…';
-          logger.info(`[IntentClassifier] Truncated description to ${maxChars} chars (zh)`);
+        if (description.length > CONFIG.MAX_DESCRIPTION_CHARS_ZH) {
+          description = description.slice(0, CONFIG.MAX_DESCRIPTION_CHARS_ZH) + '…';
+          logger.info(`[IntentClassifier] Truncated description to ${CONFIG.MAX_DESCRIPTION_CHARS_ZH} chars (zh)`);
         }
       }
 
@@ -3825,6 +4127,82 @@ Rules:
   }
 
   // ============ Non-Travel Handler Methods ============
+
+  /**
+   * Handle city_recommendation intent - generates Markdown response for city/destination recommendations
+   * NO database queries, NO website links, NO place cards
+   * @param query User's city recommendation query
+   * @param language User's preferred language ('en' or 'zh')
+   * @returns Handler result with textContent only
+   */
+  async handleCityRecommendation(query: string, language: string): Promise<CityRecommendationHandlerResult> {
+    logger.info(`[IntentClassifier] Handling city recommendation query: "${query}"`);
+
+    const textContent = await this.generateCityRecommendationResponse(query, language);
+
+    logger.info(`[IntentClassifier] City recommendation result: textContent=${textContent.length} chars`);
+
+    return { textContent };
+  }
+
+  /**
+   * Generate AI response for city recommendation queries
+   * @param query User's query
+   * @param language User's preferred language
+   * @returns Markdown formatted response text (no websites, no place cards)
+   */
+  private async generateCityRecommendationResponse(query: string, language: string): Promise<string> {
+    const languageText = language === 'zh' ? 'Chinese' : 'English';
+    const prompt = CITY_RECOMMENDATION_PROMPT
+      .replace('{query}', query)
+      .replace(/\{language\}/g, languageText);
+
+    try {
+      const response = await this.generateTextWithFallback(prompt, CONFIG.CITY_RECOMMENDATION_TIMEOUT_MS) || '__TIMEOUT__';
+
+      if (!response || response === '__TIMEOUT__') {
+        logger.warn('[IntentClassifier] City recommendation response generation timed out');
+        return language === 'zh' 
+          ? '抱歉，响应超时了。请稍后再试。'
+          : 'Sorry, the request timed out. Please try again.';
+      }
+
+      // Clean up the response - remove any JSON wrapping and website links
+      let textContent = this.normalizeMarkdownOutput(response);
+      
+      // Remove any website links that AI might have included despite instructions
+      textContent = this.removeWebsiteLinks(textContent);
+
+      logger.info(`[IntentClassifier] Generated city recommendation response: ${textContent.length} chars`);
+      return textContent;
+
+    } catch (error) {
+      logger.warn(`[IntentClassifier] Failed to generate city recommendation response: ${error}`);
+      return language === 'zh' 
+        ? '抱歉，处理请求时出错了。请稍后再试。'
+        : 'Sorry, something went wrong. Please try again.';
+    }
+  }
+
+  /**
+   * Remove website links from text content
+   * Used for city_recommendation to ensure clean output
+   */
+  private removeWebsiteLinks(text: string): string {
+    // Remove "网站:xxx.com" or "Website:xxx.com" patterns
+    let cleaned = text.replace(/(?:网站|官网|Website)[：:]\s*\S+/gi, '');
+    
+    // Remove markdown links [text](url)
+    cleaned = cleaned.replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, '$1');
+    
+    // Remove bare URLs
+    cleaned = cleaned.replace(/https?:\/\/\S+/g, '');
+    
+    // Clean up extra whitespace and empty lines
+    cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
+    
+    return cleaned.trim();
+  }
 
   /**
    * Handle non_travel intent - generates Markdown response without database queries

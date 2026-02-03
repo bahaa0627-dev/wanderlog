@@ -525,20 +525,38 @@ async function generateCombinedTexts(
   const placesToSummarize = places.slice(0, 14);
   const placesList = placesToSummarize.map(p => `${p.id}:${p.name}`).join(';');
   
-  // � 改进 prompt：更明确地要求 JSON 输出
-  const prompt = `You are a travel assistant. Generate JSON response ONLY.
+  // 根据语言选择不同的示例
+  const ackExamples = language === 'zh' 
+    ? `  - 哥本哈根brunch: "哥本哈根的brunch文化源于北欧人对健康饮食的追求，开放式三明治smørrebrød、有机酸奶是当地热门选择。"
+  - 伦敦公园: "伦敦的皇家公园承载着数百年历史，从亨利八世的狩猎场到维多利亚时代的公共绿地。当地人喜欢在Hyde Park晨跑、Regent's Park野餐。"
+  - 东京拉面: "东京拉面讲究'一期一会'的匠人精神，从浓郁豚骨到清爽酱油各区都有代表性流派。�的涓谷家系、新宿二郎系、池�的�的味道豚骨都是经典选择。"
+  - 巴黎咖啡馆: "巴黎咖啡馆文化可追溯至17世纪，左岸的Café de Flore和Les Deux Magots曾是萨特和波伏瓦的据点。点一杯浓缩配可颂，是巴黎人的日常仪式。"`
+    : `  - Copenhagen brunch: "Copenhagen's brunch scene reflects the Nordic passion for fresh, organic ingredients. Open-faced smørrebrød and artisanal coffee are local favorites."
+  - London parks: "London's Royal Parks date back to Henry VIII's hunting grounds. Locals jog in Hyde Park at dawn and picnic in Regent's Park on weekends."
+  - Tokyo ramen: "Tokyo's ramen culture is an art form, from rich tonkotsu to light shoyu. Each neighborhood has its signature style, with late-night spots beloved by salarymen."
+  - Paris cafes: "Parisian cafe culture dates to the 17th century. Left Bank classics like Café de Flore once hosted Sartre and Simone de Beauvoir. Order an espresso with a croissant—the Parisian ritual."`;
+  
+  const summaryExample = language === 'zh' ? '"有问题随时问我！"' : '"Feel free to ask for more details!"';
+  
+  // 🔧 改进 prompt：更明确地要求 JSON 输出，强调语言一致性
+  const prompt = `You are a travel assistant with local expertise. Generate JSON response ONLY.
 
+CRITICAL: ALL text MUST be in ${lang}. Do NOT mix languages. Every single word must be in ${lang}.
 Language: ${lang}
 Query: "${query}"${city ? `\nCity: ${city}` : ''}
 Places (id:name): ${placesList}
 
 Return ONLY this exact JSON structure (no markdown, no explanation):
-{"acknowledgment":"<50-100 char opening that introduces the search topic/location with a warm, specific greeting>","overallSummary":"<50-80 char closing: wish pleasant trip + invite follow-up questions>","placeSummaries":[{"id":"<place id>","summary":"<50-100 char vivid description highlighting what makes this place special, its atmosphere and why worth visiting>"}]}
+{"acknowledgment":"<100-150 char culturally rich opening in ${lang}>","overallSummary":"<40-60 char short closing in ${lang}>","placeSummaries":[{"id":"<place id>","summary":"<50-100 char description in ${lang}>"}]}
 
-IMPORTANT: 
-- acknowledgment: 50-100 chars, must mention the query topic/category/location specifically
-- overallSummary: 50-80 chars, wish user a pleasant trip AND invite them to ask more questions
-- Each place summary: 50-100 chars
+CRITICAL RULES:
+- LANGUAGE: ALL OUTPUT MUST BE IN ${lang.toUpperCase()}. No English words in Chinese output, no Chinese in English output.
+- acknowledgment (100-150 chars): Write a culturally informative introduction with SPECIFIC insider knowledge about this topic in this city. MUST include at least 2-3 of: historical context, local traditions, unique characteristics, specific local terminology, what locals do/prefer, seasonal aspects, or cultural significance. NEVER use generic phrases like "known for their beauty" or "offers many options".
+  Examples (in ${lang}):
+${ackExamples}
+- overallSummary (40-60 chars): A SHORT closing that only says "Let me know if you need more info" or similar. DO NOT repeat any content from acknowledgment.
+  Example: ${summaryExample}
+- Each place summary: 50-100 chars, vivid description of what makes it special. MUST be in ${lang}.
 Include ALL places in placeSummaries array. JSON only:`;
 
   try {
@@ -614,12 +632,17 @@ Context: ${cityText ? `City: ${cityText}` : ''}${categoryText ? `, Category: ${c
 Places found: ${placeNames || 'various places'}
 
 Requirements:
-1. "acknowledgment": Opening text (1-2 sentences, 60-100 chars)
-   - Natural, specific to the query
-   - Mention the topic/location
-2. "overallSummary": Closing text (1-2 sentences, 50-100 chars)
-   - Friendly, warm tone
-   - Encourage follow-up questions
+1. "acknowledgment": Opening text (100-150 chars)
+   - Culturally informative introduction about this topic in this city/area
+   - Include local characteristics, food culture, lifestyle, popular dishes/styles
+   - Make it feel like insider knowledge
+   - DO NOT use generic greetings or "enjoy your trip" phrases
+   - Example (Chinese): "哥本哈根的brunch文化源于北欧人对健康饮食的追求，开放式三明治和有机酸奶是当地热门选择，下面为你推荐几家好店。"
+2. "overallSummary": Closing text (40-60 chars)
+   - Short closing that only invites follow-up questions
+   - DO NOT repeat content from acknowledgment
+   - DO NOT say "enjoy your trip/adventure"
+   - Example: "有问题随时问我！" or "Feel free to ask for more details!"
 
 Output language: ${languageText}
 Return JSON only: {"acknowledgment": "...", "overallSummary": "..."}`;
@@ -721,6 +744,7 @@ Return JSON only: {"summaries": {"PlaceName1": "summary1", "PlaceName2": "summar
 
 /**
  * Generate acknowledgment template - fallback when AI fails
+ * 更丰富的开场白，包含当地文化特色
  */
 function generateAcknowledgmentTemplate(
   query: string,
@@ -729,43 +753,77 @@ function generateAcknowledgmentTemplate(
 ): string {
   const cityText = parsedQuery.city?.trim() || parsedQuery.country?.trim() || '';
   const categoryText = parsedQuery.category?.trim() || '';
+  const categoryLower = categoryText.toLowerCase();
+  const queryLower = parsedQuery.originalQuery?.toLowerCase() || '';
   
+  // 针对不同类型的地点，提供更有文化特色的模板
   if (language === 'zh') {
-    if (cityText && categoryText) {
-      return `为你整理了${cityText}值得一去的${categoryText}推荐，希望能帮到你的旅程规划！`;
-    } else if (cityText) {
-      return `为你整理了${cityText}值得一去的好去处，希望能帮到你的旅程规划！`;
+    if (cityText) {
+      // 拉面专门处理
+      if (categoryLower.includes('ramen') || categoryLower.includes('拉面') || categoryLower.includes('拉麵') || 
+          queryLower.includes('拉面') || queryLower.includes('拉麵') || queryLower.includes('ramen')) {
+        return `${cityText}的拉面文化讲究匠人精神，从浓郁豚骨到清爽酱油，各区都有代表性流派。无论是深夜食堂还是立食店，都能感受到面道的精髓。`;
+      }
+      // 公园/绿地
+      if (categoryLower.includes('park') || categoryLower.includes('公园') || categoryLower.includes('garden') || categoryLower.includes('花园')) {
+        return `${cityText}的公园绿地承载着丰富的历史与城市记忆，是当地人晨练、野餐和周末休闲的首选。以下推荐几处自然与人文兼具的好去处。`;
+      }
+      // 咖啡/下午茶
+      if (categoryLower.includes('coffee') || categoryLower.includes('咖啡') || categoryLower.includes('cafe') || categoryLower.includes('tea')) {
+        return `${cityText}的咖啡文化有着独特的本地风味，从隐藏在小巷的独立咖啡馆到历史悠久的老字号，每家店都有自己的故事。`;
+      }
+      // 餐厅/美食
+      if (categoryLower.includes('restaurant') || categoryLower.includes('餐') || categoryLower.includes('food') || categoryLower.includes('美食')) {
+        return `${cityText}的美食文化融合了传统与创新，从街边小吃到高档料理，处处都能感受当地人对味道的执着追求。`;
+      }
+      // 通用
+      if (categoryText) {
+        return `${cityText}的${categoryText}场景丰富多彩，融合了当地人的生活品味与创意灵感。以下推荐几处值得一探的好去处。`;
+      }
+      return `${cityText}是一座值得细细品味的城市，隐藏着许多当地人钟爱的宝藏地点。以下是精心挑选的推荐。`;
     } else if (categoryText) {
-      return `为你整理了一些${categoryText}推荐，希望能帮到你！`;
+      return `${categoryText}的选择丰富多彩，每一处都有独特的氛围和故事。以下是几处值得探索的推荐。`;
     }
-    return '为你整理了以下推荐，希望能帮到你的旅程规划！';
+    return '以下是为你精心挑选的推荐，每一处都有独特的亮点和体验。';
   } else {
-    if (cityText && categoryText) {
-      return `Here are some great ${categoryText} recommendations in ${cityText} for your trip!`;
-    } else if (cityText) {
-      return `Here are some great places to visit in ${cityText} for your trip!`;
+    if (cityText) {
+      // Parks/Gardens
+      if (categoryLower.includes('park') || categoryLower.includes('garden')) {
+        return `${cityText}'s parks and gardens reflect centuries of history and urban heritage. They're beloved by locals for morning jogs, weekend picnics, and peaceful escapes. Here are some top picks.`;
+      }
+      // Coffee/Cafe
+      if (categoryLower.includes('coffee') || categoryLower.includes('cafe') || categoryLower.includes('tea')) {
+        return `${cityText}'s cafe culture has its own distinctive character, from hidden alley roasters to historic establishments. Each spot tells a unique story. Here are some favorites.`;
+      }
+      // Restaurants/Food
+      if (categoryLower.includes('restaurant') || categoryLower.includes('food') || categoryLower.includes('dining')) {
+        return `${cityText}'s culinary scene blends tradition with innovation, from street food to fine dining. Locals take great pride in their food heritage. Here are some standouts.`;
+      }
+      // Generic with category
+      if (categoryText) {
+        return `${cityText} offers a vibrant ${categoryText} scene shaped by local tastes and creative flair. Here are some spots worth exploring.`;
+      }
+      return `${cityText} is a city worth savoring slowly, with hidden gems beloved by locals. Here are some curated recommendations.`;
     } else if (categoryText) {
-      return `Here are some ${categoryText} recommendations for you!`;
+      return `There are many wonderful ${categoryText} options to explore, each with its own unique atmosphere and story. Here are some recommendations.`;
     }
-    return 'Here are some great recommendations for your trip!';
+    return 'Here are some carefully curated recommendations, each with its own unique highlights and experiences.';
   }
 }
 
 /**
  * Generate overall summary template - fallback when AI fails
+ * 简短的结束语，只邀请用户询问更多
  */
 function generateOverallSummaryTemplate(
   query: string,
   places: PlaceResult[],
   language: 'en' | 'zh',
 ): string {
-  const count = places.length;
-  if (count === 0) return '';
-  
   if (language === 'zh') {
-    return `以上是为你精选的${count}个推荐。如果需要更多信息或有其他偏好，随时告诉我！`;
+    return '有问题随时问我！';
   } else {
-    return `These are ${count} curated recommendations for you. Let me know if you'd like more details or have other preferences!`;
+    return 'Feel free to ask for more details!';
   }
 }
 
@@ -990,19 +1048,40 @@ function buildFallbackPlaceSummary(_place: PlaceResult, _parsedQuery: ParsedQuer
   return '';
 }
 
+/**
+ * 检测文本是否匹配目标语言
+ * @param text 要检测的文本
+ * @param language 目标语言 'zh' 或 'en'
+ * @returns true 如果文本与目标语言匹配
+ */
+function isTextInTargetLanguage(text: string, language: string): boolean {
+  const s = (text || '').trim();
+  if (!s || s.length < 5) return true; // 太短无法判断，默认匹配
+  
+  const hasChinese = /[\u4e00-\u9fff]/.test(s);
+  const hasJapanese = /[\u3040-\u309f\u30a0-\u30ff]/.test(s); // hiragana + katakana
+  const hasKorean = /[\uac00-\ud7af]/.test(s);
+  const hasCJK = hasChinese || hasJapanese || hasKorean;
+  
+  if (language === 'zh') {
+    // 中文模式：需要有中文字符
+    return hasChinese;
+  } else {
+    // 英文模式：不应该有大量 CJK 字符
+    // 允许少量 CJK（如地名），但主体应该是英文
+    const cjkCount = (s.match(/[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g) || []).length;
+    const totalChars = s.length;
+    return cjkCount / totalChars < 0.3; // CJK 字符少于 30%
+  }
+}
+
 function isLikelyFallbackSummary(summary: string, language: string): boolean {
   const s = (summary || '').trim();
   if (!s) return false;
 
-  // 如果目标语言是中文，但 summary 是英文，需要重新生成
-  if (language === 'zh') {
-    // 检测是否是英文 summary（没有中文字符）
-    const hasChinese = /[\u4e00-\u9fff]/.test(s);
-    if (!hasChinese && s.length > 10) {
-      // 是英文 summary，需要重新生成中文版本
-      return true;
-    }
-    return false;
+  // 首先检查语言是否匹配
+  if (!isTextInTargetLanguage(s, language)) {
+    return true; // 语言不匹配，需要重新生成
   }
 
   if (s.startsWith('Known for ')) return true;
@@ -1451,7 +1530,7 @@ async function persistAIPlacesToDB(
       country: dbPlace.country || fallbackPlace.country || country,
       rating: dbPlace.rating,
       ratingCount: dbPlace.ratingCount,
-      tags: buildDisplayTags(dbPlace.categoryEn, dbPlace.aiTags, language, dbPlace.tags as Record<string, string[]> | null),
+      tags: buildDisplayTags(dbPlace.categoryEn, dbPlace.aiTags, 'en', dbPlace.tags as Record<string, string[]> | null),
       isVerified: hasRating || dbPlace.isVerified || false,
       source: 'cache',
       address: dbPlace.address || undefined,
@@ -2213,7 +2292,7 @@ async function matchMentionedPlacesFromDB(
       country: matched.country || parsedQuery.country || '',
       rating: matched.rating,
       ratingCount: matched.ratingCount,
-      tags: buildDisplayTags(matched.categoryEn, matched.aiTags, language, matched.tags as Record<string, string[]> | null),
+      tags: buildDisplayTags(matched.categoryEn, matched.aiTags, 'en', matched.tags as Record<string, string[]> | null),
       isVerified: hasRating || matched.isVerified || false,
       source: 'cache',
       address: matched.address || undefined,
@@ -3303,7 +3382,7 @@ async function matchAIPlacesFromDB(aiPlaces: AIPlace[], language: 'en' | 'zh' = 
         }
       }
       
-      const displayTags = buildDisplayTags(bestMatch.categoryEn, finalAiTags, language, bestMatch.tags as Record<string, string[]> | null);
+      const displayTags = buildDisplayTags(bestMatch.categoryEn, finalAiTags, 'en', bestMatch.tags as Record<string, string[]> | null);
       logger.info(`[SearchV2] Matched "${aiPlace.name}" -> "${bestMatch.name}" (coverImage: ${bestMatch.coverImage ? 'YES' : 'NO'}, categoryEn: ${bestMatch.categoryEn}, displayTags: ${JSON.stringify(displayTags)})`);
       
       matchedPlaces.set(aiPlace.name, {
@@ -3927,7 +4006,7 @@ JSON:{"introduction":"<40字>","categories":[{"title":"☕ Cat","places":[{"name
             country: dbPlace.country || '',
             rating: dbPlace.rating,
             ratingCount: dbPlace.ratingCount,
-            tags: buildDisplayTags(dbPlace.categoryEn, dbPlace.aiTags, matchLanguageCode, dbPlace.tags as Record<string, string[]> | null),
+            tags: buildDisplayTags(dbPlace.categoryEn, dbPlace.aiTags, 'en', dbPlace.tags as Record<string, string[]> | null),
             isVerified: hasRating || dbPlace.isVerified || false,
             source: 'cache',
             address: dbPlace.address || undefined,
@@ -3960,7 +4039,7 @@ JSON:{"introduction":"<40字>","categories":[{"title":"☕ Cat","places":[{"name
       country: p.country || '',
       rating: p.rating,
       ratingCount: p.ratingCount,
-      tags: buildDisplayTags(p.categoryEn, p.aiTags, matchLanguageCode, p.tags as Record<string, string[]> | null),
+      tags: buildDisplayTags(p.categoryEn, p.aiTags, 'en', p.tags as Record<string, string[]> | null),
       isVerified: (p.rating !== null && p.rating > 0) || p.isVerified || false,
       source: 'cache' as const,
       address: p.address || undefined,
@@ -4411,15 +4490,15 @@ export const searchV2 = async (req: Request, res: Response) => {
     // If user didn't specify a count, use random 5-10 range (or 8-15 for category+region)
     // 用户要求：返回 5-10 个地点，每次随机，超过 5 个时分类展示
     // 分类+地区查询：返回 5-15 个地点，优先使用数据库
+    // 🔧 修复：用户明确指定数量时，使用用户指定的数量，不强制 MIN_COUNT
     const maxCount = isCategoryRegionQuery ? CONFIG.CATEGORY_REGION_MAX_COUNT : CONFIG.MAX_COUNT;
     const randomTarget = isCategoryRegionQuery
       ? Math.floor(Math.random() * (maxCount - CONFIG.MIN_COUNT + 1)) + CONFIG.MIN_COUNT  // 5-15
       : Math.floor(Math.random() * (CONFIG.MAX_COUNT - CONFIG.MIN_COUNT + 1)) + CONFIG.MIN_COUNT;  // 5-10
-    const targetCount = Math.min(
-      Math.max(parsedQuery.explicitCount ? parsedQuery.count : randomTarget, CONFIG.MIN_COUNT),
-      maxCount,
-    );
-    logger.info(`[SearchV2] isCategoryRegionQuery: ${isCategoryRegionQuery}, random target: ${randomTarget}, final target: ${targetCount}`);
+    const targetCount = parsedQuery.explicitCount
+      ? Math.min(Math.max(parsedQuery.count, 1), maxCount)  // 用户指定数量：限制在 1-maxCount 之间
+      : Math.min(Math.max(randomTarget, CONFIG.MIN_COUNT), maxCount);  // 随机：限制在 MIN_COUNT-maxCount 之间
+    logger.info(`[SearchV2] isCategoryRegionQuery: ${isCategoryRegionQuery}, explicitCount: ${parsedQuery.explicitCount}, random target: ${randomTarget}, final target: ${targetCount}`);
 
     // 获取用户今日已收藏的地点（需要排除）
     let userSavedPlaceIds: Set<string> = new Set();
@@ -4815,7 +4894,7 @@ export const searchV2 = async (req: Request, res: Response) => {
           country: p.country || '',
           rating: p.rating,
           ratingCount: p.ratingCount,
-          tags: buildDisplayTags(p.categoryEn, p.aiTags, matchLanguageCode, p.tags as Record<string, string[]> | null),
+          tags: buildDisplayTags(p.categoryEn, p.aiTags, 'en', p.tags as Record<string, string[]> | null),
           isVerified: hasRating || p.isVerified || false,
           source: 'cache',
           address: p.address || undefined,
@@ -4902,7 +4981,7 @@ export const searchV2 = async (req: Request, res: Response) => {
           country: p.country || '',
           rating: p.rating,
           ratingCount: p.ratingCount,
-          tags: buildDisplayTags(p.categoryEn, p.aiTags, matchLanguageCode, p.tags as Record<string, string[]> | null),
+          tags: buildDisplayTags(p.categoryEn, p.aiTags, 'en', p.tags as Record<string, string[]> | null),
           isVerified: hasRating || p.isVerified || false,
           source: 'cache',
           address: p.address || undefined,
@@ -5045,7 +5124,7 @@ export const searchV2 = async (req: Request, res: Response) => {
           country: p.country || '',
           rating: p.rating,
           ratingCount: p.ratingCount,
-          tags: buildDisplayTags(p.categoryEn, p.aiTags, matchLanguageCode, p.tags as Record<string, string[]> | null),
+          tags: buildDisplayTags(p.categoryEn, p.aiTags, 'en', p.tags as Record<string, string[]> | null),
           isVerified: hasRating || p.isVerified || false,
           source: 'cache',
           address: p.address || undefined,
@@ -5074,7 +5153,7 @@ export const searchV2 = async (req: Request, res: Response) => {
           country: p.country || '',
           rating: p.rating,
           ratingCount: p.ratingCount,
-          tags: buildDisplayTags(p.categoryEn, p.aiTags, matchLanguageCode, p.tags as Record<string, string[]> | null),
+          tags: buildDisplayTags(p.categoryEn, p.aiTags, 'en', p.tags as Record<string, string[]> | null),
           isVerified: hasRating || p.isVerified || false,
           source: 'cache',
           address: p.address || undefined,
@@ -5668,19 +5747,28 @@ Return JSON only:
       }
 
       // 应用所有 summary
-      // 注意：如果数据库中已有描述（place.summary 非空），优先保留原有内容
-      // 只有当地点没有 summary 时，才使用 AI 生成的 summary
+      // 🔧 修改：如果数据库中已有描述但语言不匹配，使用 AI 生成的 summary
       logger.info(`[SearchV2] aiSummaries has ${aiSummaries.size} entries: ${[...aiSummaries.keys()].join(', ')}`);
       for (const place of finalPlaces) {
-        // 如果已有 summary，保留原有内容
-        if (place.summary && place.summary.trim()) {
+        const existingSummary = (place.summary || '').trim();
+        const aiSummary = aiSummaries.get(place.id);
+        
+        // 检查现有 summary 是否语言匹配
+        if (existingSummary && isTextInTargetLanguage(existingSummary, summaryLanguageCode)) {
           logger.info(`[SearchV2] Keeping existing summary for "${place.name}" (id=${place.id})`);
           continue;
         }
-        const s = aiSummaries.get(place.id);
-        if (s && s.trim()) {
-          place.summary = s.trim();
-          logger.info(`[SearchV2] Applied AI summary to finalPlace "${place.name}" (id=${place.id})`);
+        
+        // 现有 summary 语言不匹配或为空，使用 AI 生成的
+        if (aiSummary && aiSummary.trim()) {
+          place.summary = aiSummary.trim();
+          logger.info(`[SearchV2] Applied AI summary to finalPlace "${place.name}" (id=${place.id}, reason: ${existingSummary ? 'language mismatch' : 'no existing'})`);
+          continue;
+        }
+        
+        // 如果还有现有 summary（虽然语言不对），至少保留它
+        if (existingSummary) {
+          logger.info(`[SearchV2] Keeping mismatched-language summary for "${place.name}" (no AI alternative)`);
         }
       }
 
@@ -5688,17 +5776,21 @@ Return JSON only:
       logger.info(`[SearchV2] Updating ${finalCategories.length} categories with summaries`);
       for (const cat of finalCategories) {
         for (const p of cat.places) {
-          // 如果已有 summary，保留原有内容
-          if (p.summary && p.summary.trim()) {
+          const existingSummary = (p.summary || '').trim();
+          const aiSummary = aiSummaries.get(p.id);
+          
+          // 检查现有 summary 是否语言匹配
+          if (existingSummary && isTextInTargetLanguage(existingSummary, summaryLanguageCode)) {
             logger.info(`[SearchV2] Keeping existing summary for category place "${p.name}" (id=${p.id})`);
             continue;
           }
-          const s = aiSummaries.get(p.id);
-          if (s && s.trim()) {
-            p.summary = s.trim();
-            logger.info(`[SearchV2] Applied AI summary to category place "${p.name}" (id=${p.id})`);
+          
+          // 现有 summary 语言不匹配或为空，使用 AI 生成的
+          if (aiSummary && aiSummary.trim()) {
+            p.summary = aiSummary.trim();
+            logger.info(`[SearchV2] Applied AI summary to category place "${p.name}" (id=${p.id}, reason: ${existingSummary ? 'language mismatch' : 'no existing'})`);
           } else {
-            logger.info(`[SearchV2] No summary for category place "${p.name}" (id=${p.id}, hasS=${!!s})`);
+            logger.info(`[SearchV2] No summary for category place "${p.name}" (id=${p.id}, hasAI=${!!aiSummary})`);
           }
         }
       }
@@ -5796,10 +5888,11 @@ Return plain text only.`;
     }
 
     // ========== 补充文本：当结果不足时，用 AI 生成补充推荐 ==========
-    // 用户要求：数据库有 5 条以上就不需要补齐，也不需要更多推荐模块
+    // 🔧 修改：用户明确指定数量时，不补充；只有默认搜索且少于 5 条时才补充
     let supplementText = '';
     const actualCount = finalPlaces.length;
-    const needSupplement = actualCount > 0 && actualCount < 5; // 只有少于 5 条时才补充
+    // 如果用户明确指定了数量，不需要补充；只有非明确指定且少于 5 条时才补充
+    const needSupplement = !parsedQuery.explicitCount && actualCount > 0 && actualCount < 5;
     if (needSupplement) {
       const shortfall = 5 - actualCount;
       logger.info(`[SearchV2] Results shortage: got ${actualCount}, need 5, generating ${shortfall} text supplements`);
@@ -5904,6 +5997,12 @@ Return plain text only.`;
     }
     
     logger.info(`[SearchV2] Map places: ${mapPlaces.length} (${finalPlaces.length} with images, ${mapPlaces.length - finalPlaces.filter(p => p.latitude && p.longitude).length} text-only with coords)`);
+    
+    // 🔧 如果用户指定了数量，限制最终返回的地点数量
+    if (parsedQuery.explicitCount && finalPlaces.length > targetCount) {
+      logger.info(`[SearchV2] User requested ${targetCount} places, limiting from ${finalPlaces.length}`);
+      finalPlaces = finalPlaces.slice(0, targetCount);
+    }
     
     if (userId) {
       try {

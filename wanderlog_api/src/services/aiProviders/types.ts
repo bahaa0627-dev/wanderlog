@@ -38,6 +38,7 @@ export enum AIErrorCode {
   FORBIDDEN = 'FORBIDDEN',
   NOT_FOUND = 'NOT_FOUND',
   BAD_REQUEST = 'BAD_REQUEST',
+  CONTEXT_LIMIT = 'CONTEXT_LIMIT',  // Input exceeds model's context window
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   TIMEOUT = 'TIMEOUT',
   PARSE_ERROR = 'PARSE_ERROR',

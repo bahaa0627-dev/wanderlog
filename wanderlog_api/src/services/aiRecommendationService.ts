@@ -27,6 +27,10 @@ export interface AIPlace {
   coverImageUrl: string;
   tags: string[];
   recommendationPhrase: string;
+  website?: string;
+  rating?: number;
+  ratingCount?: number;
+  address?: string;
 }
 
 /**
@@ -80,15 +84,15 @@ export class AIResponseValidationError extends Error {
  * OPTIMIZED V2: Ultra-compact prompt to reduce token usage by 90%
  */
 const RECOMMENDATION_SYSTEM_PROMPT = `Travel expert. JSON only.
-RULES: Location-specific places only. Tags=English. Coords=4 decimals. Return 5-8 places.
-FORMAT:{"requestedCount":8,"exceededLimit":false,"acknowledgment":"1-2 sentences","categories":[{"title":"☕ Title","placeNames":["P1","P2"]}],"places":[{"name":"Name","summary":"40-60 chars","latitude":0.0,"longitude":0.0,"city":"","country":"","coverImageUrl":"","tags":[],"recommendationPhrase":"Hidden gem"}]}`;
+RULES: Location-specific places only. Tags=English. Coords=4 decimals. Return 5-8 places. USE WEB SEARCH to find accurate rating, ratingCount, website, and address.
+FORMAT:{"requestedCount":8,"exceededLimit":false,"acknowledgment":"1-2 sentences","categories":[{"title":"☕ Title","placeNames":["P1","P2"]}],"places":[{"name":"Name","summary":"50-100 chars describing features and atmosphere","latitude":0.0,"longitude":0.0,"city":"","country":"","coverImageUrl":"","tags":[],"recommendationPhrase":"Hidden gem","website":"example.com","rating":4.5,"ratingCount":1234,"address":"Full address"}]}`;
 
 
 /**
  * System prompt for summary generation - OPTIMIZED V2
  */
-const SUMMARY_SYSTEM_PROMPT = `Generate brief place summaries. JSON format:
-{"placeSummaries":{"Name":"<100 chars"},"overallSummary":"Friendly closing"}`;
+const SUMMARY_SYSTEM_PROMPT = `Generate place summaries. JSON format:
+{"placeSummaries":{"Name":"50-100 chars describing unique features and atmosphere"},"overallSummary":"Friendly closing"}`;
 
 
 /**

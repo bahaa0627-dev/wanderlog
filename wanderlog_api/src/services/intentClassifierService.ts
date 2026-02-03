@@ -30,6 +30,7 @@ import {
   MentionedPlace,
   CityPlacesGroup,
   NonTravelHandlerResult,
+  ArchitectQueryHandlerResult,
 } from '../types/intent';
 
 // ============ Configuration ============
@@ -39,6 +40,7 @@ const CONFIG = {
   DESCRIPTION_TIMEOUT_MS: 15000, // 15 second timeout for description generation
   CONSULTATION_TIMEOUT_MS: 90000, // 90 second timeout for travel consultation (increased for web search)
   NON_TRAVEL_TIMEOUT_MS: 60000, // 60 second timeout for non-travel responses (increased)
+  ARCHITECT_QUERY_TIMEOUT_MS: 60000, // 60 second timeout for architect/style queries
   NAME_SIMILARITY_THRESHOLD: 0.6, // Minimum similarity score for place matching
   SPECIFIC_PLACE_SIMILARITY_THRESHOLD: 0.75, // Higher threshold for specific_place to avoid wrong matches
   MAX_DESCRIPTION_WORDS: 140, // Maximum words in description
@@ -60,10 +62,11 @@ const SPECIFIC_PLACE_DESCRIPTION_PROMPT = `Write 3-5 sentences about "{placeName
 const TRAVEL_CONSULTATION_PROMPT = `You are a travel expert. Answer: {query}
 
 RULES:
-1. Language: {language} only. English names in mentionedPlaces
+1. Language: {language} only. English names in mentionedPlaces, but summary in {language}
 2. Location: ONLY recommend places in the location user asked about
 3. Include 5-10 places with practical tips
 4. For itinerary requests (N-day/行程): Use day-by-day format with time slots
+5. Each place summary MUST be around 50 characters (45-55 chars), describing unique features and why it's worth visiting
 
 FORMAT:
 - Use Markdown with ## headings and emoji
@@ -73,7 +76,7 @@ FORMAT:
 Return JSON:
 {
   "textContent": "Markdown response...",
-  "mentionedPlaces": [{"name": "English Name", "city": "City", "address": "Address", "website": "URL", "country": "Country", "rating": 4.5, "ratingCount": 1200}],
+  "mentionedPlaces": [{"name": "English Name", "city": "City", "summary": "~50 char description in {language}, e.g. '流线型当代艺术博物馆，扎哈·哈迪德标志性曲线建筑代表作'", "address": "Address", "website": "URL", "country": "Country", "rating": 4.5, "ratingCount": 1200}],
   "cities": ["City1"]
 }`;
 
@@ -82,6 +85,55 @@ Return JSON:
  * OPTIMIZED: Reduced to save tokens
  */
 const NON_TRAVEL_PROMPT = `Answer in {language} using Markdown: {query}. Be concise, use emoji and **bold** for key items. Return plain text.`;
+
+/**
+ * AI prompt for architect/architectural style queries
+ * 建筑师/建筑风格查询的 prompt - 先介绍人物/风格，再列出著名建筑
+ * 
+ * 格式要求:
+ * 1. 建筑师介绍 - 标题+简介段落
+ * 2. 建筑特色（分段介绍）- Key Characteristics 带 emoji 的要点
+ * 3. 特别的建筑地点列表和简短介绍 - Notable Buildings 编号列表，带链接格式
+ * 4. mentionedPlaces 用于匹配数据库地点
+ */
+const ARCHITECT_STYLE_PROMPT = `You are an architecture expert. Answer: {query}
+
+RESPONSE FORMAT - Return ONLY valid JSON:
+{
+  "textContent": "[Full formatted Markdown text - see structure below]",
+  "mentionedPlaces": [{"name": "exact building name", "city": "city", "country": "country", "summary": "15-25 word unique architectural feature description"}],
+  "cities": ["City1", "City2"]
+}
+
+textContent MUST follow this EXACT structure:
+
+## [Architect Name]'s Architecture
+
+[3-4 sentence introduction: nationality, career highlights, design philosophy, awards/significance]
+
+## Key Characteristics
+
+• **[Characteristic 1]** [emoji]: [One descriptive sentence explaining this design feature]
+
+• **[Characteristic 2]** [emoji]: [One descriptive sentence explaining this design feature]
+
+• **[Characteristic 3]** [emoji]: [One descriptive sentence explaining this design feature]
+
+## Notable Buildings
+
+1. [**Building Name**](place) - City, Country
+2. [**Building Name**](place) - City, Country
+3. [**Building Name**](place) - City, Country
+...list 6-10 buildings
+
+CRITICAL RULES:
+- Language: {language}
+- Building names in Notable Buildings MUST be wrapped as [**Name**](place) for clickability
+- Each mentionedPlaces entry: exact building name (no bold/link), city, country, and 15-25 word summary describing what makes it architecturally unique
+- mentionedPlaces MUST include ALL buildings mentioned in the Notable Buildings list
+- Use appropriate emoji for each Key Characteristic (🌊 for fluid forms, 🔄 for dynamic spaces, 🚀 for futuristic, 🏛️ for classical, etc.)
+- Keep total response under 800 words
+- Summaries should describe specific architectural features, materials, or design innovations`;
 
 // ============ Prompt Templates ============
 
@@ -432,6 +484,27 @@ const TRAVEL_CONSULTATION_KEYWORDS = [
 
   // 注意：'推荐', '建议', 'recommend', 'suggest', 'advice' 这些词不放在这里
   // 因为用户来都是求推荐的，"推荐几家伦敦的毛线店" 应该是 general_search 而不是 travel_consultation
+];
+
+/**
+ * Architect / Architectural Style keywords
+ * 这些关键词会触发 isArchitectQuery 标记，走 general_search 但使用特殊处理
+ * 用户查询 "zaha hadid's architecture" 应该先介绍建筑师，再展示相关建筑
+ */
+const ARCHITECT_STYLE_KEYWORDS = [
+  // Architects (English)
+  'gaudi', 'zaha hadid', 'frank gehry', 'le corbusier', 'renzo piano',
+  'norman foster', 'tadao ando', 'frank lloyd wright', 'i.m. pei', 'rem koolhaas',
+  'jean nouvel', 'bjarke ingels', 'kengo kuma', 'herzog & de meuron', 'david chipperfield',
+  'shigeru ban', 'peter zumthor', 'álvaro siza', 'louis kahn', 'mies van der rohe',
+  // Styles (English)
+  'brutalism', 'brutalist', 'art deco', 'gothic', 'baroque', 'renaissance',
+  'modernism', 'modernist', 'postmodern', 'deconstructivism', 'neoclassical',
+  'art nouveau', 'bauhaus', 'minimalism', 'high-tech', 'organic architecture',
+  // Patterns (English)
+  'architecture', 'architect', 'architectural', 'works of', 'buildings by', 'designed by',
+  // Chinese
+  '建筑师', '建筑风格', '作品', '设计风格',
 ];
 
 // ============ Intent Classifier Service ============
@@ -893,8 +966,23 @@ Return JSON:
    */
   async classify(query: string, language: string): Promise<IntentResult> {
     logger.info(`[IntentClassifier] Classifying query: "${query}"`);
+    const lower = query.toLowerCase();
     
-    // Try AI classification first for better accuracy
+    // FIRST: Check for architect/style queries - these go to travel_consultation
+    // This check must happen BEFORE AI classification to ensure correct handling
+    // e.g., "zaha hadid's architecture" should be travel_consultation (intro + places)
+    if (this.isArchitectStyleQuery(lower)) {
+      const hasCity = this.detectCity(lower);
+      logger.info(`[IntentClassifier] Detected architect/style query, forcing travel_consultation (city: ${hasCity})`);
+      return {
+        intent: 'travel_consultation',
+        city: hasCity || undefined,
+        isArchitectQuery: true,  // Flag to use special architect handling in handleTravelConsultation
+        confidence: 0.9,
+      };
+    }
+    
+    // Try AI classification for other queries
     try {
       const aiResult = await this.classifyWithAI(query, language);
       if (aiResult && aiResult.intent) {
@@ -992,7 +1080,21 @@ Return JSON:
       };
     }
 
-    // 2. Check for travel consultation FIRST (how-to questions, tips, booking, etc.)
+    // 2. Check for architect/style queries BEFORE travel_consultation
+    // These go to travel_consultation with isArchitectQuery flag for special handling
+    // e.g., "zaha hadid's architecture" → introduce architect first, then show buildings
+    if (this.isArchitectStyleQuery(lower)) {
+      const hasCity = this.detectCity(lower);
+      logger.info(`[IntentClassifier] Fallback: travel_consultation (isArchitectQuery, city: ${hasCity})`);
+      return {
+        intent: 'travel_consultation',
+        city: hasCity || undefined,
+        isArchitectQuery: true,
+        confidence: 0.85,
+      };
+    }
+
+    // 3. Check for travel consultation (how-to questions, tips, booking, etc.)
     // This ensures "how to buy ticket of Sagrada Familia" is travel_consultation, not specific_place
     if (this.isTravelConsultation(lower)) {
       logger.info('[IntentClassifier] Fallback: travel_consultation');
@@ -1002,7 +1104,7 @@ Return JSON:
       };
     }
 
-    // 3. Check for category keywords (before specific place)
+    // 4. Check for category keywords (before specific place)
     // This ensures "design museum" is classified as general_search, not specific_place
     const hasCategory = this.detectCategory(lower);
     const hasTags = this.detectTags(lower);
@@ -1188,6 +1290,15 @@ Return JSON:
     ];
     
     return consultationPatterns.some(pattern => pattern.test(lower));
+  }
+
+  /**
+   * Check if query is specifically about architects or architectural styles
+   * 检测是否是建筑师/建筑风格查询
+   * 这类查询走 general_search 但需要特殊处理（先介绍人物/风格，再展示建筑）
+   */
+  private isArchitectStyleQuery(lower: string): boolean {
+    return ARCHITECT_STYLE_KEYWORDS.some(keyword => lower.includes(keyword));
   }
 
   /**
@@ -3152,13 +3263,16 @@ Rules:
           // Geocoding errors are fine, just continue
         }
 
-        // Build a better summary using available data
+        // Build summary: prefer AI-provided summary, fallback to generic
         const rating = (place as any).rating;
         const ratingStr = rating ? ` (${rating}⭐)` : '';
         const locationStr = placeCountry ? `${placeCity}, ${placeCountry}` : placeCity;
         
         let summary: string;
-        if (language === 'zh') {
+        if ((place as any).summary && (place as any).summary.trim().length > 0) {
+          // Use AI-provided summary if available
+          summary = (place as any).summary.trim();
+        } else if (language === 'zh') {
           summary = `位于${locationStr}${ratingStr}，是一个值得探索的独特目的地。`;
         } else {
           summary = `Located in ${locationStr}${ratingStr}, a unique destination worth exploring.`;
@@ -3287,13 +3401,20 @@ Rules:
           logger.warn(`[IntentClassifier] Geocoding error for "${placeName}": ${geoError}`);
         }
 
+        // Build summary: prefer AI-provided summary, fallback to generic
         const rating = (place as any).rating;
         const ratingStr = rating ? ` (${rating}⭐)` : '';
         const locationStr = placeCountry ? `${placeCity}, ${placeCountry}` : placeCity;
         
-        const summary = language === 'zh'
-          ? `位于${locationStr}${ratingStr}，是一个值得探索的独特目的地。`
-          : `Located in ${locationStr}${ratingStr}, a unique destination worth exploring.`;
+        let summary: string;
+        if ((place as any).summary && (place as any).summary.trim().length > 0) {
+          // Use AI-provided summary if available
+          summary = (place as any).summary.trim();
+        } else if (language === 'zh') {
+          summary = `位于${locationStr}${ratingStr}，是一个值得探索的独特目的地。`;
+        } else {
+          summary = `Located in ${locationStr}${ratingStr}, a unique destination worth exploring.`;
+        }
 
         const tempPlace: PlaceResult = {
           id: `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`,
@@ -3443,6 +3564,207 @@ Rules:
       website: dbPlace.website || undefined,
       openingHours: dbPlace.openingHours || undefined,
     };
+  }
+
+  // ============ Architect/Style Query Handler Methods ============
+
+  /**
+   * Handle architect/architectural style queries
+   * 处理建筑师/建筑风格查询 - 先介绍人物/风格，再展示相关地点
+   * @param query User's query (e.g., "zaha hadid's architecture")
+   * @param language User's preferred language ('en' or 'zh')
+   * @returns Handler result with textContent and matched places
+   */
+  async handleArchitectQuery(query: string, language: string): Promise<ArchitectQueryHandlerResult> {
+    logger.info(`[IntentClassifier] Handling architect/style query: "${query}"`);
+
+    // Step 1: Generate AI response with architect/style intro and place mentions
+    const aiResult = await this.generateArchitectQueryResponse(query, language);
+
+    if (!aiResult.textContent || aiResult.textContent.length === 0) {
+      logger.warn('[IntentClassifier] Empty architect query response');
+      const fallbackMsg = language === 'zh'
+        ? '抱歉，无法生成回复。请稍后再试。'
+        : 'Sorry, unable to generate a response. Please try again.';
+      return { textContent: fallbackMsg, places: [] };
+    }
+
+    // Step 2: Extract mentioned places and match with database
+    const mentionedPlaces = aiResult.mentionedPlaces || [];
+    const cities = aiResult.cities || [];
+
+    if (mentionedPlaces.length === 0) {
+      logger.info('[IntentClassifier] No places mentioned in architect query response');
+      return { textContent: aiResult.textContent, places: [] };
+    }
+
+    // Build a map of AI-provided summaries by normalized place name
+    const summaryMap = new Map<string, string>();
+    for (const place of mentionedPlaces) {
+      if (place.summary && place.summary.trim()) {
+        const normalizedName = this.normalizePlaceNameForMatching(place.name).toLowerCase();
+        summaryMap.set(normalizedName, place.summary.trim());
+      }
+    }
+
+    // Step 3: Match places from database
+    const translationCache = new Map<string, string>();
+    const matchResult = await this.matchRelatedPlacesWithCache(
+      mentionedPlaces,
+      cities,
+      language as 'en' | 'zh',
+      translationCache,
+      false // 允许图片搜索
+    );
+
+    // Flatten results
+    let matchedPlaces: PlaceResult[] = [];
+    if (matchResult.relatedPlaces) {
+      matchedPlaces = matchResult.relatedPlaces;
+    } else if (matchResult.cityPlaces) {
+      matchedPlaces = matchResult.cityPlaces.flatMap(g => g.places);
+    }
+
+    // Step 4: Filter out AI-generated temporary places, keep only database-matched places
+    // AI-generated places (source: 'ai' or temp_ IDs) should NOT be clickable or shown on map
+    const dbMatchedPlaces = matchedPlaces.filter(place => {
+      const isDbPlace = place.source === 'cache' && !place.id.startsWith('temp_');
+      if (!isDbPlace) {
+        logger.info(`[IntentClassifier] Filtered out AI-generated place: "${place.name}" (source: ${place.source}, id: ${place.id})`);
+      }
+      return isDbPlace;
+    });
+
+    logger.info(`[IntentClassifier] Filtered places: ${matchedPlaces.length} total -> ${dbMatchedPlaces.length} database-matched`);
+
+    // Step 5: Apply AI-generated summaries to database-matched places
+    for (const place of dbMatchedPlaces) {
+      const normalizedName = this.normalizePlaceNameForMatching(place.name).toLowerCase();
+      const aiSummary = summaryMap.get(normalizedName);
+      if (aiSummary) {
+        place.summary = aiSummary;
+        logger.info(`[IntentClassifier] Applied AI summary to "${place.name}": ${aiSummary.substring(0, 50)}...`);
+      } else {
+        // Try partial match for places with different names (e.g., "MAXXI Museum" -> "MAXXI - National Museum...")
+        for (const [key, summary] of summaryMap.entries()) {
+          if (normalizedName.includes(key) || key.includes(normalizedName.split(' ')[0])) {
+            place.summary = summary;
+            logger.info(`[IntentClassifier] Applied AI summary (partial match) to "${place.name}": ${summary.substring(0, 50)}...`);
+            break;
+          }
+        }
+      }
+    }
+
+    logger.info(`[IntentClassifier] Architect query result: textContent=${aiResult.textContent.length} chars, dbMatchedPlaces=${dbMatchedPlaces.length}`);
+
+    return {
+      textContent: aiResult.textContent,
+      places: dbMatchedPlaces,
+    };
+  }
+
+  /**
+   * Generate AI response for architect/style queries
+   * @param query User's query
+   * @param language User's preferred language
+   * @returns AI result with textContent, mentionedPlaces, and cities
+   */
+  private async generateArchitectQueryResponse(
+    query: string,
+    language: string
+  ): Promise<TravelConsultationAIResult> {
+    const languageText = language === 'zh' ? 'Chinese' : 'English';
+    const prompt = ARCHITECT_STYLE_PROMPT
+      .replace('{query}', query)
+      .replace(/\{language\}/g, languageText);
+
+    try {
+      const response = await this.generateTextWithFallback(prompt, CONFIG.ARCHITECT_QUERY_TIMEOUT_MS) || '__TIMEOUT__';
+
+      if (!response || response === '__TIMEOUT__') {
+        logger.warn('[IntentClassifier] Architect query response generation timed out');
+        return {
+          textContent: language === 'zh'
+            ? '抱歉，响应超时了。请稍后再试。'
+            : 'Sorry, the request timed out. Please try again.',
+          mentionedPlaces: [],
+          cities: [],
+        };
+      }
+
+      // Try to parse JSON response with fallback for truncated JSON
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          const textContent = this.normalizeMarkdownOutput(parsed.textContent || '');
+          
+          // Debug: log raw mentionedPlaces from AI
+          const rawPlaces = parsed.mentionedPlaces;
+          logger.info(`[IntentClassifier] Raw mentionedPlaces from AI: ${JSON.stringify(rawPlaces)?.substring(0, 500)}`);
+          
+          const mentionedPlaces: MentionedPlace[] = (rawPlaces || [])
+            .filter((p: any) => p && typeof p.name === 'string' && p.name.trim())
+            .map((p: any) => ({
+              name: p.name.trim(),
+              city: (p.city || '').trim(),
+              country: (p.country || '').trim(),
+              summary: (p.summary || '').trim(),
+            }));
+          const cities = Array.isArray(parsed.cities) ? parsed.cities : [];
+
+          logger.info(`[IntentClassifier] Generated architect query response: ${textContent.length} chars, ${mentionedPlaces.length} places`);
+          return { textContent, mentionedPlaces, cities };
+        } catch (parseError) {
+          // JSON parsing failed, try to extract textContent from truncated response
+          logger.warn(`[IntentClassifier] JSON parse failed, trying to extract textContent: ${parseError}`);
+          
+          // Try to extract textContent field even from malformed JSON
+          const textMatch = response.match(/"textContent"\s*:\s*"((?:[^"\\]|\\.)*)"/s);
+          if (textMatch) {
+            const extractedText = textMatch[1]
+              .replace(/\\n/g, '\n')
+              .replace(/\\"/g, '"')
+              .replace(/\\\\/g, '\\');
+            const textContent = this.normalizeMarkdownOutput(extractedText);
+            
+            // Try to extract mentionedPlaces from the raw response
+            const placesMatch = response.match(/"mentionedPlaces"\s*:\s*\[([\s\S]*?)(?:\]|$)/);
+            let mentionedPlaces: MentionedPlace[] = [];
+            if (placesMatch) {
+              // Extract individual place objects using regex
+              const placeRegex = /\{\s*"name"\s*:\s*"([^"]+)"(?:,\s*"city"\s*:\s*"([^"]*)")?(?:,\s*"country"\s*:\s*"([^"]*)")?/g;
+              let placeMatch;
+              while ((placeMatch = placeRegex.exec(placesMatch[1])) !== null) {
+                mentionedPlaces.push({
+                  name: placeMatch[1].trim(),
+                  city: (placeMatch[2] || '').trim(),
+                  country: (placeMatch[3] || '').trim(),
+                });
+              }
+            }
+            
+            logger.info(`[IntentClassifier] Extracted from truncated JSON: ${textContent.length} chars, ${mentionedPlaces.length} places`);
+            return { textContent, mentionedPlaces, cities: [] };
+          }
+        }
+      }
+
+      // If no JSON found, treat the whole response as text content
+      logger.warn('[IntentClassifier] No JSON in architect query response, using raw text');
+      return { textContent: this.normalizeMarkdownOutput(response), mentionedPlaces: [], cities: [] };
+
+    } catch (error) {
+      logger.warn(`[IntentClassifier] Failed to generate architect query response: ${error}`);
+      return {
+        textContent: language === 'zh'
+          ? '抱歉，处理请求时出错了。请稍后再试。'
+          : 'Sorry, something went wrong. Please try again.',
+        mentionedPlaces: [],
+        cities: [],
+      };
+    }
   }
 
   // ============ Non-Travel Handler Methods ============

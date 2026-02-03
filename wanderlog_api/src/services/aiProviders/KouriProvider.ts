@@ -273,7 +273,7 @@ ${systemPrompt || ''}`;
       model: this.config.chatModel,
       input: fullPrompt,
       tools: [{ type: 'web_search_preview' }],
-      tool_choice: 'auto', // 让 AI 自己决定是否使用 web search
+      tool_choice: 'required', // 强制使用 web search 获取最新数据
     };
 
     try {
@@ -312,7 +312,20 @@ ${systemPrompt || ''}`;
       
       return content;
     } catch (error) {
-      throw this.handleError(error, 'generateText');
+      const aiError = this.handleError(error, 'generateText');
+      
+      // If context limit exceeded (usually due to web search results), retry without web search
+      if (aiError.code === AIErrorCode.CONTEXT_LIMIT) {
+        console.warn(`[Kouri] Context limit exceeded with web search, retrying without web search...`);
+        try {
+          return await this.generateTextNoSearch(prompt, systemPrompt);
+        } catch (retryError) {
+          console.error(`[Kouri] Retry without web search also failed`);
+          throw retryError;
+        }
+      }
+      
+      throw aiError;
     }
   }
 
@@ -723,6 +736,22 @@ If no image found for a place, set imageUrl to null.`;
         || 'Unknown error';
       
       console.error(`[Kouri] ${operation} error (${status}):`, errorMessage);
+      
+      // Check for context window / token limit errors
+      const isContextLimitError = errorMessage.toLowerCase().includes('context window') ||
+        errorMessage.toLowerCase().includes('maximum context length') ||
+        errorMessage.toLowerCase().includes('exceeds') && errorMessage.toLowerCase().includes('token');
+      
+      if (isContextLimitError) {
+        console.error(`[Kouri] ${operation} context limit exceeded`);
+        return {
+          code: AIErrorCode.CONTEXT_LIMIT,
+          message: errorMessage,
+          provider: this.name,
+          retryable: true,  // Can retry without web search
+          details: axiosError.response?.data,
+        };
+      }
       
       const code = httpStatusToErrorCode(status);
       return {

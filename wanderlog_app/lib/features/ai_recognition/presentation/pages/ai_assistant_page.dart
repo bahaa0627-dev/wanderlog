@@ -858,6 +858,20 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     }
   }
 
+  /// 打开外部 URL
+  Future<void> _launchUrl(String url) async {
+    String fullUrl = url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      fullUrl = 'https://$url';
+    }
+    final uri = Uri.tryParse(fullUrl);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      debugPrint('🔗 Cannot launch URL: $fullUrl');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     print(
@@ -1236,14 +1250,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     }
 
     // 默认处理（general_search）
-    final textPlaces =
-        _mergePlacesForText(result.places, result.textOnlyPlaces);
-
-    // 判断是否有文字补充地点（需要切换到横滑卡片展示）
-    final hasSupplementText =
-        result.supplementText != null && result.supplementText!.isNotEmpty;
-    final hasTextOnlyPlaces = result.textOnlyPlaces.isNotEmpty;
-    final shouldUseHorizontalCards = hasSupplementText || hasTextOnlyPlaces;
 
     // 判断是否应该分类展示（超过5个地点且有分类信息）
     final shouldShowCategories =
@@ -1278,37 +1284,64 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
         // 地点展示逻辑：
         // 1. 有分类且超过5个地点 -> 分类展示
-        // 2. 有文字补充地点 -> 横滑卡片展示
-        // 3. 其他情况 -> 平铺展示
+        // 2. 有 textOnlyPlaces（AI 文字地点）时 -> 数据库地点用横滑卡片（带 AI description）
+        // 3. 其他情况 -> 平铺展示（带 AI description）
         if (shouldShowCategories)
           // 有分类时使用分类展示组件
           CategorizedPlacesList(
             categories: result.categories!,
             onPlaceTap: _showPlaceDetail,
           )
-        else if (shouldUseHorizontalCards)
-          // 有文字补充时使用横滑卡片展示
-          _buildHorizontalPlaceCards(result.places)
+        else if (result.textOnlyPlaces.isNotEmpty)
+          // 有 AI 文字地点时，数据库地点使用横滑卡片展示（带 AI description）
+          _buildHorizontalPlaceCardsWithSummary(result.places)
         else
-          // 无分类且无补充时使用平铺展示组件
+          // 使用平铺展示组件（带 AI description）
           FlatPlaceList(
             places: result.places,
             onPlaceTap: _showPlaceDetail,
           ),
 
-        // Text-only places intentionally hidden
+        // 展示所有 textOnlyPlaces 的详细信息（评分、地址、网站等）
+        // 替代 supplementText，直接展示完整的 AI 地点卡片
+        if (result.textOnlyPlaces.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          // 添加标题
+          Text(
+            _containsChinese(result.acknowledgment)
+                ? '📍 更多推荐'
+                : '📍 More Recommendations',
+            style: AppTheme.titleMedium(context).copyWith(
+              color: AppTheme.black,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _containsChinese(result.acknowledgment)
+                ? '以下是更多符合你搜索条件的地点：'
+                : 'Here are more places matching your search:',
+            style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.mediumGray,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildTextOnlyPlacesList(result.textOnlyPlaces),
+        ],
 
-        // 地图展示 - 放在卡片后面，间距 12px
+        // 地图展示 - 放在 More Recommendations 之后
         // 显示所有有坐标的地点（包括没有图片的文本补充地点）
         if (_getAllPlacesWithCoordinates(result).isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
           _buildMapWithBottomCards(
             _getAllPlacesWithCoordinates(result),
             isEnglish: !_containsChinese(result.acknowledgment),
           ),
         ],
 
-        // 结束语 - 放在地图后面
+        // 结束语 - 放在最后
         if (result.overallSummary.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(
@@ -1318,13 +1351,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               height: 1.5,
             ),
           ),
-        ],
-
-        // 补充推荐文本（当卡片结果不足用户要求的数量时显示）
-        if (result.supplementText != null &&
-            result.supplementText!.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          _buildMarkdownText(result.supplementText!, places: textPlaces),
         ],
       ],
     );
@@ -2182,16 +2208,25 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         final linkUrl = match.url!;
         debugPrint('🔗 Creating clickable link: "${match.text}" -> "$linkUrl"');
 
-        // 检查是否为内部地点链接 (/place/uuid)
-        final placeIdMatch =
-            RegExp(r'^/place/([a-zA-Z0-9\-]+)$').firstMatch(linkUrl);
-        if (placeIdMatch != null) {
-          // 内部地点链接 - 查找匹配的地点并打开详情页
-          final placeId = placeIdMatch.group(1);
+        // 检查是否为 (place) 标记 - AI 生成的建筑地点链接
+        // 格式: [**Building Name**](place) 或 [Building Name](place)
+        if (linkUrl == 'place') {
+          // 这是一个地点链接标记，尝试通过名称匹配地点
+          // 移除 ** 标记获取纯名称
+          String placeName = match.text;
+          if (placeName.startsWith('**') && placeName.endsWith('**')) {
+            placeName = placeName.substring(2, placeName.length - 2);
+          }
+          final placeNameLower = placeName.toLowerCase().trim();
+
           PlaceResult? matchedPlace;
           if (places != null && places.isNotEmpty) {
             for (final place in places) {
-              if (place.id == placeId) {
+              final pNameLower = place.name.toLowerCase().trim();
+              // 宽松匹配
+              if (placeNameLower == pNameLower ||
+                  placeNameLower.contains(pNameLower) ||
+                  pNameLower.contains(placeNameLower)) {
                 matchedPlace = place;
                 break;
               }
@@ -2199,11 +2234,16 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           }
 
           if (matchedPlace != null) {
-            // 找到匹配的地点，显示可点击链接
+            // 找到匹配的地点，显示可点击链接（带评分）
             final placeToShow = matchedPlace;
+            String displayText = placeName;
+            if (placeToShow.rating != null && placeToShow.rating! > 0) {
+              displayText =
+                  '$placeName (${placeToShow.rating!.toStringAsFixed(1)})';
+            }
             spans.add(
               TextSpan(
-                text: match.text,
+                text: displayText,
                 style: AppTheme.bodyLarge(context).copyWith(
                   color: AppTheme.accentBlue,
                   fontWeight: FontWeight.w700,
@@ -2214,19 +2254,20 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                 ),
                 recognizer: TapGestureRecognizer()
                   ..onTap = () {
-                    debugPrint('📍 Tapped on place link: ${placeToShow.name}');
+                    debugPrint(
+                        '📍 Tapped on place marker link: ${placeToShow.name}');
                     _showPlaceDetail(placeToShow);
                   },
               ),
             );
           } else {
-            // 找不到匹配的地点，显示为普通文本（但保留样式）
-            debugPrint('⚠️ Place not found for id: $placeId');
+            // 找不到匹配的地点，显示为普通加粗文本
+            debugPrint('⚠️ Place not found for name: $placeName');
             spans.add(
               TextSpan(
-                text: match.text,
+                text: placeName,
                 style: AppTheme.bodyLarge(context).copyWith(
-                  color: AppTheme.accentBlue,
+                  color: AppTheme.black,
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
                   height: 1.5,
@@ -2235,35 +2276,91 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             );
           }
         } else {
-          // 外部链接 - 用浏览器打开
-          // 如果 URL 没有协议前缀，添加 https://
-          String fullUrl = linkUrl;
-          if (!linkUrl.startsWith('http://') &&
-              !linkUrl.startsWith('https://')) {
-            fullUrl = 'https://$linkUrl';
-          }
-          spans.add(
-            TextSpan(
-              text: match.text,
-              style: AppTheme.bodyMedium(context).copyWith(
-                color: AppTheme.accentBlue,
-                decoration: TextDecoration.underline,
-                decorationColor: AppTheme.accentBlue,
-                height: 1.5,
+          // 检查是否为内部地点链接 (/place/uuid)
+          final placeIdMatch =
+              RegExp(r'^/place/([a-zA-Z0-9\-]+)$').firstMatch(linkUrl);
+          if (placeIdMatch != null) {
+            // 内部地点链接 - 查找匹配的地点并打开详情页
+            final placeId = placeIdMatch.group(1);
+            PlaceResult? matchedPlace;
+            if (places != null && places.isNotEmpty) {
+              for (final place in places) {
+                if (place.id == placeId) {
+                  matchedPlace = place;
+                  break;
+                }
+              }
+            }
+
+            if (matchedPlace != null) {
+              // 找到匹配的地点，显示可点击链接
+              final placeToShow = matchedPlace;
+              spans.add(
+                TextSpan(
+                  text: match.text,
+                  style: AppTheme.bodyLarge(context).copyWith(
+                    color: AppTheme.accentBlue,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    height: 1.5,
+                    decoration: TextDecoration.underline,
+                    decorationColor: AppTheme.accentBlue,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      debugPrint(
+                          '📍 Tapped on place link: ${placeToShow.name}');
+                      _showPlaceDetail(placeToShow);
+                    },
+                ),
+              );
+            } else {
+              // 找不到匹配的地点，显示为普通文本（但保留样式）
+              debugPrint('⚠️ Place not found for id: $placeId');
+              spans.add(
+                TextSpan(
+                  text: match.text,
+                  style: AppTheme.bodyLarge(context).copyWith(
+                    color: AppTheme.accentBlue,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    height: 1.5,
+                  ),
+                ),
+              );
+            }
+          } else {
+            // 外部链接 - 用浏览器打开
+            // 如果 URL 没有协议前缀，添加 https://
+            String fullUrl = linkUrl;
+            if (!linkUrl.startsWith('http://') &&
+                !linkUrl.startsWith('https://')) {
+              fullUrl = 'https://$linkUrl';
+            }
+            spans.add(
+              TextSpan(
+                text: match.text,
+                style: AppTheme.bodyMedium(context).copyWith(
+                  color: AppTheme.accentBlue,
+                  decoration: TextDecoration.underline,
+                  decorationColor: AppTheme.accentBlue,
+                  height: 1.5,
+                ),
+                recognizer: TapGestureRecognizer()
+                  ..onTap = () async {
+                    debugPrint('🔗 Link tapped: $fullUrl');
+                    final uri = Uri.tryParse(fullUrl);
+                    if (uri != null && await canLaunchUrl(uri)) {
+                      await launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
+                    } else {
+                      debugPrint('🔗 Cannot launch URL: $fullUrl');
+                    }
+                  },
               ),
-              recognizer: TapGestureRecognizer()
-                ..onTap = () async {
-                  debugPrint('🔗 Link tapped: $fullUrl');
-                  final uri = Uri.tryParse(fullUrl);
-                  if (uri != null && await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  } else {
-                    debugPrint('🔗 Cannot launch URL: $fullUrl');
-                  }
-                },
-            ),
-          );
-        }
+            );
+          }
+        } // 关闭 linkUrl == 'place' 的 else 块
       }
       // 注意：place_link 类型已移除，正文内容不再有地点链接
 
@@ -2307,6 +2404,56 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         ],
       );
 
+  /// 构建带 summary 的横滑地点卡片列表
+  /// 横向滚动，每个卡片下方显示 AI 生成的简介（黑色小字）
+  Widget _buildHorizontalPlaceCardsWithSummary(List<PlaceResult> places) {
+    // 过滤掉没有图片的地点
+    final placesWithImage = places.where((p) => p.hasValidCoverImage).toList();
+    if (placesWithImage.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 310, // 卡片高度 230 + summary 高度约 80
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none, // 允许阴影溢出
+        itemCount: placesWithImage.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final place = placesWithImage[index];
+          final spot = _placeResultToSpot(place);
+          return SizedBox(
+            width: 280,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 卡片
+                SizedBox(
+                  height: 230,
+                  child: _SpotCardOverlay(spot: spot),
+                ),
+                // AI Summary（如果有）
+                if (place.summary.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: Text(
+                      place.summary,
+                      style: AppTheme.bodySmall(context).copyWith(
+                        color: AppTheme.black,
+                        height: 1.4,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   /// 构建横滑地点卡片列表
   Widget _buildHorizontalPlaceCards(List<PlaceResult> places) {
     // 过滤掉没有图片的地点
@@ -2330,6 +2477,104 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         },
       ),
     );
+  }
+
+  /// 构建 AI 地点列表（没有图片的地点，文字格式展示）
+  /// 展示：标题（可点击）、简介、网站
+  Widget _buildTextOnlyPlacesList(List<PlaceResult> places) {
+    if (places.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: places.map((place) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildTextOnlyPlaceItem(place),
+        );
+      }).toList(),
+    );
+  }
+
+  /// 构建单个 AI 地点条目（文字格式）
+  /// 结构：标题（带评分，可点击）、简介、网站
+  Widget _buildTextOnlyPlaceItem(PlaceResult place) {
+    final hasWebsite = place.website != null && place.website!.isNotEmpty;
+    final hasDescription = place.summary.isNotEmpty;
+    final hasRating = place.rating != null && place.rating! > 0;
+
+    // 构建标题文本：名称 + 评分（如果有）
+    String titleText = place.name;
+    if (hasRating) {
+      titleText = '${place.name} (${place.rating!.toStringAsFixed(1)})';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 标题（带评分，可点击跳转详情页）
+        GestureDetector(
+          onTap: () => _showPlaceDetail(place),
+          child: Text(
+            titleText,
+            style: AppTheme.titleMedium(context).copyWith(
+              color: AppTheme.accentBlue,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.underline,
+              decorationColor: AppTheme.accentBlue,
+            ),
+          ),
+        ),
+        // 简介 - 更加丰富的展示
+        if (hasDescription) ...[
+          const SizedBox(height: 6),
+          Text(
+            place.summary,
+            style: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.black,
+              height: 1.5,
+            ),
+          ),
+        ],
+        // 网站
+        if (hasWebsite) ...[
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => _launchUrl(place.website!),
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Website: ',
+                    style: AppTheme.bodySmall(context).copyWith(
+                      color: AppTheme.darkGray,
+                    ),
+                  ),
+                  TextSpan(
+                    text: _formatWebsiteUrl(place.website!),
+                    style: AppTheme.bodySmall(context).copyWith(
+                      color: AppTheme.accentBlue,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppTheme.accentBlue,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 格式化网站 URL 用于显示
+  String _formatWebsiteUrl(String url) {
+    // 移除 http:// 或 https://
+    String formatted = url.replaceFirst(RegExp(r'^https?://'), '');
+    // 移除尾部斜杠
+    if (formatted.endsWith('/')) {
+      formatted = formatted.substring(0, formatted.length - 1);
+    }
+    return formatted;
   }
 
   Widget _buildImageGrid(List<String> imageUrls) {

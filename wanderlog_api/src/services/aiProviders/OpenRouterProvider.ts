@@ -224,7 +224,7 @@ ${systemPrompt || ''}`;
           type: 'web_search_preview',
           search_context_size: 'medium', // Balance between speed and context
         }],
-        tool_choice: 'auto', // Let AI decide whether to use web search
+        tool_choice: 'required', // 强制使用 web search 获取最新数据
       };
 
       try {
@@ -262,6 +262,21 @@ ${systemPrompt || ''}`;
         const errMsg = error instanceof Error ? error.message : String(error);
         console.warn(`[OpenRouter] Model ${model} failed: ${errMsg}`);
         errors.push(error instanceof Error ? error : new Error(errMsg));
+        
+        // Check if this is a context limit error - if so, try without web search immediately
+        const isContextLimitError = errMsg.toLowerCase().includes('context window') ||
+          errMsg.toLowerCase().includes('maximum context length') ||
+          (errMsg.toLowerCase().includes('exceeds') && errMsg.toLowerCase().includes('token'));
+        
+        if (isContextLimitError) {
+          console.warn(`[OpenRouter] Context limit exceeded, retrying without web search...`);
+          try {
+            return await this.generateTextNoSearch(prompt, systemPrompt);
+          } catch (retryError) {
+            console.error(`[OpenRouter] Retry without web search also failed`);
+            // Continue to next model in the chain
+          }
+        }
         // Continue to next model in the chain
       }
     }
@@ -692,6 +707,22 @@ If no image found for a place, set imageUrl to null.`;
         || 'Unknown error';
       
       console.error(`[OpenRouter] ${operation} error (${status}):`, errorMessage);
+      
+      // Check for context window / token limit errors
+      const isContextLimitError = errorMessage.toLowerCase().includes('context window') ||
+        errorMessage.toLowerCase().includes('maximum context length') ||
+        errorMessage.toLowerCase().includes('exceeds') && errorMessage.toLowerCase().includes('token');
+      
+      if (isContextLimitError) {
+        console.error(`[OpenRouter] ${operation} context limit exceeded`);
+        return {
+          code: AIErrorCode.CONTEXT_LIMIT,
+          message: errorMessage,
+          provider: this.name,
+          retryable: true,  // Can retry without web search
+          details: axiosError.response?.data,
+        };
+      }
       
       const code = httpStatusToErrorCode(status);
       return {

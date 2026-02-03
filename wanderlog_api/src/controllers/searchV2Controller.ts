@@ -3830,14 +3830,16 @@ async function generateTextOnlyResponse(
   const prompt = isZh
     ? `搜索:${query}
 地点:${names}
-用中文写简介，每个地点50字，包含特色和网站。格式:
+用中文写简介，每个地点50-80字符，描述特色亮点。如果知道官网地址也请提供。格式:
 ### 地点名
-简介。网站:xxx.com`
+简介描述。
+网站:xxx.com`
     : `Query:${query}
 Places:${names}
-Write brief intro for each (50 words), include features and website. Format:
+Write 50-80 char description for each place highlighting unique features. Include website if known. Format:
 ### Place Name
-Description. Website:xxx.com`;
+Description of features and atmosphere.
+Website: xxx.com`;
 
   try {
     const response = await generateTextWithWebSearch(prompt, 25000);
@@ -4075,6 +4077,41 @@ export const searchV2 = async (req: Request, res: Response) => {
     
     // ========== 处理 travel_consultation 意图 ==========
     if (intentResult.intent === 'travel_consultation') {
+      // 检查是否是建筑师/风格查询 - 使用专门的处理方法，不进行联网搜索
+      if (intentResult.isArchitectQuery) {
+        logger.info('[SearchV2] Handling architect/style query as travel_consultation');
+        const result = await intentClassifierService.handleArchitectQuery(query, narrativeLanguage);
+        
+        // 消耗配额
+        let quotaRemaining = 10;
+        if (userId) {
+          try {
+            await quotaService.consumeQuota(userId);
+            quotaRemaining = await quotaService.getRemainingQuota(userId);
+          } catch (error) {
+            logger.warn(`[SearchV2] Quota error: ${error}`);
+          }
+        }
+        
+        const duration = Date.now() - startTime;
+        logger.info(`[SearchV2] architect_query completed in ${duration}ms`);
+        
+        // 返回 travel_consultation 意图，前端会使用文本+横滑卡片的布局
+        // 不进行联网搜索，只使用数据库匹配的地点
+        return res.json({
+          success: true,
+          intent: 'travel_consultation',
+          textContent: result.textContent,
+          places: result.places || [],
+          mapPlaces: result.places || [],
+          quotaRemaining,
+          stage: 'complete',
+          translationStatus,
+          translatedQuery,
+        });
+      }
+      
+      // 普通的 travel_consultation 处理
       logger.info('[SearchV2] Handling travel_consultation intent');
       const consultationQuery = parseQuery(query, { allowChinese: true });
       const requiredCity = (consultationQuery.city || '').trim();
@@ -5093,14 +5130,14 @@ export const searchV2 = async (req: Request, res: Response) => {
             longitude: aiPlace.longitude,
             city: aiPlace.city || parsedQuery.city,
             country: aiPlace.country || '',
-            rating: null,
-            ratingCount: null,
+            rating: aiPlace.rating ?? null,
+            ratingCount: aiPlace.ratingCount ?? null,
             tags: buildDisplayTags(null, aiPlace.tags, 'en'), // 标签始终用英文
             isVerified: false,
             source: 'ai',
-            address: undefined,
+            address: aiPlace.address || undefined,
             phoneNumber: undefined,
-            website: undefined,
+            website: aiPlace.website || undefined,
             openingHours: undefined,
           };
 
@@ -5149,14 +5186,14 @@ export const searchV2 = async (req: Request, res: Response) => {
               longitude: aiPlace.longitude,
               city: aiPlace.city || parsedQuery.city,
               country: aiPlace.country || '',
-              rating: null,
-              ratingCount: null,
+              rating: aiPlace.rating ?? null,
+              ratingCount: aiPlace.ratingCount ?? null,
               tags: buildDisplayTags(null, aiPlace.tags, 'en'), // 标签始终用英文
               isVerified: false,
               source: 'ai',
-              address: undefined,
+              address: aiPlace.address || undefined,
               phoneNumber: undefined,
-              website: undefined,
+              website: aiPlace.website || undefined,
               openingHours: undefined,
             };
 

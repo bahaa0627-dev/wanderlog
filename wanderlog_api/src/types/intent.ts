@@ -32,6 +32,7 @@ export interface IntentResult {
   tags?: string[];              // Detected tag keywords for search
   count?: number;               // Detected quantity request
   confidence?: number;          // Confidence score 0-1
+  isArchitectQuery?: boolean;   // general_search: true if query is about architects/architectural styles
 }
 
 // ============ Place Result Types ============
@@ -125,6 +126,7 @@ export interface CityPlacesGroup {
 export interface MentionedPlace {
   name: string;                 // Place name
   city: string;                 // City the place belongs to
+  summary?: string;             // Short description (~50 characters)
   address?: string;             // Full address if known
   website?: string;             // Official website URL
   country?: string;             // Country name
@@ -155,6 +157,15 @@ export interface TravelConsultationHandlerResult {
  */
 export interface NonTravelHandlerResult {
   textContent: string;          // Markdown formatted response (no database queries)
+}
+
+/**
+ * Handler result for architect/style query processing
+ * 建筑师/建筑风格查询的处理结果
+ */
+export interface ArchitectQueryHandlerResult {
+  textContent: string;          // Markdown formatted intro about the architect/style
+  places: PlaceResult[];        // Matched places from database
 }
 
 /**

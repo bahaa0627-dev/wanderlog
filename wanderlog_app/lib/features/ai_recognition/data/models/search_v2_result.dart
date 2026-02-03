@@ -278,7 +278,6 @@ class SearchV2Result {
 
       case IntentType.generalSearch:
       case IntentType.generalSearchText:
-      default:
         // general_search 意图使用原有逻辑
         return SearchV2Result(
           success: json['success'] as bool? ?? false,

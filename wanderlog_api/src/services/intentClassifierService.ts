@@ -118,10 +118,13 @@ RULES:
    - Include practical tips (transport between places, recommended duration)
    - Total 3-5 places per day, 10-15 places for 3-day trip
 4. For city recommendation queries (推荐城市/which cities/best cities):
-   - SHORT paragraphs with bullet points for each city
-   - NO websites for cities (cities are destinations, not places)
-   - Format: ## 🏙️ CityName (Country)\n- brief description (1-2 sentences, 30-50 chars)\n
-   - Include 2-3 famous attractions per city in mentionedPlaces
+  - SHORT paragraphs with bullet points for each city
+  - NO websites for cities (cities are destinations, not places)
+  - Format: ## 🏙️ CityName (Country)\n- brief description (1-2 sentences, highlight the city's vibe/features)\n
+  - DO NOT output a hard list of attractions under each city
+  - Mention 2-3 signature attractions INLINE within the description sentence
+    (e.g., "以埃菲尔铁塔、卢浮宫等为代表")
+  - Include 2-3 famous attractions per city in mentionedPlaces
 5. For other queries: Include 5-10 places with practical tips
 6. Each place summary MUST be around 50 characters (45-55 chars)
 
@@ -182,6 +185,13 @@ IMPORTANT RULES:
 2. DO NOT include any website URLs or links
 3. DO NOT include "网站:" or "Website:" in your response
 4. Format with clear sections using ## headings and bullet points (-)
+
+SPECIAL RULES FOR CITY RECOMMENDATIONS:
+- For queries like "推荐几个欧洲城市": use one city per section
+- Each city section MUST start with: ## 🏙️ CityName (Country)
+- Then 1-2 bullet points that describe the city's特色/气质/适合人群/最佳季节
+- Do NOT output a hard list of attractions
+- If mentioning attractions, keep them INLINE in a sentence (e.g., "以**埃菲尔铁塔**和**卢浮宫**为代表")
 
 FORMAT (must follow):
 ## 🏷️ Section Title
@@ -1171,8 +1181,8 @@ Return JSON:
    * - travel_consultation: advice, tips, how-to questions
    * - general_search: finding multiple places by category/criteria
    * - specific_place: info about one specific named place
-  * - regular_travel: general travel info (cities, transport, tickets, etc.)
-  * - non_travel: non-travel related queries
+    * - regular_travel: general travel info (cities, transport, tickets, etc.)
+    * - non_travel: non-travel related queries
    */
   async classify(query: string, language: string): Promise<IntentResult> {
     logger.info(`[IntentClassifier] Classifying query: "${query}"`);
@@ -4186,7 +4196,7 @@ Rules:
     // Match mentioned places with database (only spots, not cities)
     let matchedPlaces: PlaceResult[] = [];
     if (mentionedPlaceNames.length > 0) {
-      matchedPlaces = await this.matchPlacesFromDatabase(mentionedPlaceNames);
+      matchedPlaces = await this.matchPlacesFromDatabase(mentionedPlaceNames, language as 'en' | 'zh');
       logger.info(`[IntentClassifier] Matched ${matchedPlaces.length} places from database`);
     }
 
@@ -4264,10 +4274,14 @@ Rules:
    * Match place names with database
    * Only returns places that have valid cover images (spots level, not cities)
    */
-  private async matchPlacesFromDatabase(placeNames: string[]): Promise<PlaceResult[]> {
+  private async matchPlacesFromDatabase(
+    placeNames: string[],
+    language: 'en' | 'zh' = 'en',
+  ): Promise<PlaceResult[]> {
     if (placeNames.length === 0) return [];
     
     const matchedPlaces: PlaceResult[] = [];
+    const seenIds = new Set<string>();
     
     for (const name of placeNames) {
       try {
@@ -4290,28 +4304,14 @@ Rules:
         
         if (places.length > 0) {
           const place = places[0];
-          // Validate cover image
-          if (place.coverImage && place.coverImage.length > 0) {
-            matchedPlaces.push({
-              id: place.id,
-              name: place.name,
-              summary: place.description || '',
-              coverImage: place.coverImage,
-              images: place.images || undefined,
-              latitude: place.latitude || 0,
-              longitude: place.longitude || 0,
-              city: place.city || '',
-              country: place.country || '',
-              rating: place.rating,
-              ratingCount: place.ratingCount,
-              tags: place.tags || [],
-              isVerified: true,
-              source: 'cache',
-              address: place.address || undefined,
-              phoneNumber: place.phoneNumber || undefined,
-              website: place.website || undefined,
-            });
-            logger.info(`[IntentClassifier] Matched place: "${name}" -> "${place.name}"`);
+          const placeResult = this.toPlaceResult(place, language);
+          // Validate cover image (must be present and valid URL)
+          if (placeResult.coverImage && placeResult.coverImage.startsWith('http')) {
+            if (!seenIds.has(placeResult.id)) {
+              matchedPlaces.push(placeResult);
+              seenIds.add(placeResult.id);
+              logger.info(`[IntentClassifier] Matched place: "${name}" -> "${place.name}"`);
+            }
           }
         }
       } catch (error) {

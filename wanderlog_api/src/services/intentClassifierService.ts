@@ -37,10 +37,10 @@ import {
 
 const CONFIG = {
   AI_TIMEOUT_MS: 30000,  // 30 second timeout for intent classification (prioritize accuracy)
-  DESCRIPTION_TIMEOUT_MS: 15000, // 15 second timeout for description generation
+  DESCRIPTION_TIMEOUT_MS: 25000, // 25 second timeout for description generation (increased to allow fallback)
   CONSULTATION_TIMEOUT_MS: 90000, // 90 second timeout for travel consultation (increased for web search)
   NON_TRAVEL_TIMEOUT_MS: 60000, // 60 second timeout for non-travel responses (increased)
-  ARCHITECT_QUERY_TIMEOUT_MS: 60000, // 60 second timeout for architect/style queries
+  ARCHITECT_QUERY_TIMEOUT_MS: 90000, // 90 second timeout for architect/style queries (increased)
   NAME_SIMILARITY_THRESHOLD: 0.6, // Minimum similarity score for place matching
   SPECIFIC_PLACE_SIMILARITY_THRESHOLD: 0.75, // Higher threshold for specific_place to avoid wrong matches
   MAX_DESCRIPTION_WORDS: 140, // Maximum words in description
@@ -89,51 +89,42 @@ const NON_TRAVEL_PROMPT = `Answer in {language} using Markdown: {query}. Be conc
 /**
  * AI prompt for architect/architectural style queries
  * 建筑师/建筑风格查询的 prompt - 先介绍人物/风格，再列出著名建筑
- * 
- * 格式要求:
- * 1. 建筑师介绍 - 标题+简介段落
- * 2. 建筑特色（分段介绍）- Key Characteristics 带 emoji 的要点
- * 3. 特别的建筑地点列表和简短介绍 - Notable Buildings 编号列表，带链接格式
- * 4. mentionedPlaces 用于匹配数据库地点
  */
 const ARCHITECT_STYLE_PROMPT = `You are an architecture expert. Answer: {query}
 
-RESPONSE FORMAT - Return ONLY valid JSON:
+Return ONLY valid JSON:
 {
-  "textContent": "[Full formatted Markdown text - see structure below]",
-  "mentionedPlaces": [{"name": "exact building name", "city": "city", "country": "country", "summary": "15-25 word unique architectural feature description"}],
+  "textContent": "[Markdown text in {language}]",
+  "mentionedPlaces": [{"name": "localized building name in {language}", "nameEn": "English building name", "city": "city in English", "country": "country in English", "summary": "15-20 word feature in {language}"}],
   "cities": ["City1", "City2"]
 }
 
-textContent MUST follow this EXACT structure:
+textContent structure:
 
-## [Architect Name]'s Architecture
-
-[3-4 sentence introduction: nationality, career highlights, design philosophy, awards/significance]
+## [Name]'s Architecture
+[2-3 sentences: nationality, philosophy, significance]
 
 ## Key Characteristics
-
-• **[Characteristic 1]** [emoji]: [One descriptive sentence explaining this design feature]
-
-• **[Characteristic 2]** [emoji]: [One descriptive sentence explaining this design feature]
-
-• **[Characteristic 3]** [emoji]: [One descriptive sentence explaining this design feature]
+• **[Feature 1]** [emoji]: [One sentence]
+• **[Feature 2]** [emoji]: [One sentence]
+• **[Feature 3]** [emoji]: [One sentence]
 
 ## Notable Buildings
-
-1. [**Building Name**](place) - City, Country
-2. [**Building Name**](place) - City, Country
-3. [**Building Name**](place) - City, Country
-...list 6-10 buildings
+1. [**Building Name in {language}**](place) - City, Country. [15-20 word feature in {language}]
+2. [**Building Name in {language}**](place) - City, Country. [15-20 word feature in {language}]
+(list 5-8 buildings, each with feature description)
 
 CRITICAL RULES:
-- Language: {language}
-- Building names in Notable Buildings MUST be wrapped as [**Name**](place) for clickability
-- Each mentionedPlaces entry: exact building name (no bold/link), city, country, and 15-25 word summary describing what makes it architecturally unique
-- mentionedPlaces MUST include ALL buildings mentioned in the Notable Buildings list
-- Use appropriate emoji for each Key Characteristic (🌊 for fluid forms, 🔄 for dynamic spaces, 🚀 for futuristic, 🏛️ for classical, etc.)
-- Keep total response under 800 words
-- Summaries should describe specific architectural features, materials, or design innovations`;
+- ALL text content MUST be in {language}
+- Building names in textContent: use {language} (e.g., "卢浮宫玻璃金字塔" for Chinese)
+- Use [**Name**](place) format in Notable Buildings
+- Each building MUST have a 15-20 word feature description in {language}
+- mentionedPlaces: 
+  - "name" = localized display name in {language} (must match exactly what appears in textContent)
+  - "nameEn" = English name for database matching (e.g., "Louvre Pyramid", "Bank of China Tower")
+  - city/country = always in English
+  - summary = in {language}
+- Keep under 500 words`;
 
 // ============ Prompt Templates ============
 
@@ -534,6 +525,29 @@ class IntentClassifierService implements IIntentClassifier {
       ]);
     } catch (error) {
       logger.warn(`[IntentClassifier] AI text generation failed: ${error}`);
+      return '';
+    }
+  }
+
+  /**
+   * Generate simple text WITHOUT web search (faster and more reliable)
+   * Used for simple tasks like place description generation
+   */
+  private async generateSimpleTextWithFallback(prompt: string, timeoutMs: number): Promise<string> {
+    // Check global AI call limit FIRST (global counter is enforced in aiService too)
+    if (!canMakeAICall()) {
+      logger.warn(`[IntentClassifier] AI call blocked due to limit (${getAICallCount()}/${getMaxAICallsPerRequest()})`);
+      return '';
+    }
+    
+    try {
+      const timeout = Math.min(timeoutMs, 60000);
+      return await Promise.race([
+        aiService.executeSimpleTextGeneration(prompt, undefined, 'intentClassifier.simpleTextGeneration'),
+        new Promise<string>((_, reject) => setTimeout(() => reject(new Error('AI timeout')), timeout)),
+      ]);
+    } catch (error) {
+      logger.warn(`[IntentClassifier] Simple AI text generation failed: ${error}`);
       return '';
     }
   }
@@ -1942,6 +1956,7 @@ Rules:
 
   /**
    * Generate AI description for a specific place
+   * Uses simple text generation (no web search) for faster and more reliable results
    * @param placeName Name of the place
    * @param language User's preferred language
    * @returns Description text (under 100 words)
@@ -1953,7 +1968,8 @@ Rules:
       .replace('{language}', languageText);
 
     try {
-      const response = await this.generateTextWithFallback(prompt, CONFIG.DESCRIPTION_TIMEOUT_MS);
+      // Use simple text generation (no web search) for faster, more reliable results
+      const response = await this.generateSimpleTextWithFallback(prompt, CONFIG.DESCRIPTION_TIMEOUT_MS);
 
       if (!response) {
         logger.warn(`[IntentClassifier] Description generation timed out for "${placeName}"`);
@@ -2673,13 +2689,28 @@ Rules:
     skipImageSearch: boolean = false
   ): Promise<{ relatedPlaces?: PlaceResult[]; cityPlaces?: CityPlacesGroup[] }> {
     
-    // Group mentioned places by city
+    // Build a mapping from localized display name to English name for database matching
+    // This allows us to display Chinese names while matching with English database entries
+    const displayNameToEnglishName = new Map<string, string>();
+    for (const place of mentionedPlaces) {
+      if (place.nameEn && place.nameEn.trim()) {
+        displayNameToEnglishName.set(
+          this.normalizePlaceNameForMatching(place.name).toLowerCase(),
+          place.nameEn.trim()
+        );
+        logger.info(`[IntentClassifier] Name mapping: "${place.name}" -> "${place.nameEn}"`);
+      }
+    }
+    
+    // Group mentioned places by city - use nameEn for matching if available
     const placesByCity = new Map<string, string[]>();
     for (const place of mentionedPlaces) {
       const normalizedCity = this.normalizeCityForMatching(place.city || '');
       const cityKey = (normalizedCity || place.city || '').toLowerCase().trim();
       const cityPlaces = placesByCity.get(cityKey) || [];
-      cityPlaces.push(this.normalizePlaceNameForMatching(place.name));
+      // Use nameEn for database matching if available, otherwise fall back to name
+      const nameForMatching = place.nameEn?.trim() || place.name;
+      cityPlaces.push(this.normalizePlaceNameForMatching(nameForMatching));
       placesByCity.set(cityKey, cityPlaces);
     }
 
@@ -3656,11 +3687,32 @@ Rules:
       }
     }
 
-    logger.info(`[IntentClassifier] Architect query result: textContent=${aiResult.textContent.length} chars, dbMatchedPlaces=${dbMatchedPlaces.length}`);
+    // Step 6: Build name mapping for frontend matching
+    // This maps localized display names (used in textContent) to English database names
+    const nameMapping: Array<{ displayName: string; englishName: string }> = [];
+    for (const mentionedPlace of mentionedPlaces) {
+      // Find the matched database place by using nameEn
+      const nameEnLower = (mentionedPlace.nameEn || '').toLowerCase();
+      const matchedDbPlace = dbMatchedPlaces.find(dbPlace => {
+        const dbNameLower = dbPlace.name.toLowerCase();
+        return dbNameLower.includes(nameEnLower) || nameEnLower.includes(dbNameLower);
+      });
+      
+      if (matchedDbPlace && mentionedPlace.name !== matchedDbPlace.name) {
+        nameMapping.push({
+          displayName: mentionedPlace.name,  // Localized name from AI (e.g., "卢浮宫玻璃金字塔")
+          englishName: matchedDbPlace.name,   // Database name (e.g., "Louvre Pyramid")
+        });
+        logger.info(`[IntentClassifier] Name mapping added: "${mentionedPlace.name}" -> "${matchedDbPlace.name}"`);
+      }
+    }
+
+    logger.info(`[IntentClassifier] Architect query result: textContent=${aiResult.textContent.length} chars, dbMatchedPlaces=${dbMatchedPlaces.length}, nameMapping=${nameMapping.length}`);
 
     return {
       textContent: aiResult.textContent,
       places: dbMatchedPlaces,
+      nameMapping: nameMapping.length > 0 ? nameMapping : undefined,
     };
   }
 
@@ -3708,6 +3760,7 @@ Rules:
             .filter((p: any) => p && typeof p.name === 'string' && p.name.trim())
             .map((p: any) => ({
               name: p.name.trim(),
+              nameEn: (p.nameEn || '').trim(),  // English name for database matching
               city: (p.city || '').trim(),
               country: (p.country || '').trim(),
               summary: (p.summary || '').trim(),

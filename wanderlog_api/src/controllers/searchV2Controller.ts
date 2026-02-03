@@ -4098,12 +4098,14 @@ export const searchV2 = async (req: Request, res: Response) => {
         
         // 返回 travel_consultation 意图，前端会使用文本+横滑卡片的布局
         // 不进行联网搜索，只使用数据库匹配的地点
+        // 包含 nameMapping 用于前端匹配中文地点名到英文数据库名
         return res.json({
           success: true,
           intent: 'travel_consultation',
           textContent: result.textContent,
           places: result.places || [],
           mapPlaces: result.places || [],
+          nameMapping: result.nameMapping,  // 地点名映射：中文显示名 -> 英文数据库名
           quotaRemaining,
           stage: 'complete',
           translationStatus,

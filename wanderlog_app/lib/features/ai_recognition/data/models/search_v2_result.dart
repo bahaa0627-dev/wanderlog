@@ -243,6 +243,10 @@ class SearchV2Result {
           error: json['error'] as String?,
           intent: intent,
           textContent: textContent,
+          // Parse name mapping for matching localized names to English database names
+          nameMapping: (json['nameMapping'] as List?)
+              ?.map((e) => PlaceNameMapping.fromJson(e as Map<String, dynamic>))
+              .toList(),
         );
 
       case IntentType.generalSearch:
@@ -330,6 +334,7 @@ class SearchV2Result {
     this.textContent,
     this.identifiedPlaceName,
     this.supplementText,
+    this.nameMapping,
   });
 
   /// 意图类型
@@ -343,6 +348,10 @@ class SearchV2Result {
 
   /// AI 识别的地点名称（用于 specific_place 意图，当用户查询模糊时）
   final String? identifiedPlaceName;
+
+  /// 地点名称映射（中文显示名 -> 英文数据库名）
+  /// 用于在文本中匹配中文地点名到数据库中的英文地点
+  final List<PlaceNameMapping>? nameMapping;
 
   /// 解析意图类型
   static IntentType _parseIntent(String? intent) {
@@ -478,6 +487,7 @@ class SearchV2Result {
       'textContent': textContent,
       'identifiedPlaceName': identifiedPlaceName,
       'supplementText': supplementText,
+      'nameMapping': nameMapping?.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -554,6 +564,33 @@ class CityPlacesGroup {
   Map<String, dynamic> toJson() => {
         'city': city,
         'places': places.map((e) => e.toJson()).toList(),
+      };
+}
+
+/// 地点名称映射（用于匹配中文显示名到英文数据库名）
+class PlaceNameMapping {
+  PlaceNameMapping({
+    required this.displayName,
+    required this.englishName,
+  });
+
+  /// 从 JSON 创建
+  factory PlaceNameMapping.fromJson(Map<String, dynamic> json) =>
+      PlaceNameMapping(
+        displayName: json['displayName'] as String? ?? '',
+        englishName: json['englishName'] as String? ?? '',
+      );
+
+  /// 本地化显示名称（如中文 "卢浮宫玻璃金字塔"）
+  final String displayName;
+
+  /// 英文名称（用于数据库匹配，如 "Louvre Pyramid"）
+  final String englishName;
+
+  /// 转换为 JSON
+  Map<String, dynamic> toJson() => {
+        'displayName': displayName,
+        'englishName': englishName,
       };
 }
 

@@ -1159,7 +1159,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 文本内容 - 支持 Markdown 格式，地点名可点击
-          _buildMarkdownText(textContent, places: textPlaces),
+          // 传入 nameMapping 用于匹配中文地点名到英文数据库名
+          _buildMarkdownText(textContent,
+              places: textPlaces, nameMapping: result.nameMapping),
 
           // non_travel 意图不显示地点卡片和地图（如天气、技术问题等）
           if (!result.isNonTravel) ...[
@@ -1635,10 +1637,19 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
 
   /// 构建 Markdown 文本（简单实现）
-  Widget _buildMarkdownText(String text, {List<PlaceResult>? places}) {
+  /// [nameMapping] 用于匹配中文地点名到英文数据库名
+  Widget _buildMarkdownText(String text,
+      {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
     // Debug: 打印原始文本内容
     debugPrint('📝 _buildMarkdownText input (first 500 chars):');
     debugPrint(text.substring(0, text.length > 500 ? 500 : text.length));
+    if (nameMapping != null && nameMapping.isNotEmpty) {
+      debugPrint(
+          '📝 _buildMarkdownText nameMapping: ${nameMapping.length} entries');
+      for (final mapping in nameMapping) {
+        debugPrint('  "${mapping.displayName}" -> "${mapping.englishName}"');
+      }
+    }
 
     // 先预处理：将链接转换为特殊标记，避免被换行分割
     // 然后按行分割处理标题和列表
@@ -1794,7 +1805,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         widgets.add(
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 4),
-            child: _buildClickableHeader(titleText, places: places),
+            child: _buildClickableHeader(titleText,
+                places: places, nameMapping: nameMapping),
           ),
         );
       } else if (line.startsWith('- ') || line.startsWith('  - ')) {
@@ -1826,7 +1838,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         widgets.add(
           Padding(
             padding: const EdgeInsets.only(top: 2, bottom: 2),
-            child: _buildRichText(content, places: places),
+            child: _buildRichText(content,
+                places: places, nameMapping: nameMapping),
           ),
         );
       } else if (RegExp(r'^\d+\.\s*').hasMatch(line.trim())) {
@@ -1845,7 +1858,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                       style: AppTheme.bodyMedium(context)
                           .copyWith(color: AppTheme.black)),
                   Expanded(
-                    child: _buildRichText(content, places: places),
+                    child: _buildRichText(content,
+                        places: places, nameMapping: nameMapping),
                   ),
                 ],
               ),
@@ -1853,11 +1867,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           );
         } else {
           // fallback: 直接渲染
-          widgets.add(_buildRichText(line, places: places));
+          widgets.add(
+              _buildRichText(line, places: places, nameMapping: nameMapping));
         }
       } else {
         // 普通段落 - 支持内联加粗
-        widgets.add(_buildRichText(line, places: places));
+        widgets.add(
+            _buildRichText(line, places: places, nameMapping: nameMapping));
       }
     }
 
@@ -1870,7 +1886,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 构建可点击的标题（如果匹配到地点则可点击跳转详情页）
   /// 用于 ### 级别标题，匹配地点名称后变为可点击样式
   /// 支持 "金田家 Kanada-Ya" 格式（中文名 + 英文名）
-  Widget _buildClickableHeader(String titleText, {List<PlaceResult>? places}) {
+  /// [nameMapping] 用于将中文显示名称映射到英文数据库名称
+  Widget _buildClickableHeader(String titleText,
+      {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
     // 🔧 清理可能遗留的 markdown 标题符号
     String cleanedTitle = titleText;
     if (cleanedTitle.startsWith('### ')) {
@@ -1897,9 +1915,29 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     if (places != null && places.isNotEmpty) {
       final placeNameLower = placeName.toLowerCase().trim();
 
+      // 🆕 首先通过 nameMapping 查找英文名称
+      String? englishNameToSearch;
+      if (nameMapping != null && nameMapping.isNotEmpty) {
+        for (final mapping in nameMapping) {
+          if (mapping.displayName.toLowerCase() == placeNameLower ||
+              placeNameLower.contains(mapping.displayName.toLowerCase()) ||
+              mapping.displayName.toLowerCase().contains(placeNameLower)) {
+            englishNameToSearch = mapping.englishName.toLowerCase();
+            debugPrint(
+                '🗺️ _buildClickableHeader: Found mapping "$placeName" -> "${mapping.englishName}"');
+            break;
+          }
+        }
+      }
+
       // 提取可能的中文名和英文名部分（如 "金田家 Kanada-Ya" -> ["金田家", "Kanada-Ya"]）
       final nameParts = <String>[];
       nameParts.add(placeNameLower);
+
+      // 🆕 如果有英文映射，优先添加
+      if (englishNameToSearch != null) {
+        nameParts.insert(0, englishNameToSearch);
+      }
 
       // 尝试分割中文和英文部分
       final chineseEnglishMatch =
@@ -1918,6 +1956,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               namePart.contains(pNameLower) ||
               pNameLower.contains(namePart)) {
             matchedPlace = place;
+            debugPrint(
+                '🗺️ _buildClickableHeader: Matched "$placeName" to place "${place.name}"');
             break;
           }
         }
@@ -1965,7 +2005,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 构建支持加粗和链接的富文本
   /// **地点名** 会显示为加粗可点击的样式，点击打开详情页
   /// [链接文字](URL) 会显示为可点击的蓝色链接
-  Widget _buildRichText(String text, {List<PlaceResult>? places}) {
+  /// [nameMapping] 用于将中文显示名称映射到英文数据库名称
+  Widget _buildRichText(String text,
+      {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
     final spans = <InlineSpan>[];
 
     // 🔧 清理 markdown 标题符号（###、##、# 开头）
@@ -1985,6 +2027,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     if (places != null && places.isNotEmpty) {
       for (final p in places.take(5)) {
         debugPrint('🔍 Place: "${p.name}" rating: ${p.rating}');
+      }
+    }
+    // Debug: 打印 nameMapping
+    if (nameMapping != null && nameMapping.isNotEmpty) {
+      debugPrint('🗺️ _buildRichText nameMapping count: ${nameMapping.length}');
+      for (final m in nameMapping.take(5)) {
+        debugPrint('🗺️ Mapping: "${m.displayName}" -> "${m.englishName}"');
       }
     }
 
@@ -2147,20 +2196,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
       if (match.type == 'bold') {
         // 加粗文本 - 尝试匹配地点，如果匹配到则可点击跳转详情
-        PlaceResult? matchedPlace;
-        if (places != null && places.isNotEmpty) {
-          final boldTextLower = match.text.toLowerCase().trim();
-          for (final place in places) {
-            final pNameLower = place.name.toLowerCase().trim();
-            // 宽松匹配
-            if (boldTextLower == pNameLower ||
-                boldTextLower.contains(pNameLower) ||
-                pNameLower.contains(boldTextLower)) {
-              matchedPlace = place;
-              break;
-            }
-          }
-        }
+        // 🆕 使用 _findPlaceWithMapping 来支持中文显示名称到英文数据库名称的映射
+        final matchedPlace =
+            _findPlaceWithMapping(match.text, places, nameMapping);
 
         if (matchedPlace != null) {
           // 匹配到地点，显示可点击样式（蓝色下划线）
@@ -2224,21 +2262,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         // 格式: [**Building Name**](place) 或 [Building Name](place)
         if (linkUrl == 'place') {
           // 这是一个地点链接标记，尝试通过名称匹配地点
-          final placeNameLower = linkDisplayText.toLowerCase().trim();
-
-          PlaceResult? matchedPlace;
-          if (places != null && places.isNotEmpty) {
-            for (final place in places) {
-              final pNameLower = place.name.toLowerCase().trim();
-              // 宽松匹配
-              if (placeNameLower == pNameLower ||
-                  placeNameLower.contains(pNameLower) ||
-                  pNameLower.contains(placeNameLower)) {
-                matchedPlace = place;
-                break;
-              }
-            }
-          }
+          // 🆕 使用 _findPlaceWithMapping 来支持中文显示名称到英文数据库名称的映射
+          final matchedPlace =
+              _findPlaceWithMapping(linkDisplayText, places, nameMapping);
 
           if (matchedPlace != null) {
             // 找到匹配的地点，显示可点击链接（带评分）
@@ -2343,19 +2369,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             }
           } else {
             // 可能是按名称匹配的地点链接，尝试匹配
-            final placeNameLower = linkDisplayText.toLowerCase().trim();
-            PlaceResult? matchedPlace;
-            if (places != null && places.isNotEmpty) {
-              for (final place in places) {
-                final pNameLower = place.name.toLowerCase().trim();
-                if (placeNameLower == pNameLower ||
-                    placeNameLower.contains(pNameLower) ||
-                    pNameLower.contains(placeNameLower)) {
-                  matchedPlace = place;
-                  break;
-                }
-              }
-            }
+            // 🆕 使用 _findPlaceWithMapping 来支持中文显示名称到英文数据库名称的映射
+            final matchedPlace =
+                _findPlaceWithMapping(linkDisplayText, places, nameMapping);
 
             if (matchedPlace != null) {
               // 匹配到地点，显示可点击链接
@@ -3623,6 +3639,108 @@ class _PlaceDetailLoaderState extends ConsumerState<_PlaceDetailLoader> {
       initialDestinationId: _initialDestinationId,
     );
   }
+}
+
+/// 智能地点名称匹配 - 处理各种命名差异
+/// 例如："MAXXI Museum" 应该匹配 "MAXXI - National Museum of 21st Century Arts"
+bool _matchPlaceName(String searchName, String dbName) {
+  final searchLower = searchName.toLowerCase().trim();
+  final dbLower = dbName.toLowerCase().trim();
+
+  // 1. 完全匹配
+  if (searchLower == dbLower) return true;
+
+  // 2. 包含匹配（双向）
+  if (searchLower.contains(dbLower) || dbLower.contains(searchLower)) {
+    return true;
+  }
+
+  // 3. 提取核心词匹配（第一个有意义的词，忽略 "the", "a", "an" 等）
+  final stopWords = {'the', 'a', 'an', 'of', 'and', 'in', 'at', 'to', 'for'};
+  List<String> getSignificantWords(String name) {
+    return name
+        .replaceAll(RegExp(r'[^\w\s]'), ' ') // 移除标点
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty && w.length > 1 && !stopWords.contains(w))
+        .toList();
+  }
+
+  final searchWords = getSignificantWords(searchLower);
+  final dbWords = getSignificantWords(dbLower);
+
+  if (searchWords.isEmpty || dbWords.isEmpty) return false;
+
+  // 3a. 第一个有意义的词完全匹配（如 "maxxi" == "maxxi"）
+  if (searchWords.first == dbWords.first) return true;
+
+  // 3b. 第一个词包含匹配（如 "heydar" 在 "heydaraliyev"）
+  if (searchWords.first.contains(dbWords.first) ||
+      dbWords.first.contains(searchWords.first)) {
+    return true;
+  }
+
+  // 4. 多词交集匹配（至少有2个相同的有意义词）
+  final commonWords = searchWords.toSet().intersection(dbWords.toSet());
+  if (commonWords.length >= 2) return true;
+
+  // 5. 缩写匹配（如 "maxxi" 匹配开头）
+  if (dbLower.startsWith(searchWords.first) ||
+      searchLower.startsWith(dbWords.first)) {
+    return true;
+  }
+
+  return false;
+}
+
+/// 使用 nameMapping 查找地点
+/// 首先尝试通过 nameMapping 将显示名称映射到英文名称，然后在 places 中查找
+/// 如果 nameMapping 为空或找不到映射，则回退到直接匹配
+PlaceResult? _findPlaceWithMapping(
+  String searchName,
+  List<PlaceResult>? places,
+  List<PlaceNameMapping>? nameMapping,
+) {
+  if (places == null || places.isEmpty) return null;
+
+  final searchLower = searchName.toLowerCase().trim();
+
+  // 🆕 首先尝试通过 nameMapping 查找英文名称
+  String? englishNameToSearch;
+  if (nameMapping != null && nameMapping.isNotEmpty) {
+    for (final mapping in nameMapping) {
+      final displayLower = mapping.displayName.toLowerCase().trim();
+      if (displayLower == searchLower ||
+          displayLower.contains(searchLower) ||
+          searchLower.contains(displayLower)) {
+        englishNameToSearch = mapping.englishName;
+        debugPrint(
+            '🗺️ _findPlaceWithMapping: Found mapping "$searchName" -> "${mapping.englishName}"');
+        break;
+      }
+    }
+  }
+
+  // 如果找到映射，优先使用英文名称匹配
+  if (englishNameToSearch != null) {
+    for (final place in places) {
+      if (_matchPlaceName(englishNameToSearch, place.name)) {
+        debugPrint(
+            '🗺️ _findPlaceWithMapping: Matched via mapping to "${place.name}"');
+        return place;
+      }
+    }
+  }
+
+  // 回退：直接尝试用原始搜索名称匹配
+  for (final place in places) {
+    if (_matchPlaceName(searchName, place.name)) {
+      debugPrint(
+          '🗺️ _findPlaceWithMapping: Matched directly "$searchName" to "${place.name}"');
+      return place;
+    }
+  }
+
+  return null;
 }
 
 /// 富文本匹配结果辅助类

@@ -279,6 +279,83 @@ class AIService {
   }
 
   /**
+   * Execute simple text generation without web search
+   * Uses generateTextNoSearch if available, falls back to generateText
+   * This is faster and more reliable for simple tasks like description generation
+   */
+  async executeSimpleTextGeneration(
+    prompt: string,
+    systemPrompt?: string,
+    operationName: string = 'simpleTextGeneration'
+  ): Promise<string> {
+    // Check global AI call limit FIRST
+    if (!canMakeAICall()) {
+      throw {
+        code: AIErrorCode.INTERNAL_ERROR,
+        message: `AI call limit exceeded for ${operationName}`,
+        provider: 'none',
+        retryable: false,
+      } as AIServiceError;
+    }
+    
+    // Increment counter BEFORE making the call
+    incrementAICallCount(operationName);
+    
+    const providers = this.getOrderedProviders();
+    
+    if (providers.length === 0) {
+      throw {
+        code: AIErrorCode.CONFIG_ERROR,
+        message: 'No AI providers available. Please configure at least one provider.',
+        provider: 'none',
+        retryable: false,
+      } as AIServiceError;
+    }
+
+    const errors: AIServiceError[] = [];
+
+    for (const provider of providers) {
+      try {
+        console.log(`[AIService] Attempting ${operationName} with provider: ${provider.name}`);
+        
+        // Use generateTextNoSearch if available (faster, no web search overhead)
+        let result: string;
+        if (provider.generateTextNoSearch) {
+          result = await provider.generateTextNoSearch(prompt, systemPrompt);
+        } else {
+          // Fallback to regular generateText
+          result = await provider.generateText(prompt, systemPrompt);
+        }
+        
+        console.log(`[AIService] ${operationName} succeeded with provider: ${provider.name}`);
+        return result;
+      } catch (error) {
+        const aiError = this.normalizeError(error, provider.name);
+        errors.push(aiError);
+        
+        console.warn(
+          `[AIService] Provider ${provider.name} failed for ${operationName}:`,
+          aiError.message
+        );
+
+        // Continue to next provider
+      }
+    }
+
+    // All providers failed
+    const errorMessages = errors.map(e => `${e.provider}: ${e.message}`).join('; ');
+    console.error(`[AIService] All providers failed for ${operationName}: ${errorMessages}`);
+    
+    throw {
+      code: AIErrorCode.INTERNAL_ERROR,
+      message: `All AI providers failed: ${errorMessages}`,
+      provider: 'all',
+      retryable: false,
+      details: errors,
+    } as AIServiceError;
+  }
+
+  /**
    * Execute operation with fallback across a provided list of providers
    */
   private async executeWithFallbackForProviders<T>(

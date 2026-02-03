@@ -273,7 +273,7 @@ ${systemPrompt || ''}`;
       model: this.config.chatModel,
       input: fullPrompt,
       tools: [{ type: 'web_search_preview' }],
-      tool_choice: 'required', // 强制使用 web search 获取最新数据
+      tool_choice: 'auto', // 让模型自动决定是否需要 web search，避免 context 超限
     };
 
     try {

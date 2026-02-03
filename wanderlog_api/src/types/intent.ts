@@ -124,7 +124,8 @@ export interface CityPlacesGroup {
  * Mentioned place extracted from AI response
  */
 export interface MentionedPlace {
-  name: string;                 // Place name
+  name: string;                 // Display name (localized, e.g., "卢浮宫玻璃金字塔")
+  nameEn?: string;              // English name for database matching (e.g., "Louvre Pyramid")
   city: string;                 // City the place belongs to
   summary?: string;             // Short description (~50 characters)
   address?: string;             // Full address if known
@@ -160,12 +161,22 @@ export interface NonTravelHandlerResult {
 }
 
 /**
+ * Name mapping for display name to English name matching
+ * Used when text content uses localized names (e.g., Chinese) but database has English names
+ */
+export interface PlaceNameMapping {
+  displayName: string;          // Localized display name (e.g., "卢浮宫玻璃金字塔")
+  englishName: string;          // English name for database matching (e.g., "Louvre Pyramid")
+}
+
+/**
  * Handler result for architect/style query processing
  * 建筑师/建筑风格查询的处理结果
  */
 export interface ArchitectQueryHandlerResult {
   textContent: string;          // Markdown formatted intro about the architect/style
   places: PlaceResult[];        // Matched places from database
+  nameMapping?: PlaceNameMapping[]; // Mapping of display names to English names for front-end matching
 }
 
 /**

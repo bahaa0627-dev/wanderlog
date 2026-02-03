@@ -137,6 +137,15 @@ export interface AIProvider {
   generateText(prompt: string, systemPrompt?: string): Promise<string>;
 
   /**
+   * Generate text WITHOUT web search (simpler, faster, more reliable)
+   * Use this for simple tasks like description generation that don't need real-time data
+   * @param prompt User prompt
+   * @param systemPrompt Optional system prompt
+   * @returns Generated text response
+   */
+  generateTextNoSearch?(prompt: string, systemPrompt?: string): Promise<string>;
+
+  /**
    * Search for a place image using web search (optional)
    * @param placeName Name of the place
    * @param city Optional city name for better results

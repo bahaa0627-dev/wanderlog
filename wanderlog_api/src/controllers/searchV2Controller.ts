@@ -4382,6 +4382,7 @@ export const searchV2 = async (req: Request, res: Response) => {
         textContent: result.textContent,
         relatedPlaces: result.relatedPlaces,
         cityPlaces: result.cityPlaces,
+        nameMapping: result.nameMapping,
         quotaRemaining,
         stage: 'complete',
         translationStatus,

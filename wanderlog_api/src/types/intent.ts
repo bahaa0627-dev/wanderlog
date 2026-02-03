@@ -155,6 +155,7 @@ export interface TravelConsultationHandlerResult {
   textContent: string;          // Markdown formatted response
   relatedPlaces?: PlaceResult[]; // Single city: flat array
   cityPlaces?: CityPlacesGroup[]; // Multi-city: grouped by city
+  nameMapping?: PlaceNameMapping[]; // Mapping for localized names to English names
 }
 
 /**

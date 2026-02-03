@@ -114,46 +114,53 @@ RULES:
 3. For itinerary requests (N days/N-day/N天/行程/trip planning):
    - MUST use day-by-day format: "## 📅 Day 1", "## 📅 Day 2", etc.
    - Each day MUST have 3 time slots: 🌅 Morning, ☀️ Afternoon, 🌆 Evening
-   - Each time slot: 1-2 places with **Place Name**: brief description
+   - Each time slot: 1-2 places with **Place Name** followed by a new line with description (30-50 chars)
+   - Description MUST be on a new line after the place name, not inline
    - Include practical tips (transport between places, recommended duration)
    - Total 3-5 places per day, 10-15 places for 3-day trip
 4. For city recommendation queries (推荐城市/which cities/best cities):
-  - SHORT paragraphs with bullet points for each city
+  - Use COUNTRY FLAG emoji before city name (🇫🇷 France, 🇮🇹 Italy, 🇪🇸 Spain, 🇯🇵 Japan, 🇬🇧 UK, 🇩🇪 Germany, 🇳🇱 Netherlands, 🇦🇹 Austria, 🇨🇿 Czech, 🇬🇷 Greece, 🇵🇹 Portugal, 🇨🇭 Switzerland, etc.)
   - NO websites for cities (cities are destinations, not places)
-  - Format: ## 🏙️ CityName (Country)\n- brief description (1-2 sentences, highlight the city's vibe/features)\n
-  - DO NOT output a hard list of attractions under each city
-  - Mention 2-3 signature attractions INLINE within the description sentence
-    (e.g., "以埃菲尔铁塔、卢浮宫等为代表")
-  - Include 2-3 famous attractions per city in mentionedPlaces
+  - Format: ## 🇫🇷 Paris (France)\n- **City Vibe/特色**: 2-3 sentences describing the city atmosphere and what makes it special\n- **Best For/适合人群**: who should visit and why\n- **Best Season/最佳季节**: when to visit\n\n### 🌟 Must-Visit Spots\n1. **Eiffel Tower** - iconic landmark (1 sentence feature)\n2. **Louvre Museum** - world-class art (1 sentence feature)\n3. **Sacré-Cœur** - stunning views (1 sentence feature)\n
+  - Each city MUST have 3 recommended spots under "🌟 Must-Visit Spots" or "🌟 推荐景点"
+  - Include all mentioned spots in mentionedPlaces with detailed summaries
 5. For other queries: Include 5-10 places with practical tips
-6. Each place summary MUST be around 50 characters (45-55 chars)
+6. Each place summary MUST be 30-50 characters (detailed, descriptive)
 
 FORMAT for N-day itinerary (REQUIRED for "N days in City" queries):
 ## 📅 Day 1：探索市中心
 
 ### 🌅 上午
-- **Place Name 1**: 1-sentence description with must-see highlights
-- **Place Name 2**: 1-sentence description
+**美人鱼雕像**
+哥本哈根的标志性景点，适合早起拍照留念，欣赏海港美景。
+
+**克里斯蒂安堡宫**
+美丽的皇宫，内部装修华丽，可以参观皇家接待厅和历史展览。
 
 ### ☀️ 下午  
-- **Place Name 3**: 1-sentence description
-- 💡 Tip: practical advice (e.g., book tickets online, best photo spot)
+**新港**
+色彩缤纷的房子，餐厅和咖啡馆众多，适合漫步探索，感受城市风情。
+💡 Tip: 可以选择乘船游览新港，感受城市风情。
 
 ### 🌆 傍晚
-- **Place Name 4**: 1-sentence description (e.g., dinner spot or sunset view)
+**托尔瓦尔德森博物馆**
+晚上开放，适合艺术爱好者，内部展出多位丹麦艺术家的作品。
 
 ## 📅 Day 2：[Theme for the day]
-(repeat Morning/Afternoon/Evening format)
-
-## 📅 Day 3：[Theme for the day]
-(repeat format)
+(repeat Morning/Afternoon/Evening format - **Place Name** on one line, description on next line)
 
 ## 💡 实用贴士
 - Transport/budget/timing tips
 
 FORMAT for city recommendations:
-## 🏙️ Paris (France)
-- 浪漫之都，艺术与美食的天堂
+## �🇷 巴黎 (法国)
+- **文化氛围**: 巴黎以浪漫和艺术而闻名，塞纳河畔的咖啡馆文化令人陶醉，适合喜欢历史和艺术的人。
+- **最佳季节**: 春秋季节最为宜人，气候适中，适合观光和漫步于街头。
+
+### 🌟 推荐景点
+1. **埃菲尔铁塔** - 巴黎地标，登塔可俯瞰全城美景
+2. **卢浮宫** - 世界最大艺术博物馆，收藏蒙娜丽莎等名作
+3. **圣心大教堂** - 蒙马特山顶的白色教堂，可欣赏巴黎全景
 
 FORMAT for place recommendations:
 - Use Markdown with ## headings and emoji
@@ -188,10 +195,20 @@ IMPORTANT RULES:
 
 SPECIAL RULES FOR CITY RECOMMENDATIONS:
 - For queries like "推荐几个欧洲城市": use one city per section
-- Each city section MUST start with: ## 🏙️ CityName (Country)
-- Then 1-2 bullet points that describe the city's特色/气质/适合人群/最佳季节
-- Do NOT output a hard list of attractions
-- If mentioning attractions, keep them INLINE in a sentence (e.g., "以**埃菲尔铁塔**和**卢浮宫**为代表")
+- Use COUNTRY FLAG emoji (🇫🇷 France, 🇮🇹 Italy, 🇪🇸 Spain, 🇯🇵 Japan, 🇬🇧 UK, 🇩🇪 Germany, 🇳🇱 Netherlands, 🇦🇹 Austria, 🇨🇿 Czech, 🇬🇷 Greece, 🇵🇹 Portugal, 🇨🇭 Switzerland, 🇺🇸 USA, 🇹🇭 Thailand, 🇻🇳 Vietnam, 🇰🇷 Korea, 🇸🇬 Singapore, 🇦🇺 Australia, etc.)
+- Each city section format:
+  ## 🇫🇷 巴黎 (法国)
+  - **城市特色**: 2-3 sentences about city vibe and atmosphere
+  - **适合人群**: who should visit
+  - **最佳季节**: best time to visit
+  
+  ### 🌟 推荐景点
+  1. **Eiffel Tower** - brief feature description
+  2. **Louvre Museum** - brief feature description  
+  3. **Sacré-Cœur** - brief feature description
+
+- Each city MUST include 3 recommended spots under "🌟 推荐景点" or "🌟 Must-Visit"
+- All mentioned spots should be included in mentionedPlaces
 
 FORMAT (must follow):
 ## 🏷️ Section Title
@@ -2841,6 +2858,9 @@ Rules:
     const result = await this.matchRelatedPlacesWithCache(mentionedPlaces, cities, language as 'en' | 'zh', translationCache);
 
     let textContent = aiResult.textContent;
+    // 创建名称映射，用于前端匹配中文显示名到英文数据库名
+    const nameMapping: Array<{ displayName: string; englishName: string }> = [];
+    
     if (language === 'zh') {
       const allMatched: PlaceResult[] = result.relatedPlaces
         ? result.relatedPlaces
@@ -2876,27 +2896,26 @@ Rules:
           }
 
           if (best && bestScore >= 0.6) {
-            const escapedName = this.escapeRegExp(mentioned.name);
-            const city = (mentioned.city || '').trim();
-            if (city) {
-              const escapedCity = this.escapeRegExp(city);
-              textContent = textContent.replace(
-                new RegExp(`${escapedName}\s*[（(]${escapedCity}[)）]`, 'g'),
-                best.name,
-              );
+            // 添加名称映射（不再替换文本，保留中文显示名，让前端用 nameMapping 匹配）
+            if (rawName !== best.name) {
+              nameMapping.push({
+                displayName: rawName,
+                englishName: best.name,
+              });
+              logger.debug(`[IntentClassifier] Added nameMapping: "${rawName}" -> "${best.name}"`);
             }
-            textContent = textContent.replace(new RegExp(escapedName, 'g'), best.name);
           }
         }
       }
     }
 
-    logger.info(`[IntentClassifier] Travel consultation result: textContent=${aiResult.textContent.length} chars, cities=${cities.length}`);
+    logger.info(`[IntentClassifier] Travel consultation result: textContent=${aiResult.textContent.length} chars, cities=${cities.length}, nameMapping=${nameMapping.length}`);
 
     return {
       textContent,
       relatedPlaces: result.relatedPlaces,
       cityPlaces: result.cityPlaces,
+      nameMapping: nameMapping.length > 0 ? nameMapping : undefined,
     };
   }
 

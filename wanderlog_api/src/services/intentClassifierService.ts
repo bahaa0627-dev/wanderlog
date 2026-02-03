@@ -49,252 +49,59 @@ const CONFIG = {
 
 /**
  * AI prompt for generating specific place descriptions
- * Designed to produce concise, engaging introductions under 100 words
+ * OPTIMIZED: Reduced to save tokens
  */
-const SPECIFIC_PLACE_DESCRIPTION_PROMPT = `Write a clear, engaging introduction about "{placeName}" for a traveler.
-
-Requirements:
-1. Include a concise basic fact: what it is, where it is, and why it's notable
-2. Add 1-2 practical visiting tips (best time, tickets, viewpoints, or queues)
-3. Keep it 3-5 sentences, about 90-140 words if in English, or 120-200 Chinese characters if in Chinese
-4. Be informative and specific, avoid vague fluff
-5. CRITICAL: You MUST respond ONLY in {language}. Do NOT use any other language.
-
-Return ONLY the description text, no JSON or formatting.`;
+const SPECIFIC_PLACE_DESCRIPTION_PROMPT = `Write 3-5 sentences about "{placeName}" in {language}. Include: what it is, why notable, 1-2 visiting tips. No JSON.`;
 
 /**
  * AI prompt for travel consultation responses
- * Generates Markdown content with place recommendations and extracts mentioned places
+ * OPTIMIZED: Reduced from ~150 lines to ~50 lines to save ~70% tokens
  */
-const TRAVEL_CONSULTATION_PROMPT = `You are a friendly travel expert. Answer the user's travel question.
+const TRAVEL_CONSULTATION_PROMPT = `You are a travel expert. Answer: {query}
 
-=== USER'S QUESTION ===
-{query}
-=== END OF QUESTION ===
+RULES:
+1. Language: {language} only. English names in mentionedPlaces
+2. Location: ONLY recommend places in the location user asked about
+3. Include 5-10 places with practical tips
+4. For itinerary requests (N-day/行程): Use day-by-day format with time slots
 
-Response Language: {language}
-
-⚠️ CRITICAL - READ CAREFULLY:
-1. Your answer MUST be DIRECTLY about the location/topic in the user's question
-2. If user asks about "Chiang Mai", ONLY talk about Chiang Mai (NOT other cities, NOT global recommendations)
-3. If user asks about "Europe", ONLY recommend places IN EUROPE
-4. If user asks about "hidden gems" or "less crowded", recommend LOCAL experiences in THAT specific location
-5. DO NOT recommend places from other countries/cities unless explicitly asked
-6. DO NOT change the subject or give generic global recommendations
-7. IGNORE any web search results that are not directly relevant to the user's specific question
-
-Example of WRONG response:
-- User asks: "anything special in Chiang Mai?"
-- WRONG: Recommending museums in New York, London, or other cities
-- CORRECT: Recommending local Chiang Mai experiences like night markets, temples, cooking classes, etc.
-
-Requirements:
-1. Provide a helpful, engaging response in Markdown format
-2. Use headings (##, ###) for structure when appropriate  
-3. Use emoji to make it friendly 🌍✈️🏛️
-4. **CRITICAL: Recommend AT LEAST 5 specific places (minimum 5, ideally 6-10 for restaurants/shops)**
-5. Keep response informative (300-600 words for place recommendations)
-5.1 **IF the user asks for an itinerary or mentions number of days (e.g., "3天/三日/3-day/itinerary/行程/规划"), you MUST output a day-by-day plan with time slots.**
-  - Use this structure:
-    - ## 第一天：主题 (or ## Day 1: Theme)
-    - ### 上午 / 下午 / 晚上 (or Morning / Afternoon / Evening)
-    - Under each time slot, list places in this EXACT format:
-      * **Place Name** (NO rating in itinerary mode - ratings are handled by the app)
-      * Short description + practical tip (1-2 sentences, NO bullet points, NO indentation)
-      * Blank line before next place
-  - CRITICAL: Do NOT use bullet points (·, •, -) before place names
-  - CRITICAL: Do NOT indent place content
-  - CRITICAL: Do NOT include ratings (X.X分 or X.X) after place names in itinerary mode
-  - Keep each slot 2-4 items max to avoid overload
-  - In itinerary mode, DO NOT use the detailed per-place template (网站/links)
-  
-  Example itinerary format (Chinese):
-  ## 第一天：经典地标游览
-  
-  ### 上午
-  **白金汉宫**
-  开始您的一天，前往白金汉宫观看卫兵换岗仪式。这个标志性的皇宫是英国王室的官方居所。建议10点前到达以占据好位置。
-  
-  **威斯敏斯特教堂**
-  接着前往这座历史悠久的教堂，了解其悠久的历史和许多皇室婚礼的场所。
-
-  Example itinerary format (English):
-  ## Day 1: Classic Landmarks
-  
-  ### Morning
-  **Buckingham Palace**
-  Start your day at Buckingham Palace to watch the Changing of the Guard. This iconic royal palace is the official residence of the British monarchy. Arrive before 10am to secure a good spot.
-  
-  **Westminster Abbey (4.6)**
-  Head to this historic church to learn about its rich history and royal weddings.
-
-6. **If NOT in itinerary mode, use the detailed place template below.**
-6.1 **PLACE TITLE FORMAT (CRITICAL - MUST FOLLOW THIS EXACT FORMAT):**
-   - Use ### heading level
-   - Title MUST be bold text (NOT a hyperlink - the app handles navigation via app schema)
-   - Do NOT include ratings in place titles - ratings are displayed by the app on place cards
-   - Format: ### **Place Name**
-   - English example: ### **Lanzhou Noodle Bar**
-   - English example: ### **Shanghai Family**
-   - Chinese example: ### **兰州拉面馆**
-7. **PLACE DETAILS ORDER (CRITICAL - MUST FOLLOW THIS EXACT ORDER):**
-   For each place, list details in this EXACT format:
-   - Description with practical tips (NO bullet point, NO "简介:" label, directly after title - include visit tips like best photo time, crowd avoidance, advance booking, etc.)
-   - 网站: Website URL (WITH bullet point -, format as clickable link [domain](url))
-   
-   Example format for Chinese (MUST follow exactly):
-   ### **Lanzhou Noodle Bar**
-   一家评分很高的兰州拉面店，提供多种选择，包括招牌的牛肉拉面。顾客评价很高，尤其提到他们家的"Dao Xiao Mian"面条口感独特。建议中午前到达以避开高峰人流。
-   - 网站: [yelp.co.uk](https://yelp.co.uk)
-   
-   Example format for English (MUST follow exactly):
-   ### **Lanzhou Noodle Bar**
-   A highly-rated Lanzhou noodle shop offering various choices, including their signature beef ramen. Customers rave about their unique "Dao Xiao Mian" noodles. Arrive before noon to avoid peak crowds.
-   - Website: [yelp.co.uk](https://yelp.co.uk)
-   
-   IMPORTANT: For itinerary responses, DO NOT include website links - keep it concise with just place name and brief tips.
-8. CRITICAL: Your ENTIRE response MUST be in {language}. Do NOT mix languages.
-8.1 If you must include a foreign term, provide the {language} translation immediately and avoid standalone foreign phrases.
-8.2 Do NOT output foreign headings (e.g., French) in day titles; keep all headings in {language}.
-9. At the end, you may add a follow-up prompt in {language}
+FORMAT:
+- Use Markdown with ## headings and emoji
+- Places: ### **Place Name** followed by 1-2 sentence description
+- Keep concise (300-500 words)
 
 Return JSON:
 {
-  "textContent": "Your Markdown response here...",
-  "mentionedPlaces": [
-    { "name": "English Place Name", "city": "City", "address": "Full Address", "website": "https://...", "country": "Country", "rating": 4.5, "ratingCount": 1200 }
-  ],
-  "cities": ["EnglishCity1", "EnglishCity2"]
-}
-
-⚠️ IMPORTANT for mentionedPlaces and cities:
-- **MUST include AT LEAST 5 places in mentionedPlaces array (minimum 5, ideally 6-10)**
-- The "name" field MUST be in ENGLISH (e.g., "Eiffel Tower", NOT "埃菲尔铁塔")
-- The "city" field MUST be in ENGLISH (e.g., "Paris", NOT "巴黎")
-- Include "address" with full street address if known from web search
-- Include "website" with official website URL if found
-- Include "country" with the country name
-- Include "rating" with the rating score (e.g., 4.5 out of 5) if found from Google/Yelp/TripAdvisor
-- Include "ratingCount" with the number of reviews (e.g., 1200) if found
-- This is for database matching. Use official English names.`;
+  "textContent": "Markdown response...",
+  "mentionedPlaces": [{"name": "English Name", "city": "City", "address": "Address", "website": "URL", "country": "Country", "rating": 4.5, "ratingCount": 1200}],
+  "cities": ["City1"]
+}`;
 
 /**
  * AI prompt for non-travel responses
- * Generates helpful Markdown content without database queries
+ * OPTIMIZED: Reduced to save tokens
  */
-const NON_TRAVEL_PROMPT = `You are a helpful assistant. Answer the user's question.
-
-Query: "{query}"
-
-⚠️ LANGUAGE REQUIREMENT: You MUST respond ONLY in {language}. This is CRITICAL.
-
-Requirements:
-1. Provide a helpful response in Markdown format
-2. Use headings (##, ###) for structure when appropriate
-3. Use emoji where appropriate
-4. Keep response concise but helpful
-5. When mentioning specific items or places, use **bold** format
-6. ⚠️ CRITICAL: Your ENTIRE response MUST be in {language}. Do NOT use any other language. If the query mentions a place name in another language, still respond in {language}.
-7. When providing external links/resources, format them as a numbered list with each link on its own line:
-   - Format: "1. [Site Name](URL) - Brief description"
-   - Example:
-     1. [AccuWeather](https://accuweather.com) - Detailed hourly forecasts
-     2. [Weather.com](https://weather.com) - 10-day weather outlook
-
-Return the response as plain Markdown text (not JSON).`;
+const NON_TRAVEL_PROMPT = `Answer in {language} using Markdown: {query}. Be concise, use emoji and **bold** for key items. Return plain text.`;
 
 // ============ Prompt Templates ============
 
 /**
  * AI prompt for intent classification
- * Designed to accurately distinguish between the four intent types
+ * OPTIMIZED: Reduced from ~100 lines to ~30 lines to save ~70% tokens
  */
-const INTENT_CLASSIFICATION_PROMPT = `Analyze this query and determine the user's intent.
+const INTENT_CLASSIFICATION_PROMPT = `Classify query intent. Return JSON only.
 
 Query: "{query}"
 
-Classify into ONE of these intents:
+INTENTS:
+1. "general_search" - Finding places/venues (cafes, restaurants, museums). "what to eat" = general_search
+2. "specific_place" - Info about ONE named place ("Eiffel Tower", "what is Louvre")
+3. "travel_consultation" - Travel advice (how-to, tickets, budget, transport, visa, packing, architecture styles)
+4. "non_travel" - Weather queries or non-travel topics (health, tech, emotions)
 
-1. "general_search" - User wants to FIND/DISCOVER specific PLACES or VENUES
-   Examples: 
-   - "8 restaurants in Tokyo" (searching for restaurants)
-   - "cafes in Paris" (searching for cafes)
-   - "best museums in Rome" (searching for museums)
-   - "what to eat in Osaka" (searching for food places)
-   - "大阪有什么好吃的" (searching for food places)
-   - "coffee shops near me"
-   Key signals:
-   - Contains a place CATEGORY/TYPE (museum, cafe, restaurant, gallery, shop, bar, hotel, market, etc.)
-   - User wants a LIST of specific venues/locations to visit
-   - Food-related searches ("what to eat", "好吃的", "美食") = general_search for restaurants
+RULES: weather→non_travel | "how to"→consultation | category+find→general_search | just place name→specific_place
 
-2. "specific_place" - User wants BASIC INFO about ONE SPECIFIC named place (NOT asking how-to questions)
-   Examples: "Eiffel Tower", "Louvre Museum", "Central Park", "what is Sagrada Familia"
-   Key signal: 
-   - Contains a UNIQUE proper noun that identifies ONE specific place
-   - User just wants to KNOW ABOUT the place (not asking how to do something)
-   - Simple queries like just the place name, or "tell me about X", "what is X"
-   IMPORTANT: If user asks "how to...", "when to...", "tips for..." about a place, it's travel_consultation!
-
-3. "travel_consultation" - Travel-related ADVICE, TIPS, HOW-TO, or PRACTICAL QUESTIONS (NOT weather)
-   Covers: 规划、交通、门票、预算、旅行清单、注意事项、签证、语言、网络、建筑风格、艺术家作品等 (不包括天气)
-   Examples: 
-   - "how to buy ticket of Sagrada Familia" (门票购买)
-   - "how to get to Eiffel Tower from airport" (交通)
-   - "best time to visit Japan" (时间)
-   - "what to pack for Iceland" (旅行清单)
-   - "things to avoid in Rome" (注意事项)
-   - "do I need visa for Japan" (签证)
-   - "budget for 7 days in Tokyo" (预算)
-   - "Plan a 3-day trip to Rome" (规划)
-   - "Louvre vs Orsay which is better" (比较)
-   - "which area to stay in London" (住宿区域建议)
-   - "zaha hadid's architecture" (建筑师作品 - 可参观的建筑地点)
-   - "the architecture of brutalism" (建筑风格 - 可参观的建筑地点)
-   - "Gaudi's works in Barcelona" (艺术家作品 - 可参观的地点)
-   Key signals:
-   - Questions starting with "how to", "how do I", "how can I"
-   - Questions about tickets, booking, prices, costs, budget
-   - Questions about timing, season, best time (NOT weather forecast)
-   - Questions about transportation, getting there
-   - Questions about packing, preparation, checklist
-   - Questions about safety, scams, things to avoid
-   - Questions about architecture styles, architects, or artists (these have visitable places!)
-   - Questions about visa, entry requirements
-   - Comparisons between places
-   - Trip planning questions
-   - Questions about architecture styles, architects, or artists (these mention visitable places)
-
-4. "non_travel" - NOT travel-related OR weather queries (just needs AI text response, no place matching)
-   Examples: 
-   - "what's the weather in Beijing" (天气查询 - 直接返回文本)
-   - "weather in Tokyo" (天气 - 不需要地点匹配)
-   - "推荐运动方案" (健康)
-   - "心情不好怎么办" (情感)
-   - "Python怎么学" (技术)
-   Key signal: Weather queries, health, emotions, technology, work, study, etc.
-   NOT non_travel: architecture styles, architects' works, art movements (these have visitable places)
-
-DECISION RULES (in order):
-1. If query asks about WEATHER ("weather in", "天气", "what's the weather") → "non_travel" (just return AI text)
-2. If query asks about architecture, architects, art movements, or artists' works → "travel_consultation" (has visitable places)
-3. If query contains "how to", "how do", "tips for", "best way to", "should I" about travel → "travel_consultation"
-4. If query asks about tickets, booking, prices, budget, transport, visa, packing → "travel_consultation"
-5. If query asks "what to eat", "好吃的", "美食", or searches for food/restaurants → "general_search"
-6. If query contains a place CATEGORY AND wants to FIND venues → "general_search"
-7. If query is JUST a place name or simple "what is X" → "specific_place"
-8. If not travel-related → "non_travel"
-
-Return JSON only:
-{
-  "intent": "specific_place" | "general_search" | "travel_consultation" | "non_travel",
-  "placeName": "exact place name if specific_place or travel_consultation mentions a specific place",
-  "placeNames": ["place1", "place2"] if multiple places mentioned,
-  "city": "city name if mentioned",
-  "category": "restaurant/cafe/museum/gallery/etc if mentioned",
-  "count": number if mentioned,
-  "confidence": 0.0-1.0
-}`;
+JSON: {"intent":"...", "placeName":"if specific", "city":"if mentioned", "category":"if mentioned", "count":N, "confidence":0.0-1.0}`;
 
 // ============ Rule-Based Detection Patterns ============
 

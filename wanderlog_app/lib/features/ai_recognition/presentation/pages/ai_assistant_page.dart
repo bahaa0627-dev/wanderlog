@@ -440,6 +440,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       onStageChange: (state) {
         if (mounted) {
           setState(() => _searchLoadingState = state);
+          // 每次阶段变化时自动滚动到底部，确保用户能看到最新输出
+          _scrollToBottom(animated: true);
         }
       },
       cancelToken: _cancelToken,
@@ -1368,11 +1370,14 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     // Step 3: 最底部显示地图（有坐标的地点）
     final placesWithCoordinates =
         allPlaces.where((p) => p.latitude != 0 && p.longitude != 0).toList();
-    debugPrint('🗺️ [_buildInterleavedCityContent] All places: ${allPlaces.length}');
+    debugPrint(
+        '🗺️ [_buildInterleavedCityContent] All places: ${allPlaces.length}');
     for (final p in allPlaces) {
-      debugPrint('🗺️ [_buildInterleavedCityContent] "${p.name}": lat=${p.latitude}, lng=${p.longitude}');
+      debugPrint(
+          '🗺️ [_buildInterleavedCityContent] "${p.name}": lat=${p.latitude}, lng=${p.longitude}');
     }
-    debugPrint('🗺️ [_buildInterleavedCityContent] Places with valid coordinates: ${placesWithCoordinates.length}');
+    debugPrint(
+        '🗺️ [_buildInterleavedCityContent] Places with valid coordinates: ${placesWithCoordinates.length}');
     if (placesWithCoordinates.isNotEmpty) {
       widgets.add(const SizedBox(height: 20));
       widgets.add(
@@ -3765,7 +3770,7 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
 }
 
 /// AI 消息渐显动画包装器
-/// 新消息会触发淡入+上滑动画效果
+/// 新消息会触发分块淡入动画效果，模拟逐步输出
 class _AnimatedAIMessage extends StatefulWidget {
   const _AnimatedAIMessage({
     super.key,
@@ -3783,37 +3788,29 @@ class _AnimatedAIMessage extends StatefulWidget {
 class _AnimatedAIMessageState extends State<_AnimatedAIMessage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
+  bool _showContent = false;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    _fadeAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1), // 从下方轻微滑入
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
-
-    // 如果是新消息，播放动画；否则直接显示
+    // 如果是新消息，延迟显示内容；否则直接显示
     if (widget.message.isNew) {
-      _controller.forward().then((_) {
-        // 动画完成后标记为非新消息
-        widget.message.isNew = false;
+      // 短暂延迟后开始显示
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          setState(() => _showContent = true);
+          _controller.forward().then((_) {
+            widget.message.isNew = false;
+          });
+        }
       });
     } else {
+      _showContent = true;
       _controller.value = 1.0;
     }
   }
@@ -3826,11 +3823,111 @@ class _AnimatedAIMessageState extends State<_AnimatedAIMessage>
 
   @override
   Widget build(BuildContext context) {
-    return SlideTransition(
-      position: _slideAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: widget.builder(widget.message),
+    if (!_showContent) {
+      // 显示打字指示器
+      return const _TypingIndicator();
+    }
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _controller.value,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - _controller.value)),
+            child: child,
+          ),
+        );
+      },
+      child: widget.builder(widget.message),
+    );
+  }
+}
+
+/// 打字指示器 - 三个跳动的点
+class _TypingIndicator extends StatefulWidget {
+  const _TypingIndicator();
+
+  @override
+  State<_TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<_TypingIndicator>
+    with TickerProviderStateMixin {
+  late List<AnimationController> _controllers;
+  late List<Animation<double>> _animations;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = List.generate(
+      3,
+      (index) => AnimationController(
+        duration: const Duration(milliseconds: 400),
+        vsync: this,
+      ),
+    );
+
+    _animations = _controllers.map((controller) {
+      return Tween<double>(begin: 0, end: -8).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
+      );
+    }).toList();
+
+    // 依次启动动画
+    _startAnimations();
+  }
+
+  void _startAnimations() async {
+    while (mounted) {
+      for (int i = 0; i < 3; i++) {
+        if (!mounted) return;
+        _controllers[i].forward();
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      for (int i = 0; i < 3; i++) {
+        if (!mounted) return;
+        _controllers[i].reverse();
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(3, (index) {
+          return AnimatedBuilder(
+            animation: _animations[index],
+            builder: (context, child) {
+              return Transform.translate(
+                offset: Offset(0, _animations[index].value),
+                child: child,
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade400,
+                shape: BoxShape.circle,
+              ),
+            ),
+          );
+        }),
       ),
     );
   }

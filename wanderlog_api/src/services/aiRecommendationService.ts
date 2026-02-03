@@ -77,128 +77,18 @@ export class AIResponseValidationError extends Error {
 
 /**
  * System prompt for place recommendations
- * Requirements: 3.1, 3.3, 3.4, 3.5
+ * OPTIMIZED V2: Ultra-compact prompt to reduce token usage by 90%
  */
-const RECOMMENDATION_SYSTEM_PROMPT = `You are a travel expert. Recommend places based on user query.
-
-LOCATION RULES (CRITICAL - HIGHEST PRIORITY):
-- If the user query mentions a SPECIFIC CITY (e.g., "London ramen", "Tokyo cafes", "Paris museums"):
-  - ALL recommended places MUST be located IN THAT CITY
-  - Do NOT recommend places from other cities or countries
-  - If you cannot find enough places in that city, return fewer places rather than places from other locations
-- If the user query mentions a SPECIFIC COUNTRY (e.g., "Japanese ramen", "French cafes"):
-  - ALL recommended places MUST be located IN THAT COUNTRY
-- If NO location is specified, recommend globally famous places
-
-LANGUAGE RULES (CRITICAL - MUST FOLLOW):
-- The user will specify their preferred language in the prompt
-- ALL output text MUST be in the user's specified language - NO EXCEPTIONS
-- If user language is English, respond ONLY in English
-- If user language is Chinese, respond ONLY in Chinese
-- NEVER mix languages or use a different language than specified
-- Place names should use their commonly known name (can be in original language)
-- Category titles, summaries, recommendationPhrase - ALL in user's language
-- tags: ALWAYS in English only (never translate tags to user's language)
-- acknowledgment - MUST be in user's language
-- ABSOLUTELY NO German, French, Spanish or any other language unless that is the user's specified language
-- Double-check your response language before returning
-
-CATEGORY RULES (CRITICAL):
-- ALWAYS create exactly 3-4 categories
-- Each category MUST have 5-7 places
-- Total places: match user's requested count (default 20, max 20)
-- Categories should have emoji prefix, e.g. "☕ Specialty Coffee", "🏛️ Historic Sites", "🍜 Local Eats"
-
-PLACE SELECTION RULES (CRITICAL):
-- For general queries like "interesting places", "things to do", "places to visit":
-  - Prioritize FAMOUS landmarks, iconic attractions, and must-see destinations
-  - Include a mix: landmarks, museums, temples/shrines, parks, viewpoints
-  - Avoid recommending only restaurants or cafes unless specifically asked
-- For specific queries like "cafes", "ramen shops", "restaurants":
-  - Focus on that specific category
-  - Recommend well-known, highly-rated establishments
-- CHAIN STORES/RESTAURANTS (CRITICAL):
-  - For chain restaurants (e.g., Ichiran, Ippudo, Starbucks, McDonald's), recommend ONE SPECIFIC BRANCH
-  - Include the branch location in the name, e.g., "Ichiran Shibuya" or "Ippudo Times Square"
-  - Use coordinates and address for that SPECIFIC branch, not the general chain
-  - Do NOT just recommend "Ichiran" - always specify which branch
-
-Return ONLY valid JSON (no markdown, no code blocks):
-{
-  "requestedCount": 8,
-  "exceededLimit": false,
-  "acknowledgment": "A creative, engaging opening paragraph (2-3 sentences, 80-200 chars). MUST be ENTIRELY in user's specified language - no mixing. Set the scene by describing what makes this location/category special. Mention specific characteristics like famous flavors, architectural styles, cultural significance, or local atmosphere. Make the reader excited about the upcoming recommendations. Example for Chinese: '伦敦的毛线店以其丰富的色彩和温馨的氛围闻名，从传统羊毛到手工染色的特色纱线应有尽有。以下是几家深受编织爱好者喜爱的精选店铺，无论你是新手还是达人都能找到心仪之选！'",
-  "categories": [
-    {
-      "title": "☕ Category Title with Emoji",
-      "placeNames": ["Place 1", "Place 2", "Place 3", "Place 4", "Place 5"]
-    }
-  ],
-  "places": [
-    {
-      "name": "Place Name",
-      "summary": "Brief description (40-80 chars, must be complete)",
-      "latitude": 35.6762,
-      "longitude": 139.6503,
-      "city": "City",
-      "country": "Country",
-      "coverImageUrl": "",
-      "tags": ["tag1", "tag2"],
-      "recommendationPhrase": "Unique phrase (e.g., 'Local favorite', 'Hidden gem', 'Must-visit', 'Iconic landmark', 'Highly acclaimed')"
-    }
-  ]
-}
-
-CRITICAL - Coordinates must be PRECISE:
-- Use the EXACT latitude/longitude of the place entrance
-- For "Park Güell" use 41.4145, 2.1527 (not approximate)
-- For "La Rambla" use 41.3803, 2.1734 (center point)
-- Double-check coordinates are accurate to 4 decimal places
-
-CRITICAL - User requested count:
-- If user asks for N places (e.g. "12家咖啡"), return EXACTLY N places
-- Parse the number from user query carefully
-- requestedCount should match user's request
-
-CRITICAL - recommendationPhrase:
-- Each place MUST have a UNIQUE recommendationPhrase
-- Use varied phrases like: "Local favorite", "Hidden gem", "Must-visit", "Iconic landmark", "Highly acclaimed", "Traveler's choice", "Authentic experience", "Architectural marvel", "Cultural treasure", "Scenic spot"
-- NEVER use generic "Recommended" for all places
-
-Rules:
-1. Parse user query to determine requested count. If not specified, randomly choose 5-10. Max 10.
-2. Return EXACTLY the requested number of places (or 10 if exceeds limit)
-3. MUST have exactly 3-4 categories (distribute places across them)
-4. Each category should have roughly equal places
-5. ALWAYS include categories with emoji prefix
-6. coverImageUrl: always empty string (images fetched separately)
-7. tags: 2 descriptive tags in ENGLISH only (e.g., 'Tonkotsu', 'Cozy', 'Local favorite' - NEVER in Chinese or other languages)
-8. summary: MUST be 40-80 chars, complete sentence in user's language, no ellipsis
-9. acknowledgment: REQUIRED. 2-3 sentences, 80-200 chars, ENTIRELY in user's language, set the scene, mention specific traits of the category/location, make it engaging
-10. Set exceededLimit to true if user requested more than 10`;
+const RECOMMENDATION_SYSTEM_PROMPT = `Travel expert. JSON only.
+RULES: Location-specific places only. Tags=English. Coords=4 decimals. Return 5-8 places.
+FORMAT:{"requestedCount":8,"exceededLimit":false,"acknowledgment":"1-2 sentences","categories":[{"title":"☕ Title","placeNames":["P1","P2"]}],"places":[{"name":"Name","summary":"40-60 chars","latitude":0.0,"longitude":0.0,"city":"","country":"","coverImageUrl":"","tags":[],"recommendationPhrase":"Hidden gem"}]}`;
 
 
 /**
- * System prompt for summary generation
- * Requirements: 6.1, 6.2, 6.3, 6.4
+ * System prompt for summary generation - OPTIMIZED V2
  */
-const SUMMARY_SYSTEM_PROMPT = `You are a travel writer creating engaging summaries.
-Generate a brief summary for each place and an overall summary for the recommendation.
-
-Output format (JSON):
-{
-  "placeSummaries": {
-    "Place Name 1": "1-2 sentence summary",
-    "Place Name 2": "1-2 sentence summary"
-  },
-  "overallSummary": "A friendly closing message summarizing the recommendations and wishing the user a great trip"
-}
-
-Rules:
-1. Keep each place summary under 100 characters
-2. The overall summary should be warm and encouraging
-3. Use the same language as the original query
-4. Include a friendly closing like "祝旅途愉快" or "Have a great trip!"`;
+const SUMMARY_SYSTEM_PROMPT = `Generate brief place summaries. JSON format:
+{"placeSummaries":{"Name":"<100 chars"},"overallSummary":"Friendly closing"}`;
 
 
 /**
@@ -621,18 +511,8 @@ class AIRecommendationService {
     };
     const languageName = languageMap[language] || 'English';
     
-    const userPrompt = `User query: ${query}
-
-CRITICAL LANGUAGE REQUIREMENT: You MUST respond ONLY in ${languageName}. ALL text including acknowledgment, category titles, summaries, and recommendationPhrase MUST be in ${languageName}. EXCEPTION: tags MUST ALWAYS be in English regardless of user language (e.g., 'Tonkotsu', 'Cozy', 'Hidden gem'). Do NOT use any other language for other fields.
-
-CRITICAL RULES FOR NUMBER OF PLACES:
-- Parse the user's query to determine how many places they want
-- If user specifies a number (e.g., "12 restaurants", "5家咖啡店"), return EXACTLY that number (max 20)
-- If user does NOT specify a number, return exactly 20 places
-- If user requests more than 20, return exactly 20 places and set exceededLimit to true
-- Set requestedCount in your response to the number you are returning
-
-Each summary MUST be 40-60 characters, complete sentence, no "..." at end.`;
+    const userPrompt = `Query: ${query}
+Lang: ${languageName}. Tags=English. Return 5-8 places in JSON.`;
 
     const response = await this.executeWithFallback(
       async (provider) => {

@@ -57,6 +57,7 @@ interface ParsedQuery {
   tags?: string[];            // tag keywords for search (e.g., ['architecture', 'beach'])
   city: string;
   country: string;
+  region: string;             // continent/region (e.g., 'Europe', 'Asia', 'North America')
   originalQuery: string;
   explicitCount: boolean;
 }
@@ -82,6 +83,7 @@ interface PlaceResult {
   phoneNumber?: string;
   website?: string;
   openingHours?: string;
+  recommendationPhrase?: string;  // AI recommendation phrase (e.g., "Hidden gem", "Local favorite")
 }
 
 interface MentionedPlaceLite {
@@ -101,6 +103,7 @@ const CONFIG = {
   DEFAULT_COUNT: 8,  // 默认返回 5-10 个地点
   MIN_COUNT: 5,       // 最少返回 5 个地点
   MAX_COUNT: 10,      // 最多返回 10 个地点（不分类时）
+  CATEGORY_REGION_MAX_COUNT: 15, // 分类+地区查询最多返回 15 个地点
   CATEGORY_THRESHOLD: 6, // 超过这个数量时分类展示
   MIN_PLACES_PER_CATEGORY: 3,
   MIN_CATEGORIES: 2,  // 至少 2 个分类
@@ -263,6 +266,10 @@ const CATEGORY_MAPPING: Record<string, string[]> = {
   'bookstore': ['bookstore'],
   'thrift store': ['thrift_store'],
   'vintage shop': ['thrift_store'],
+  'cemetery': ['cemetery'],
+  'graveyard': ['cemetery'],
+  '墓园': ['cemetery'],
+  '公墓': ['cemetery'],
 };
 
 const COUNTRY_KEYWORD_MAP: Record<string, string> = {
@@ -308,6 +315,30 @@ function getKouriProvider(): KouriProvider {
   // providers see env vars loaded from .env.
   _kouriProvider ??= new KouriProvider();
   return _kouriProvider;
+}
+
+/**
+ * Remove accents/diacritics from a string for better matching
+ * e.g., "Père-Lachaise" -> "Pere-Lachaise"
+ */
+function removeAccents(str: string): string {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Normalize a name for search matching:
+ * - Remove accents (è -> e, é -> e)
+ * - Convert to lowercase
+ * - Remove common prefixes/suffixes like "Cemetery", "du", "of", etc.
+ */
+function normalizeNameForSearch(name: string): string {
+  if (!name) return '';
+  let normalized = removeAccents(name).toLowerCase().trim();
+  // Remove common articles and prepositions
+  normalized = normalized.replace(/\b(the|du|de|la|le|of|del|der|das|die)\b/gi, ' ');
+  // Collapse multiple spaces
+  normalized = normalized.replace(/\s+/g, ' ').trim();
+  return normalized;
 }
 
 // Extract core name from a place name (without location suffix, numbers, etc.)
@@ -431,61 +462,20 @@ async function generateCombinedTexts(
   language: 'en' | 'zh',
   parsedQuery: ParsedQuery,
 ): Promise<CombinedTextResult> {
-  const languageText = language === 'zh' ? 'Chinese (Simplified)' : 'English';
-  const cityText = parsedQuery.city?.trim() || parsedQuery.country?.trim() || '';
-  const categoryText = parsedQuery.category?.trim() || '';
+  const lang = language === 'zh' ? 'Chinese' : 'English';
+  const city = parsedQuery.city?.trim() || '';
   
-  // 只取前 10 个地点生成摘要
-  const placesToSummarize = places.slice(0, 10);
-  const placesList = placesToSummarize.map(p => `- id: "${p.id}", name: "${p.name}"${p.city ? `, city: "${p.city}"` : ''}`).join('\n');
+  // 🚀 优化：只取前5个地点，减少token
+  const placesToSummarize = places.slice(0, 5);
+  const placesList = placesToSummarize.map(p => `${p.id}:${p.name}`).join(';');
   
-  const prompt = `Generate rich, engaging travel recommendation content in ${languageText}.
-
-User search: "${query}"
-Context: ${cityText ? `City: ${cityText}` : ''}${categoryText ? `, Category: ${categoryText}` : ''}
-
-Generate THREE things with RICH, DETAILED content:
-
-1. "acknowledgment": Opening paragraph (2-3 sentences, 80-150 chars)
-   - Set the scene, mention why this city/category is special
-   - Natural, engaging, informative tone
-   - Make the reader excited about the recommendations
-   ${language === 'zh' 
-     ? '- Example: "伦敦是一个美食之都，尤其是日式拉面深受许多食客的喜爱。以下是几家值得一试的拉面店，既有传统风味，也有创新口味，绝对让你满意！"' 
-     : '- Example: "London has become a true ramen destination, with shops offering everything from traditional tonkotsu to creative fusion bowls. Here are some must-try spots!"'}
-
-2. "overallSummary": Closing text (1-2 sentences, 50-120 chars)
-   - Friendly, warm tone
-   - Encourage exploration or follow-up questions
-   ${language === 'zh' 
-     ? '- Example: "希望这些推荐能帮你找到心仪的店铺，如有其他问题随时问我！"' 
-     : '- Example: "Hope you find your perfect spot! Let me know if you need more recommendations."'}
-
-3. "placeSummaries": For EACH place, write a CONCISE summary (80-150 chars)
-   - Describe what makes it SPECIAL: signature dishes, unique atmosphere, standout features
-   - Be concise but vivid, like a mini food critic's recommendation
-   - Do NOT include ratings, numbers, address, or city name
-   ${language === 'zh' 
-     ? '- Example: "以手工拉面著称，牛肉拉面尤为出色，辣椒油和调料可自由搭配，满足不同口味。"' 
-     : '- Example: "Famous for handmade noodles with great texture. The beef ramen is outstanding with house-made chili oil."'}
-
-Places to summarize:
-${placesList}
-
-CRITICAL: 
-- Output language MUST be ${languageText}
-- Make content RICH and DETAILED, not short generic descriptions
-- Return JSON only:
-{
-  "acknowledgment": "...",
-  "overallSummary": "...",
-  "placeSummaries": [
-    { "id": "<same id>", "summary": "<80-150 char concise summary>" }
-  ]
-}`;
+  // 🚀 超精简 prompt（从~800字符减到~200字符）
+  const prompt = `${lang}. Query:"${query}"${city ? ` City:${city}` : ''}
+Places:${placesList}
+JSON:{"acknowledgment":"<50-80字开场>","overallSummary":"<30字结语>","placeSummaries":[{"id":"<id>","summary":"<50字描述>"}]}`;
 
   try {
-    const response = await generateTextWithFallback(prompt, 20000);
+    const response = await generateTextWithFallback(prompt, 15000);
     if (!response) {
       return {
         acknowledgment: generateAcknowledgmentTemplate(query, language, parsedQuery),
@@ -507,7 +497,7 @@ CRITICAL:
         }
       }
       
-      logger.info(`[SearchV2] Combined AI call generated: ack=${(parsed.acknowledgment || '').length} chars, summary=${(parsed.overallSummary || '').length} chars, ${placeSummaries.size} place summaries`);
+      logger.info(`[SearchV2] Combined AI: ack=${(parsed.acknowledgment || '').length}c, ${placeSummaries.size} summaries`);
       
       return {
         acknowledgment: normalizeAcknowledgment(parsed.acknowledgment || '', 50, 250),
@@ -864,10 +854,9 @@ City context: ${parsedQuery.city || 'various cities'}
 
 CRITICAL REQUIREMENTS:
 - Output language: ${languageText}
-- Each summary should be 1-2 sentences, between 70-120 characters.
-- Highlight what makes each place SPECIAL and UNIQUE for this search query.
-- Include distinctive features like: specialty dishes, atmosphere, signature items, unique selling points.
-- Make it vivid and specific (not generic descriptions).
+- Each summary should be 1 sentence, between 40-70 characters.
+- Highlight 1-2 distinctive features: specialty dishes, atmosphere, or unique selling points.
+- Make it vivid and specific.
 - Do NOT include ratings, review counts, or numbers.
 - Do NOT mention the address, city, or country.
 - Do NOT change IDs. Return the same id you were given.
@@ -875,11 +864,11 @@ CRITICAL REQUIREMENTS:
 
 EXAMPLES of GOOD summaries (${languageText}):
 ${language === 'zh' 
-  ? `- "以手工染制的纯羊毛纱线闻名，店内氛围温馨，是编织爱好者的理想去处。"
-- "提供来自世界各地的稀有纱线品种，意大利进口马海毛为特色。"
-- "独立设计师手工纱线，色彩丰富多样，质感细腻柔软。"`
-  : `- "Known for hand-dyed pure wool yarns in stunning colors, with a cozy atmosphere."
-- "Offers rare yarn varieties from around the world, specializing in Italian mohair."`}
+  ? `- "手工染制纯羊毛纱线，氛围温馨。"
+- "世界各地稀有纱线，意大利马海毛为特色。"
+- "独立设计师手工纱线，色彩丰富细腻。"`
+  : `- "Hand-dyed wool yarns in stunning colors, cozy vibe."
+- "Rare yarns from worldwide, specializing in Italian mohair."`}
 
 Places JSON:
 ${JSON.stringify(batch)}
@@ -887,7 +876,7 @@ ${JSON.stringify(batch)}
 Return JSON only:
 {
   "summaries": [
-    { "id": "<same id>", "summary": "<concise summary in ${languageText}, 70-120 chars>" }
+    { "id": "<same id>", "summary": "<concise summary in ${languageText}, 40-70 chars>" }
   ]
 }`;
 
@@ -1282,57 +1271,33 @@ function normalizeCountryForMatching(input: string | undefined, parsedQuery: Par
 
 /**
  * 为 AI 生成的地点获取评分（通过 AI 联网搜索）
- * 使用 AI 的联网搜索能力获取地点的评分和评分人数
+ * 🚀 优化版：精简 prompt，只获取关键字段
  * @param places AI 生成的地点列表
- * @param city 城市名（用于更精确的搜索）
- * @param language 语言代码
+ * @param city 城市名
+ * @param _language 语言代码（未使用）
  * @returns 带有评分的地点列表
  */
 async function enrichPlacesWithRatings(
   places: PlaceResult[],
   city: string,
-  language: 'en' | 'zh',
+  _language: 'en' | 'zh',
 ): Promise<PlaceResult[]> {
   if (places.length === 0) return places;
   
-  // 过滤出需要获取详细信息的地点（临时地点或缺少评分的地点）
+  // 过滤出需要获取详细信息的地点
   const placesNeedingInfo = places.filter(
     p => p.source === 'ai' || p.rating === null || p.rating === undefined || p.rating === 0
   );
   
   if (placesNeedingInfo.length === 0) return places;
   
-  const placeNames = placesNeedingInfo.map(p => p.name).join(', ');
-  
-  const prompt = `Search the web and find detailed information for these places in ${city || 'the city'}:
-${placeNames}
-
-For each place, provide as much information as you can find:
-- name: The exact place name as given
-- rating: Google Maps rating (e.g., 4.5)
-- ratingCount: Number of reviews (e.g., 1200)
-- address: Full street address
-- phone: Phone number with country code
-- website: Official website URL
-- openingHours: Opening hours summary (optional)
-
-Return JSON only:
-{
-  "places": [
-    { 
-      "name": "Place Name", 
-      "rating": 4.5, 
-      "ratingCount": 1200,
-      "address": "123 Main St, London",
-      "phone": "+44 20 1234 5678",
-      "website": "https://example.com"
-    }
-  ]
-}`;
+  // 🚀 超精简 prompt - 只获取关键数据
+  const names = placesNeedingInfo.slice(0, 5).map(p => p.name).join(',');
+  const prompt = `${city}: ${names}
+JSON:{"places":[{"name":"","rating":0,"ratingCount":0,"address":"","website":""}]}`;
 
   try {
-    // 使用联网搜索获取实时信息
-    const response = await generateTextWithWebSearch(prompt, 30000);
+    const response = await generateTextWithWebSearch(prompt, 20000);
     if (!response) return places;
     
     const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -1341,61 +1306,35 @@ Return JSON only:
     const parsed = JSON.parse(jsonMatch[0]);
     const placeData = Array.isArray(parsed.places) ? parsed.places : [];
     
-    // 创建名称到详细信息的映射
-    const infoMap = new Map<string, {
-      rating?: number;
-      ratingCount?: number;
-      address?: string;
-      phone?: string;
-      website?: string;
-    }>();
-    
+    const infoMap = new Map<string, { rating?: number; ratingCount?: number; address?: string; website?: string }>();
     for (const item of placeData) {
       if (item.name) {
         infoMap.set(item.name.toLowerCase().trim(), {
           rating: typeof item.rating === 'number' ? item.rating : undefined,
           ratingCount: typeof item.ratingCount === 'number' ? item.ratingCount : undefined,
           address: typeof item.address === 'string' ? item.address : undefined,
-          phone: typeof item.phone === 'string' ? item.phone : undefined,
           website: typeof item.website === 'string' ? item.website : undefined,
         });
       }
     }
     
-    // 更新地点的详细信息
     return places.map(place => {
       const key = place.name.toLowerCase().trim();
       const data = infoMap.get(key);
       if (data) {
         const updates: Partial<PlaceResult> = {};
-        
-        // 只更新缺失的字段
-        if (data.rating !== undefined && (place.rating === null || place.rating === undefined || place.rating === 0)) {
+        if (data.rating !== undefined && (!place.rating || place.rating === 0)) {
           updates.rating = data.rating;
           updates.ratingCount = data.ratingCount || 0;
-          logger.info(`[SearchV2] Got rating ${data.rating} for ${place.name}`);
         }
-        if (data.address && !place.address) {
-          updates.address = data.address;
-          logger.info(`[SearchV2] Got address for ${place.name}: ${data.address}`);
-        }
-        if (data.phone) {
-          updates.phoneNumber = data.phone;
-          logger.info(`[SearchV2] Got phone for ${place.name}: ${data.phone}`);
-        }
-        if (data.website && !place.website) {
-          updates.website = data.website;
-          logger.info(`[SearchV2] Got website for ${place.name}: ${data.website}`);
-        }
-        
-        if (Object.keys(updates).length > 0) {
-          return { ...place, ...updates };
-        }
+        if (data.address && !place.address) updates.address = data.address;
+        if (data.website && !place.website) updates.website = data.website;
+        if (Object.keys(updates).length > 0) return { ...place, ...updates };
       }
       return place;
     });
   } catch (error) {
-    logger.warn(`[SearchV2] Failed to enrich places via AI search: ${error}`);
+    logger.warn(`[SearchV2] enrichPlacesWithRatings failed: ${error}`);
     return places;
   }
 }
@@ -1485,8 +1424,17 @@ async function persistAIPlacesToDB(
     return places.map(p => preMatchedWeb.get(p.name.toLowerCase().trim()) || p);
   }
 
-  const placeNames = placesToEnrich.map(p => p.name).join('\n- ');
-  const isZh = language === 'zh';
+  // 🚀 优化：只搜索前5个地点，减少 token 消耗
+  const MAX_PLACES_TO_ENRICH = 5;
+  const limitedPlacesToEnrich = placesToEnrich.slice(0, MAX_PLACES_TO_ENRICH);
+  const skippedPlaces = placesToEnrich.slice(MAX_PLACES_TO_ENRICH);
+  
+  if (skippedPlaces.length > 0) {
+    logger.info(`[SearchV2] Limited enrichment to ${limitedPlacesToEnrich.length} places, ${skippedPlaces.length} will be saved without enrichment`);
+  }
+
+  // 🚀 超精简 prompt - 从 600 字符减到 ~100 字符
+  const names = limitedPlacesToEnrich.map(p => p.name).join(',');
 
   const buildMergedMap = (enrichedPlaces: PlaceResult[]): Map<string, PlaceResult> => {
     const merged = new Map<string, PlaceResult>();
@@ -1507,39 +1455,9 @@ async function persistAIPlacesToDB(
     return merged;
   };
   
-  // AI 联网搜索获取完整信息（不包含图片，图片后续异步获取）
-  const prompt = `Search the web and find information for these places in ${city || 'the city'}${country ? `, ${country}` : ''}:
-- ${placeNames}
-
-IMPORTANT: For CHAIN restaurants/stores (like Ichiran, Starbucks, McDonald's, etc.), recommend ONE SPECIFIC BRANCH with its exact address. Do NOT just give the chain name.
-
-For EACH place, search and provide:
-1. name: The exact place name (for chains: include branch location like "Ichiran Shibuya" or "Starbucks Times Square")
-2. address: Full street address
-3. website: Official website URL (if available)
-4. latitude: GPS latitude coordinate (decimal, e.g., 35.6892)
-5. longitude: GPS longitude coordinate (decimal, e.g., 139.6917)
-6. rating: Google Maps rating (e.g., 4.5)
-7. ratingCount: Number of Google reviews (e.g., 1200)
-8. phoneNumber: Phone number (if available)
-9. openingHours: Brief opening hours (if available)
-
-Return JSON only:
-{
-  "places": [
-    {
-      "name": "Place Name - Branch/Location",
-      "address": "123 Main St, City, Country",
-      "website": "https://example.com",
-      "latitude": 35.6892,
-      "longitude": 139.6917,
-      "rating": 4.5,
-      "ratingCount": 1200,
-      "phoneNumber": "+1-234-567-8900",
-      "openingHours": "Mon-Sun 11:00-22:00"
-    }
-  ]
-}`;
+  // 🚀 超精简 prompt - 一次AI调用获取所有关键信息
+  const prompt = `${city || 'city'}${country ? `,${country}` : ''}:${names}
+JSON:{"places":[{"name":"","address":"","website":"","latitude":0,"longitude":0,"rating":0,"ratingCount":0}]}`;
 
   // Helper function to save places to DB (with or without enriched data)
   // 图片搜索改为批量一次性调用，不阻塞主流程
@@ -1796,21 +1714,30 @@ Return JSON only:
   }
 
   try {
-    // 使用联网搜索获取实时的地点信息（评分、地址、电话等）
-    logger.info(`[SearchV2] Using web search to enrich ${placesToEnrich.length} places...`);
-    const response = await generateTextWithWebSearch(prompt, 45000);
+    // 🚀 优化：使用较短超时时间（15秒），只搜索有限数量的地点
+    logger.info(`[SearchV2] Using web search to enrich ${limitedPlacesToEnrich.length} places (max ${MAX_PLACES_TO_ENRICH})...`);
+    const response = await generateTextWithWebSearch(prompt, 15000);
+    
+    // 先保存被跳过的地点（不做enrichment）
+    let skippedPersistedPlaces: PlaceResult[] = [];
+    if (skippedPlaces.length > 0) {
+      skippedPersistedPlaces = await savePlacesToDB(skippedPlaces, null);
+    }
+    
     if (!response) {
       logger.warn('[SearchV2] No response from AI web search for place enrichment, saving without enrichment');
-      const enrichedPlaces = await savePlacesToDB(placesToEnrich, null);
-      const mergedMap = buildMergedMap(enrichedPlaces);
+      const enrichedPlaces = await savePlacesToDB(limitedPlacesToEnrich, null);
+      const allPersistedPlaces = [...enrichedPlaces, ...skippedPersistedPlaces];
+      const mergedMap = buildMergedMap(allPersistedPlaces);
       return places.map(p => preMatchedWeb.get(p.name.toLowerCase().trim()) || mergedMap.get(p.name.toLowerCase().trim()) || p);
     }
     
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       logger.warn('[SearchV2] No JSON found in AI response for place enrichment, saving without enrichment');
-      const enrichedPlaces = await savePlacesToDB(placesToEnrich, null);
-      const mergedMap = buildMergedMap(enrichedPlaces);
+      const enrichedPlaces = await savePlacesToDB(limitedPlacesToEnrich, null);
+      const allPersistedPlaces = [...enrichedPlaces, ...skippedPersistedPlaces];
+      const mergedMap = buildMergedMap(allPersistedPlaces);
       return places.map(p => preMatchedWeb.get(p.name.toLowerCase().trim()) || mergedMap.get(p.name.toLowerCase().trim()) || p);
     }
     
@@ -1848,8 +1775,8 @@ Return JSON only:
         const itemNameLower = item.name.toLowerCase().trim();
         const itemCoreName = getCoreName(item.name);
         
-        // 更宽松的匹配逻辑
-        const originalPlace = placesToEnrich.find(p => {
+        // 更宽松的匹配逻辑 - 只在 limitedPlacesToEnrich 中查找
+        const originalPlace = limitedPlacesToEnrich.find(p => {
           const pNameLower = p.name.toLowerCase().trim();
           const pCoreName = getCoreName(p.name);
           
@@ -1886,19 +1813,27 @@ Return JSON only:
       }
     }
     
-    logger.info(`[SearchV2] Got enriched data for ${infoMap.size}/${placesToEnrich.length} places`);
+    logger.info(`[SearchV2] Got enriched data for ${infoMap.size}/${limitedPlacesToEnrich.length} places`);
     
     // Use helper function to save to DB
-    const enrichedPlaces = await savePlacesToDB(placesToEnrich, infoMap);
-    const mergedMap = buildMergedMap(enrichedPlaces);
+    const enrichedPlaces = await savePlacesToDB(limitedPlacesToEnrich, infoMap);
+    // 合并所有持久化的地点
+    const allPersistedPlaces = [...enrichedPlaces, ...skippedPersistedPlaces];
+    const mergedMap = buildMergedMap(allPersistedPlaces);
     return places.map(p => preMatchedWeb.get(p.name.toLowerCase().trim()) || mergedMap.get(p.name.toLowerCase().trim()) || p);
     
   } catch (error) {
     logger.warn(`[SearchV2] Failed to enrich places: ${error}, saving without enrichment`);
     // Even if enrichment fails, still save to DB
     try {
-      const enrichedPlaces = await savePlacesToDB(placesToEnrich, null);
-      const mergedMap = buildMergedMap(enrichedPlaces);
+      const enrichedPlaces = await savePlacesToDB(limitedPlacesToEnrich, null);
+      // 保存被跳过的地点
+      let skippedPersistedPlaces: PlaceResult[] = [];
+      if (skippedPlaces.length > 0) {
+        skippedPersistedPlaces = await savePlacesToDB(skippedPlaces, null);
+      }
+      const allPersistedPlaces = [...enrichedPlaces, ...skippedPersistedPlaces];
+      const mergedMap = buildMergedMap(allPersistedPlaces);
       return places.map(p => preMatchedWeb.get(p.name.toLowerCase().trim()) || mergedMap.get(p.name.toLowerCase().trim()) || p);
     } catch (dbError) {
       logger.warn(`[SearchV2] Failed to save places to DB: ${dbError}`);
@@ -2628,6 +2563,20 @@ function buildCountryCondition(country: string): any {
 }
 
 /**
+ * 构建地区过滤条件
+ * 根据地区名称（如 Europe）返回该地区所有国家的 OR 条件
+ */
+function buildRegionCondition(region: string): any | null {
+  const countries = REGION_COUNTRIES[region];
+  if (!countries || countries.length === 0) {
+    return null;
+  }
+  return {
+    OR: countries.map(c => ({ country: { equals: c, mode: 'insensitive' as const } }))
+  };
+}
+
+/**
  * 计算编辑距离（Levenshtein Distance）
  */
 function levenshteinDistance(a: string, b: string): number {
@@ -2654,12 +2603,52 @@ function levenshteinDistance(a: string, b: string): number {
   return matrix[b.length][a.length];
 }
 
+// Region/Continent keywords for filtering
+const REGION_KEYWORD_MAP: Record<string, string> = {
+  // English
+  'europe': 'Europe',
+  'european': 'Europe',
+  'asia': 'Asia',
+  'asian': 'Asia',
+  'north america': 'North America',
+  'south america': 'South America',
+  'africa': 'Africa',
+  'oceania': 'Oceania',
+  'middle east': 'Middle East',
+  'southeast asia': 'Southeast Asia',
+  'east asia': 'East Asia',
+  // Chinese
+  '欧洲': 'Europe',
+  '亚洲': 'Asia',
+  '北美': 'North America',
+  '南美': 'South America',
+  '非洲': 'Africa',
+  '大洋洲': 'Oceania',
+  '中东': 'Middle East',
+  '东南亚': 'Southeast Asia',
+  '东亚': 'East Asia',
+};
+
+// Countries that belong to each region (for database filtering)
+const REGION_COUNTRIES: Record<string, string[]> = {
+  'Europe': ['France', 'Germany', 'Italy', 'Spain', 'United Kingdom', 'Netherlands', 'Belgium', 'Austria', 'Switzerland', 'Portugal', 'Greece', 'Czech Republic', 'Poland', 'Sweden', 'Norway', 'Denmark', 'Finland', 'Ireland', 'Hungary', 'Romania', 'Croatia', 'Slovenia', 'Slovakia', 'Bulgaria', 'Serbia', 'Ukraine', 'Russia', 'Turkey', 'Iceland', 'Luxembourg', 'Monaco', 'Malta', 'Cyprus', 'Estonia', 'Latvia', 'Lithuania'],
+  'Asia': ['Japan', 'China', 'South Korea', 'Taiwan', 'Hong Kong', 'Singapore', 'Thailand', 'Vietnam', 'Malaysia', 'Indonesia', 'Philippines', 'India', 'Nepal', 'Sri Lanka', 'Myanmar', 'Cambodia', 'Laos', 'Mongolia', 'Bangladesh', 'Pakistan'],
+  'North America': ['United States', 'Canada', 'Mexico'],
+  'South America': ['Brazil', 'Argentina', 'Chile', 'Peru', 'Colombia', 'Ecuador', 'Bolivia', 'Venezuela', 'Uruguay', 'Paraguay'],
+  'Africa': ['Egypt', 'Morocco', 'South Africa', 'Kenya', 'Tanzania', 'Ethiopia', 'Nigeria', 'Ghana', 'Tunisia', 'Algeria'],
+  'Oceania': ['Australia', 'New Zealand', 'Fiji', 'Papua New Guinea'],
+  'Middle East': ['United Arab Emirates', 'Saudi Arabia', 'Israel', 'Jordan', 'Lebanon', 'Qatar', 'Kuwait', 'Bahrain', 'Oman', 'Iran', 'Iraq'],
+  'Southeast Asia': ['Thailand', 'Vietnam', 'Singapore', 'Malaysia', 'Indonesia', 'Philippines', 'Myanmar', 'Cambodia', 'Laos', 'Brunei'],
+  'East Asia': ['Japan', 'China', 'South Korea', 'Taiwan', 'Hong Kong', 'Mongolia'],
+};
+
 function parseQuery(query: string, options: { allowChinese?: boolean } = {}): ParsedQuery {
   const result: ParsedQuery = {
     count: CONFIG.DEFAULT_COUNT,
     category: '',
     city: '',
     country: '',
+    region: '',
     originalQuery: query,
     explicitCount: false,
   };
@@ -2705,6 +2694,24 @@ function parseQuery(query: string, options: { allowChinese?: boolean } = {}): Pa
         : lowerQuery.includes(keyword);
     if (match) {
       result.country = countryName;
+      break;
+    }
+  }
+
+  // 🌍 地区/大洲匹配（如 Europe, Asia 等）
+  // 注意：不要把地区误认为是城市
+  for (const [keyword, regionName] of Object.entries(REGION_KEYWORD_MAP)) {
+    if (!allowChinese && isCjkString(keyword)) continue;
+    const match = isCjkString(keyword)
+        ? query.includes(keyword)
+        : lowerQuery.includes(keyword);
+    if (match) {
+      result.region = regionName;
+      // 如果之前把 "Europe" 误解为城市，需要清除
+      if (result.city.toLowerCase() === keyword.toLowerCase()) {
+        result.city = '';
+        logger.info(`[SearchV2] Cleared city="${keyword}" as it's a region: ${regionName}`);
+      }
       break;
     }
   }
@@ -2806,7 +2813,7 @@ function parseQuery(query: string, options: { allowChinese?: boolean } = {}): Pa
     }
   }
   
-  logger.info(`[SearchV2] Parsed query: count=${result.count}, category="${result.category}", city="${result.city}", country="${result.country}", tags=${JSON.stringify(result.tags || [])}`);
+  logger.info(`[SearchV2] Parsed query: count=${result.count}, category="${result.category}", city="${result.city}", country="${result.country}", region="${result.region}", tags=${JSON.stringify(result.tags || [])}`);
   return result;
 }
 
@@ -2997,7 +3004,11 @@ async function matchAIPlacesFromDB(aiPlaces: AIPlace[], language: 'en' | 'zh' = 
   const buildNameSearchTerms = (name: string): string[] => {
     const trimmed = (name || '').trim();
     if (!trimmed) return [];
-    const lower = trimmed.toLowerCase();
+    
+    // 🔧 First, remove accents for better matching (Père -> Pere, etc.)
+    const noAccents = removeAccents(trimmed);
+    const lower = noAccents.toLowerCase();
+    
     const tokens = lower
       .replace(/[^a-z0-9\u4e00-\u9fff\s]/g, ' ')
       .split(/\s+/)
@@ -3005,6 +3016,7 @@ async function matchAIPlacesFromDB(aiPlaces: AIPlace[], language: 'en' | 'zh' = 
 
     const terms = new Set<string>();
     terms.add(trimmed);
+    terms.add(noAccents); // Add accent-stripped version
     // Add all tokens with length >= 4 for better matching
     tokens.filter(t => t.length >= 4).forEach(t => terms.add(t));
     // Also add the first token regardless of length
@@ -3016,8 +3028,16 @@ async function matchAIPlacesFromDB(aiPlaces: AIPlace[], language: 'en' | 'zh' = 
       terms.add('一蘭');
       terms.add('一兰');
     }
+    
+    // 🔧 Add cemetery-specific terms for better matching
+    if (tokens.some(t => t === 'lachaise' || t === 'pere')) {
+      terms.add('pere lachaise');
+      terms.add('père lachaise');
+      terms.add('pere-lachaise');
+      terms.add('lachaise');
+    }
 
-    return Array.from(terms).filter(t => t && t.trim().length >= 2).slice(0, 10);
+    return Array.from(terms).filter(t => t && t.trim().length >= 2).slice(0, 15);
   };
 
   const isIchiranAliasPair = (aiName: string, dbName: string): boolean => {
@@ -3054,8 +3074,9 @@ async function matchAIPlacesFromDB(aiPlaces: AIPlace[], language: 'en' | 'zh' = 
       
       // 🔧 包含匹配增强：如果 AI 名称完全包含在数据库名称中，或反之，提升相似度
       // 例如："Ippudo" 包含在 "一风堂 Ippudo" 或 "Ippudo Central Saint Giles" 中
-      const aiNameLower = aiPlace.name.toLowerCase().trim();
-      const dbNameLower = (candidate.name || '').toLowerCase().trim();
+      // 🔧 Also handle accented characters (Père -> Pere)
+      const aiNameLower = removeAccents(aiPlace.name).toLowerCase().trim();
+      const dbNameLower = removeAccents(candidate.name || '').toLowerCase().trim();
       const aiNameNormalized = aiNameLower.replace(/[^a-z0-9\u4e00-\u9fff]/g, '');
       const dbNameNormalized = dbNameLower.replace(/[^a-z0-9\u4e00-\u9fff]/g, '');
       
@@ -3065,6 +3086,17 @@ async function matchAIPlacesFromDB(aiPlaces: AIPlace[], language: 'en' | 'zh' = 
           nameSimilarity = Math.max(nameSimilarity, 0.85);
           logger.info(`[SearchV2] Name containment match: "${aiPlace.name}" <-> "${candidate.name}", boosted similarity to ${nameSimilarity.toFixed(2)}`);
         }
+      }
+      
+      // 🔧 Special handling for cemetery/landmark names with different word order
+      // e.g., "Père Lachaise Cemetery" vs "Cemetery du Père-Lachaise"
+      const aiTokensNormalized = aiNameLower.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length >= 4);
+      const dbTokensNormalized = dbNameLower.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length >= 4);
+      const significantTokenOverlap = aiTokensNormalized.filter(t => dbTokensNormalized.includes(t));
+      if (significantTokenOverlap.length >= 2) {
+        // Strong signal: 2+ significant tokens match (e.g., "pere" and "lachaise")
+        nameSimilarity = Math.max(nameSimilarity, 0.80);
+        logger.info(`[SearchV2] Token overlap match: "${aiPlace.name}" <-> "${candidate.name}", tokens: [${significantTokenOverlap.join(', ')}], boosted similarity to ${nameSimilarity.toFixed(2)}`);
       }
       
       const latDiff = Math.abs(aiPlace.latitude - candidate.latitude);
@@ -3217,6 +3249,8 @@ async function matchAIPlacesFromDB(aiPlaces: AIPlace[], language: 'en' | 'zh' = 
         phoneNumber: bestMatch.phoneNumber,
         website: bestMatch.website,
         openingHours: bestMatch.openingHours,
+        // 🔧 Pass through AI recommendation phrase for display when rating not available
+        recommendationPhrase: aiPlace.recommendationPhrase || '',
       });
     }
   }
@@ -3230,7 +3264,8 @@ async function getPlacesByCategory(
   category: string,
   excludeIds: string[],
   limit: number,
-  excludeNames: string[] = []
+  excludeNames: string[] = [],
+  region: string = ''
 ): Promise<any[]> {
   const categoryValues = Array.from(
     new Set([
@@ -3246,6 +3281,8 @@ async function getPlacesByCategory(
   // 构建城市条件（如果有城市）
   const cityCondition = city ? buildCityCondition(city) : null;
   const countryCondition = country ? buildCountryCondition(country) : null;
+  // 🌍 构建地区条件（如 Europe -> [France, Germany, Italy, ...]）
+  const regionCondition = region ? buildRegionCondition(region) : null;
 
   const ramenCategoryIntent = categoryValues.some((v) => v.toLowerCase().trim() === 'ramen') ||
     (category || '').toLowerCase().trim() === 'ramen';
@@ -3290,6 +3327,11 @@ async function getPlacesByCategory(
     }
     if (countryCondition) {
       whereConditions.unshift(countryCondition);
+    }
+    // 🌍 如果有地区条件（如 Europe），按地区内国家过滤
+    if (regionCondition && !countryCondition) {
+      whereConditions.unshift(regionCondition);
+      logger.info(`[SearchV2] Using region filter: ${region} (${REGION_COUNTRIES[region]?.length || 0} countries)`);
     }
     
     // 多取一些数据，然后按加权评分排序
@@ -3692,7 +3734,7 @@ async function getPlacesByQueryWithImageForMap(
 
 /**
  * 当有图片的地点数量不足时，生成 Markdown 格式的文本回复
- * 格式：**地点名**\n描述
+ * 🚀 优化版：使用 web search 但精简 prompt，只获取关键信息
  */
 async function generateTextOnlyResponse(
   aiPlaces: AIPlace[],
@@ -3704,100 +3746,27 @@ async function generateTextOnlyResponse(
   }
   
   const isZh = language === 'zh';
-  const languageText = isZh ? 'Chinese (简体中文)' : 'English';
+  const selectedPlaces = aiPlaces.slice(0, 8);
+  const names = selectedPlaces.map(p => p.name).join(',');
   
-  // 限制地点数量，5-10个
-  const maxPlaces = Math.min(aiPlaces.length, 10);
-  const selectedPlaces = aiPlaces.slice(0, maxPlaces);
-  
-  const placeList = selectedPlaces.map(p => `- ${p.name} (${p.city || 'unknown city'})`).join('\n');
-
-  const prompt = `Based on the user's search "${query}", write a comprehensive travel guide about these places.
-
-USE WEB SEARCH to find accurate, detailed information about each place including:
-- Origin story and history (起源/历史)
-- Signature dishes/features and what makes it special (特色/招牌)
-- Atmosphere and ambiance (氛围/环境)
-- Website URL (官网)
-
-Places to cover (5-10 places only):
-${placeList}
-
-IMPORTANT: For CHAIN restaurants/stores with multiple locations, you MUST recommend ONE SPECIFIC BRANCH with its exact address.
-
-STRUCTURE REQUIREMENTS:
-
-1. OPENING PARAGRAPH (REQUIRED - 3-4 sentences):
-   - Set the scene and introduce the topic with enthusiasm
-   - Mention why this city/category is special
-   - Build anticipation for the recommendations
-   ${isZh ? '- Example: "伦敦的拉面文化近年来蓬勃发展，从传统的博多豚骨拉面到创意融合风味，这座城市汇聚了众多令人垂涎的拉面名店。无论你是拉面新手还是资深爱好者，都能在这里找到满足味蕾的美味。以下是几家口碑极佳、值得专程前往的拉面店："' : '- Example: "London has emerged as a true ramen destination, with shops offering everything from traditional Hakata-style tonkotsu to creative fusion bowls. Whether you are a ramen newcomer or a seasoned enthusiast, these carefully curated spots will satisfy your cravings. Here are some must-try ramen shops that have earned devoted followings:"'}
-
-2. FOR EACH PLACE - USE THIS EXACT FORMAT:
-
-### ${isZh ? '中文名 English Name' : 'Place Name'}
-
-${isZh ? `用中文写一段丰富详细的介绍（3-4句话，80-150字）：
-- 必须提及起源/历史（如"起源于日本福冈市"、"创立于1985年"）
-- 详细描述招牌菜品/特色（具体的食物名称、口味特点）
-- 描述店铺氛围/环境（装修风格、座位安排、服务特点）
-- 推荐必点菜品或最佳体验方式` : `Write a RICH, DETAILED description (3-4 sentences, 80-150 words):
-- Mention the origin/history (founding year, where it came from)
-- Describe signature dishes/features in detail (specific food names, taste)
-- Describe the atmosphere/ambiance (decor, seating, service)
-- What to order or the best way to experience it`}
-
-• 网站：website-url.com (${isZh ? '必填！请通过网络搜索找到官网，只写域名不要 https://' : 'REQUIRED! Search for the official website and include it - just domain, no https://'})
-
-⚠️ WEBSITE IS REQUIRED: ${isZh ? '每个地点都必须包含网站！通过你的网络搜索能力找到每个地点的官方网站。' : 'Every place MUST include a website! Use your web search capability to find official websites.'}
-
-CORRECT FORMAT EXAMPLE:
-${isZh ? `### 金田家 Kanada-Ya
-
-金田家起源于日本福冈市，由拉面大师金田直哉于2009年创立，以其浓郁醇厚的豚骨汤底闻名。这里的汤底需要熬制18个小时以上，骨髓精华完全融入汤中，配上自家制作的细面，口感丝滑有嚼劲。店内装修简约日式风格，开放式厨房让你能看到师傅们专注制作拉面的过程。强烈推荐招牌"特浓豚骨拉面"，再加一份溏心蛋，绝对让你回味无穷。
-
-• 网站：kanada-ya.com` : `### Kanada-Ya
-
-Kanada-Ya originated in Fukuoka, Japan, founded by ramen master Kanada Naoya in 2009. The restaurant is famous for its incredibly rich tonkotsu broth, simmered for over 18 hours until the marrow melts into a creamy, umami-packed soup. The minimalist Japanese interior features an open kitchen where you can watch the chefs craft each bowl with precision. Their signature "Extra Rich Tonkotsu Ramen" with a soft-boiled egg is an absolute must-try.
-
-• Website: kanada-ya.com`}
-
-WRONG FORMATS (DO NOT USE):
-❌ [Name](/place/xxx) - NO links with place IDs
-❌ **[Name](URL)** - NO markdown links in titles  
-❌ (4.5) or (4.5分) - NO ratings in titles
-❌ • 简介：xxx - NO "简介" bullet points
-❌ • 地址：xxx - NO address bullet points (use for website only)
-
-KEY RULES:
-- Use ### for place titles (H3 heading)
-- ${isZh ? 'Title format: Chinese Name + Space + English Name (e.g., "### 金田家 Kanada-Ya")' : 'Just the place name (e.g., "### Kanada-Ya")'}
-- NO ratings in titles - the app will add them automatically
-- NO markdown links - the app will make titles clickable
-- Description: 3-4 rich sentences about origin, features, atmosphere
-- Only use "• 网站：" bullet for website (no 地址/简介)
-
-3. CLOSING PARAGRAPH (REQUIRED - 2-3 sentences):
-   - Offer helpful tips
-   - Wish them well with a friendly tone
-   ${isZh ? '- Example: "以上这几家都是伦敦非常受欢迎的拉面店，各种风味满足不同的口味需求。无论你是喜欢浓厚的豚骨汤，还是偏爱清淡的拉面，都能在这些店里找到你喜欢的味道。\\n\\n有什么其他问题或者想了解的内容吗？😊"' : '- Example: "Each of these spots offers something unique. I recommend visiting during off-peak hours for the best experience. Enjoy your ramen adventure! Let me know if you have any other questions! 😊"'}
-
-⚠️ CRITICAL LANGUAGE RULE - VERY IMPORTANT:
-- You MUST respond ENTIRELY in ${languageText}
-- ${isZh ? '所有描述、开头、结尾都必须是中文！不能用英文！' : 'ALL descriptions, opening, closing must be in English!'}
-- ${isZh ? '每个地点的介绍必须是 80-150 字的中文段落' : 'Each place description must be 80-150 words in English'}
-- ${isZh ? 'Place titles should have both Chinese and English names when applicable (e.g., "### 金田家 Kanada-Ya")' : 'Just the place name (e.g., "### Kanada-Ya")'}
-- DO NOT mix languages - ${isZh ? '不要在描述中使用英文句子' : 'do not use Chinese in descriptions'}
-
-Return the response as plain Markdown text (not JSON).`;
+  // 🚀 超精简 prompt - 从 2000+ 字符减到 ~200 字符
+  const prompt = isZh
+    ? `搜索:${query}
+地点:${names}
+用中文写简介，每个地点50字，包含特色和网站。格式:
+### 地点名
+简介。网站:xxx.com`
+    : `Query:${query}
+Places:${names}
+Write brief intro for each (50 words), include features and website. Format:
+### Place Name
+Description. Website:xxx.com`;
 
   try {
-    // 使用联网搜索能力获取最新的地点信息和网站（30秒超时以避免整体超时）
-    const response = await generateTextWithWebSearch(prompt, 30000);
+    const response = await generateTextWithWebSearch(prompt, 25000);
     
     if (response) {
-      // 清理响应，移除可能的 JSON 包装
-      let cleanResponse = response
+      const cleanResponse = response
         .replace(/```markdown\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
@@ -3806,31 +3775,28 @@ Return the response as plain Markdown text (not JSON).`;
       return cleanResponse;
     }
   } catch (error) {
-    logger.warn(`[SearchV2] Failed to generate text-only response: ${error}`);
+    logger.warn(`[SearchV2] generateTextOnlyResponse failed: ${error}`);
   }
   
-  // Fallback: 手动生成简单的 Markdown
+  // Fallback: 模板生成
   const fallbackLines: string[] = [];
-  
-  // 开头
   if (isZh) {
-    fallbackLines.push(`关于"${query}"，以下是一些值得推荐的地点：`);
+    fallbackLines.push(`关于"${query}"，以下是推荐的地点：\n`);
   } else {
-    fallbackLines.push(`Here are some recommended places for "${query}":`);
+    fallbackLines.push(`Here are recommended places for "${query}":\n`);
   }
-  fallbackLines.push('');
   
   for (const place of selectedPlaces) {
-    fallbackLines.push(`**${place.name}**`);
+    fallbackLines.push(`### ${place.name}`);
+    fallbackLines.push('');
     fallbackLines.push(place.summary || (isZh ? `位于${place.city || '当地'}的知名地点。` : `A notable place in ${place.city || 'this area'}.`));
     fallbackLines.push('');
   }
   
-  // 结尾
   if (isZh) {
-    fallbackLines.push('希望以上推荐对你有所帮助，祝旅途愉快！');
+    fallbackLines.push('\n希望以上推荐对你有帮助！有问题随时问 😊');
   } else {
-    fallbackLines.push('Hope these recommendations help. Have a great trip!');
+    fallbackLines.push('\nHope these help! Let me know if you have questions 😊');
   }
   
   return fallbackLines.join('\n');
@@ -3849,31 +3815,11 @@ async function generateAISummaryForPlaces(
     return { places: [], categories: [], overallSummary: '' };
   }
   
-  const placeNames = places.map(p => `- ${p.name} (${p.category || 'unknown'})`).join('\n');
-  const prompt = `Based on the user's search "${parsedQuery.originalQuery}", organize these places and write brief summaries.
-
-Places:
-${placeNames}
-
-Requirements:
-1. Write a natural, engaging introduction (1-2 sentences) that introduces these recommendations based on the user's query
-2. Write a 2-3 sentence summary for each place explaining why it matches the user's request
-3. Group them into 2-3 categories with emoji titles (e.g., "☕ Specialty Coffee", "🍰 Cafe & Bakery")
-4. Each category should have at least 2 places
-5. Response in ${language === 'zh' ? 'Chinese' : 'English'}
-
-Return JSON:
-{
-  "introduction": "A natural introduction to these recommendations...",
-  "categories": [
-    {
-      "title": "☕ Category Name",
-      "places": [
-        { "name": "Place Name", "summary": "Brief summary..." }
-      ]
-    }
-  ]
-}`;
+  // 🚀 优化：精简 prompt（从 ~500 字符减到 ~150 字符）
+  const names = places.slice(0, 8).map(p => p.name).join(',');
+  const lang = language === 'zh' ? 'Chinese' : 'English';
+  const prompt = `${lang}. Query:"${parsedQuery.originalQuery}". Places:${names}
+JSON:{"introduction":"<40字>","categories":[{"title":"☕ Cat","places":[{"name":"","summary":"<30字>"}]}]}`;
 
   try {
     const response = await generateTextWithFallback(prompt, CONFIG.AI_SUMMARY_TIMEOUT_MS);
@@ -4075,15 +4021,15 @@ export const searchV2 = async (req: Request, res: Response) => {
         const aiPlaces = result.relatedPlaces.filter(p => p.source === 'ai' || p.id?.startsWith('temp_'));
         
         if (aiPlaces.length > 0) {
-          // 🚀 优化：跳过联网搜索，直接保存（节省 30-45 秒）
-          logger.info(`[SearchV2] Persisting ${aiPlaces.length} AI places to database for travel_consultation (fast mode)...`);
+          // 启用联网搜索，获取完整的地点信息（评分、地址、网站等）
+          logger.info(`[SearchV2] Persisting ${aiPlaces.length} AI places to database for travel_consultation...`);
           const persistedPlaces = await persistAIPlacesToDB(
             aiPlaces,
             requiredCity,
             requiredCountry,
             narrativeLanguage,
             '', // category - travel consultation 可能没有特定分类
-            { skipWebSearch: true }, // 🚀 跳过联网搜索
+            { skipWebSearch: false }, // 启用联网搜索获取评分等信息
           );
           
           // 用持久化后的地点替换原来的临时地点（使用模糊匹配）
@@ -4142,15 +4088,15 @@ export const searchV2 = async (req: Request, res: Response) => {
             const aiPlaces = group.places.filter(p => p.source === 'ai' || p.id?.startsWith('temp_'));
             
             if (aiPlaces.length > 0) {
-              // 🚀 优化：跳过联网搜索，直接保存（节省 30-45 秒）
-              logger.info(`[SearchV2] Persisting ${aiPlaces.length} AI places to database for city ${group.city} (fast mode)...`);
+              // 启用联网搜索，获取完整的地点信息（评分、地址、网站等）
+              logger.info(`[SearchV2] Persisting ${aiPlaces.length} AI places to database for city ${group.city}...`);
               const persistedPlaces = await persistAIPlacesToDB(
                 aiPlaces,
                 group.city,
                 requiredCountry,
                 narrativeLanguage,
                 '',
-                { skipWebSearch: true }, // 🚀 跳过联网搜索
+                { skipWebSearch: false }, // 启用联网搜索获取评分等信息
               );
               
               // 用持久化后的地点替换原来的临时地点（使用模糊匹配）
@@ -4342,14 +4288,22 @@ export const searchV2 = async (req: Request, res: Response) => {
       parsedQuery.explicitCount = true;
     }
 
-    // If user didn't specify a count, use random 5-10 range
+    // 🌍 判断是否为分类+地区查询（如 "famous cemetery in Europe"）
+    // 这类查询应该优先使用数据库，目标为 5-15 个地点
+    const isCategoryRegionQuery = !!(parsedQuery.category && parsedQuery.region && !parsedQuery.city);
+    
+    // If user didn't specify a count, use random 5-10 range (or 8-15 for category+region)
     // 用户要求：返回 5-10 个地点，每次随机，超过 5 个时分类展示
-    const randomTarget = Math.floor(Math.random() * (CONFIG.MAX_COUNT - CONFIG.MIN_COUNT + 1)) + CONFIG.MIN_COUNT;
+    // 分类+地区查询：返回 5-15 个地点，优先使用数据库
+    const maxCount = isCategoryRegionQuery ? CONFIG.CATEGORY_REGION_MAX_COUNT : CONFIG.MAX_COUNT;
+    const randomTarget = isCategoryRegionQuery
+      ? Math.floor(Math.random() * (maxCount - CONFIG.MIN_COUNT + 1)) + CONFIG.MIN_COUNT  // 5-15
+      : Math.floor(Math.random() * (CONFIG.MAX_COUNT - CONFIG.MIN_COUNT + 1)) + CONFIG.MIN_COUNT;  // 5-10
     const targetCount = Math.min(
       Math.max(parsedQuery.explicitCount ? parsedQuery.count : randomTarget, CONFIG.MIN_COUNT),
-      CONFIG.MAX_COUNT, // 最多 10 条
+      maxCount,
     );
-    logger.info(`[SearchV2] Random target count: ${randomTarget}, final target: ${targetCount}`);
+    logger.info(`[SearchV2] isCategoryRegionQuery: ${isCategoryRegionQuery}, random target: ${randomTarget}, final target: ${targetCount}`);
 
     // 获取用户今日已收藏的地点（需要排除）
     let userSavedPlaceIds: Set<string> = new Set();
@@ -4416,43 +4370,90 @@ export const searchV2 = async (req: Request, res: Response) => {
     // ========== 第一步：并行执行 AI 推荐和数据库名字匹配 ==========
     logger.info(`[SearchV2] Step 1: Starting parallel AI + DB search (target: ${targetCount})...`);
 
+    // 🌍 分类+地区查询：优先使用数据库，不等待 AI
+    // 例如 "famous cemetery in Europe" - 应该优先从数据库获取欧洲的墓地
+    let dbCategoryRegionPlaces: any[] = [];
+    if (isCategoryRegionQuery) {
+      logger.info(`[SearchV2] Category+Region query detected: category="${parsedQuery.category}", region="${parsedQuery.region}"`);
+      dbCategoryRegionPlaces = await getPlacesByCategory(
+        '', // no city
+        '', // no country  
+        parsedQuery.category,
+        [],
+        targetCount * 2, // 多取一些用于筛选
+        [],
+        parsedQuery.region
+      ).catch(err => {
+        logger.warn(`[SearchV2] DB category+region query failed: ${err}`);
+        return [];
+      });
+      logger.info(`[SearchV2] DB category+region returned ${dbCategoryRegionPlaces.length} places`);
+    }
+
     // Always start the AI request in parallel, so we can prioritize AI→DB matched places when available.
     // We'll cap how long we wait based on whether the DB cache already satisfies the target.
     // 使用 narrativeLanguageCode 确保 AI 返回的 acknowledgment 语言与用户查询语言一致
-    const aiPromise = aiRecommendationService.getRecommendations(matchQuery, narrativeLanguageCode)
-      .catch(err => {
-        logger.warn(`[SearchV2] AI call failed: ${err}`);
-        return null;
-      });
+    // 🌍 对于分类+地区查询，如果数据库已有足够数据，不启动 AI 请求
+    const shouldSkipAI = isCategoryRegionQuery && dbCategoryRegionPlaces.length >= targetCount;
+    const aiPromise = shouldSkipAI
+      ? Promise.resolve(null)
+      : aiRecommendationService.getRecommendations(matchQuery, narrativeLanguageCode)
+        .catch(err => {
+          logger.warn(`[SearchV2] AI call failed: ${err}`);
+          return null;
+        });
 
     // DB-first: if Supabase already has enough image places, skip AI to keep latency low.
     // This is critical for queries like "日本拉面店" where cache is rich.
-    const dbNameMatchPlaces = await getPlacesByQueryWithImage(parsedQuery, [], Math.min(10, targetCount), [])
-      .catch(err => {
-        logger.warn(`[SearchV2] DB name match failed: ${err}`);
-        return [];
-      });
+    // 🌍 对于分类+地区查询，已经有 dbCategoryRegionPlaces，不需要重复查询
+    const dbNameMatchPlaces = isCategoryRegionQuery
+      ? []  // 分类+地区查询已经在上面查询过了
+      : await getPlacesByQueryWithImage(parsedQuery, [], Math.min(10, targetCount), [])
+        .catch(err => {
+          logger.warn(`[SearchV2] DB name match failed: ${err}`);
+          return [];
+        });
 
     // 初步判断缓存是否充足
     // 注意：这里只做初步判断，后续可能因为意图过滤导致结果为空
-    let cacheSufficient = dbNameMatchPlaces.length >= targetCount;
+    let cacheSufficient = isCategoryRegionQuery 
+      ? dbCategoryRegionPlaces.length >= targetCount
+      : dbNameMatchPlaces.length >= targetCount;
 
     let aiRecommendations: AIRecommendationResult | null = null;
-    // 如果缓存看起来充足，只等 2.5 秒；否则等待完整的 AI 超时
-    let aiWaitMs = cacheSufficient && !parsedQuery.explicitCount ? 2500 : CONFIG.AI_TIMEOUT_MS;
-    aiRecommendations = await Promise.race([
-      aiPromise,
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), aiWaitMs)),
-    ]);
+    // 🌍 分类+地区查询且数据库充足：不等待 AI
+    // 其他情况：如果缓存看起来充足，只等 2.5 秒；否则等待完整的 AI 超时
+    let aiWaitMs = shouldSkipAI ? 0 : (cacheSufficient && !parsedQuery.explicitCount ? 2500 : CONFIG.AI_TIMEOUT_MS);
+    if (!shouldSkipAI) {
+      aiRecommendations = await Promise.race([
+        aiPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), aiWaitMs)),
+      ]);
+    }
     
     if (aiRecommendations) {
       logger.info(`[SearchV2] AI returned ${aiRecommendations.places.length} places`);
+    } else if (shouldSkipAI) {
+      logger.info(`[SearchV2] AI skipped - using database for category+region query`);
     }
     logger.info(`[SearchV2] DB name match returned ${dbNameMatchPlaces.length} places`);
 
     // 收集最终结果（只包含有图片的地点）
     let finalPlaces: PlaceResult[] = [];
     let acknowledgment = aiRecommendations?.acknowledgment || '';
+    
+    // 🌍 分类+地区查询：如果 AI 被跳过，生成模板 acknowledgment
+    if (isCategoryRegionQuery && shouldSkipAI && !acknowledgment) {
+      const isZh = narrativeLanguageCode === 'zh';
+      const categoryDisplay = parsedQuery.category || '';
+      const regionDisplay = parsedQuery.region || '';
+      if (isZh) {
+        acknowledgment = `为您搜集了${regionDisplay}著名的${categoryDisplay}，这些地方都有着独特的历史和文化价值。`;
+      } else {
+        acknowledgment = `I've gathered famous ${categoryDisplay}s in ${regionDisplay} for you. Each of these places has unique historical and cultural significance.`;
+      }
+    }
+    
     let overallSummary = '';
     const usedIds = new Set<string>();
     const usedNames = new Set<string>();
@@ -4499,8 +4500,24 @@ export const searchV2 = async (req: Request, res: Response) => {
       
       const requiredCountry = normalizeCountry(parsedQuery.country);
       const requiredCity = normalizeCity(parsedQuery.city);
+      const requiredRegion = parsedQuery.region;
       const placeCountry = normalizeCountry(p?.country);
       const placeCity = normalizeCity(p?.city);
+
+      // 🌍 如果有地区要求（如 Europe），检查地点的国家是否在该地区
+      if (requiredRegion && !requiredCountry && !requiredCity) {
+        const regionCountries = REGION_COUNTRIES[requiredRegion];
+        if (regionCountries && regionCountries.length > 0) {
+          const placeCountryRaw = (p?.country || '').trim();
+          const isInRegion = regionCountries.some(c => 
+            c.toLowerCase() === placeCountryRaw.toLowerCase() ||
+            c.toLowerCase() === placeCountry
+          );
+          if (!isInRegion) {
+            return false;
+          }
+        }
+      }
 
       if (requiredCountry) {
         if (!placeCountry) return false;
@@ -4639,6 +4656,62 @@ export const searchV2 = async (req: Request, res: Response) => {
       return true;
     };
 
+    // ========== 第 1.3 步：优先级 0 - 分类+地区查询的数据库结果 ==========
+    // 🌍 对于分类+地区查询（如 "famous cemetery in Europe"），优先使用数据库结果
+    if (isCategoryRegionQuery && dbCategoryRegionPlaces.length > 0) {
+      logger.info(`[SearchV2] Step 1.3: Processing ${dbCategoryRegionPlaces.length} category+region places from database`);
+      
+      for (const p of dbCategoryRegionPlaces) {
+        if (finalPlaces.length >= targetCount) break;
+        if (!p.coverImage || p.coverImage === '') continue;
+        
+        const hasRating = p.rating !== null && p.rating > 0;
+        // 解析 images 字段
+        let images: string[] = [];
+        if (p.images) {
+          if (Array.isArray(p.images)) {
+            images = p.images.filter((img: string) => img && img.length > 0);
+          } else if (typeof p.images === 'string') {
+            try {
+              const parsed = JSON.parse(p.images);
+              if (Array.isArray(parsed)) {
+                images = parsed.filter((img: string) => img && img.length > 0);
+              }
+            } catch (e) {
+              // 忽略解析错误
+            }
+          }
+        }
+        if (images.length === 0 && p.coverImage) {
+          images = [p.coverImage];
+        }
+        
+        const existingSummary = String((p as any).aiSummary || (p as any).ai_summary || (p as any).aiDescription || (p as any).ai_description || '').trim();
+        const place: PlaceResult = {
+          id: p.id,
+          name: p.name,
+          summary: existingSummary,
+          coverImage: p.coverImage,
+          images: images,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          city: p.city || '',
+          country: p.country || '',
+          rating: p.rating,
+          ratingCount: p.ratingCount,
+          tags: buildDisplayTags(p.categoryEn, p.aiTags, matchLanguageCode, p.tags as Record<string, string[]> | null),
+          isVerified: hasRating || p.isVerified || false,
+          source: 'cache',
+          address: p.address || undefined,
+          phoneNumber: p.phoneNumber || undefined,
+          website: p.website || undefined,
+          openingHours: p.openingHours || undefined,
+        };
+        await addPlace(place);
+      }
+      logger.info(`[SearchV2] After category+region DB: ${finalPlaces.length}/${targetCount} places`);
+    }
+
     // ========== 第 1.5 步：优先级 0 - 使用并行获取的数据库名字匹配结果 ==========
     // 重要：只有当 AI 没有返回结果时才使用 dbNameMatchPlaces
     // 如果 AI 返回了推荐，应该优先使用 AI 结果，避免添加 AI 没有推荐的地点
@@ -4646,7 +4719,8 @@ export const searchV2 = async (req: Request, res: Response) => {
     
     // 判断是否应该使用 DB 名字匹配结果
     // 只有当 AI 没有返回足够结果时才使用，避免添加不相关的地点
-    const shouldUseDbNameMatch = !aiRecommendations || aiRecommendations.places.length < 3;
+    // 🌍 分类+地区查询已经在 Step 1.3 处理过了，跳过
+    const shouldUseDbNameMatch = !isCategoryRegionQuery && (!aiRecommendations || aiRecommendations.places.length < 3);
     
     if (dbNameMatchPlaces.length > 0 && shouldUseDbNameMatch) {
       logger.info(`[SearchV2] Step 1.5: Processing ${dbNameMatchPlaces.length} name-matched places (AI returned ${aiRecommendations?.places?.length || 0} places)`);
@@ -4821,9 +4895,9 @@ export const searchV2 = async (req: Request, res: Response) => {
       // 🚀 并行执行两个补充查询
       const [categoryPlaces, queryPlaces] = await Promise.all([
         // 按分类补充
-        (parsedQuery.city || parsedQuery.category)
+        (parsedQuery.city || parsedQuery.category || parsedQuery.region)
           ? getPlacesByCategory(
-              parsedQuery.city || '', parsedQuery.country || '', parsedQuery.category, excludeIds, needed * 2, excludeNames
+              parsedQuery.city || '', parsedQuery.country || '', parsedQuery.category, excludeIds, needed * 2, excludeNames, parsedQuery.region || ''
             )
           : Promise.resolve([]),
         // 按查询词补充
@@ -5053,15 +5127,13 @@ STRUCTURE REQUIREMENTS:
 
 ### ${isZh ? '中文名 English Name' : 'Place Name'}
 
-${isZh ? `用中文写一段丰富详细的介绍（3-4句话，80-150字）：
-- 必须提及起源/历史（如"起源于日本福冈市"、"创立于1985年"）
-- 详细描述招牌菜品/特色（具体的食物名称、口味特点）
-- 描述店铺氛围/环境（装修风格、座位安排、服务特点）
-- 推荐必点菜品或最佳体验方式` : `Write a RICH, DETAILED description (3-4 sentences, 80-150 words):
-- Mention the origin/history (founding year, where it came from)
-- Describe signature dishes/features in detail (specific food names, taste)
-- Describe the atmosphere/ambiance (decor, seating, service)
-- What to order or the best way to experience it`}
+${isZh ? `用中文写一段简洁介绍（2-3句话，50-100字）：
+- 描述招牌菜品/特色（具体的食物名称、口味特点）
+- 简述店铺氛围或独特卖点
+- 推荐必点菜品` : `Write a CONCISE description (2-3 sentences, 50-100 words):
+- Describe signature dishes/features (specific food names, taste)
+- Mention the atmosphere or unique selling point
+- What to order`}
 
 • 网站：website-url.com (${isZh ? '必填！请通过网络搜索找到官网，只写域名不要 https://' : 'REQUIRED! Search for official website - just domain, no https://'})
 
@@ -5070,11 +5142,11 @@ ${isZh ? `用中文写一段丰富详细的介绍（3-4句话，80-150字）：
 CORRECT FORMAT EXAMPLE:
 ${isZh ? `### 金田家 Kanada-Ya
 
-金田家起源于日本福冈市，由拉面大师金田直哉于2009年创立，以其浓郁醇厚的豚骨汤底闻名。这里的汤底需要熬制18个小时以上，骨髓精华完全融入汤中，配上自家制作的细面，口感丝滑有嚼劲。店内装修简约日式风格，开放式厨房让你能看到师傅们专注制作拉面的过程。强烈推荐招牌"特浓豚骨拉面"，再加一份溏心蛋，绝对让你回味无穷。
+以浓郁醇厚的豚骨汤底闻名，汤底熬制18小时以上，配自家细面口感丝滑。推荐招牌"特浓豚骨拉面"加溏心蛋。
 
 • 网站：kanada-ya.com` : `### Kanada-Ya
 
-Kanada-Ya originated in Fukuoka, Japan, founded by ramen master Kanada Naoya in 2009. The restaurant is famous for its incredibly rich tonkotsu broth, simmered for over 18 hours until the marrow melts into a creamy, umami-packed soup. The minimalist Japanese interior features an open kitchen where you can watch the chefs craft each bowl with precision. Their signature "Extra Rich Tonkotsu Ramen" with a soft-boiled egg is an absolute must-try.
+Famous for incredibly rich tonkotsu broth simmered for 18+ hours. The minimalist interior has an open kitchen. Must-try: Extra Rich Tonkotsu Ramen with soft-boiled egg.
 
 • Website: kanada-ya.com`}
 
@@ -5093,7 +5165,7 @@ WRONG FORMATS (DO NOT USE):
 ⚠️ CRITICAL LANGUAGE RULE - VERY IMPORTANT:
 - You MUST respond ENTIRELY in ${languageText}
 - ${isZh ? '所有描述、开头、结尾都必须是中文！不能用英文！' : 'ALL descriptions must be in English!'}
-- ${isZh ? '每个地点的介绍必须是 80-150 字的中文段落' : 'Each place description must be 80-150 words'}
+- ${isZh ? '每个地点的介绍必须是 50-100 字的中文段落' : 'Each place description must be 50-100 words'}
 - DO NOT mix languages
 
 Return the response as plain Markdown text.`;
@@ -5179,15 +5251,15 @@ Return the response as plain Markdown text.`;
       // 合并 matchedTextPlaces、unmatchedMentioned 和 textOnlyPlaces
       let allTextPlaces = [...matchedTextPlaces, ...unmatchedMentioned];
       if (textOnlyPlaces.length > 0) {
-        // 🚀 优化：跳过联网搜索，直接保存（节省 30-45 秒）
-        logger.info(`[SearchV2] Persisting ${textOnlyPlaces.length} text-only places to database (fast mode)...`);
+        // 启用联网搜索，获取完整的地点信息（评分、地址、网站等）
+        logger.info(`[SearchV2] Persisting ${textOnlyPlaces.length} text-only places to database...`);
         const persistedPlaces = await persistAIPlacesToDB(
           textOnlyPlaces,
           parsedQuery.city || '',
           parsedQuery.country || '',
           narrativeLanguageCode,
           parsedQuery.category || '',
-          { skipWebSearch: true }, // 🚀 跳过联网搜索
+          { skipWebSearch: false }, // 启用联网搜索获取评分等信息
         );
         
         // 只添加不在 matchedTextPlaces 中的地点

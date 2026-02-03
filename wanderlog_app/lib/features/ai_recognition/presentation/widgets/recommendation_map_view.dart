@@ -162,59 +162,12 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
       return (Position(116.4074, 39.9042), 10.0);
     }
 
-    // 始终从第一个有效地点开始，这样用户可以看到实际推荐的地点
-    if (validPlaces.length == 1) {
-      final place = validPlaces.first;
-      debugPrint(
-          '🗺️ [_calculateCameraPosition] Single place: ${place.name} at (${place.latitude}, ${place.longitude})');
-      return (Position(place.longitude, place.latitude), 14.0);
-    }
-
-    // 计算边界
-    double minLat = double.infinity;
-    double maxLat = double.negativeInfinity;
-    double minLng = double.infinity;
-    double maxLng = double.negativeInfinity;
-
-    for (final place in validPlaces) {
-      if (place.latitude < minLat) minLat = place.latitude;
-      if (place.latitude > maxLat) maxLat = place.latitude;
-      if (place.longitude < minLng) minLng = place.longitude;
-      if (place.longitude > maxLng) maxLng = place.longitude;
-    }
-
-    // 计算中心点
-    final centerLat = (minLat + maxLat) / 2;
-    final centerLng = (minLng + maxLng) / 2;
-
+    // 始终聚焦到第一个有效地点，避免多地点跨度大导致地图显示"外太空"
+    // 用户可以手动平移/缩放查看其他地点
+    final firstPlace = validPlaces.first;
     debugPrint(
-        '🗺️ [_calculateCameraPosition] Bounds: lat($minLat, $maxLat), lng($minLng, $maxLng)');
-    debugPrint(
-        '🗺️ [_calculateCameraPosition] Center: ($centerLat, $centerLng)');
-
-    // 计算缩放级别（基于边界范围）
-    final latDiff = maxLat - minLat;
-    final lngDiff = maxLng - minLng;
-    final maxDiff = latDiff > lngDiff ? latDiff : lngDiff;
-
-    double zoom;
-    if (maxDiff < 0.01) {
-      zoom = 15.0;
-    } else if (maxDiff < 0.05) {
-      zoom = 13.0;
-    } else if (maxDiff < 0.1) {
-      zoom = 12.0;
-    } else if (maxDiff < 0.5) {
-      zoom = 10.0;
-    } else if (maxDiff < 1.0) {
-      zoom = 9.0;
-    } else if (maxDiff < 5.0) {
-      zoom = 7.0;
-    } else {
-      zoom = 5.0;
-    }
-
-    return (Position(centerLng, centerLat), zoom);
+        '🗺️ [_calculateCameraPosition] Focus on first place: ${firstPlace.name} at (${firstPlace.latitude}, ${firstPlace.longitude})');
+    return (Position(firstPlace.longitude, firstPlace.latitude), 14.0);
   }
 
   /// 添加地图标记
@@ -601,13 +554,17 @@ class _FullscreenRecommendationMapState
       PageController(viewportFraction: 0.55);
   bool _isExiting = false;
 
+  /// 排序后的地点列表（数据库地点在前，AI 地点在后）
+  late List<PlaceResult> _sortedPlaces;
+
   @override
   void initState() {
     super.initState();
+    _sortedPlaces = _sortPlaces(widget.places);
     _selectedPlace = widget.selectedPlace;
     // 如果有初始选中的地点，找到它的索引
     if (_selectedPlace != null) {
-      final index = widget.places.indexWhere(
+      final index = _sortedPlaces.indexWhere(
         (p) => (p.id ?? p.name) == (_selectedPlace!.id ?? _selectedPlace!.name),
       );
       if (index >= 0) {
@@ -636,10 +593,45 @@ class _FullscreenRecommendationMapState
     super.dispose();
   }
 
+  /// 排序地点列表：优先有图的数据库地点，再有图的AI地点，最后无图的AI卡片（白底）
+  List<PlaceResult> _sortPlaces(List<PlaceResult> places) {
+    final dbPlacesWithImage = <PlaceResult>[];
+    final dbPlacesNoImage = <PlaceResult>[];
+    final aiPlacesWithImage = <PlaceResult>[];
+    final aiPlacesNoImage = <PlaceResult>[];
+
+    for (final place in places) {
+      final hasImage = place.hasValidCoverImage;
+      if (place.source == PlaceSource.ai) {
+        if (hasImage) {
+          aiPlacesWithImage.add(place);
+        } else {
+          aiPlacesNoImage.add(place);
+        }
+      } else {
+        // cache 和 google 都归为数据库地点
+        if (hasImage) {
+          dbPlacesWithImage.add(place);
+        } else {
+          dbPlacesNoImage.add(place);
+        }
+      }
+    }
+
+    // 排序：有图数据库 > 有图AI > 无图数据库 > 无图AI（白底卡片）
+    return [
+      ...dbPlacesWithImage,
+      ...aiPlacesWithImage,
+      ...dbPlacesNoImage,
+      ...aiPlacesNoImage,
+    ];
+  }
+
   /// 计算地图中心点和缩放级别
   (Position, double) _calculateCameraPosition() {
     // 过滤掉无效坐标的地点（0, 0 是无效坐标）
-    final validPlaces = widget.places
+    // 使用排序后的列表，确保聚焦到第一个数据库地点
+    final validPlaces = _sortedPlaces
         .where((p) =>
             p.latitude != 0 &&
             p.longitude != 0 &&
@@ -651,48 +643,10 @@ class _FullscreenRecommendationMapState
       return (Position(116.4074, 39.9042), 10.0);
     }
 
-    if (validPlaces.length == 1) {
-      final place = validPlaces.first;
-      return (Position(place.longitude, place.latitude), 14.0);
-    }
-
-    double minLat = double.infinity;
-    double maxLat = double.negativeInfinity;
-    double minLng = double.infinity;
-    double maxLng = double.negativeInfinity;
-
-    for (final place in validPlaces) {
-      if (place.latitude < minLat) minLat = place.latitude;
-      if (place.latitude > maxLat) maxLat = place.latitude;
-      if (place.longitude < minLng) minLng = place.longitude;
-      if (place.longitude > maxLng) maxLng = place.longitude;
-    }
-
-    final centerLat = (minLat + maxLat) / 2;
-    final centerLng = (minLng + maxLng) / 2;
-
-    final latDiff = maxLat - minLat;
-    final lngDiff = maxLng - minLng;
-    final maxDiff = latDiff > lngDiff ? latDiff : lngDiff;
-
-    double zoom;
-    if (maxDiff < 0.01) {
-      zoom = 15.0;
-    } else if (maxDiff < 0.05) {
-      zoom = 13.0;
-    } else if (maxDiff < 0.1) {
-      zoom = 12.0;
-    } else if (maxDiff < 0.5) {
-      zoom = 10.0;
-    } else if (maxDiff < 1.0) {
-      zoom = 9.0;
-    } else if (maxDiff < 5.0) {
-      zoom = 7.0;
-    } else {
-      zoom = 5.0;
-    }
-
-    return (Position(centerLng, centerLat), zoom);
+    // 始终聚焦到第一个有效地点，避免多地点跨度大导致地图显示"外太空"
+    // 用户可以手动平移/缩放查看其他地点
+    final firstPlace = validPlaces.first;
+    return (Position(firstPlace.longitude, firstPlace.latitude), 14.0);
   }
 
   // ignore: unused_element
@@ -705,11 +659,11 @@ class _FullscreenRecommendationMapState
       _annotationsByPlaceId.clear();
       _placeByAnnotationId.clear();
 
-      if (widget.places.isEmpty) return;
+      if (_sortedPlaces.isEmpty) return;
 
       final selectedId = _selectedPlace?.id ?? _selectedPlace?.name;
 
-      for (final place in widget.places) {
+      for (final place in _sortedPlaces) {
         final placeId = place.id ?? place.name;
         if (placeId == selectedId) continue;
 
@@ -723,9 +677,9 @@ class _FullscreenRecommendationMapState
       }
 
       if (selectedId != null) {
-        final selectedPlace = widget.places.firstWhere(
+        final selectedPlace = _sortedPlaces.firstWhere(
           (p) => (p.id ?? p.name) == selectedId,
-          orElse: () => widget.places.first,
+          orElse: () => _sortedPlaces.first,
         );
         try {
           final annotation =
@@ -909,7 +863,7 @@ class _FullscreenRecommendationMapState
   }
 
   void _handleMarkerTap(PlaceResult place) {
-    final index = widget.places
+    final index = _sortedPlaces
         .indexWhere((p) => (p.id ?? p.name) == (place.id ?? place.name));
     if (index >= 0) {
       setState(() {
@@ -930,8 +884,8 @@ class _FullscreenRecommendationMapState
 
   /// 卡片滑动时更新选中状态
   void _onCardPageChanged(int index) {
-    if (index >= 0 && index < widget.places.length) {
-      final place = widget.places[index];
+    if (index >= 0 && index < _sortedPlaces.length) {
+      final place = _sortedPlaces[index];
       setState(() {
         _selectedPlace = place;
       });
@@ -946,7 +900,7 @@ class _FullscreenRecommendationMapState
   Widget build(BuildContext context) {
     final (center, zoom) = _calculateCameraPosition();
     final topPadding = MediaQuery.of(context).padding.top;
-    final spots = widget.places.map(_placeToMapSpot).toList();
+    final spots = _sortedPlaces.map(_placeToMapSpot).toList();
     final selectedId = _selectedPlace?.id ?? _selectedPlace?.name;
     map_page.Spot? selectedSpot;
     if (selectedId != null) {
@@ -959,7 +913,7 @@ class _FullscreenRecommendationMapState
     }
 
     // 检查是否所有地点都没有封面图
-    final allWithoutCoverImage = widget.places.every(
+    final allWithoutCoverImage = _sortedPlaces.every(
       (p) => p.coverImage.isEmpty,
     );
 
@@ -989,7 +943,7 @@ class _FullscreenRecommendationMapState
               initialZoom: zoom,
               selectedSpot: selectedSpot,
               onSpotTap: (spot) {
-                final place = _findPlaceBySpot(widget.places, spot);
+                final place = _findPlaceBySpot(_sortedPlaces, spot);
                 if (place != null) {
                   _handleMarkerTap(place);
                 }
@@ -1041,7 +995,7 @@ class _FullscreenRecommendationMapState
                     const Icon(Icons.place, size: 16, color: AppTheme.black),
                     const SizedBox(width: 6),
                     Text(
-                      '${widget.places.length} places',
+                      '${_sortedPlaces.length} places',
                       style: AppTheme.bodySmall(context).copyWith(
                         fontWeight: FontWeight.w600,
                         color: AppTheme.black,
@@ -1052,7 +1006,7 @@ class _FullscreenRecommendationMapState
               ),
             ),
             // 底部横滑卡片列表 - 和其他地图页保持一致
-            if (widget.places.isNotEmpty && !_isExiting)
+            if (_sortedPlaces.isNotEmpty && !_isExiting)
               Positioned(
                 left: 0,
                 right: 0,
@@ -1066,16 +1020,20 @@ class _FullscreenRecommendationMapState
                     controller: _cardPageController,
                     clipBehavior: Clip.none,
                     onPageChanged: _onCardPageChanged,
-                    itemCount: widget.places.length,
+                    itemCount: _sortedPlaces.length,
                     itemBuilder: (context, index) {
-                      final place = widget.places[index];
+                      final place = _sortedPlaces[index];
                       final isSelected = (place.id ?? place.name) ==
                           (_selectedPlace?.id ?? _selectedPlace?.name);
-                      // 根据来源决定卡片高度：AI 地点用矮卡片，数据库地点用高卡片
+                      // 根据来源和是否有图决定卡片高度
                       final isAIPlace = place.source == PlaceSource.ai;
-                      final thisCardHeight = (allWithoutCoverImage || isAIPlace)
-                          ? aiCardHeight
-                          : maxCardHeight;
+                      // AI 地点有图时也使用大卡片高度
+                      final useFullCard =
+                          !isAIPlace || place.hasValidCoverImage;
+                      final thisCardHeight =
+                          (allWithoutCoverImage || !useFullCard)
+                              ? aiCardHeight
+                              : maxCardHeight;
                       return AnimatedScale(
                         scale: isSelected ? 1.0 : 0.92,
                         duration: const Duration(milliseconds: 250),
@@ -1164,8 +1122,13 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
     if (widget.isCompact) {
       return _buildCompactCard(context);
     }
-    // AI 地点使用白底紧凑卡片样式（图2）
+    // AI 地点：有封面图时使用大图卡片，无封面图时使用白底紧凑卡片
     if (widget.place.source == PlaceSource.ai) {
+      if (widget.place.hasValidCoverImage) {
+        // AI 地点有图时，使用大图渐变样式（和数据库地点一致）
+        return _buildFullCard(context);
+      }
+      // AI 地点无图时，使用白底紧凑卡片样式
       return _buildAIPlaceCard(context);
     }
     // 数据库地点使用大图渐变样式
@@ -1225,7 +1188,7 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
-              // 评分
+              // 评分或推荐语
               if (widget.place.hasRating)
                 Row(
                   children: [
@@ -1253,6 +1216,30 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                         ),
                       ),
                     ],
+                  ],
+                )
+              else if (widget.place.recommendationPhrase != null &&
+                  widget.place.recommendationPhrase!.isNotEmpty)
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome,
+                      size: 14,
+                      color: AppTheme.primaryYellow,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        widget.place.recommendationPhrase!,
+                        style: AppTheme.bodySmall(context).copyWith(
+                          color: AppTheme.black.withOpacity(0.8),
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
                 ),
             ],
@@ -1317,7 +1304,7 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                 ),
               ),
               const SizedBox(height: 6),
-              // 评分
+              // 评分或推荐语
               if (widget.place.hasRating)
                 Row(
                   children: [
@@ -1345,6 +1332,30 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
                         ),
                       ),
                     ],
+                  ],
+                )
+              else if (widget.place.recommendationPhrase != null &&
+                  widget.place.recommendationPhrase!.isNotEmpty)
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome,
+                      size: 14,
+                      color: AppTheme.primaryYellow,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        widget.place.recommendationPhrase!,
+                        style: AppTheme.bodySmall(context).copyWith(
+                          color: AppTheme.black.withOpacity(0.8),
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
                 ),
             ],

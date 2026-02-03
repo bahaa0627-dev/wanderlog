@@ -2842,103 +2842,103 @@ class _UnifiedSpotDetailModalState
               // 1. Image section with close button and collection entry
               // 只有当有有效图片时才显示图片区域
               if (_validSpotImages.isNotEmpty)
-              Stack(
-                children: [
-                  // 图片容器 - 详情页图片铺满，无左右边距
-                  SizedBox(
-                    height: 300,
-                    child: GestureDetector(
-                            onTap: () =>
-                                _showFullScreenImage(_currentImageIndex),
-                            child: PageView.builder(
-                              controller: _imagePageController,
-                              onPageChanged: (index) =>
-                                  setState(() => _currentImageIndex = index),
-                              itemCount: _validSpotImages.length,
-                              itemBuilder: (context, index) {
-                                final imageSource = _validSpotImages[index];
-                                if (imageSource.startsWith('data:')) {
-                                  final bytes = _decodeBase64Image(imageSource);
-                                  if (bytes != null) {
-                                    return ClipRRect(
-                                      borderRadius: const BorderRadius.vertical(
-                                          top: Radius.circular(22)),
-                                      child: Image.memory(
-                                        bytes,
-                                        fit: BoxFit.cover,
-                                        width: double.infinity,
-                                        height: double.infinity,
-                                        gaplessPlayback: true,
-                                        errorBuilder: (_, __, ___) =>
-                                            _buildPlaceholder(),
-                                      ),
-                                    );
-                                  }
-                                  return _buildPlaceholder();
-                                }
+                Stack(
+                  children: [
+                    // 图片容器 - 详情页图片铺满，无左右边距
+                    SizedBox(
+                      height: 300,
+                      child: GestureDetector(
+                        onTap: () => _showFullScreenImage(_currentImageIndex),
+                        child: PageView.builder(
+                          controller: _imagePageController,
+                          onPageChanged: (index) =>
+                              setState(() => _currentImageIndex = index),
+                          itemCount: _validSpotImages.length,
+                          itemBuilder: (context, index) {
+                            final imageSource = _validSpotImages[index];
+                            if (imageSource.startsWith('data:')) {
+                              final bytes = _decodeBase64Image(imageSource);
+                              if (bytes != null) {
                                 return ClipRRect(
                                   borderRadius: const BorderRadius.vertical(
                                       top: Radius.circular(22)),
-                                  child: Image.network(
-                                    imageSource,
+                                  child: Image.memory(
+                                    bytes,
                                     fit: BoxFit.cover,
                                     width: double.infinity,
                                     height: double.infinity,
                                     gaplessPlayback: true,
-                                    frameBuilder: (context, child, frame,
-                                        wasSynchronouslyLoaded) {
-                                      if (wasSynchronouslyLoaded) return child;
-                                      return child;
-                                    },
                                     errorBuilder: (_, __, ___) =>
                                         _buildPlaceholder(),
                                   ),
                                 );
-                              },
-                            ),
-                          ),
-                  ),
-                  if (_validSpotImages.length > 1)
-                    Positioned(
-                      bottom: 12,
-                      left: 0,
-                      right: 0,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          _validSpotImages.length,
-                          (index) => Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: index == _currentImageIndex
-                                  ? AppTheme.primaryYellow
-                                  : Colors.white.withOpacity(0.5),
-                              border:
-                                  Border.all(color: AppTheme.black, width: 1),
+                              }
+                              return _buildPlaceholder();
+                            }
+                            return ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(22)),
+                              child: Image.network(
+                                imageSource,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                height: double.infinity,
+                                gaplessPlayback: true,
+                                frameBuilder: (context, child, frame,
+                                    wasSynchronouslyLoaded) {
+                                  if (wasSynchronouslyLoaded) return child;
+                                  return child;
+                                },
+                                errorBuilder: (_, __, ___) =>
+                                    _buildPlaceholder(),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    if (_validSpotImages.length > 1)
+                      Positioned(
+                        bottom: 12,
+                        left: 0,
+                        right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            _validSpotImages.length,
+                            (index) => Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: index == _currentImageIndex
+                                    ? AppTheme.primaryYellow
+                                    : Colors.white.withOpacity(0.5),
+                                border:
+                                    Border.all(color: AppTheme.black, width: 1),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  // 合集入口卡片 - 封面图左上角
-                  if (_linkedCollection != null && !widget.hideCollectionEntry)
-                    Positioned(
-                      top: 16,
-                      left: 16,
-                      child: _buildCollectionEntryCard(),
-                    ),
-                  // 剧照入口按钮 - 封面图右下角
-                  if (_hasStillsData())
-                    Positioned(
-                      right: 16,
-                      bottom: _validSpotImages.length > 1 ? 32 : 16,
-                      child: _buildStillsEntryButton(),
-                    ),
-                ],
-              ),
+                    // 合集入口卡片 - 封面图左上角
+                    if (_linkedCollection != null &&
+                        !widget.hideCollectionEntry)
+                      Positioned(
+                        top: 16,
+                        left: 16,
+                        child: _buildCollectionEntryCard(),
+                      ),
+                    // 剧照入口按钮 - 封面图右下角
+                    if (_hasStillsData())
+                      Positioned(
+                        right: 16,
+                        bottom: _validSpotImages.length > 1 ? 32 : 16,
+                        child: _buildStillsEntryButton(),
+                      ),
+                  ],
+                ),
               // 没有有效图片时，不显示顶部占位区域
               if (_validSpotImages.isEmpty) const SizedBox(height: 8),
               // Scrollable content
@@ -3040,8 +3040,11 @@ class _UnifiedSpotDetailModalState
                           ],
                         ),
                         const SizedBox(height: 16),
-                      ] else if (_isAIOnlySpot) ...[
-                        // AI-only 地点：显示推荐短语
+                      ] else if (_isAIOnlySpot ||
+                          _spotRecommendationPhrase != null ||
+                          (_spotDescription != null &&
+                              _spotDescription!.isNotEmpty)) ...[
+                        // 没有评分但有推荐短语或描述时：显示推荐短语
                         Row(
                           children: [
                             const Icon(Icons.auto_awesome,
@@ -3063,7 +3066,7 @@ class _UnifiedSpotDetailModalState
                         ),
                         const SizedBox(height: 16),
                       ] else ...[
-                        // 没有评分也不是 AI-only：只显示 Check-in 按钮
+                        // 没有评分也没有推荐语：只显示 Check-in 按钮
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [_buildCheckInButton()],

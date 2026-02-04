@@ -991,13 +991,131 @@
             from { opacity: 1; transform: translateX(0); }
             to { opacity: 0; transform: translateX(100%); }
         }
+
+        /* 未登录时隐藏主界面 */
+        .main-container {
+            display: none;
+        }
+        .main-container.authenticated {
+            display: block;
+        }
+
+        /* 登录界面样式 */
+        .auth-overlay {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .auth-overlay.hidden {
+            display: none;
+        }
+        .auth-card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            width: 400px;
+            max-width: 90vw;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .auth-card h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .auth-card .subtitle {
+            color: #666;
+            margin-bottom: 32px;
+            font-size: 14px;
+        }
+        .auth-card .form-group {
+            text-align: left;
+            margin-bottom: 16px;
+        }
+        .auth-card .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 6px;
+        }
+        .auth-card .form-group input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .auth-card .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+        .auth-card .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .auth-card .btn-login:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .auth-card .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .auth-card .error-msg {
+            color: #e53935;
+            font-size: 13px;
+            margin-top: 12px;
+            min-height: 20px;
+        }
+        .auth-card .logo-emoji {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
     </style>
 </head>
 <body>
+    <!-- 登录界面 -->
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-card">
+            <div class="logo-emoji">🗺️</div>
+            <h1>管理后台</h1>
+            <p class="subtitle">请登录管理员账号以访问数据</p>
+            <form id="authForm" onsubmit="event.preventDefault(); handleAuthLogin();">
+                <div class="form-group">
+                    <label>管理员邮箱</label>
+                    <input type="email" id="authEmail" placeholder="admin@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label>管理员密码</label>
+                    <input type="password" id="authPassword" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn-login" id="authSubmitBtn">登录</button>
+                <div class="error-msg" id="authError"></div>
+            </form>
+        </div>
+    </div>
+
     <!-- Toast 容器 -->
     <div id="toastContainer" class="toast-container"></div>
     
-    <div class="container">
+    <div class="container main-container" id="mainContainer">
         <div class="header">
             <div class="top-actions">
                 <button id="loginButton" class="btn btn-secondary">管理员登录</button>
@@ -1785,8 +1903,113 @@
         function handleLogoutConfirm() {
             if (confirm('确定要退出管理员登录吗？')) {
                 clearAdminToken();
+                // 显示登录界面，隐藏主界面
+                showAuthOverlay();
                 alert('已退出登录');
             }
+        }
+
+        // 显示/隐藏认证界面
+        function showAuthOverlay() {
+            document.getElementById('authOverlay').classList.remove('hidden');
+            document.getElementById('mainContainer').classList.remove('authenticated');
+        }
+
+        function hideAuthOverlay() {
+            document.getElementById('authOverlay').classList.add('hidden');
+            document.getElementById('mainContainer').classList.add('authenticated');
+        }
+
+        // 首页登录处理
+        async function handleAuthLogin() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+            const errorEl = document.getElementById('authError');
+            const submitBtn = document.getElementById('authSubmitBtn');
+            
+            if (!email || !password) {
+                errorEl.textContent = '请输入邮箱和密码';
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = '登录中...';
+            errorEl.textContent = '';
+            
+            try {
+                const res = await fetch(`${API_HOST}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data?.message || '登录失败');
+                }
+                if (!data?.token) {
+                    throw new Error('未获取到 token');
+                }
+                
+                // 保存登录信息
+                adminEmail = data?.user?.email || email;
+                localStorage.setItem('adminEmail', adminEmail);
+                setAdminToken(data.token);
+                
+                // 隐藏登录界面，显示主界面
+                hideAuthOverlay();
+                
+                // 初始化数据
+                await initAfterAuth();
+                
+            } catch (err) {
+                console.error('登录失败:', err);
+                errorEl.textContent = err.message || '登录失败，请检查账号密码';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '登录';
+            }
+        }
+
+        // 验证 token 是否有效
+        async function validateToken(token) {
+            try {
+                const res = await fetch(`${API_HOST}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data?.user?.email) {
+                        adminEmail = data.user.email;
+                        localStorage.setItem('adminEmail', adminEmail);
+                    }
+                    return true;
+                }
+                return false;
+            } catch (err) {
+                console.error('Token 验证失败:', err);
+                return false;
+            }
+        }
+
+        // 认证后初始化数据
+        async function initAfterAuth() {
+            updateTopActions();
+            
+            // 并行加载筛选选项
+            loadFilterOptions().catch(err => {
+                console.error('加载筛选器数据失败:', err);
+            });
+            
+            // 加载地点列表
+            await loadPlaces();
+            
+            // 设置筛选器监听
+            setupFilterListeners();
+            
+            // 加载合集
+            loadCollections().catch(err => {
+                console.error('加载合集失败:', err);
+            });
         }
 
         function fetchWithTimeout(url, options = {}, timeout = FETCH_TIMEOUT) {
@@ -1817,24 +2040,28 @@
 
         // 初始化
         async function init() {
-            loadStoredToken();
             await ensureApiHost();
-
-            // 并行加载筛选选项，不阻塞地点列表显示
-            loadFilterOptions().catch(err => {
-                console.error('加载筛选器数据失败，但不影响地点列表显示:', err);
-            });
             
-            // 立即加载地点列表，不等待 loadFilterOptions
-            await loadPlaces();
+            // 检查是否已登录
+            const token = localStorage.getItem('adminToken');
+            if (token) {
+                // 验证 token 是否有效
+                const isValid = await validateToken(token);
+                if (isValid) {
+                    // token 有效，隐藏登录界面，显示主界面
+                    hideAuthOverlay();
+                    loadStoredToken();
+                    await initAfterAuth();
+                    return;
+                } else {
+                    // token 无效，清除并显示登录界面
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminEmail');
+                }
+            }
             
-            // 设置筛选器监听
-            setupFilterListeners();
-            
-            // 加载合集（可选，不阻塞）
-            loadCollections().catch(err => {
-                console.error('加载合集失败:', err);
-            });
+            // 未登录，显示登录界面
+            showAuthOverlay();
         }
 
         // 切换页签

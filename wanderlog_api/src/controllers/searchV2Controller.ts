@@ -99,8 +99,8 @@ interface CategoryGroup {
 }
 
 const CONFIG = {
-  AI_TIMEOUT_MS: 60000, // 降低到 60 秒以避免客户端超时
-  AI_SUMMARY_TIMEOUT_MS: 30000,
+  AI_TIMEOUT_MS: 30000, // 降低到 30 秒以提高响应速度（从 60s 减半）
+  AI_SUMMARY_TIMEOUT_MS: 15000, // 降低到 15 秒（从 30s 减半）
   DEFAULT_COUNT: 8,  // 默认返回 5-10 个地点
   MIN_COUNT: 5,       // 最少返回 5 个地点
   MAX_COUNT: 10,      // 最多返回 10 个地点（不分类时）
@@ -112,9 +112,9 @@ const CONFIG = {
   COORDINATE_THRESHOLD: 0.01, // ~1.1km for strict matching
   COORDINATE_THRESHOLD_RELAXED: 0.02, // ~2.2km for relaxed matching with city
   COORDINATE_THRESHOLD_VERY_CLOSE: 0.002, // ~220m for same place with different names
-  IMAGE_SEARCH_TIMEOUT_MS: 15000,
+  IMAGE_SEARCH_TIMEOUT_MS: 10000, // 降低到 10 秒（从 15s 降低）
   MIN_PLACES_FOR_CARDS: 3, // 少于这个数量时，改用文本格式
-  GEOCODE_TIMEOUT_MS: 3000, // 单个地址 geocoding 超时（从 5s 降到 3s）
+  GEOCODE_TIMEOUT_MS: 2000, // 单个地址 geocoding 超时（从 3s 降到 2s）
 };
 
 /**
@@ -186,9 +186,9 @@ async function geocodePlacesMissingCoordinates(
       }
     }));
 
-    // 批次间稍作延迟（Mapbox 不太需要，但保持以防万一）
+    // 🚀 优化：批次间延迟从 100ms 降到 50ms
     if (i + batchSize < needsGeocode.length) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
   }
 
@@ -4684,8 +4684,8 @@ export const searchV2 = async (req: Request, res: Response) => {
 
     let aiRecommendations: AIRecommendationResult | null = null;
     // 🌍 分类+地区查询且数据库充足：不等待 AI
-    // 其他情况：如果缓存看起来充足，只等 2.5 秒；否则等待完整的 AI 超时
-    let aiWaitMs = shouldSkipAI ? 0 : (cacheSufficient && !parsedQuery.explicitCount ? 2500 : CONFIG.AI_TIMEOUT_MS);
+    // 🚀 优化：如果缓存充足，只等 1.5 秒（从 2.5s 降低）；否则等待 AI 超时
+    let aiWaitMs = shouldSkipAI ? 0 : (cacheSufficient && !parsedQuery.explicitCount ? 1500 : CONFIG.AI_TIMEOUT_MS);
     if (!shouldSkipAI) {
       aiRecommendations = await Promise.race([
         aiPromise,

@@ -177,9 +177,7 @@ class WishlistStatusCache {
   }
 
   /// 获取完整状态
-  static SpotStatusData? getFullStatus(String spotId) {
-    return _fullStatusCache[spotId];
-  }
+  static SpotStatusData? getFullStatus(String spotId) => _fullStatusCache[spotId];
 
   /// 清除缓存
   static void clear() {
@@ -204,7 +202,7 @@ final wishlistStatusProvider =
     final authState = ref.read(authProvider);
     final token = await StorageService.instance.getSecure('auth_token');
     print(
-        '⚠️ [wishlistStatusProvider] trips empty. isAuthenticated=${authState.isAuthenticated}, tokenPresent=${token != null && token.isNotEmpty}');
+        '⚠️ [wishlistStatusProvider] trips empty. isAuthenticated=${authState.isAuthenticated}, tokenPresent=${token != null && token.isNotEmpty}',);
   }
 
   final Map<String, String?> statusMap = {};
@@ -266,7 +264,7 @@ final wishlistStatusProvider =
 /// 检查单个地点是否已收藏
 /// 返回 (isInWishlist, destinationId)
 (bool, String?) checkWishlistStatus(
-    Map<String, String?> statusMap, String spotId) {
+    Map<String, String?> statusMap, String spotId,) {
   if (statusMap.containsKey(spotId)) {
     return (true, statusMap[spotId]);
   }

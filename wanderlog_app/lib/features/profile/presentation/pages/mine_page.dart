@@ -37,7 +37,7 @@ class _MinePageState extends ConsumerState<MinePage> {
   final ScrollController _scrollController = ScrollController();
 
   Future<void> _openSpotDetailFromMineData(
-      map_page.Spot spot, MinePageData data) async {
+      map_page.Spot spot, MinePageData data,) async {
     TripSpot? ts;
     for (final item in data.visitedSpots) {
       if (item.spot?.id == spot.id) {
@@ -149,7 +149,7 @@ class _MinePageState extends ConsumerState<MinePage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.error_outline,
-                      size: 48, color: AppTheme.error),
+                      size: 48, color: AppTheme.error,),
                   const SizedBox(height: 16),
                   Text(
                     'Failed to load data',
@@ -218,7 +218,7 @@ class _MinePageState extends ConsumerState<MinePage> {
           pinned: true,
           delegate: _PinnedHeaderDelegate(
             height: pinnedHeaderHeight,
-            child: Container(
+            child: ColoredBox(
               color: AppTheme.background,
               child: _buildHeader(context),
             ),
@@ -267,8 +267,7 @@ class _MinePageState extends ConsumerState<MinePage> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
+  Widget _buildHeader(BuildContext context) => Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -303,10 +302,8 @@ class _MinePageState extends ConsumerState<MinePage> {
         ],
       ),
     );
-  }
 
-  Widget _buildCategorySummaryCard(BuildContext context, MinePageData data) {
-    return SizedBox(
+  Widget _buildCategorySummaryCard(BuildContext context, MinePageData data) => SizedBox(
       height: 52,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -348,7 +345,6 @@ class _MinePageState extends ConsumerState<MinePage> {
         ),
       ),
     );
-  }
 
   String _pluralize(String word, int count) {
     final lower = word.toLowerCase();
@@ -416,7 +412,7 @@ class _MinePageState extends ConsumerState<MinePage> {
 
     // Calculate center from all markers
     Position? center;
-    double zoom = 10.0;
+    final double zoom = 10.0;
 
     // Default to the most recent check-in spot (newest first)
     if (spots.isNotEmpty) {
@@ -453,7 +449,7 @@ class _CollapsibleMapHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+      BuildContext context, double shrinkOffset, bool overlapsContent,) {
     final remaining = (maxExtent - shrinkOffset).clamp(0.0, maxExtent);
     final progress = (remaining / maxExtent).clamp(0.0, 1.0);
 
@@ -472,10 +468,8 @@ class _CollapsibleMapHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(covariant _CollapsibleMapHeaderDelegate oldDelegate) {
-    return oldDelegate.child != child ||
+  bool shouldRebuild(covariant _CollapsibleMapHeaderDelegate oldDelegate) => oldDelegate.child != child ||
         oldDelegate.maxExtentHeight != maxExtentHeight;
-  }
 }
 
 class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
@@ -495,17 +489,13 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return SizedBox(
+      BuildContext context, double shrinkOffset, bool overlapsContent,) => SizedBox(
       height: height,
       child: child,
     );
-  }
 
   @override
-  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
-    return oldDelegate.child != child || oldDelegate.height != height;
-  }
+  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) => oldDelegate.child != child || oldDelegate.height != height;
 }
 
 /// Globe map preview section
@@ -529,9 +519,9 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
   Widget build(BuildContext context) {
     // Convert visited spots to Spot list (limit to 10 most recent)
     print(
-        '🗺️ [GlobeMap] Total visitedSpots: ${widget.data.visitedSpots.length}');
+        '🗺️ [GlobeMap] Total visitedSpots: ${widget.data.visitedSpots.length}',);
     print(
-        '🗺️ [GlobeMap] Spots with place: ${widget.data.visitedSpots.where((ts) => ts.spot != null).length}');
+        '🗺️ [GlobeMap] Spots with place: ${widget.data.visitedSpots.where((ts) => ts.spot != null).length}',);
 
     final sortedVisitedSpots = List<TripSpot>.from(widget.data.visitedSpots)
       ..sort((a, b) {
@@ -550,7 +540,7 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
           : (spot.images.isNotEmpty ? spot.images.first : '');
 
       print(
-          '🗺️ [GlobeMap] Adding spot to previewSpots: ${spot.name} at (${spot.latitude}, ${spot.longitude})');
+          '🗺️ [GlobeMap] Adding spot to previewSpots: ${spot.name} at (${spot.latitude}, ${spot.longitude})',);
 
       return map_page.Spot(
         id: spot.id,
@@ -608,9 +598,9 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
       final maxDiff = math.max(latDiff, lngDiff);
 
       print(
-          '🗺️ [GlobeMap] Latest spot: ${latestSpot.name} at (${latestSpot.latitude}, ${latestSpot.longitude})');
+          '🗺️ [GlobeMap] Latest spot: ${latestSpot.name} at (${latestSpot.latitude}, ${latestSpot.longitude})',);
       print(
-          '🗺️ [GlobeMap] Bounds: lat=[$minLat, $maxLat] (diff=$latDiff), lng=[$minLng, $maxLng] (diff=$lngDiff)');
+          '🗺️ [GlobeMap] Bounds: lat=[$minLat, $maxLat] (diff=$latDiff), lng=[$minLng, $maxLng] (diff=$lngDiff)',);
 
       if (maxDiff > 100) {
         zoom = 2.5; // 提高基础 zoom
@@ -630,7 +620,7 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
       zoom = math.max(zoom, 9.0);
 
       print(
-          '🗺️ [GlobeMap] Calculated center (latest spot): (${center.lng}, ${center.lat}), zoom: $zoom');
+          '🗺️ [GlobeMap] Calculated center (latest spot): (${center.lng}, ${center.lat}), zoom: $zoom',);
     }
 
     return Container(
@@ -1073,8 +1063,7 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
     );
   }
 
-  Widget _buildSearchBar() {
-    return Container(
+  Widget _buildSearchBar() => Container(
       height: 44,
       decoration: BoxDecoration(
         color: AppTheme.white,
@@ -1116,7 +1105,6 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
         ],
       ),
     );
-  }
 
   Widget _buildCityDropdown() {
     final displayText = _selectedCity ?? 'All';
@@ -1323,12 +1311,11 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
             final collections = await collectionRepo
                 .getCollectionsForPlace(spot.id)
                 .timeout(const Duration(milliseconds: 1200),
-                    onTimeout: () => []);
+                    onTimeout: () => [],);
             if (collections.isNotEmpty) {
               // 随机选择一个合集展示
               final random = math.Random();
-              linkedCollection = collections[random.nextInt(collections.length)]
-                  as Map<String, dynamic>;
+              linkedCollection = collections[random.nextInt(collections.length)];
             }
           }
         } catch (e) {
@@ -1508,7 +1495,7 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                     const Spacer(),
                     if (isAllSelected)
                       const Icon(Icons.check,
-                          size: 18, color: AppTheme.primaryYellow),
+                          size: 18, color: AppTheme.primaryYellow,),
                   ],
                 ),
               ),
@@ -1540,7 +1527,7 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
+                                  horizontal: 12, vertical: 14,),
                               color: isSelected
                                   ? AppTheme.primaryYellow.withOpacity(0.2)
                                   : Colors.transparent,
@@ -1560,7 +1547,7 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                                   ),
                                   if (isSelected)
                                     const Icon(Icons.chevron_right,
-                                        size: 18, color: AppTheme.mediumGray),
+                                        size: 18, color: AppTheme.mediumGray,),
                                 ],
                               ),
                             ),
@@ -1585,7 +1572,7 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 14),
+                                horizontal: 12, vertical: 14,),
                             color: isSelected
                                 ? AppTheme.primaryYellow.withOpacity(0.2)
                                 : Colors.transparent,
@@ -1605,7 +1592,7 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                                 ),
                                 if (isSelected)
                                   const Icon(Icons.check,
-                                      size: 18, color: AppTheme.primaryYellow),
+                                      size: 18, color: AppTheme.primaryYellow,),
                               ],
                             ),
                           ),
@@ -1634,8 +1621,7 @@ class _NeoBrutalismIconButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: onTap,
       child: Container(
         width: 44,
@@ -1664,7 +1650,6 @@ class _NeoBrutalismIconButton extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 
 /// Vertical spot card matching image 5 style - full image with gradient overlay
@@ -1767,8 +1752,7 @@ class _VerticalSpotCardState extends State<_VerticalSpotCard> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: widget.onTap,
       child: Container(
         decoration: BoxDecoration(
@@ -1861,7 +1845,6 @@ class _VerticalSpotCardState extends State<_VerticalSpotCard> {
         ),
       ),
     );
-  }
 
   String _formatCount(int count) {
     if (count >= 1000) {

@@ -4,11 +4,6 @@ import 'package:logger/logger.dart';
 
 /// 重试拦截器 - 自动重试失败的请求
 class RetryInterceptor extends Interceptor {
-  final Logger _logger = Logger();
-  final int maxRetries;
-  final Duration retryDelay;
-  final bool Function(DioException)? retryCondition;
-  final Dio _dio;
 
   RetryInterceptor({
     required Dio dio,
@@ -16,6 +11,11 @@ class RetryInterceptor extends Interceptor {
     this.retryDelay = const Duration(seconds: 1),
     this.retryCondition,
   }) : _dio = dio;
+  final Logger _logger = Logger();
+  final int maxRetries;
+  final Duration retryDelay;
+  final bool Function(DioException)? retryCondition;
+  final Dio _dio;
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {

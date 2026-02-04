@@ -54,7 +54,7 @@ class ImageService {
         final originalSize = bytes.length / 1024; // KB
         final compressedSize = compressedBytes.length / 1024; // KB
         final ratio = ((1 - compressedSize / originalSize) * 100).toStringAsFixed(1);
-        print('✅ Image compressed: ${originalSize.toStringAsFixed(1)}KB → ${compressedSize.toStringAsFixed(1)}KB (${ratio}% reduction)');
+        print('✅ Image compressed: ${originalSize.toStringAsFixed(1)}KB → ${compressedSize.toStringAsFixed(1)}KB ($ratio% reduction)');
         bytes = compressedBytes;
       }
     } catch (e) {
@@ -198,7 +198,7 @@ class ImageService {
           final originalSize = bytes.length / 1024; // KB
           final compressedSize = compressedBytes.length / 1024; // KB
           final ratio = ((1 - compressedSize / originalSize) * 100).toStringAsFixed(1);
-          print('✅ Image compressed: ${originalSize.toStringAsFixed(1)}KB → ${compressedSize.toStringAsFixed(1)}KB (${ratio}% reduction)');
+          print('✅ Image compressed: ${originalSize.toStringAsFixed(1)}KB → ${compressedSize.toStringAsFixed(1)}KB ($ratio% reduction)');
           bytes = compressedBytes;
         }
       } catch (e) {

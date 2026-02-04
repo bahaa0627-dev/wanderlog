@@ -106,7 +106,7 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
   final Map<String, Uint8List> _markerBitmapCache = {};
   final Map<String, PointAnnotation> _annotationsByPlaceId = {};
   final Map<String, PlaceResult> _placeByAnnotationId = {};
-  bool _isMapReady = false;
+  final bool _isMapReady = false;
 
   @override
   void didUpdateWidget(RecommendationMapView oldWidget) {
@@ -136,29 +136,35 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
   /// 计算地图中心点和缩放级别
   (Position, double) _calculateCameraPosition() {
     debugPrint(
-        '🗺️ [_calculateCameraPosition] Total places: ${widget.places.length}');
+      '🗺️ [_calculateCameraPosition] Total places: ${widget.places.length}',
+    );
     for (final p in widget.places) {
       debugPrint(
-          '🗺️ [_calculateCameraPosition] "${p.name}": lat=${p.latitude}, lng=${p.longitude}');
+        '🗺️ [_calculateCameraPosition] "${p.name}": lat=${p.latitude}, lng=${p.longitude}',
+      );
     }
 
     // 过滤掉无效坐标的地点（0, 0 是无效坐标）
     final validPlaces = widget.places
-        .where((p) =>
-            p.latitude != 0 &&
-            p.longitude != 0 &&
-            p.latitude.abs() > 0.0001 &&
-            p.longitude.abs() > 0.0001)
+        .where(
+          (p) =>
+              p.latitude != 0 &&
+              p.longitude != 0 &&
+              p.latitude.abs() > 0.0001 &&
+              p.longitude.abs() > 0.0001,
+        )
         .toList();
 
     debugPrint(
-        '🗺️ [_calculateCameraPosition] Valid places: ${validPlaces.length}');
+      '🗺️ [_calculateCameraPosition] Valid places: ${validPlaces.length}',
+    );
 
     if (validPlaces.isEmpty) {
       // 如果没有有效坐标的地点，聚焦到第一个地点的城市（如果有）
       // 默认位置（北京）作为最终回退
       debugPrint(
-          '🗺️ [_calculateCameraPosition] No valid places, using default (Beijing)');
+        '🗺️ [_calculateCameraPosition] No valid places, using default (Beijing)',
+      );
       return (Position(116.4074, 39.9042), 10.0);
     }
 
@@ -166,7 +172,8 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
     // 用户可以手动平移/缩放查看其他地点
     final firstPlace = validPlaces.first;
     debugPrint(
-        '🗺️ [_calculateCameraPosition] Focus on first place: ${firstPlace.name} at (${firstPlace.latitude}, ${firstPlace.longitude})');
+      '🗺️ [_calculateCameraPosition] Focus on first place: ${firstPlace.name} at (${firstPlace.latitude}, ${firstPlace.longitude})',
+    );
     return (Position(firstPlace.longitude, firstPlace.latitude), 14.0);
   }
 
@@ -451,7 +458,8 @@ class _RecommendationMapViewState extends State<RecommendationMapView> {
               },
               gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
                 Factory<OneSequenceGestureRecognizer>(
-                    () => EagerGestureRecognizer()),
+                  () => EagerGestureRecognizer(),
+                ),
               },
             ),
             // 地图标题
@@ -632,11 +640,13 @@ class _FullscreenRecommendationMapState
     // 过滤掉无效坐标的地点（0, 0 是无效坐标）
     // 使用排序后的列表，确保聚焦到第一个数据库地点
     final validPlaces = _sortedPlaces
-        .where((p) =>
-            p.latitude != 0 &&
-            p.longitude != 0 &&
-            p.latitude.abs() > 0.0001 &&
-            p.longitude.abs() > 0.0001)
+        .where(
+          (p) =>
+              p.latitude != 0 &&
+              p.longitude != 0 &&
+              p.latitude.abs() > 0.0001 &&
+              p.longitude.abs() > 0.0001,
+        )
         .toList();
 
     if (validPlaces.isEmpty) {
@@ -950,7 +960,8 @@ class _FullscreenRecommendationMapState
               },
               gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
                 Factory<OneSequenceGestureRecognizer>(
-                    () => EagerGestureRecognizer()),
+                  () => EagerGestureRecognizer(),
+                ),
               },
             ),
             // 顶部返回按钮
@@ -1025,13 +1036,9 @@ class _FullscreenRecommendationMapState
                       final place = _sortedPlaces[index];
                       final isSelected = (place.id ?? place.name) ==
                           (_selectedPlace?.id ?? _selectedPlace?.name);
-                      // 根据来源和是否有图决定卡片高度
-                      final isAIPlace = place.source == PlaceSource.ai;
-                      // AI 地点有图时也使用大卡片高度
-                      final useFullCard =
-                          !isAIPlace || place.hasValidCoverImage;
+                      // 无封面图时使用紧凑卡片高度
                       final thisCardHeight =
-                          (allWithoutCoverImage || !useFullCard)
+                          (allWithoutCoverImage || !place.hasValidCoverImage)
                               ? aiCardHeight
                               : maxCardHeight;
                       return AnimatedScale(
@@ -1046,7 +1053,8 @@ class _FullscreenRecommendationMapState
                               place: place,
                               onTap: () => widget.onPlaceTap?.call(place),
                               index: index,
-                              isCompact: allWithoutCoverImage,
+                              isCompact: allWithoutCoverImage ||
+                                  !place.hasValidCoverImage,
                             ),
                           ),
                         ),
@@ -1118,138 +1126,15 @@ class _BottomPlaceCardState extends State<_BottomPlaceCard> {
 
   @override
   Widget build(BuildContext context) {
-    // 紧凑模式：无封面图时使用
-    if (widget.isCompact) {
+    // 紧凑模式：无封面图时统一使用白底紧凑卡片（带 No. 编号）
+    if (widget.isCompact || !widget.place.hasValidCoverImage) {
       return _buildCompactCard(context);
     }
-    // AI 地点：有封面图时使用大图卡片，无封面图时使用白底紧凑卡片
-    if (widget.place.source == PlaceSource.ai) {
-      if (widget.place.hasValidCoverImage) {
-        // AI 地点有图时，使用大图渐变样式（和数据库地点一致）
-        return _buildFullCard(context);
-      }
-      // AI 地点无图时，使用白底紧凑卡片样式
-      return _buildAIPlaceCard(context);
-    }
-    // 数据库地点使用大图渐变样式
+    // 有封面图的地点使用大图渐变样式
     return _buildFullCard(context);
   }
 
-  /// AI 地点卡片（白底+编号+评分样式）
-  Widget _buildAIPlaceCard(BuildContext context) {
-    final emoji = _getCategoryEmoji();
-    final indexText = widget.index != null ? 'No.${widget.index! + 1}' : '';
-
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border:
-              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 分类 emoji + 编号
-              Row(
-                children: [
-                  Text(emoji, style: const TextStyle(fontSize: 20)),
-                  if (indexText.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      indexText,
-                      style: AppTheme.bodyMedium(context).copyWith(
-                        color: AppTheme.black.withOpacity(0.7),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 6),
-              // 名称
-              Text(
-                widget.place.name,
-                style: AppTheme.headlineMedium(context).copyWith(
-                  color: AppTheme.black,
-                  fontWeight: FontWeight.bold,
-                  height: 1.2,
-                  fontSize: 18,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              // 评分或推荐语
-              if (widget.place.hasRating)
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.star,
-                      size: 16,
-                      color: AppTheme.primaryYellow,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.place.rating!.toStringAsFixed(1),
-                      style: AppTheme.bodyMedium(context).copyWith(
-                        color: AppTheme.black,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    if (widget.place.ratingCount != null) ...[
-                      const SizedBox(width: 4),
-                      Text(
-                        formatRatingCount(widget.place.ratingCount),
-                        style: AppTheme.bodySmall(context).copyWith(
-                          color: AppTheme.black.withOpacity(0.7),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ],
-                )
-              else if (widget.place.recommendationPhrase != null &&
-                  widget.place.recommendationPhrase!.isNotEmpty)
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.auto_awesome,
-                      size: 14,
-                      color: AppTheme.primaryYellow,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        widget.place.recommendationPhrase!,
-                        style: AppTheme.bodySmall(context).copyWith(
-                          color: AppTheme.black.withOpacity(0.8),
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 紧凑卡片（无封面图时）
+  /// 紧凑卡片（无封面图时 - 白底+编号+评分样式）
   Widget _buildCompactCard(BuildContext context) {
     final emoji = _getCategoryEmoji();
     final indexText = widget.index != null ? 'No.${widget.index! + 1}' : '';

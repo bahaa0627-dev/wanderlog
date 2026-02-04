@@ -6,12 +6,12 @@ import 'package:wanderlog/features/collections/data/supabase_collection_reposito
 /// - 推荐列表使用 API（返回完整的 spotCount 数据）
 /// - 其他功能使用 Supabase（直接查询）
 class HybridCollectionRepository {
-  final CollectionRepository _apiRepository;
-  final SupabaseCollectionRepository _supabaseRepository;
 
   HybridCollectionRepository(Dio dio)
       : _apiRepository = CollectionRepository(dio),
         _supabaseRepository = SupabaseCollectionRepository();
+  final CollectionRepository _apiRepository;
+  final SupabaseCollectionRepository _supabaseRepository;
 
   // 使用 API 的方法（返回完整数据including spotCount）
   Future<List<Map<String, dynamic>>> listRecommendations() => _apiRepository.listRecommendations();

@@ -101,7 +101,7 @@ void main() {
           final result = Validators.validatePassword(validPassword);
           
           expect(result, isNull, 
-            reason: 'Password of length ${validPassword.length} should pass validation');
+            reason: 'Password of length ${validPassword.length} should pass validation',);
         },
       );
 
@@ -114,7 +114,7 @@ void main() {
           final result = Validators.validatePassword(shortPassword);
           
           expect(result, isNotNull,
-            reason: 'Password of length $shortLength should fail validation');
+            reason: 'Password of length $shortLength should fail validation',);
           expect(result, contains('at least 6 characters'));
         },
       );
@@ -181,7 +181,7 @@ void main() {
           final result = Validators.validatePasswordConfirmation(password, password);
           
           expect(result, isNull,
-            reason: 'Identical passwords should pass confirmation');
+            reason: 'Identical passwords should pass confirmation',);
         },
       );
 
@@ -194,7 +194,7 @@ void main() {
           final result = Validators.validatePasswordConfirmation(password, confirmation);
           
           expect(result, isNotNull,
-            reason: 'Different passwords should fail confirmation');
+            reason: 'Different passwords should fail confirmation',);
           expect(result, equals('Passwords do not match'));
         },
       );

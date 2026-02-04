@@ -32,17 +32,13 @@ class FullscreenStillsViewer extends StatefulWidget {
       PageRouteBuilder<void>(
         opaque: false,
         barrierColor: Colors.black87,
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FullscreenStillsViewer(
+        pageBuilder: (context, animation, secondaryAnimation) => FullscreenStillsViewer(
             stills: stills,
             movies: movies,
             initialIndex: initialIndex,
             placeName: placeName,
-          );
-        },
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
+          ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(opacity: animation, child: child),
       ),
     );
   }
@@ -72,8 +68,7 @@ class _FullscreenStillsViewerState extends State<FullscreenStillsViewer> {
   bool get _canGoLeft => _currentIndex > 0;
   bool get _canGoRight => _currentIndex < widget.stills.length - 1;
 
-  MovieReference _getMovieForStill(StillWithMovie still) {
-    return widget.movies.firstWhere(
+  MovieReference _getMovieForStill(StillWithMovie still) => widget.movies.firstWhere(
       (m) => m.movieId == still.movieId,
       orElse: () => MovieReference(
         movieId: still.movieId,
@@ -81,7 +76,6 @@ class _FullscreenStillsViewerState extends State<FullscreenStillsViewer> {
         movieNameEn: still.movieNameEn,
       ),
     );
-  }
 
   void _goToPage(int index) {
     _pageController.animateToPage(
@@ -267,8 +261,7 @@ class _FullscreenStillsViewerState extends State<FullscreenStillsViewer> {
     );
   }
 
-  Widget _buildStillPage(StillWithMovie still) {
-    return Center(
+  Widget _buildStillPage(StillWithMovie still) => Center(
       child: InteractiveViewer(
         minScale: 0.5,
         maxScale: 3.0,
@@ -291,5 +284,4 @@ class _FullscreenStillsViewerState extends State<FullscreenStillsViewer> {
         ),
       ),
     );
-  }
 }

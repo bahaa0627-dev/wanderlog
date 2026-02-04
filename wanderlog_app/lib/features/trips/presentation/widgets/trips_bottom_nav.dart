@@ -79,7 +79,7 @@ class _NavItem extends StatelessWidget {
     
     // 计算固定尺寸，确保文字位置不变
     final containerWidth = textWidth + 40; // 文字宽度 + 左右 padding
-    final containerHeight = 50.0; // 固定高度
+    const containerHeight = 50.0; // 固定高度
     
     return GestureDetector(
       onTap: onTap,

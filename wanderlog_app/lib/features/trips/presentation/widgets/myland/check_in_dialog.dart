@@ -30,7 +30,7 @@ class CheckInDialog extends StatefulWidget {
     double rating, 
     String? notes,
     {List<File>? newImages,
-    List<String>? existingPhotos}
+    List<String>? existingPhotos,}
   ) onCheckIn;
   final DateTime? initialVisitDate;
   final double? initialRating;
@@ -212,7 +212,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
           children: [
             GestureDetector(
               onTap: () => Navigator.pop(context),
-              child: Container(
+              child: ColoredBox(
                 color: Colors.black87,
                 child: Center(
                   child: InteractiveViewer(
@@ -249,7 +249,7 @@ class _CheckInDialogState extends State<CheckInDialog> {
           children: [
             GestureDetector(
               onTap: () => Navigator.pop(context),
-              child: Container(
+              child: ColoredBox(
                 color: Colors.black87,
                 child: Center(
                   child: InteractiveViewer(

@@ -46,15 +46,17 @@ class TripSpot {
   factory TripSpot.fromJson(Map<String, dynamic> json) {
     // 调试：打印原始 JSON 数据
     print(
-        '🔍 [TripSpot] fromJson: ${json.toString().substring(0, json.toString().length > 200 ? 200 : json.toString().length)}...');
+        '🔍 [TripSpot] fromJson: ${json.toString().substring(0, json.toString().length > 200 ? 200 : json.toString().length)}...',);
     print(
-        '🔍 [TripSpot] hasNewFields: isMustGo=${json.containsKey('isMustGo')}, isTodaysPlan=${json.containsKey('isTodaysPlan')}, isVisited=${json.containsKey('isVisited')}');
+        '🔍 [TripSpot] hasNewFields: isMustGo=${json.containsKey('isMustGo')}, isTodaysPlan=${json.containsKey('isTodaysPlan')}, isVisited=${json.containsKey('isVisited')}',);
     print(
-        '🔍 [TripSpot] hasOldFields: status=${json.containsKey('status')}, priority=${json.containsKey('priority')}');
-    if (json.containsKey('status'))
+        '🔍 [TripSpot] hasOldFields: status=${json.containsKey('status')}, priority=${json.containsKey('priority')}',);
+    if (json.containsKey('status')) {
       print('🔍 [TripSpot] status value: ${json['status']}');
-    if (json.containsKey('priority'))
+    }
+    if (json.containsKey('priority')) {
       print('🔍 [TripSpot] priority value: ${json['priority']}');
+    }
 
     // 先用生成的方法解析
     final tripSpot = _$TripSpotFromJson(json);
@@ -71,7 +73,7 @@ class TripSpot {
       final priority = tripSpot.priority;
 
       print(
-          '🔄 [TripSpot] Converting old format: status=$status, priority=$priority');
+          '🔄 [TripSpot] Converting old format: status=$status, priority=$priority',);
 
       final converted = tripSpot.copyWith(
         isSaved: true, // 在列表中的都是已保存的
@@ -81,13 +83,13 @@ class TripSpot {
       );
 
       print(
-          '✅ [TripSpot] Converted: mustGo=${converted.isMustGo}, todaysPlan=${converted.isTodaysPlan}, visited=${converted.isVisited}');
+          '✅ [TripSpot] Converted: mustGo=${converted.isMustGo}, todaysPlan=${converted.isTodaysPlan}, visited=${converted.isVisited}',);
 
       return converted;
     }
 
     print(
-        'ℹ️ [TripSpot] Using direct values: mustGo=${tripSpot.isMustGo}, todaysPlan=${tripSpot.isTodaysPlan}, visited=${tripSpot.isVisited}');
+        'ℹ️ [TripSpot] Using direct values: mustGo=${tripSpot.isMustGo}, todaysPlan=${tripSpot.isTodaysPlan}, visited=${tripSpot.isVisited}',);
     return tripSpot;
   }
 

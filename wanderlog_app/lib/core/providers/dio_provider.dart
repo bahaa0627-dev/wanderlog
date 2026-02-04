@@ -91,67 +91,63 @@ final dioProvider = Provider<Dio>((ref) {
         // Extract detailed error information
         String errorDetails = 'Unknown error';
         
-        if (error is DioException) {
-          final dioError = error;
-          final requestPath = dioError.requestOptions.path;
-          final requestMethod = dioError.requestOptions.method;
-          final statusCode = dioError.response?.statusCode;
-          final statusMessage = dioError.response?.statusMessage;
-          
-          // Build detailed error message
-          final buffer = StringBuffer();
-          buffer.writeln('DioException: ${dioError.type}');
-          buffer.writeln('Request: $requestMethod $requestPath');
-          
-          if (statusCode != null) {
-            buffer.writeln('Status: $statusCode $statusMessage');
-          }
-          
-          // Handle specific error types
-          switch (dioError.type) {
-            case DioExceptionType.connectionTimeout:
-              buffer.writeln('Connection timeout - server may be down or unreachable');
-              break;
-            case DioExceptionType.sendTimeout:
-              buffer.writeln('Send timeout - network may be slow');
-              break;
-            case DioExceptionType.receiveTimeout:
-              buffer.writeln('Receive timeout - server took too long to respond');
-              break;
-            case DioExceptionType.badResponse:
-              buffer.writeln('Bad response: ${dioError.response?.data}');
-              break;
-            case DioExceptionType.cancel:
-              buffer.writeln('Request cancelled');
-              break;
-            case DioExceptionType.connectionError:
-              final errorMessage = dioError.message ?? 'Unknown connection error';
-              buffer.writeln('Connection error: $errorMessage');
-              if (errorMessage.contains('Failed host lookup') || 
-                  errorMessage.contains('nodename nor servname provided')) {
-                buffer.writeln('⚠️ DNS resolution failed - check internet connection');
-              } else if (errorMessage.contains('Connection refused') ||
-                         errorMessage.contains('Connection closed')) {
-                buffer.writeln('⚠️ Server unreachable - ensure backend is running');
-              }
-              break;
-            case DioExceptionType.badCertificate:
-              buffer.writeln('Bad certificate');
-              break;
-            case DioExceptionType.unknown:
-              final errorMessage = dioError.message ?? 'Unknown error';
-              buffer.writeln('Unknown error: $errorMessage');
-              if (dioError.error != null) {
-                buffer.writeln('Underlying error: ${dioError.error}');
-              }
-              break;
-          }
-          
-          errorDetails = buffer.toString();
-        } else {
-          errorDetails = 'Error: ${error.toString()}';
+        final dioError = error;
+        final requestPath = dioError.requestOptions.path;
+        final requestMethod = dioError.requestOptions.method;
+        final statusCode = dioError.response?.statusCode;
+        final statusMessage = dioError.response?.statusMessage;
+        
+        // Build detailed error message
+        final buffer = StringBuffer();
+        buffer.writeln('DioException: ${dioError.type}');
+        buffer.writeln('Request: $requestMethod $requestPath');
+        
+        if (statusCode != null) {
+          buffer.writeln('Status: $statusCode $statusMessage');
         }
         
+        // Handle specific error types
+        switch (dioError.type) {
+          case DioExceptionType.connectionTimeout:
+            buffer.writeln('Connection timeout - server may be down or unreachable');
+            break;
+          case DioExceptionType.sendTimeout:
+            buffer.writeln('Send timeout - network may be slow');
+            break;
+          case DioExceptionType.receiveTimeout:
+            buffer.writeln('Receive timeout - server took too long to respond');
+            break;
+          case DioExceptionType.badResponse:
+            buffer.writeln('Bad response: ${dioError.response?.data}');
+            break;
+          case DioExceptionType.cancel:
+            buffer.writeln('Request cancelled');
+            break;
+          case DioExceptionType.connectionError:
+            final errorMessage = dioError.message ?? 'Unknown connection error';
+            buffer.writeln('Connection error: $errorMessage');
+            if (errorMessage.contains('Failed host lookup') || 
+                errorMessage.contains('nodename nor servname provided')) {
+              buffer.writeln('⚠️ DNS resolution failed - check internet connection');
+            } else if (errorMessage.contains('Connection refused') ||
+                       errorMessage.contains('Connection closed')) {
+              buffer.writeln('⚠️ Server unreachable - ensure backend is running');
+            }
+            break;
+          case DioExceptionType.badCertificate:
+            buffer.writeln('Bad certificate');
+            break;
+          case DioExceptionType.unknown:
+            final errorMessage = dioError.message ?? 'Unknown error';
+            buffer.writeln('Unknown error: $errorMessage');
+            if (dioError.error != null) {
+              buffer.writeln('Underlying error: ${dioError.error}');
+            }
+            break;
+        }
+        
+        errorDetails = buffer.toString();
+              
         logger.e(errorDetails);
         return handler.next(error);
       },

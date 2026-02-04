@@ -52,7 +52,7 @@ class RecommendationsCacheNotifier
     // 如果有缓存且未过期，直接返回
     if (!forceRefresh && state.hasData && !state.isStale) {
       print(
-          '✅ [RecommendationsCache] Using cached data (${state.recommendations.length} items)');
+          '✅ [RecommendationsCache] Using cached data (${state.recommendations.length} items)',);
       return state.recommendations;
     }
 
@@ -76,7 +76,7 @@ class RecommendationsCacheNotifier
       final data = await supabaseRepo.listRecommendations();
 
       print(
-          '✅ [RecommendationsCache] Loaded ${data.length} recommendations from Supabase');
+          '✅ [RecommendationsCache] Loaded ${data.length} recommendations from Supabase',);
 
       state = RecommendationsCacheState(
         recommendations: data,
@@ -85,7 +85,7 @@ class RecommendationsCacheNotifier
       );
 
       return data;
-    } catch (e, stack) {
+    } catch (e) {
       print('❌ [RecommendationsCache] Error loading: $e');
 
       // 如果有旧缓存，返回旧缓存
@@ -112,7 +112,7 @@ class RecommendationsCacheNotifier
   /// 手动更新缓存
   void updateCache(List<Map<String, dynamic>> recommendations) {
     print(
-        '📝 [RecommendationsCache] Updating cache with ${recommendations.length} items');
+        '📝 [RecommendationsCache] Updating cache with ${recommendations.length} items',);
     state = RecommendationsCacheState(
       recommendations: recommendations,
       isLoading: false,

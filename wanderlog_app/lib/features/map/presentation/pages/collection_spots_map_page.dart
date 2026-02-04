@@ -68,7 +68,7 @@ class CollectionSpotsMapPage extends ConsumerStatefulWidget {
 class _CollectionSpotsMapPageState
     extends ConsumerState<CollectionSpotsMapPage> {
   final GlobalKey<MapboxSpotMapState> _mapKey = GlobalKey<MapboxSpotMapState>();
-  PageController _cardPageController = PageController(viewportFraction: 0.55);
+  final PageController _cardPageController = PageController(viewportFraction: 0.55);
   int _currentCardIndex = 0;
   List<map_page.Spot> _citySpots = [];
   map_page.Spot? _selectedSpot;
@@ -328,7 +328,7 @@ class _CollectionSpotsMapPageState
                 openingHours = decoded;
               } else if (decoded is List) {
                 openingHours = {
-                  'weekday_text': decoded.map((e) => e.toString()).toList()
+                  'weekday_text': decoded.map((e) => e.toString()).toList(),
                 };
               }
             } catch (_) {}
@@ -351,7 +351,7 @@ class _CollectionSpotsMapPageState
                 0,
             category: spotData['category']?.toString() ?? 'place',
             tags: _parseTagsList(
-                spotData['tags'] ?? spotData['aiTags'] ?? spotData['ai_tags']),
+                spotData['tags'] ?? spotData['aiTags'] ?? spotData['ai_tags'],),
             displayTagsEn: _computeDisplayTags(spotData),
             images: imagesList.isNotEmpty
                 ? imagesList
@@ -371,7 +371,7 @@ class _CollectionSpotsMapPageState
             ),
           );
           print(
-              '✅ 创建 Spot: ${spot.name}, customFields: ${spot.customFields}, hasStills: ${spot.customFields?.hasStills}');
+              '✅ 创建 Spot: ${spot.name}, customFields: ${spot.customFields}, hasStills: ${spot.customFields?.hasStills}',);
           spots.add(spot);
         } catch (e) {
           print('⚠️ 解析预加载地点失败: $e');
@@ -385,7 +385,7 @@ class _CollectionSpotsMapPageState
           _initialCenter = Position(firstSpot.longitude, firstSpot.latitude);
           _hasInitialCenter = true;
           print(
-              '✅ 从预加载地点设置初始中心: (${firstSpot.longitude}, ${firstSpot.latitude})');
+              '✅ 从预加载地点设置初始中心: (${firstSpot.longitude}, ${firstSpot.latitude})',);
         }
 
         setState(() {
@@ -439,7 +439,7 @@ class _CollectionSpotsMapPageState
 
           // 打印完整的 spotData 用于调试
           print(
-              '🔍 spotData for ${spotData['name']}: displayTagsEn=${spotData['displayTagsEn']}, tags=${spotData['tags']}, aiTags=${spotData['aiTags']}');
+              '🔍 spotData for ${spotData['name']}: displayTagsEn=${spotData['displayTagsEn']}, tags=${spotData['tags']}, aiTags=${spotData['aiTags']}',);
 
           try {
             // 直接从合集返回的数据创建 Spot
@@ -463,7 +463,7 @@ class _CollectionSpotsMapPageState
                   openingHours = decoded;
                 } else if (decoded is List) {
                   openingHours = {
-                    'weekday_text': decoded.map((e) => e.toString()).toList()
+                    'weekday_text': decoded.map((e) => e.toString()).toList(),
                   };
                 }
               } catch (_) {}
@@ -487,7 +487,7 @@ class _CollectionSpotsMapPageState
               category: spotData['category']?.toString() ?? 'place',
               tags: _parseTagsList(spotData['tags'] ??
                   spotData['aiTags'] ??
-                  spotData['ai_tags']),
+                  spotData['ai_tags'],),
               displayTagsEn: _computeDisplayTags(spotData),
               images: imagesList.isNotEmpty
                   ? imagesList
@@ -507,7 +507,7 @@ class _CollectionSpotsMapPageState
               ),
             );
             print(
-                '✅ 成功解析地点: ${spot.name}, customFields: ${spot.customFields}, hasStills: ${spot.customFields?.hasStills}');
+                '✅ 成功解析地点: ${spot.name}, customFields: ${spot.customFields}, hasStills: ${spot.customFields?.hasStills}',);
             spots.add(spot);
           } catch (e, stackTrace) {
             print('⚠️ 解析地点失败: $e');
@@ -524,7 +524,7 @@ class _CollectionSpotsMapPageState
             _initialCenter = Position(firstSpot.longitude, firstSpot.latitude);
             _hasInitialCenter = true;
             print(
-                '✅ 从API加载的第一个地点设置初始中心: (${firstSpot.longitude}, ${firstSpot.latitude})');
+                '✅ 从API加载的第一个地点设置初始中心: (${firstSpot.longitude}, ${firstSpot.latitude})',);
           }
 
           setState(() {
@@ -584,7 +584,7 @@ class _CollectionSpotsMapPageState
             Position(_citySpots[0].longitude, _citySpots[0].latitude);
         _hasInitialCenter = true;
         print(
-            '✅ 从mock数据设置初始中心: (${_citySpots[0].longitude}, ${_citySpots[0].latitude})');
+            '✅ 从mock数据设置初始中心: (${_citySpots[0].longitude}, ${_citySpots[0].latitude})',);
       }
     }
   }
@@ -631,7 +631,7 @@ class _CollectionSpotsMapPageState
   List<String> _computeDisplayTags(Map<String, dynamic> spotData) {
     print('🏷️ [_computeDisplayTags] spotData keys: ${spotData.keys}');
     print(
-        '🏷️ [_computeDisplayTags] displayTagsEn from backend: ${spotData['displayTagsEn']}');
+        '🏷️ [_computeDisplayTags] displayTagsEn from backend: ${spotData['displayTagsEn']}',);
 
     // 优先使用后端已经计算好的 displayTagsEn（后端已经过滤了旧标签）
     final backendDisplayTags = spotData['displayTagsEn'];
@@ -639,7 +639,7 @@ class _CollectionSpotsMapPageState
       final result = backendDisplayTags
           .map((e) => e?.toString() ?? '')
           .where(
-              (s) => s.isNotEmpty && !_filteredTags.contains(s.toLowerCase()))
+              (s) => s.isNotEmpty && !_filteredTags.contains(s.toLowerCase()),)
           .take(4)
           .toList();
       if (result.isNotEmpty) {
@@ -655,7 +655,7 @@ class _CollectionSpotsMapPageState
     print('🏷️ [_computeDisplayTags] category: ${spotData['category']}');
     print('🏷️ [_computeDisplayTags] categoryEn: ${spotData['categoryEn']}');
     print(
-        '🏷️ [_computeDisplayTags] tags: ${spotData['tags']} (${spotData['tags']?.runtimeType})');
+        '🏷️ [_computeDisplayTags] tags: ${spotData['tags']} (${spotData['tags']?.runtimeType})',);
     print('🏷️ [_computeDisplayTags] aiTags: ${spotData['aiTags']}');
     print('🏷️ [_computeDisplayTags] ai_tags: ${spotData['ai_tags']}');
 
@@ -846,7 +846,7 @@ class _CollectionSpotsMapPageState
           body: Stack(
             children: [
               // 显示加载状态
-              Container(
+              ColoredBox(
                 color: Colors.white,
                 child: Center(
                   child: Column(
@@ -967,7 +967,7 @@ class _CollectionSpotsMapPageState
         _lastClickTime != null &&
         now.difference(_lastClickTime!).inMilliseconds < 1000) {
       print(
-          '🔧 [collection_spots_map_page.dart] Debouncing rapid clicks for ${spot.name}');
+          '🔧 [collection_spots_map_page.dart] Debouncing rapid clicks for ${spot.name}',);
       return;
     }
 
@@ -976,7 +976,7 @@ class _CollectionSpotsMapPageState
 
     // 添加调试日志
     print(
-        '🔧 [collection_spots_map_page.dart] _showSpotDetail for spot: ${spot.name}');
+        '🔧 [collection_spots_map_page.dart] _showSpotDetail for spot: ${spot.name}',);
 
     // 加载地点的状态信息（包括 check-in 数据）
     bool? isSaved;
@@ -1126,7 +1126,7 @@ class _CollectionSpotsMapPageState
     print('🔧 [collection_spots_map_page.dart] userRating: $userRating');
     print('🔧 [collection_spots_map_page.dart] userNotes: $userNotes');
     print(
-        '🔧 [collection_spots_map_page.dart] userPhotos: ${userPhotos?.length ?? 0} photos');
+        '🔧 [collection_spots_map_page.dart] userPhotos: ${userPhotos?.length ?? 0} photos',);
     print('🔧 [collection_spots_map_page.dart] destinationId: $destinationId');
 
     if (!mounted) return;
@@ -1158,7 +1158,7 @@ class _CollectionSpotsMapPageState
             userRating,
             userNotes,
             userPhotos,
-            destinationId}) {
+            destinationId,}) {
           // 标记需要刷新合集数据
           _shouldRefreshCollections = true;
         },
@@ -1697,12 +1697,12 @@ class LinkItem {
           final link = map['link'] as String?;
           final effectiveLink = (link != null && link.isNotEmpty) ? link : null;
           // 处理 avatarUrl 字段：支持 avatarUrl 和 avatar_url 两种格式，也支持 base64
-          String? avatarUrl =
+          final String? avatarUrl =
               (map['avatarUrl'] as String?) ?? (map['avatar_url'] as String?);
           // Debug log
           if (isPeople && avatarUrl != null) {
             print(
-                '🖼️ [LinkItem] avatarUrl found: ${avatarUrl.substring(0, avatarUrl.length > 50 ? 50 : avatarUrl.length)}...');
+                '🖼️ [LinkItem] avatarUrl found: ${avatarUrl.substring(0, avatarUrl.length > 50 ? 50 : avatarUrl.length)}...',);
           }
           return LinkItem(
             name: map['name'] as String? ?? '',
@@ -1720,8 +1720,6 @@ class LinkItem {
 class _LinkChip extends StatelessWidget {
   const _LinkChip({
     required this.label,
-    this.url,
-    this.leading,
   });
 
   final String label;
@@ -1807,7 +1805,7 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
     // 如果 people 列表变化了，清除头像缓存
     if (oldWidget.people.length != widget.people.length ||
         oldWidget.people.any((p) => !widget.people
-            .any((wp) => wp.name == p.name && wp.avatarUrl == p.avatarUrl))) {
+            .any((wp) => wp.name == p.name && wp.avatarUrl == p.avatarUrl),)) {
       _avatarCache.clear();
     }
   }
@@ -1925,7 +1923,7 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
         : '${person.name}_default';
 
     // 从缓存获取或创建头像 widget
-    Widget avatarWidget = _avatarCache.putIfAbsent(cacheKey, () {
+    final Widget avatarWidget = _avatarCache.putIfAbsent(cacheKey, () {
       if (hasAvatar) {
         final url = person.avatarUrl!;
         if (url.startsWith('data:image')) {
@@ -2015,7 +2013,7 @@ class _CollectionMetaCardState extends State<_CollectionMetaCard> {
     );
   }
 
-  Widget _buildDefaultAvatar() => Container(
+  Widget _buildDefaultAvatar() => ColoredBox(
         color: AppTheme.lightGray,
         child: const Icon(
           Icons.person,

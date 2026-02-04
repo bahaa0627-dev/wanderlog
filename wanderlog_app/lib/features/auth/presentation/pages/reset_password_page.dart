@@ -124,8 +124,7 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
     required Color color,
     required String text,
     required bool isActive,
-  }) {
-    return Row(
+  }) => Row(
       children: [
         Icon(
           icon,
@@ -143,7 +142,6 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
         ),
       ],
     );
-  }
 
   @override
   Widget build(BuildContext context) => Scaffold(

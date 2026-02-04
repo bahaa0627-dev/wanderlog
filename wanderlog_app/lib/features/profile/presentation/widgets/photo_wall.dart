@@ -19,8 +19,7 @@ class PhotoWall extends StatelessWidget {
   final List<CategoryCount> topCategories;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
+  Widget build(BuildContext context) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Category chips
@@ -87,7 +86,6 @@ class PhotoWall extends StatelessWidget {
           _PhotoGrid(photos: photos),
       ],
     );
-  }
 
   String _pluralize(String word, int count) {
     final lower = word.toLowerCase();
@@ -115,8 +113,7 @@ class _CategoryChip extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
+  Widget build(BuildContext context) => Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
@@ -146,7 +143,6 @@ class _CategoryChip extends StatelessWidget {
         ),
       ],
     );
-  }
 }
 
 class _PhotoGrid extends StatelessWidget {
@@ -155,8 +151,7 @@ class _PhotoGrid extends StatelessWidget {
   final List<CheckInPhoto> photos;
 
   @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
+  Widget build(BuildContext context) => GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -175,7 +170,6 @@ class _PhotoGrid extends StatelessWidget {
         );
       },
     );
-  }
 
   void _showPhotoViewer(BuildContext context, int initialIndex) {
     showPhotoViewerOverlay(
@@ -196,15 +190,13 @@ class _PhotoGridItem extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: _buildImage(),
       ),
     );
-  }
 
   Widget _buildImage() {
     if (photo.photoUrl.startsWith('data:image/')) {
@@ -222,7 +214,7 @@ class _PhotoGridItem extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: photo.photoUrl,
       fit: BoxFit.cover,
-      placeholder: (context, url) => Container(
+      placeholder: (context, url) => ColoredBox(
         color: AppTheme.lightGray,
         child: const Center(
           child: SizedBox(
@@ -236,8 +228,7 @@ class _PhotoGridItem extends StatelessWidget {
     );
   }
 
-  Widget _placeholder() {
-    return Container(
+  Widget _placeholder() => Container(
       color: AppTheme.lightGray,
       child: const Center(
         child: Icon(
@@ -246,7 +237,6 @@ class _PhotoGridItem extends StatelessWidget {
         ),
       ),
     );
-  }
 
   Uint8List? _decodeBase64Image(String dataUrl) {
     try {

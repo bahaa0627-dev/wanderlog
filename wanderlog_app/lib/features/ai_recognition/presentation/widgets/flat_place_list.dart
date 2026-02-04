@@ -92,8 +92,8 @@ Widget _buildLinkedSummaryText({
       .replaceAll(
           RegExp(
               r'[。，,\s]*(?:网站|官网|Website)\s*[：:]\s*[^\s。，,.]+(?:\([^)]*\))?[。，,\s]*',
-              caseSensitive: false),
-          '')
+              caseSensitive: false,),
+          '',)
       .replaceAll(RegExp(r'[。，,\s]*(?:网站|官网)[：:]?\s*未提供[。，,\s]*'), '')
       .replaceAll(RegExp(r'[。，,\s]*网站未提供[。，,\s]*'), '')
       .trim();
@@ -393,7 +393,7 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
                           .take(2)
                           .map((tag) => Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
+                                    horizontal: 6, vertical: 2,),
                                 decoration: BoxDecoration(
                                   color:
                                       AppTheme.primaryYellow.withOpacity(0.3),
@@ -407,7 +407,7 @@ class _TextOnlyPlaceItemState extends ConsumerState<TextOnlyPlaceItem> {
                                     color: AppTheme.black,
                                   ),
                                 ),
-                              ))
+                              ),)
                           .toList(),
                     ),
                   ],
@@ -529,7 +529,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
                   color: AppTheme.primaryYellow.withOpacity(0.8),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'AI Recommended',
                   style: TextStyle(
                     color: AppTheme.mediumGray,
@@ -546,7 +546,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
       color: AppTheme.lightGray,
       child: Center(
         child: Icon(Icons.image_not_supported,
-            size: 48, color: AppTheme.mediumGray),
+            size: 48, color: AppTheme.mediumGray,),
       ),
     );
 
@@ -585,7 +585,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.auto_awesome,
-              size: 14, color: AppTheme.primaryYellow),
+              size: 14, color: AppTheme.primaryYellow,),
           const SizedBox(width: 4),
           Text(
             phrase,
@@ -636,27 +636,27 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
 
     if (tags.any((t) =>
         t.toLowerCase().contains('museum') ||
-        t.toLowerCase().contains('gallery'))) {
+        t.toLowerCase().contains('gallery'),)) {
       return 'Cultural treasure';
     }
     if (tags.any((t) =>
         t.toLowerCase().contains('temple') ||
-        t.toLowerCase().contains('shrine'))) {
+        t.toLowerCase().contains('shrine'),)) {
       return 'Sacred landmark';
     }
     if (tags.any((t) =>
         t.toLowerCase().contains('park') ||
-        t.toLowerCase().contains('garden'))) {
+        t.toLowerCase().contains('garden'),)) {
       return 'Scenic retreat';
     }
     if (tags.any((t) =>
         t.toLowerCase().contains('cafe') ||
-        t.toLowerCase().contains('coffee'))) {
+        t.toLowerCase().contains('coffee'),)) {
       return 'Local favorite';
     }
     if (tags.any((t) =>
         t.toLowerCase().contains('restaurant') ||
-        t.toLowerCase().contains('food'))) {
+        t.toLowerCase().contains('food'),)) {
       return 'Culinary gem';
     }
     if (name.contains('castle') || name.contains('palace')) {
@@ -671,7 +671,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
       'Hidden gem',
       'Local pick',
       'Worth exploring',
-      'Traveler favorite'
+      'Traveler favorite',
     ];
     return phrases[widget.place.name.length % phrases.length];
   }
@@ -700,7 +700,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
                     color: AppTheme.black,
                   ),
                 ),
-              ))
+              ),)
           .toList(),
     );
   }
@@ -821,7 +821,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 border: Border.all(
-                    color: AppTheme.black, width: AppTheme.borderMedium),
+                    color: AppTheme.black, width: AppTheme.borderMedium,),
                 boxShadow: AppTheme.cardShadow,
               ),
               child: ClipRRect(
@@ -878,7 +878,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                        AppTheme.black),
+                                        AppTheme.black,),
                                   ),
                                 )
                               : Icon(

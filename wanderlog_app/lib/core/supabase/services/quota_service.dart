@@ -5,13 +5,7 @@ import 'package:wanderlog/core/supabase/supabase_config.dart';
 class QuotaStatus {
 
   QuotaStatus({
-    this.userId,
-    required this.quotaDate,
-    required this.deepSearchCount,
-    required this.detailViewCount,
-    required this.deepSearchRemaining,
-    required this.detailViewRemaining,
-    required this.resetTime,
+    required this.quotaDate, required this.deepSearchCount, required this.detailViewCount, required this.deepSearchRemaining, required this.detailViewRemaining, required this.resetTime, this.userId,
   });
 
   factory QuotaStatus.fromJson(Map<String, dynamic> json) {
@@ -30,8 +24,7 @@ class QuotaStatus {
   }
 
   /// 默认配额状态（未登录或新用户）
-  factory QuotaStatus.defaultStatus() {
-    return QuotaStatus(
+  factory QuotaStatus.defaultStatus() => QuotaStatus(
       quotaDate: DateTime.now(),
       deepSearchCount: 0,
       detailViewCount: 0,
@@ -39,7 +32,6 @@ class QuotaStatus {
       detailViewRemaining: QuotaService.detailViewLimit,
       resetTime: _calculateResetTime(),
     );
-  }
   final String? userId;
   final DateTime quotaDate;
   final int deepSearchCount;

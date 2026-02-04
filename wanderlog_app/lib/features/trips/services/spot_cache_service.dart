@@ -4,20 +4,6 @@ import 'package:wanderlog/shared/models/spot_model.dart';
 
 /// Spots 页面缓存数据条目
 class CachedSpotEntry {
-  final Spot spot;
-  final String city;
-  final String citySlug;
-  final bool isSaved;
-  final bool isMustGo;
-  final bool isTodaysPlan;
-  final bool isVisited;
-  final String? destinationId;
-  final DateTime addedAt;
-  // Check-in 数据
-  final DateTime? visitDate;
-  final int? userRating;
-  final String? userNotes;
-  final List<String> userPhotos;
 
   CachedSpotEntry({
     required this.spot,
@@ -34,22 +20,6 @@ class CachedSpotEntry {
     this.userNotes,
     this.userPhotos = const [],
   });
-
-  Map<String, dynamic> toJson() => {
-        'spot': _spotToLightJson(spot),
-        'city': city,
-        'citySlug': citySlug,
-        'isSaved': isSaved,
-        'isMustGo': isMustGo,
-        'isTodaysPlan': isTodaysPlan,
-        'isVisited': isVisited,
-        'destinationId': destinationId,
-        'addedAt': addedAt.millisecondsSinceEpoch,
-        'visitDate': visitDate?.millisecondsSinceEpoch,
-        'userRating': userRating,
-        'userNotes': userNotes,
-        'userPhotos': userPhotos,
-      };
 
   factory CachedSpotEntry.fromJson(Map<String, dynamic> json) {
     return CachedSpotEntry(
@@ -70,9 +40,38 @@ class CachedSpotEntry {
       userPhotos: (json['userPhotos'] as List?)?.cast<String>() ?? [],
     );
   }
+  final Spot spot;
+  final String city;
+  final String citySlug;
+  final bool isSaved;
+  final bool isMustGo;
+  final bool isTodaysPlan;
+  final bool isVisited;
+  final String? destinationId;
+  final DateTime addedAt;
+  // Check-in 数据
+  final DateTime? visitDate;
+  final int? userRating;
+  final String? userNotes;
+  final List<String> userPhotos;
 
-  static Map<String, dynamic> _spotToLightJson(Spot spot) {
-    return {
+  Map<String, dynamic> toJson() => {
+        'spot': _spotToLightJson(spot),
+        'city': city,
+        'citySlug': citySlug,
+        'isSaved': isSaved,
+        'isMustGo': isMustGo,
+        'isTodaysPlan': isTodaysPlan,
+        'isVisited': isVisited,
+        'destinationId': destinationId,
+        'addedAt': addedAt.millisecondsSinceEpoch,
+        'visitDate': visitDate?.millisecondsSinceEpoch,
+        'userRating': userRating,
+        'userNotes': userNotes,
+        'userPhotos': userPhotos,
+      };
+
+  static Map<String, dynamic> _spotToLightJson(Spot spot) => {
       'id': spot.id,
       'name': spot.name,
       'city': spot.city,
@@ -98,10 +97,8 @@ class CachedSpotEntry {
       'updatedAt': spot.updatedAt?.toIso8601String(),
       // customFields 暂不缓存（避免复杂序列化）
     };
-  }
 
-  static Spot _spotFromLightJson(Map<String, dynamic> json) {
-    return Spot(
+  static Spot _spotFromLightJson(Map<String, dynamic> json) => Spot(
       id: json['id'] as String,
       name: json['name'] as String,
       latitude: (json['latitude'] as num).toDouble(),
@@ -130,7 +127,6 @@ class CachedSpotEntry {
           ? DateTime.parse(json['updatedAt'] as String)
           : null,
     );
-  }
 }
 
 /// Spots 页面缓存服务
@@ -160,7 +156,7 @@ class SpotCacheService {
         print('🔍 [SpotCache] Serialized first spot:');
         print('  - has address: ${firstJson['spot']['address'] != null}');
         print(
-            '  - has openingHours: ${firstJson['spot']['openingHours'] != null}');
+            '  - has openingHours: ${firstJson['spot']['openingHours'] != null}',);
         print('  - has website: ${firstJson['spot']['website'] != null}');
       }
 
@@ -169,7 +165,7 @@ class SpotCacheService {
 
       // 保存时间戳
       await prefs.setInt(
-          '$_timestampPrefix$citySlug', DateTime.now().millisecondsSinceEpoch);
+          '$_timestampPrefix$citySlug', DateTime.now().millisecondsSinceEpoch,);
 
       print('💾 [SpotCache] Saved ${entries.length} entries for $citySlug');
     } catch (e) {
@@ -199,7 +195,7 @@ class SpotCacheService {
       if (age > _cacheExpiry) {
         // 缓存过期，但先尝试返回它（让后台刷新）
         print(
-            '⏰ [SpotCache] Cache expired for $citySlug (age: ${age.inHours}h), but will try to use it');
+            '⏰ [SpotCache] Cache expired for $citySlug (age: ${age.inHours}h), but will try to use it',);
         // 不立即清理，而是返回过期数据
       }
 
@@ -221,7 +217,7 @@ class SpotCacheService {
         print('  - name: ${first.spot.name}');
         print('  - address: ${first.spot.address}');
         print(
-            '  - openingHours: ${first.spot.openingHours != null ? "YES" : "NULL"}');
+            '  - openingHours: ${first.spot.openingHours != null ? "YES" : "NULL"}',);
         print('  - website: ${first.spot.website}');
       }
 
@@ -232,7 +228,7 @@ class SpotCacheService {
           : <String, int>{};
 
       print(
-          '✅ [SpotCache] Loaded ${entriesList.length} entries from cache for $citySlug');
+          '✅ [SpotCache] Loaded ${entriesList.length} entries from cache for $citySlug',);
 
       return CachedSpotData(
         entries: entriesList,
@@ -247,24 +243,24 @@ class SpotCacheService {
 
   /// 尝试读取旧版本（v1/v2）的缓存作为后备
   Future<CachedSpotData?> _tryLoadLegacyCache(
-      SharedPreferences prefs, String citySlug) async {
+      SharedPreferences prefs, String citySlug,) async {
     try {
       print('🔄 [SpotCache] Attempting to load legacy cache for $citySlug');
 
       // 先尝试 v2（没有完整字段）
-      final v2TimestampPrefix = 'spots_timestamp_v2_';
+      const v2TimestampPrefix = 'spots_timestamp_v2_';
 
       final v2Timestamp = prefs.getInt('$v2TimestampPrefix$citySlug');
       if (v2Timestamp != null) {
         print(
-            '📦 [SpotCache] Found v2 cache, but ignoring (incomplete fields)');
+            '📦 [SpotCache] Found v2 cache, but ignoring (incomplete fields)',);
         // v2 缓存字段不完整，跳过，让它从服务器重新加载
       }
 
       // 尝试 v1 缓存键（没有版本后缀）
-      final v1KeyPrefix = 'spots_cache_';
-      final v1CountsPrefix = 'spots_counts_';
-      final v1TimestampPrefix = 'spots_timestamp_';
+      const v1KeyPrefix = 'spots_cache_';
+      const v1CountsPrefix = 'spots_counts_';
+      const v1TimestampPrefix = 'spots_timestamp_';
 
       final v1Timestamp = prefs.getInt('$v1TimestampPrefix$citySlug');
       if (v1Timestamp == null) {
@@ -285,12 +281,11 @@ class SpotCacheService {
       // v1 格式是 List<Spot>，需要转换成 List<CachedSpotEntry>
       final v1Spots = (jsonDecode(v1SpotsJson) as List)
           .map((json) =>
-              CachedSpotEntry._spotFromLightJson(json as Map<String, dynamic>))
+              CachedSpotEntry._spotFromLightJson(json as Map<String, dynamic>),)
           .toList();
 
       // 将 v1 Spot 转换为 v2 CachedSpotEntry (状态默认为 true/false)
-      final entries = v1Spots.map((spot) {
-        return CachedSpotEntry(
+      final entries = v1Spots.map((spot) => CachedSpotEntry(
           spot: spot,
           city: spot.city ?? 'Unknown',
           citySlug: citySlug,
@@ -300,8 +295,7 @@ class SpotCacheService {
           isVisited: false, // v1 没有这个状态
           destinationId: null,
           addedAt: DateTime.now(), // v1 没有记录添加时间
-        );
-      }).toList();
+        )).toList();
 
       // 读取 v1 tab 计数
       final v1CountsJson = prefs.getString('$v1CountsPrefix$citySlug');
@@ -310,7 +304,7 @@ class SpotCacheService {
           : <String, int>{};
 
       print(
-          '✅ [SpotCache] Loaded ${entries.length} entries from v1 cache for $citySlug');
+          '✅ [SpotCache] Loaded ${entries.length} entries from v1 cache for $citySlug',);
 
       // 自动升级：保存为 v3 格式（包含完整字段）
       await saveCitySpots(
@@ -366,15 +360,15 @@ class SpotCacheService {
 
 /// 缓存的 Spot 数据
 class CachedSpotData {
-  final List<CachedSpotEntry> entries;
-  final Map<String, int> tabCounts;
-  final DateTime cachedAt;
 
   CachedSpotData({
     required this.entries,
     required this.tabCounts,
     required this.cachedAt,
   });
+  final List<CachedSpotEntry> entries;
+  final Map<String, int> tabCounts;
+  final DateTime cachedAt;
 
   bool get isExpired =>
       DateTime.now().difference(cachedAt) > const Duration(hours: 24);

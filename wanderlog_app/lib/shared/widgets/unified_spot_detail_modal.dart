@@ -61,17 +61,19 @@ class UnifiedSpotDetailModal extends ConsumerStatefulWidget {
   final String? initialUserNotes;
   final List<String>? initialUserPhotos;
   final String? initialDestinationId;
-  final void Function(String spotId,
-      {bool? isMustGo,
-      bool? isTodaysPlan,
-      bool? isVisited,
-      bool? isRemoved,
-      bool? needsReload,
-      DateTime? visitDate,
-      int? userRating,
-      String? userNotes,
-      List<String>? userPhotos,
-      String? destinationId})? onStatusChanged;
+  final void Function(
+    String spotId, {
+    bool? isMustGo,
+    bool? isTodaysPlan,
+    bool? isVisited,
+    bool? isRemoved,
+    bool? needsReload,
+    DateTime? visitDate,
+    int? userRating,
+    String? userNotes,
+    List<String>? userPhotos,
+    String? destinationId,
+  })? onStatusChanged;
   final bool keepOpenOnAction; // If true, don't close modal after actions
   final bool
       hideCollectionEntry; // If true, don't show collection entry card (e.g. when opened from collection page)
@@ -191,9 +193,8 @@ class _UnifiedSpotDetailModalState
   }
 
   /// 检查文本是否包含中文字符
-  bool _containsChinese(String text) {
-    return RegExp(r'[\u4e00-\u9fff]').hasMatch(text);
-  }
+  bool _containsChinese(String text) =>
+      RegExp(r'[\u4e00-\u9fff]').hasMatch(text);
 
   double? get _spotRating {
     if (widget.spot is Spot) {
@@ -318,34 +319,44 @@ class _UnifiedSpotDetailModalState
     final name = _spotName.toLowerCase();
     final category = _getCategory()?.toLowerCase() ?? '';
 
-    if (tags.any((t) =>
-            t.toLowerCase().contains('museum') ||
-            t.toLowerCase().contains('gallery')) ||
+    if (tags.any(
+          (t) =>
+              t.toLowerCase().contains('museum') ||
+              t.toLowerCase().contains('gallery'),
+        ) ||
         category.contains('museum')) {
       return 'Cultural treasure';
     }
-    if (tags.any((t) =>
-            t.toLowerCase().contains('temple') ||
-            t.toLowerCase().contains('shrine')) ||
+    if (tags.any(
+          (t) =>
+              t.toLowerCase().contains('temple') ||
+              t.toLowerCase().contains('shrine'),
+        ) ||
         category.contains('temple') ||
         category.contains('shrine')) {
       return 'Sacred landmark';
     }
-    if (tags.any((t) =>
-            t.toLowerCase().contains('park') ||
-            t.toLowerCase().contains('garden')) ||
+    if (tags.any(
+          (t) =>
+              t.toLowerCase().contains('park') ||
+              t.toLowerCase().contains('garden'),
+        ) ||
         category.contains('park')) {
       return 'Scenic retreat';
     }
-    if (tags.any((t) =>
-            t.toLowerCase().contains('cafe') ||
-            t.toLowerCase().contains('coffee')) ||
+    if (tags.any(
+          (t) =>
+              t.toLowerCase().contains('cafe') ||
+              t.toLowerCase().contains('coffee'),
+        ) ||
         category.contains('cafe')) {
       return 'Local favorite';
     }
-    if (tags.any((t) =>
-            t.toLowerCase().contains('restaurant') ||
-            t.toLowerCase().contains('food')) ||
+    if (tags.any(
+          (t) =>
+              t.toLowerCase().contains('restaurant') ||
+              t.toLowerCase().contains('food'),
+        ) ||
         category.contains('restaurant')) {
       return 'Culinary gem';
     }
@@ -361,7 +372,7 @@ class _UnifiedSpotDetailModalState
       'Hidden gem',
       'Local pick',
       'Worth exploring',
-      'Traveler favorite'
+      'Traveler favorite',
     ];
     return phrases[_spotName.length % phrases.length];
   }
@@ -491,9 +502,8 @@ class _UnifiedSpotDetailModalState
   }
 
   /// 获取有效的图片列表（过滤掉无效 URL）
-  List<String> get _validSpotImages {
-    return _spotImages.where(_isValidImageUrl).toList();
-  }
+  List<String> get _validSpotImages =>
+      _spotImages.where(_isValidImageUrl).toList();
 
   /// 检查图片 URL 是否有效
   bool _isValidImageUrl(String url) {
@@ -608,25 +618,36 @@ class _UnifiedSpotDetailModalState
     super.initState();
 
     // 添加调试日志
-    print('🔧 [UnifiedSpotDetailModal] initState for spot: ${_spotName}');
+    print('🔧 [UnifiedSpotDetailModal] initState for spot: $_spotName');
+    print('🔧 [UnifiedSpotDetailModal] _spotAddress: $_spotAddress');
+    print('🔧 [UnifiedSpotDetailModal] _spotRating: ${_spotRating}');
     print(
-        '🔧 [UnifiedSpotDetailModal] initialIsSaved: ${widget.initialIsSaved}');
+      '🔧 [UnifiedSpotDetailModal] initialIsSaved: ${widget.initialIsSaved}',
+    );
     print(
-        '🔧 [UnifiedSpotDetailModal] initialIsMustGo: ${widget.initialIsMustGo}');
+      '🔧 [UnifiedSpotDetailModal] initialIsMustGo: ${widget.initialIsMustGo}',
+    );
     print(
-        '🔧 [UnifiedSpotDetailModal] initialIsTodaysPlan: ${widget.initialIsTodaysPlan}');
+      '🔧 [UnifiedSpotDetailModal] initialIsTodaysPlan: ${widget.initialIsTodaysPlan}',
+    );
     print(
-        '🔧 [UnifiedSpotDetailModal] initialIsVisited: ${widget.initialIsVisited}');
+      '🔧 [UnifiedSpotDetailModal] initialIsVisited: ${widget.initialIsVisited}',
+    );
     print(
-        '🔧 [UnifiedSpotDetailModal] initialVisitDate: ${widget.initialVisitDate}');
+      '🔧 [UnifiedSpotDetailModal] initialVisitDate: ${widget.initialVisitDate}',
+    );
     print(
-        '🔧 [UnifiedSpotDetailModal] initialUserRating: ${widget.initialUserRating}');
+      '🔧 [UnifiedSpotDetailModal] initialUserRating: ${widget.initialUserRating}',
+    );
     print(
-        '🔧 [UnifiedSpotDetailModal] initialUserNotes: ${widget.initialUserNotes}');
+      '🔧 [UnifiedSpotDetailModal] initialUserNotes: ${widget.initialUserNotes}',
+    );
     print(
-        '🔧 [UnifiedSpotDetailModal] initialUserPhotos: ${widget.initialUserPhotos?.length ?? 0} photos');
+      '🔧 [UnifiedSpotDetailModal] initialUserPhotos: ${widget.initialUserPhotos?.length ?? 0} photos',
+    );
     print(
-        '🔧 [UnifiedSpotDetailModal] initialDestinationId: ${widget.initialDestinationId}');
+      '🔧 [UnifiedSpotDetailModal] initialDestinationId: ${widget.initialDestinationId}',
+    );
 
     final hasInitialCheckInDetails = widget.initialVisitDate != null ||
         widget.initialUserRating != null ||
@@ -691,20 +712,24 @@ class _UnifiedSpotDetailModalState
         } else {
           // 缓存中没有详情，需要从服务器加载
           print(
-              '⚠️ [UnifiedSpotDetailModal] isVisited=true but missing check-in details in cache - loading from server');
+            '⚠️ [UnifiedSpotDetailModal] isVisited=true but missing check-in details in cache - loading from server',
+          );
           _isLoadingCheckInData = true;
           _loadWishlistStatus().then((_) {
             print(
-                '✅ [UnifiedSpotDetailModal] Check-in details loaded from server');
+              '✅ [UnifiedSpotDetailModal] Check-in details loaded from server',
+            );
           }).catchError((Object e) {
             print(
-                '❌ [UnifiedSpotDetailModal] Failed to load check-in details: $e');
+              '❌ [UnifiedSpotDetailModal] Failed to load check-in details: $e',
+            );
           });
         }
       } else {
         _isLoadingCheckInData = false;
         print(
-            '✅ [UnifiedSpotDetailModal] Using provided initial data - no server reload needed');
+          '✅ [UnifiedSpotDetailModal] Using provided initial data - no server reload needed',
+        );
       }
 
       // 同步更新缓存，确保一致性
@@ -721,17 +746,20 @@ class _UnifiedSpotDetailModalState
       );
     } else {
       print(
-          '⚠️ [UnifiedSpotDetailModal] No initial data provided - will load from server/cache');
+        '⚠️ [UnifiedSpotDetailModal] No initial data provided - will load from server/cache',
+      );
       // 没有初始数据，从缓存同步读取收藏状态，避免闪烁
       _loadWishlistStatusFromCache();
       // 异步加载详细状态（后台静默刷新，不阻塞 UI）
       print(
-          '⚠️ [UnifiedSpotDetailModal] About to call _loadWishlistStatus()...');
+        '⚠️ [UnifiedSpotDetailModal] About to call _loadWishlistStatus()...',
+      );
       _loadWishlistStatus().timeout(
         const Duration(seconds: 15),
         onTimeout: () {
           print(
-              '⏰ [UnifiedSpotDetailModal] _loadWishlistStatus() timeout after 15s');
+            '⏰ [UnifiedSpotDetailModal] _loadWishlistStatus() timeout after 15s',
+          );
           if (mounted) setState(() => _isLoadingCheckInData = false);
         },
       ).then((_) {
@@ -765,15 +793,18 @@ class _UnifiedSpotDetailModalState
   /// 从缓存同步读取收藏状态（立即生效，无需等待）
   void _loadWishlistStatusFromCache() {
     print(
-        '🔍 [_loadWishlistStatusFromCache] Checking cache for spot: $_spotName');
+      '🔍 [_loadWishlistStatusFromCache] Checking cache for spot: $_spotName',
+    );
     print(
-        '🔍 [_loadWishlistStatusFromCache] Keys to check: ${_collectCacheKeys()}');
+      '🔍 [_loadWishlistStatusFromCache] Keys to check: ${_collectCacheKeys()}',
+    );
 
     // 1. 首先尝试从同步缓存读取完整状态（最快，无延迟）
     // 尝试使用 _spotId（可能是 UUID 或 googlePlaceId）
     var fullStatus = WishlistStatusCache.getFullStatus(_spotId);
     print(
-        '🔍 [_loadWishlistStatusFromCache] Cache check _spotId=$_spotId: ${fullStatus?.destinationId}');
+      '🔍 [_loadWishlistStatusFromCache] Cache check _spotId=$_spotId: ${fullStatus?.destinationId}',
+    );
     if (fullStatus != null && fullStatus.destinationId != null) {
       print('✅ [_loadWishlistStatusFromCache] Found in cache by _spotId!');
       // 立即应用缓存数据，包括 check-in 详情
@@ -802,10 +833,12 @@ class _UnifiedSpotDetailModalState
         if (googlePlaceId != null && googlePlaceId != _spotId) {
           fullStatus = WishlistStatusCache.getFullStatus(googlePlaceId);
           print(
-              '🔍 [_loadWishlistStatusFromCache] Cache check googlePlaceId=$googlePlaceId: ${fullStatus?.destinationId}');
+            '🔍 [_loadWishlistStatusFromCache] Cache check googlePlaceId=$googlePlaceId: ${fullStatus?.destinationId}',
+          );
           if (fullStatus != null && fullStatus.destinationId != null) {
             print(
-                '✅ [_loadWishlistStatusFromCache] Found in cache by googlePlaceId!');
+              '✅ [_loadWishlistStatusFromCache] Found in cache by googlePlaceId!',
+            );
             if (mounted) {
               final status = fullStatus; // Capture non-null value
               setState(() {
@@ -831,10 +864,12 @@ class _UnifiedSpotDetailModalState
     if (_actualPlaceId != null && _actualPlaceId != _spotId) {
       fullStatus = WishlistStatusCache.getFullStatus(_actualPlaceId!);
       print(
-          '🔍 [_loadWishlistStatusFromCache] Cache check _actualPlaceId=$_actualPlaceId: ${fullStatus?.destinationId}');
+        '🔍 [_loadWishlistStatusFromCache] Cache check _actualPlaceId=$_actualPlaceId: ${fullStatus?.destinationId}',
+      );
       if (fullStatus != null && fullStatus.destinationId != null) {
         print(
-            '✅ [_loadWishlistStatusFromCache] Found in cache by _actualPlaceId!');
+          '✅ [_loadWishlistStatusFromCache] Found in cache by _actualPlaceId!',
+        );
         if (mounted) {
           final status = fullStatus; // Capture non-null value
           setState(() {
@@ -857,7 +892,8 @@ class _UnifiedSpotDetailModalState
     // 也尝试使用名称查找
     fullStatus = WishlistStatusCache.getFullStatus(_spotName);
     print(
-        '🔍 [_loadWishlistStatusFromCache] Cache check name=$_spotName: ${fullStatus?.destinationId}');
+      '🔍 [_loadWishlistStatusFromCache] Cache check name=$_spotName: ${fullStatus?.destinationId}',
+    );
     if (fullStatus != null && fullStatus.destinationId != null) {
       print('✅ [_loadWishlistStatusFromCache] Found in cache by name!');
       if (mounted) {
@@ -951,7 +987,7 @@ class _UnifiedSpotDetailModalState
           children: [
             GestureDetector(
               onTap: () => Navigator.pop(context),
-              child: Container(
+              child: ColoredBox(
                 color: Colors.black87,
                 child: Center(
                   child: InteractiveViewer(
@@ -1220,7 +1256,8 @@ class _UnifiedSpotDetailModalState
     // 注意：不再检查 authProvider.isAuthenticated，因为可能存在 keychain 同步问题
     // 让 API 请求自己处理认证，如果没有权限会返回空数据或错误
     print(
-        '🔍 [UnifiedSpotDetailModal] _loadWishlistStatus started for: $_spotName');
+      '🔍 [UnifiedSpotDetailModal] _loadWishlistStatus started for: $_spotName',
+    );
     print('🔍 [UnifiedSpotDetailModal] _originalSpotId: $_originalSpotId');
     try {
       final repo = ref.read(tripRepositoryProvider);
@@ -1245,24 +1282,28 @@ class _UnifiedSpotDetailModalState
       for (final t in trips) {
         try {
           print(
-              '📍 [UnifiedSpotDetailModal] Fetching trip detail for "${t.name}" (${t.id})...');
+            '📍 [UnifiedSpotDetailModal] Fetching trip detail for "${t.name}" (${t.id})...',
+          );
           final detail = await repo.getTripById(t.id).timeout(
             const Duration(seconds: 3),
             onTimeout: () {
               print(
-                  '⏰ [UnifiedSpotDetailModal] getTripById timeout for ${t.name}');
+                '⏰ [UnifiedSpotDetailModal] getTripById timeout for ${t.name}',
+              );
               throw TimeoutException('Trip detail timeout');
             },
           );
           final tripSpots = detail.tripSpots ?? [];
           print(
-              '📍 [UnifiedSpotDetailModal] Trip "${t.name}" has ${tripSpots.length} tripSpots');
+            '📍 [UnifiedSpotDetailModal] Trip "${t.name}" has ${tripSpots.length} tripSpots',
+          );
 
           // 打印所有 tripSpots 的基本信息以便调试
           for (int i = 0; i < tripSpots.length && i < 10; i++) {
             final ts = tripSpots[i];
             print(
-                '   [$i] spotId=${ts.spotId}, name="${ts.spot?.name ?? "unknown"}", googlePlaceId=${ts.spot?.googlePlaceId}');
+              '   [$i] spotId=${ts.spotId}, name="${ts.spot?.name ?? "unknown"}", googlePlaceId=${ts.spot?.googlePlaceId}',
+            );
           }
 
           final tripSpot = tripSpots.firstWhere(
@@ -1285,14 +1326,18 @@ class _UnifiedSpotDetailModalState
               if (tsSpotName.toLowerCase().contains(searchPrefix)) {
                 print('🔍 [UnifiedSpotDetailModal] Comparing "$tsSpotName":');
                 print(
-                    '    ts.spotId=${ts.spotId}, _originalSpotId=$_originalSpotId, match=$matchBySpotId');
+                  '    ts.spotId=${ts.spotId}, _originalSpotId=$_originalSpotId, match=$matchBySpotId',
+                );
                 print(
-                    '    ts.spot.googlePlaceId=$spotGoogleId, match=$matchByGooglePlaceId');
+                  '    ts.spot.googlePlaceId=$spotGoogleId, match=$matchByGooglePlaceId',
+                );
                 print('    matchByName=$matchByName');
                 print(
-                    '    ts.isSaved=${ts.isSaved}, ts.isVisited=${ts.isVisited}');
+                  '    ts.isSaved=${ts.isSaved}, ts.isVisited=${ts.isVisited}',
+                );
                 print(
-                    '    ts.visitDate=${ts.visitDate}, ts.userRating=${ts.userRating}, ts.userNotes=${ts.userNotes}');
+                  '    ts.visitDate=${ts.visitDate}, ts.userRating=${ts.userRating}, ts.userNotes=${ts.userNotes}',
+                );
               }
 
               if (matchBySpotId) return true;
@@ -1307,9 +1352,11 @@ class _UnifiedSpotDetailModalState
           // 保存实际的 place UUID，用于后续操作
           _actualPlaceId = tripSpot.spotId;
           print(
-              '🎯 [UnifiedSpotDetailModal] Before setState: mounted=$mounted, _isWishlist=$_isWishlist');
+            '🎯 [UnifiedSpotDetailModal] Before setState: mounted=$mounted, _isWishlist=$_isWishlist',
+          );
           print(
-              '🎯 [UnifiedSpotDetailModal] tripSpot.isSaved=${tripSpot.isSaved}, tripSpot.isVisited=${tripSpot.isVisited}');
+            '🎯 [UnifiedSpotDetailModal] tripSpot.isSaved=${tripSpot.isSaved}, tripSpot.isVisited=${tripSpot.isVisited}',
+          );
           print('🎯 [UnifiedSpotDetailModal] tripSpot check-in details:');
           print('    visitDate=${tripSpot.visitDate}');
           print('    userRating=${tripSpot.userRating}');
@@ -1329,7 +1376,8 @@ class _UnifiedSpotDetailModalState
 
           print('🎯 [UnifiedSpotDetailModal] After assignment:');
           print(
-              '    _visitDate=$_visitDate, _userRating=$_userRating, _userNotes=$_userNotes, _userPhotos=${_userPhotos.length}');
+            '    _visitDate=$_visitDate, _userRating=$_userRating, _userNotes=$_userNotes, _userPhotos=${_userPhotos.length}',
+          );
 
           // 使用 addPostFrameCallback 确保 setState 在正确的时机执行
           if (mounted) {
@@ -1337,13 +1385,15 @@ class _UnifiedSpotDetailModalState
               if (mounted) {
                 setState(() {
                   print(
-                      '🎯 [UnifiedSpotDetailModal] Inside setState callback: _isWishlist=$_isWishlist, _isVisited=$_isVisited');
+                    '🎯 [UnifiedSpotDetailModal] Inside setState callback: _isWishlist=$_isWishlist, _isVisited=$_isVisited',
+                  );
                 });
               }
             });
           }
           print(
-              '✅ [UnifiedSpotDetailModal] After setting values: _isWishlist=$_isWishlist, _isVisited=$_isVisited');
+            '✅ [UnifiedSpotDetailModal] After setting values: _isWishlist=$_isWishlist, _isVisited=$_isVisited',
+          );
           // 更新缓存，包含完整 check-in 数据，确保下次打开时能正确读取
           _updateWishlistCache(
             destinationId: detail.id,
@@ -1360,13 +1410,15 @@ class _UnifiedSpotDetailModalState
         } catch (tripError) {
           // 这个 trip 中没有找到匹配的 tripSpot，继续查找下一个 trip
           print(
-              '⚠️ [UnifiedSpotDetailModal] Trip "${t.name}" error or no match: $tripError');
+            '⚠️ [UnifiedSpotDetailModal] Trip "${t.name}" error or no match: $tripError',
+          );
         }
       }
 
       // 如果没有找到数据，也要清除加载状态
       print(
-          '❌ [UnifiedSpotDetailModal] No matching tripSpot found in any trip');
+        '❌ [UnifiedSpotDetailModal] No matching tripSpot found in any trip',
+      );
       if (mounted) {
         setState(() {
           _isLoadingCheckInData = false;
@@ -1390,7 +1442,8 @@ class _UnifiedSpotDetailModalState
     final currentSpotId = _spotId;
     if (!_isValidUUID(currentSpotId)) {
       print(
-          '⚠️ [UnifiedSpotDetailModal] Skipping collection load - spotId is not UUID: $currentSpotId');
+        '⚠️ [UnifiedSpotDetailModal] Skipping collection load - spotId is not UUID: $currentSpotId',
+      );
       setState(() {
         _isCollectionLoaded = true;
       });
@@ -1446,8 +1499,10 @@ class _UnifiedSpotDetailModalState
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_isVisited) ...[
-                const Text('✓',
-                    style: TextStyle(fontSize: 14, color: AppTheme.black)),
+                const Text(
+                  '✓',
+                  style: TextStyle(fontSize: 14, color: AppTheme.black),
+                ),
                 const SizedBox(width: 4),
               ],
               Text(
@@ -1488,8 +1543,13 @@ class _UnifiedSpotDetailModalState
       context: context,
       builder: (context) => CheckInDialog(
         spot: spotModel,
-        onCheckIn: (visitDate, rating, notes,
-            {List<File>? newImages, List<String>? existingPhotos}) async {
+        onCheckIn: (
+          visitDate,
+          rating,
+          notes, {
+          List<File>? newImages,
+          List<String>? existingPhotos,
+        }) async {
           // Optimistic update - immediately show checked in state
           if (mounted) {
             setState(() {
@@ -1524,13 +1584,15 @@ class _UnifiedSpotDetailModalState
                 });
               }
               CustomToast.showError(
-                  this.context, 'Failed to create destination');
+                this.context,
+                'Failed to create destination',
+              );
               return;
             }
             _destinationId = destId;
 
             // Upload new images if any
-            List<String> allPhotoUrls = [...?existingPhotos];
+            final List<String> allPhotoUrls = [...?existingPhotos];
             if (newImages != null && newImages.isNotEmpty) {
               final uploadService = ref.read(imageUploadServiceProvider);
               final uploadedUrls = await uploadService.uploadImages(newImages);
@@ -1644,8 +1706,13 @@ class _UnifiedSpotDetailModalState
         initialRating: _userRating?.toDouble(),
         initialNotes: _userNotes,
         initialPhotos: _userPhotos.isNotEmpty ? _userPhotos : null,
-        onCheckIn: (visitDate, rating, notes,
-            {List<File>? newImages, List<String>? existingPhotos}) async {
+        onCheckIn: (
+          visitDate,
+          rating,
+          notes, {
+          List<File>? newImages,
+          List<String>? existingPhotos,
+        }) async {
           try {
             if (_destinationId == null) {
               CustomToast.showError(context, 'Destination not found');
@@ -1653,7 +1720,7 @@ class _UnifiedSpotDetailModalState
             }
 
             // 1. 立即更新本地状态（乐观更新）- 用户立即看到变化
-            List<String> allPhotoUrls = [...?existingPhotos];
+            final List<String> allPhotoUrls = [...?existingPhotos];
             if (mounted) {
               setState(() {
                 _visitDate = visitDate;
@@ -1761,7 +1828,9 @@ class _UnifiedSpotDetailModalState
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           side: const BorderSide(
-              color: AppTheme.black, width: AppTheme.borderMedium),
+            color: AppTheme.black,
+            width: AppTheme.borderMedium,
+          ),
         ),
         title: Text(
           'Delete Check-in',
@@ -1792,7 +1861,9 @@ class _UnifiedSpotDetailModalState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                 side: const BorderSide(
-                    color: AppTheme.black, width: AppTheme.borderMedium),
+                  color: AppTheme.black,
+                  width: AppTheme.borderMedium,
+                ),
               ),
             ),
             child: Text(
@@ -1939,9 +2010,11 @@ class _UnifiedSpotDetailModalState
               const Text('✓', style: TextStyle(fontSize: 20)),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('Your Visit',
-                    style: AppTheme.headlineMedium(context)
-                        .copyWith(fontWeight: FontWeight.bold)),
+                child: Text(
+                  'Your Visit',
+                  style: AppTheme.headlineMedium(context)
+                      .copyWith(fontWeight: FontWeight.bold),
+                ),
               ),
               GestureDetector(
                 onTap: _handleEditCheckIn,
@@ -1951,7 +2024,9 @@ class _UnifiedSpotDetailModalState
                     color: AppTheme.background,
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                     border: Border.all(
-                        color: AppTheme.black, width: AppTheme.borderThin),
+                      color: AppTheme.black,
+                      width: AppTheme.borderThin,
+                    ),
                   ),
                   child:
                       const Icon(Icons.edit, size: 18, color: AppTheme.black),
@@ -1966,10 +2041,15 @@ class _UnifiedSpotDetailModalState
                     color: AppTheme.background,
                     borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                     border: Border.all(
-                        color: AppTheme.black, width: AppTheme.borderThin),
+                      color: AppTheme.black,
+                      width: AppTheme.borderThin,
+                    ),
                   ),
-                  child: const Icon(Icons.delete_outline,
-                      size: 18, color: AppTheme.black),
+                  child: const Icon(
+                    Icons.delete_outline,
+                    size: 18,
+                    color: AppTheme.black,
+                  ),
                 ),
               ),
             ],
@@ -1985,19 +2065,24 @@ class _UnifiedSpotDetailModalState
           ],
           if (hasVisitDate) ...[
             const SizedBox(height: 8),
-            Text('${_visitDate!.year}/${_visitDate!.month}/${_visitDate!.day}',
-                style: AppTheme.bodySmall(context)
-                    .copyWith(color: AppTheme.mediumGray)),
+            Text(
+              '${_visitDate!.year}/${_visitDate!.month}/${_visitDate!.day}',
+              style: AppTheme.bodySmall(context)
+                  .copyWith(color: AppTheme.mediumGray),
+            ),
           ],
           if (hasRating) ...[
             const SizedBox(height: 12),
             Row(
-                children: List.generate(
-                    5,
-                    (index) => Icon(
-                        index < _userRating! ? Icons.star : Icons.star_border,
-                        color: AppTheme.primaryYellow,
-                        size: 20))),
+              children: List.generate(
+                5,
+                (index) => Icon(
+                  index < _userRating! ? Icons.star : Icons.star_border,
+                  color: AppTheme.primaryYellow,
+                  size: 20,
+                ),
+              ),
+            ),
           ],
           if (hasNotes) ...[
             const SizedBox(height: 12),
@@ -2019,7 +2104,9 @@ class _UnifiedSpotDetailModalState
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                       border: Border.all(
-                          color: AppTheme.black, width: AppTheme.borderThin),
+                        color: AppTheme.black,
+                        width: AppTheme.borderThin,
+                      ),
                     ),
                     child: ClipRRect(
                       borderRadius:
@@ -2027,9 +2114,12 @@ class _UnifiedSpotDetailModalState
                       child: _userPhotos[index].startsWith('data:')
                           ? Image.memory(
                               _decodeBase64Image(_userPhotos[index])!,
-                              fit: BoxFit.cover)
-                          : Image.network(_userPhotos[index],
-                              fit: BoxFit.cover),
+                              fit: BoxFit.cover,
+                            )
+                          : Image.network(
+                              _userPhotos[index],
+                              fit: BoxFit.cover,
+                            ),
                     ),
                   ),
                 ),
@@ -2048,7 +2138,8 @@ class _UnifiedSpotDetailModalState
     final auth = ref.read(authProvider);
     if (!auth.isAuthenticated) {
       print(
-          '💾 [_handleAddWishlist] User not authenticated, navigating to login');
+        '💾 [_handleAddWishlist] User not authenticated, navigating to login',
+      );
       // 未登录，跳转登录页
       final result = await context.push('/login');
       if (result != true) {
@@ -2109,7 +2200,8 @@ class _UnifiedSpotDetailModalState
       }
 
       print(
-          '💾 [_saveToBackend] Calling API with destId=$destId, spotId=$_spotId');
+        '💾 [_saveToBackend] Calling API with destId=$destId, spotId=$_spotId',
+      );
 
       // 调用 API
       final tripSpot = await ref.read(tripRepositoryProvider).manageTripSpot(
@@ -2158,7 +2250,8 @@ class _UnifiedSpotDetailModalState
           const Duration(seconds: 2),
           onTimeout: () {
             print(
-                '⚠️ [_saveToBackend] Provider refresh timeout, continuing anyway');
+              '⚠️ [_saveToBackend] Provider refresh timeout, continuing anyway',
+            );
             return [];
           },
         );
@@ -2183,7 +2276,8 @@ class _UnifiedSpotDetailModalState
   Future<bool> _handleRemoveWishlist() async {
     print('🗑️ [_handleRemoveWishlist] START - spot: $_spotName');
     print(
-        '🗑️ [_handleRemoveWishlist] _destinationId: $_destinationId, _spotId: $_spotId');
+      '🗑️ [_handleRemoveWishlist] _destinationId: $_destinationId, _spotId: $_spotId',
+    );
     print('🗑️ [_handleRemoveWishlist] _isVisited: $_isVisited');
 
     // 1. Optimistic update - 立即更新 UI
@@ -2212,7 +2306,8 @@ class _UnifiedSpotDetailModalState
         print('🗑️ [_handleRemoveWishlist] Calling API...');
         if (_isVisited) {
           print(
-              '🗑️ [_handleRemoveWishlist] API call: isSaved=false, keeping visited data');
+            '🗑️ [_handleRemoveWishlist] API call: isSaved=false, keeping visited data',
+          );
           final result = await ref.read(tripRepositoryProvider).manageTripSpot(
                 tripId: _destinationId!,
                 spotId: _spotId,
@@ -2222,7 +2317,8 @@ class _UnifiedSpotDetailModalState
                 spotPayload: _spotPayload(),
               );
           print(
-              '✅ [_handleRemoveWishlist] API success (keep visited): ${result?.id}');
+            '✅ [_handleRemoveWishlist] API success (keep visited): ${result?.id}',
+          );
         } else {
           print('🗑️ [_handleRemoveWishlist] API call: remove=true');
           await ref.read(tripRepositoryProvider).manageTripSpot(
@@ -2240,7 +2336,8 @@ class _UnifiedSpotDetailModalState
         // 4. API完成后更新缓存（确保与服务器状态一致）
         if (_isVisited) {
           print(
-              '🗑️ [_handleRemoveWishlist] Updating cache: isSaved=false, keeping visited');
+            '🗑️ [_handleRemoveWishlist] Updating cache: isSaved=false, keeping visited',
+          );
           _updateWishlistCache(
             destinationId: _destinationId,
             isSaved: false,
@@ -2596,7 +2693,8 @@ class _UnifiedSpotDetailModalState
         GestureDetector(
           onTap: canExpand
               ? () => setState(
-                  () => _isOpeningHoursExpanded = !_isOpeningHoursExpanded)
+                    () => _isOpeningHoursExpanded = !_isOpeningHoursExpanded,
+                  )
               : null,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -2617,15 +2715,17 @@ class _UnifiedSpotDetailModalState
         ),
         if (_isOpeningHoursExpanded && weekdayText != null) ...[
           const SizedBox(height: 12),
-          ...weekdayText.map((dayText) => Padding(
-                padding: const EdgeInsets.only(bottom: 4, left: 26),
-                child: Text(
-                  dayText,
-                  style: AppTheme.bodySmall(context).copyWith(
-                    color: AppTheme.black.withOpacity(0.6),
-                  ),
+          ...weekdayText.map(
+            (dayText) => Padding(
+              padding: const EdgeInsets.only(bottom: 4, left: 26),
+              child: Text(
+                dayText,
+                style: AppTheme.bodySmall(context).copyWith(
+                  color: AppTheme.black.withOpacity(0.6),
                 ),
-              )),
+              ),
+            ),
+          ),
         ],
       ],
     );
@@ -2655,9 +2755,9 @@ class _UnifiedSpotDetailModalState
           if (onCopy != null)
             GestureDetector(
               onTap: onCopy,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8, top: 2),
-                child: const Icon(Icons.copy, size: 18, color: AppTheme.black),
+              child: const Padding(
+                padding: EdgeInsets.only(left: 8, top: 2),
+                child: Icon(Icons.copy, size: 18, color: AppTheme.black),
               ),
             ),
         ],
@@ -2801,38 +2901,36 @@ class _UnifiedSpotDetailModalState
   }
 
   /// 构建剧照入口按钮
-  Widget _buildStillsEntryButton() {
-    return GestureDetector(
-      onTap: _navigateToStillsList,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.movie_outlined, size: 16, color: AppTheme.black),
-            const SizedBox(width: 6),
-            Text(
-              'Stills',
-              style: AppTheme.labelSmall(context).copyWith(
-                fontWeight: FontWeight.w500,
+  Widget _buildStillsEntryButton() => GestureDetector(
+        onTap: _navigateToStillsList,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.movie_outlined, size: 16, color: AppTheme.black),
+              const SizedBox(width: 6),
+              Text(
+                'Stills',
+                style: AppTheme.labelSmall(context).copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.black,
+                ),
+              ),
+              const SizedBox(width: 2),
+              const Icon(
+                Icons.chevron_right,
+                size: 16,
                 color: AppTheme.black,
               ),
-            ),
-            const SizedBox(width: 2),
-            const Icon(
-              Icons.chevron_right,
-              size: 16,
-              color: AppTheme.black,
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
 
   /// 跳转到剧照列表页
   void _navigateToStillsList() {
@@ -2853,7 +2951,8 @@ class _UnifiedSpotDetailModalState
   Widget build(BuildContext context) {
     // Debug: 打印当前状态
     print(
-        '🏗️ [UnifiedSpotDetailModal] build() called: _isWishlist=$_isWishlist, _isVisited=$_isVisited, _isMustGo=$_isMustGo');
+      '🏗️ [UnifiedSpotDetailModal] build() called: _isWishlist=$_isWishlist, _isVisited=$_isVisited, _isMustGo=$_isMustGo',
+    );
 
     // 不再阻塞加载：立即显示详情内容，合集入口会在加载完成后出现
 
@@ -2895,7 +2994,8 @@ class _UnifiedSpotDetailModalState
                               if (bytes != null) {
                                 return ClipRRect(
                                   borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(22)),
+                                    top: Radius.circular(22),
+                                  ),
                                   child: Image.memory(
                                     bytes,
                                     fit: BoxFit.cover,
@@ -2911,15 +3011,20 @@ class _UnifiedSpotDetailModalState
                             }
                             return ClipRRect(
                               borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(22)),
+                                top: Radius.circular(22),
+                              ),
                               child: Image.network(
                                 imageSource,
                                 fit: BoxFit.cover,
                                 width: double.infinity,
                                 height: double.infinity,
                                 gaplessPlayback: true,
-                                frameBuilder: (context, child, frame,
-                                    wasSynchronouslyLoaded) {
+                                frameBuilder: (
+                                  context,
+                                  child,
+                                  frame,
+                                  wasSynchronouslyLoaded,
+                                ) {
                                   if (wasSynchronouslyLoaded) return child;
                                   return child;
                                 },
@@ -3010,8 +3115,9 @@ class _UnifiedSpotDetailModalState
                                   color: const Color(0xFFF2F2F2),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                      color: AppTheme.black.withOpacity(0.2),
-                                      width: 1),
+                                    color: AppTheme.black.withOpacity(0.2),
+                                    width: 1,
+                                  ),
                                 ),
                                 child: Text(
                                   tag,
@@ -3081,8 +3187,11 @@ class _UnifiedSpotDetailModalState
                         // 没有评分但有推荐短语或描述时：显示推荐短语
                         Row(
                           children: [
-                            const Icon(Icons.auto_awesome,
-                                size: 20, color: AppTheme.primaryYellow),
+                            const Icon(
+                              Icons.auto_awesome,
+                              size: 20,
+                              color: AppTheme.primaryYellow,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -3168,13 +3277,15 @@ class _UnifiedSpotDetailModalState
                   child: _isWishlist
                       ? SaveSpotButton(
                           key: ValueKey(
-                              'save-button-$_isWishlist-$_isMustGo-$_isTodaysPlan-$_isVisited'),
+                            'save-button-$_isWishlist-$_isMustGo-$_isTodaysPlan-$_isVisited',
+                          ),
                           isSaved: true,
                           isMustGo: _isMustGo,
                           isTodaysPlan: _isTodaysPlan,
                           onSave: () async {
                             print(
-                                '🔘🔘🔘 SaveSpotButton onSave called but _isWishlist=$_isWishlist (already saved) - no action taken');
+                              '🔘🔘🔘 SaveSpotButton onSave called but _isWishlist=$_isWishlist (already saved) - no action taken',
+                            );
                             return true;
                           },
                           onUnsave: () async {
@@ -3190,7 +3301,8 @@ class _UnifiedSpotDetailModalState
                           key: const ValueKey('save-button-unsaved'),
                           onTap: () {
                             print(
-                                '🔘 [UnifiedSpotDetailModal] Save button tapped!');
+                              '🔘 [UnifiedSpotDetailModal] Save button tapped!',
+                            );
                             print('🔘 Current _isWishlist: $_isWishlist');
                             _handleAddWishlist();
                           },
@@ -3208,15 +3320,20 @@ class _UnifiedSpotDetailModalState
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.favorite_border,
-                                    color: AppTheme.black, size: 24),
+                                const Icon(
+                                  Icons.favorite_border,
+                                  color: AppTheme.black,
+                                  size: 24,
+                                ),
                                 const SizedBox(width: 12),
-                                Text('Save',
-                                    style: AppTheme.labelLarge(context)
-                                        .copyWith(
-                                            color: AppTheme.black,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 18)),
+                                Text(
+                                  'Save',
+                                  style: AppTheme.labelLarge(context).copyWith(
+                                    color: AppTheme.black,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -3256,8 +3373,11 @@ class _UnifiedSpotDetailModalState
         children: [
           const Padding(
             padding: EdgeInsets.only(top: 2),
-            child: Icon(Icons.location_on_outlined,
-                size: 18, color: AppTheme.black),
+            child: Icon(
+              Icons.location_on_outlined,
+              size: 18,
+              color: AppTheme.black,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -3272,8 +3392,11 @@ class _UnifiedSpotDetailModalState
             onTap: _showNavigationOptions,
             child: const Padding(
               padding: EdgeInsets.only(left: 8, top: 2),
-              child: Icon(Icons.navigation_outlined,
-                  size: 18, color: AppTheme.black),
+              child: Icon(
+                Icons.navigation_outlined,
+                size: 18,
+                color: AppTheme.black,
+              ),
             ),
           ),
         ],
@@ -3402,7 +3525,8 @@ class _UnifiedSpotDetailModalState
 
   Future<void> _openGoogleMaps(double lat, double lng, String name) async {
     final url = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=$lat,$lng&query_place_id=$name');
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng&query_place_id=$name',
+    );
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
@@ -3413,7 +3537,8 @@ class _UnifiedSpotDetailModalState
   Future<void> _openAmap(double lat, double lng, String name) async {
     // Try to open Amap app first, fallback to web
     final appUrl = Uri.parse(
-        'amapuri://route/plan/?dlat=$lat&dlon=$lng&dname=$name&dev=0&t=0');
+      'amapuri://route/plan/?dlat=$lat&dlon=$lng&dname=$name&dev=0&t=0',
+    );
     final webUrl =
         Uri.parse('https://uri.amap.com/marker?position=$lng,$lat&name=$name');
 

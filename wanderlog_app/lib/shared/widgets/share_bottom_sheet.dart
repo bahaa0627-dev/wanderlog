@@ -39,17 +39,14 @@ class ShareBottomSheet extends StatelessWidget {
   static Future<void> show(
     BuildContext context, {
     required ShareData shareData,
-  }) {
-    return showModalBottomSheet<void>(
+  }) => showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => ShareBottomSheet(shareData: shareData),
     );
-  }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -141,7 +138,6 @@ class ShareBottomSheet extends StatelessWidget {
         ),
       ),
     );
-  }
 
   void _copyLink(BuildContext context) {
     Clipboard.setData(ClipboardData(text: shareData.url));

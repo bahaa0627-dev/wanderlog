@@ -86,7 +86,7 @@ class _MyLandScreenState extends State<MyLandScreen> {
   }
 
   void _handleCityOptionsChanged(List<String> cities,
-      [Map<String, String>? cityToCountry]) {
+      [Map<String, String>? cityToCountry,]) {
     setState(() {
       _cityOptions = cities;
       if (cityToCountry != null) {
@@ -375,8 +375,7 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
+  Widget build(BuildContext context) => DraggableScrollableSheet(
       initialChildSize: 0.45,
       minChildSize: 0.3,
       maxChildSize: 0.7,
@@ -465,10 +464,8 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
         ),
       ),
     );
-  }
 
-  Widget _buildCountryCityColumns(ScrollController scrollController) {
-    return Row(
+  Widget _buildCountryCityColumns(ScrollController scrollController) => Row(
       children: [
         // 左侧国家列表
         Expanded(
@@ -564,5 +561,4 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
         ),
       ],
     );
-  }
 }

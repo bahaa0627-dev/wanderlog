@@ -314,7 +314,7 @@ class _AddCityDialogState extends ConsumerState<AddCityDialog> {
                         style: AppTheme.labelSmall(context),
                       ),
                     ),
-                  )).toList(),
+                  ),).toList(),
               ),
             ],
 

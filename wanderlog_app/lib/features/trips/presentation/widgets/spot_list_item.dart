@@ -295,7 +295,7 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
         final languageCode = Localizations.localeOf(context).languageCode;
         final l10n = AppLocalizations(languageCode);
         DialogUtils.showErrorSnackBar(
-            context, l10n.operationFailedWith(e.toString()));
+            context, l10n.operationFailedWith(e.toString()),);
       }
     } finally {
       if (mounted) {
@@ -331,7 +331,7 @@ class _SpotActionsSheetState extends State<_SpotActionsSheet> {
         final languageCode = Localizations.localeOf(context).languageCode;
         final l10n = AppLocalizations(languageCode);
         DialogUtils.showErrorSnackBar(
-            context, l10n.operationFailedWith(e.toString()));
+            context, l10n.operationFailedWith(e.toString()),);
       }
     } finally {
       if (mounted) {
@@ -470,7 +470,7 @@ class _CheckInDialogState extends State<_CheckInDialog> {
         final languageCode = Localizations.localeOf(context).languageCode;
         final l10n = AppLocalizations(languageCode);
         DialogUtils.showErrorSnackBar(
-            context, l10n.operationFailedWith(e.toString()));
+            context, l10n.operationFailedWith(e.toString()),);
       }
     } finally {
       if (mounted) {

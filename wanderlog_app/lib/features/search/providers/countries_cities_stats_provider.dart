@@ -6,6 +6,11 @@ import 'package:wanderlog/core/providers/dio_provider.dart';
 
 /// 城市数据（带地点数量）
 class CityStats {
+
+  factory CityStats.fromJson(Map<String, dynamic> json) => CityStats(
+        name: json['name'] as String,
+        placeCount: json['placeCount'] as int,
+      );
   const CityStats({
     required this.name,
     required this.placeCount,
@@ -13,24 +18,10 @@ class CityStats {
 
   final String name;
   final int placeCount;
-
-  factory CityStats.fromJson(Map<String, dynamic> json) => CityStats(
-        name: json['name'] as String,
-        placeCount: json['placeCount'] as int,
-      );
 }
 
 /// 国家数据（带地点数量和城市列表）
 class CountryStats {
-  const CountryStats({
-    required this.name,
-    required this.placeCount,
-    required this.cities,
-  });
-
-  final String name;
-  final int placeCount;
-  final List<CityStats> cities;
 
   factory CountryStats.fromJson(String name, Map<String, dynamic> json) =>
       CountryStats(
@@ -40,6 +31,15 @@ class CountryStats {
             .map((c) => CityStats.fromJson(c as Map<String, dynamic>))
             .toList(),
       );
+  const CountryStats({
+    required this.name,
+    required this.placeCount,
+    required this.cities,
+  });
+
+  final String name;
+  final int placeCount;
+  final List<CityStats> cities;
 }
 
 /// 国家城市统计数据状态
@@ -126,7 +126,7 @@ class CountriesCitiesStatsNotifier
           countries.add(CountryStats.fromJson(
             entry.key,
             entry.value as Map<String, dynamic>,
-          ));
+          ),);
         }
         countries.sort((a, b) => a.name.compareTo(b.name));
         
@@ -187,7 +187,7 @@ class CountriesCitiesStatsNotifier
         countries.add(CountryStats.fromJson(
           entry.key,
           entry.value as Map<String, dynamic>,
-        ));
+        ),);
       }
 
       // 按国家名称字母排序

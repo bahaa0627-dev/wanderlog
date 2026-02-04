@@ -176,8 +176,7 @@ class StillsListPage extends ConsumerWidget {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
+  PreferredSizeWidget _buildAppBar(BuildContext context) => AppBar(
       backgroundColor: AppTheme.white,
       elevation: 0,
       leading: IconButton(
@@ -192,10 +191,8 @@ class StillsListPage extends ConsumerWidget {
       ),
       centerTitle: true,
     );
-  }
 
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
+  Widget _buildEmptyState(BuildContext context) => Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -214,7 +211,6 @@ class StillsListPage extends ConsumerWidget {
         ],
       ),
     );
-  }
 
   /// 构建可拼图电影区域（只显示可拼图的剧照）
   Widget _buildCompareableMovieSection(
@@ -224,8 +220,7 @@ class StillsListPage extends ConsumerWidget {
     List<StillWithMovie> allValidStills,
     bool isZh, {
     bool showDivider = false,
-  }) {
-    return Column(
+  }) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 电影名称标题（emoji + 作品名）
@@ -249,7 +244,6 @@ class StillsListPage extends ConsumerWidget {
         ],
       ],
     );
-  }
 
   /// 构建其他电影区域（没有可拼图剧照的电影）
   Widget _buildOtherMovieSection(
@@ -259,8 +253,7 @@ class StillsListPage extends ConsumerWidget {
     List<StillWithMovie> allValidStills,
     bool isZh, {
     bool showDivider = false,
-  }) {
-    return Column(
+  }) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 电影名称标题
@@ -276,7 +269,6 @@ class StillsListPage extends ConsumerWidget {
         ],
       ],
     );
-  }
 
   /// 构建简单的剧照网格（不按电影分组，用于 Others stills 中混合显示）
   Widget _buildStillsGridSimple(
@@ -284,8 +276,7 @@ class StillsListPage extends ConsumerWidget {
     List<StillWithMovie> stills,
     List<MovieReference> movies,
     List<StillWithMovie> allValidStills,
-  ) {
-    return GridView.builder(
+  ) => GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -304,7 +295,6 @@ class StillsListPage extends ConsumerWidget {
         return _buildStillCard(context, still, movie, allValidStills, showCompareButton: false);
       },
     );
-  }
 
   /// 构建电影标题（emoji + 作品名）
   /// 优先从 movie 获取名称，如果为空则从 still 获取
@@ -345,8 +335,7 @@ class StillsListPage extends ConsumerWidget {
     MovieReference movie,
     List<StillWithMovie> allValidStills, {
     required bool showCompareButton,
-  }) {
-    return GridView.builder(
+  }) => GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -367,7 +356,6 @@ class StillsListPage extends ConsumerWidget {
         );
       },
     );
-  }
 
   Widget _buildStillCard(
     BuildContext context,
@@ -375,8 +363,7 @@ class StillsListPage extends ConsumerWidget {
     MovieReference movie,
     List<StillWithMovie> allValidStills, {
     required bool showCompareButton,
-  }) {
-    return GestureDetector(
+  }) => GestureDetector(
       onTap: () => _viewStillFullScreen(context, still, allValidStills),
       child: Container(
         decoration: BoxDecoration(
@@ -427,7 +414,6 @@ class StillsListPage extends ConsumerWidget {
         ),
       ),
     );
-  }
 
   void _viewStillFullScreen(BuildContext context, StillWithMovie still, List<StillWithMovie> allStills) {
     final initialIndex = allStills.indexWhere((s) => s.imageUrl == still.imageUrl);

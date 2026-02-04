@@ -216,8 +216,7 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
             padding: EdgeInsets.only(right: 12),
             child: Icon(Icons.keyboard_arrow_down, color: AppTheme.black),
           ),
-          items: countries.map((country) {
-            return DropdownMenuItem<String>(
+          items: countries.map((country) => DropdownMenuItem<String>(
               value: country.name,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -236,8 +235,7 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
                   ],
                 ),
               ),
-            );
-          }).toList(),
+            )).toList(),
           onChanged: (value) {
             setState(() {
               _selectedCountry = value;
@@ -292,7 +290,7 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
                             children: [
                               Expanded(
                                 child: Text(city.name,
-                                    style: AppTheme.bodyMedium(context)),
+                                    style: AppTheme.bodyMedium(context),),
                               ),
                               Text(
                                 '${city.placeCount}',
@@ -303,7 +301,7 @@ class _SearchMenuPageState extends ConsumerState<SearchMenuPage> {
                             ],
                           ),
                         ),
-                      ))
+                      ),)
                   .toList()
               : null,
           onChanged: hasCountry

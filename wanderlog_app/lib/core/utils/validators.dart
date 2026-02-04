@@ -103,9 +103,7 @@ class Validators {
   /// Validators.hasMinLength('12345'); // returns false
   /// Validators.hasMinLength('1234', minLength: 4); // returns true
   /// ```
-  static bool hasMinLength(String password, {int minLength = defaultMinPasswordLength}) {
-    return password.length >= minLength;
-  }
+  static bool hasMinLength(String password, {int minLength = defaultMinPasswordLength}) => password.length >= minLength;
 
   /// Checks if two passwords match.
   ///
@@ -118,7 +116,5 @@ class Validators {
   /// Validators.passwordsMatch('pass123', 'pass123'); // returns true
   /// Validators.passwordsMatch('pass123', 'pass456'); // returns false
   /// ```
-  static bool passwordsMatch(String password, String confirmation) {
-    return password == confirmation;
-  }
+  static bool passwordsMatch(String password, String confirmation) => password == confirmation;
 }

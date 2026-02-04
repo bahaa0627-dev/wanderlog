@@ -57,7 +57,7 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
     if (cacheState.hasData) {
       final cachedCollections = cacheState.collectionsById.values.toList();
       print(
-          '💾 [CollectionsTab] Showing ${cachedCollections.length} cached collections instantly');
+          '💾 [CollectionsTab] Showing ${cachedCollections.length} cached collections instantly',);
       if (mounted) {
         setState(() {
           _allCollections
@@ -90,13 +90,13 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
         onTimeout: () {
           print('⏱️ [CollectionsTab] Request timed out after 15 seconds');
           throw TimeoutException(
-              'Request timed out. Please check your connection.');
+              'Request timed out. Please check your connection.',);
         },
       );
 
       final loadTime = DateTime.now().difference(loadStart).inMilliseconds;
       print(
-          '📦 [CollectionsTab] Background loaded ${data.length} collections in ${loadTime}ms');
+          '📦 [CollectionsTab] Background loaded ${data.length} collections in ${loadTime}ms',);
 
       if (mounted) {
         setState(() {
@@ -107,7 +107,7 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
           _isLoading = false;
         });
         print(
-            '✅ [CollectionsTab] Updated to ${_filteredCollections.length} collections');
+            '✅ [CollectionsTab] Updated to ${_filteredCollections.length} collections',);
       }
 
       // 更新缓存
@@ -167,7 +167,7 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
       }).toList();
     }
     print(
-        '🔍 Filtered collections: ${_filteredCollections.length} out of ${_allCollections.length}');
+        '🔍 Filtered collections: ${_filteredCollections.length} out of ${_allCollections.length}',);
     if (mounted) setState(() {});
   }
 
@@ -677,7 +677,7 @@ class _CollectionCardState extends State<_CollectionCard> {
                       final countTextPainter = TextPainter(
                         text: TextSpan(
                             text: widget.spotsCount.toString(),
-                            style: textStyle),
+                            style: textStyle,),
                         maxLines: 1,
                         textDirection: TextDirection.ltr,
                       )..layout();

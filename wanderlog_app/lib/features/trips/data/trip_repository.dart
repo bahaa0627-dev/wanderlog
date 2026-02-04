@@ -13,7 +13,7 @@ class TripRepository {
 
       final response = await _dio.get<List<dynamic>>('/destinations');
       print(
-          '🚀 [TripRepository] Response status: ${response.statusCode}, type: ${response.data.runtimeType}');
+          '🚀 [TripRepository] Response status: ${response.statusCode}, type: ${response.data.runtimeType}',);
       final apiDuration =
           DateTime.now().difference(apiStartTime).inMilliseconds;
       print('🚀 [TripRepository] API request completed in ${apiDuration}ms');
@@ -36,7 +36,7 @@ class TripRepository {
           DateTime.now().difference(parseStartTime).inMilliseconds;
 
       print(
-          '🚀 [TripRepository] Parsed ${trips.length} trips in ${parseDuration}ms');
+          '🚀 [TripRepository] Parsed ${trips.length} trips in ${parseDuration}ms',);
       print('🚀 [TripRepository] Total time: ${apiDuration + parseDuration}ms');
 
       return trips;

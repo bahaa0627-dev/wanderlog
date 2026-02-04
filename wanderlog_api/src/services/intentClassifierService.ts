@@ -38,18 +38,28 @@ import {
 // ============ Configuration ============
 
 const CONFIG = {
-  AI_TIMEOUT_MS: 30000,  // 30 second timeout for intent classification (prioritize accuracy)
-  DESCRIPTION_TIMEOUT_MS: 25000, // 25 second timeout for description generation (increased to allow fallback)
-  CONSULTATION_TIMEOUT_MS: 90000, // 90 second timeout for travel consultation (increased for web search)
-  NON_TRAVEL_TIMEOUT_MS: 60000, // 60 second timeout for non-travel responses (increased)
-  ARCHITECT_QUERY_TIMEOUT_MS: 90000, // 90 second timeout for architect/style queries (increased)
-  CITY_RECOMMENDATION_TIMEOUT_MS: 45000, // 45 second timeout for regular travel responses
+  AI_TIMEOUT_MS: 15000,  // 15 second timeout for intent classification (speed > accuracy)
+  DESCRIPTION_TIMEOUT_MS: 15000, // 15 second timeout for description generation
+  CONSULTATION_TIMEOUT_MS: 45000, // 45 second timeout for travel consultation (reduced from 90s)
+  NON_TRAVEL_TIMEOUT_MS: 30000, // 30 second timeout for non-travel responses (reduced from 60s)
+  ARCHITECT_QUERY_TIMEOUT_MS: 45000, // 45 second timeout for architect/style queries (reduced from 90s)
+  CITY_RECOMMENDATION_TIMEOUT_MS: 25000, // 25 second timeout for regular travel responses (reduced from 45s)
   NAME_SIMILARITY_THRESHOLD: 0.6, // Minimum similarity score for place matching
   SPECIFIC_PLACE_SIMILARITY_THRESHOLD: 0.75, // Higher threshold for specific_place to avoid wrong matches
   MAX_DESCRIPTION_WORDS: 300, // Maximum words in description (increased for structured sections)
   MAX_DESCRIPTION_CHARS_ZH: 600, // Maximum chars for Chinese descriptions (increased for structured sections)
   MIN_PLACES_PER_CITY: 3, // Minimum places per city section
+  VALID_IMAGE_DOMAIN: 'https://img.vago.to', // Valid image CDN domain
 };
+
+/**
+ * Check if a cover image URL is valid (hosted on our CDN)
+ * @param url Image URL to validate
+ * @returns true if the URL is a valid vago.to CDN URL
+ */
+function isValidCoverImage(url: string | null | undefined): boolean {
+  return !!url && url.startsWith(CONFIG.VALID_IMAGE_DOMAIN);
+}
 
 // ============ Prompt Templates ============
 
@@ -3655,7 +3665,7 @@ Rules:
           }
         }
         
-        if (exactMatch && exactMatch.coverImage && exactMatch.coverImage.startsWith('http')) {
+        if (exactMatch && isValidCoverImage(exactMatch.coverImage)) {
           if (!usedIds.has(exactMatch.id)) {
             usedIds.add(exactMatch.id);
             results.push(this.toPlaceResult(exactMatch, language));
@@ -3684,7 +3694,7 @@ Rules:
             },
           });
           
-          if (containsMatch && containsMatch.coverImage?.startsWith('http')) {
+          if (containsMatch && isValidCoverImage(containsMatch.coverImage)) {
             // 验证匹配质量：确保数据库名称也包含搜索词的大部分
             const dbWords = this.extractSignificantWords(containsMatch.name);
             const matchingWords = searchWords.filter(w => 
@@ -3723,7 +3733,7 @@ Rules:
         }
 
         // Filter out candidates without images (double check)
-        const withImages = candidates.filter(c => c.coverImage && c.coverImage !== '' && c.coverImage.startsWith('http'));
+        const withImages = candidates.filter(c => isValidCoverImage(c.coverImage));
         
         if (withImages.length === 0) {
           logger.info(`[IntentClassifier] No candidates with valid images for "${name}"`);
@@ -4037,7 +4047,7 @@ Rules:
       }
     }
 
-    const withImages = results.filter(r => r.coverImage && r.coverImage.startsWith('http')).length;
+    const withImages = results.filter(r => isValidCoverImage(r.coverImage)).length;
     logger.info(`[IntentClassifier] Created ${results.length} temp places (${withImages} with images)`);
     return results;
   }
@@ -4211,8 +4221,8 @@ Rules:
         take: needed * 2, // 多取一些以防有无效图片
       });
 
-      // Filter to ensure all have valid images (must start with http)
-      const withImages = supplemented.filter(p => p.coverImage && p.coverImage !== '' && p.coverImage.startsWith('http'));
+      // Filter to ensure all have valid images (must be hosted on vago.to CDN)
+      const withImages = supplemented.filter(p => isValidCoverImage(p.coverImage));
       
       logger.info(`[IntentClassifier] Supplemented ${withImages.length} places for "${city}"`);
       return withImages.slice(0, needed).map(p => this.toPlaceResult(p, language));
@@ -4754,8 +4764,8 @@ Rules:
         if (places.length > 0) {
           const place = places[0];
           const placeResult = this.toPlaceResult(place, language);
-          // Validate cover image (must be present and valid URL)
-          if (placeResult.coverImage && placeResult.coverImage.startsWith('http')) {
+          // Validate cover image (must be hosted on vago.to CDN)
+          if (isValidCoverImage(placeResult.coverImage)) {
             if (!seenIds.has(placeResult.id)) {
               matchedPlaces.push(placeResult);
               seenIds.add(placeResult.id);

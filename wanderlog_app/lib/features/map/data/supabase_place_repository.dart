@@ -128,7 +128,7 @@ class SupabasePlaceRepository {
 
       _logger.d('📍 [SupabasePlaceRepo] fetchCities 完成: ${allCities.length} 个城市');
       
-      var cities = allCities.toList();
+      final cities = allCities.toList();
 
       if (query != null && query.isNotEmpty) {
         final lowerQuery = query.toLowerCase();
@@ -265,7 +265,7 @@ class SupabasePlaceRepository {
 
       // Debug: log first result to see raw data
       if ((response as List).isNotEmpty) {
-        final first = response.first as Map<String, dynamic>;
+        final first = response.first;
         print('🔍 [SupabasePlaceRepo] First result name: ${first['name']}');
         print('🔍 [SupabasePlaceRepo] First result tags: ${first['tags']}');
         print('🔍 [SupabasePlaceRepo] First result ai_tags: ${first['ai_tags']}');
@@ -359,8 +359,7 @@ class SupabasePlaceRepository {
   /// 按城市和单个标签筛选地点（调用后端 API）
   Future<List<PublicPlaceDto>> fetchPlacesByCityAndTag({
     required String city,
-    String? country,
-    required String tag,
+    required String tag, String? country,
     int limit = 50,
   }) async {
     try {

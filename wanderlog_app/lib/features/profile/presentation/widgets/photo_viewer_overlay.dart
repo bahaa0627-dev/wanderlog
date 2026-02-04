@@ -17,18 +17,14 @@ void showPhotoViewerOverlay({
       opaque: false,
       barrierDismissible: true,
       barrierColor: Colors.black87,
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return PhotoViewerOverlay(
+      pageBuilder: (context, animation, secondaryAnimation) => PhotoViewerOverlay(
           photos: photos,
           initialIndex: initialIndex,
-        );
-      },
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        return FadeTransition(
+        ),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(
           opacity: animation,
           child: child,
-        );
-      },
+        ),
     ),
   );
 }
@@ -67,8 +63,7 @@ class _PhotoViewerOverlayState extends State<PhotoViewerOverlay> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
@@ -162,7 +157,6 @@ class _PhotoViewerOverlayState extends State<PhotoViewerOverlay> {
         ],
       ),
     );
-  }
 
   Widget _buildImage(CheckInPhoto photo) {
     if (photo.photoUrl.startsWith('data:image/')) {
@@ -189,8 +183,7 @@ class _PhotoViewerOverlayState extends State<PhotoViewerOverlay> {
     );
   }
 
-  Widget _placeholder() {
-    return Container(
+  Widget _placeholder() => Container(
       color: Colors.grey[900],
       child: const Center(
         child: Icon(
@@ -200,10 +193,8 @@ class _PhotoViewerOverlayState extends State<PhotoViewerOverlay> {
         ),
       ),
     );
-  }
 
-  Widget _buildInfoPanel(CheckInPhoto photo) {
-    return Container(
+  Widget _buildInfoPanel(CheckInPhoto photo) => Container(
       padding: EdgeInsets.fromLTRB(
         20,
         20,
@@ -318,11 +309,8 @@ class _PhotoViewerOverlayState extends State<PhotoViewerOverlay> {
         ],
       ),
     );
-  }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
-  }
+  String _formatDate(DateTime date) => '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
 
   String _formatLocation(String city, String country) {
     if (city.isEmpty && country.isEmpty) {

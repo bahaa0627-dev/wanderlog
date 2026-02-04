@@ -113,4 +113,4 @@ class CollectionsCacheNotifier extends StateNotifier<CollectionsCacheState> {
 /// 全局合集缓存 Provider
 final collectionsCacheProvider =
     StateNotifierProvider<CollectionsCacheNotifier, CollectionsCacheState>(
-        (ref) => CollectionsCacheNotifier(ref));
+        (ref) => CollectionsCacheNotifier(ref),);

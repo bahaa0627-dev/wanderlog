@@ -4,10 +4,8 @@ class PlaceModel {
   PlaceModel({
     required this.id,
     required this.name,
-    this.city,
+    required this.latitude, required this.longitude, required this.createdAt, required this.updatedAt, this.city,
     this.country,
-    required this.latitude,
-    required this.longitude,
     this.address,
     this.description,
     this.openingHours,
@@ -31,12 +29,9 @@ class PlaceModel {
     this.googlePlaceId,
     this.source,
     this.isVerified = false,
-    required this.createdAt,
-    required this.updatedAt,
   });
 
-  factory PlaceModel.fromJson(Map<String, dynamic> json) {
-    return PlaceModel(
+  factory PlaceModel.fromJson(Map<String, dynamic> json) => PlaceModel(
       id: json['id'] as String,
       name: json['name'] as String,
       city: json['city'] as String?,
@@ -69,7 +64,6 @@ class PlaceModel {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
-  }
   final String id;
   final String name;
   final String? city;

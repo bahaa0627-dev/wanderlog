@@ -453,7 +453,7 @@ class OpeningHoursUtils {
       final openMinutes = _to24hMinutes(openHour, openMinute, isPm: openPm);
       final closeMinutes = _to24hMinutes(closeHour, closeMinute, isPm: closePm);
       return _ParsedHoursRange(
-          openMinutes: openMinutes, closeMinutes: closeMinutes);
+          openMinutes: openMinutes, closeMinutes: closeMinutes,);
     } catch (_) {
       return null;
     }

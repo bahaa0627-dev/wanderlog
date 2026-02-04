@@ -111,7 +111,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       _addNativeMarkers();
     } else if (selectionChanged) {
       print(
-          '📍 [共享地图] 选中变化: ${oldWidget.selectedSpot?.id} -> ${widget.selectedSpot?.id}');
+          '📍 [共享地图] 选中变化: ${oldWidget.selectedSpot?.id} -> ${widget.selectedSpot?.id}',);
       _refreshSelectedMarker();
     }
   }
@@ -152,7 +152,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       // 验证设置是否生效
       final currentSettings = await map.gestures.getSettings();
       print(
-          '🔍 [共享地图] 验证手势设置 - scrollEnabled: ${currentSettings.scrollEnabled}, pinchToZoomEnabled: ${currentSettings.pinchToZoomEnabled}');
+          '🔍 [共享地图] 验证手势设置 - scrollEnabled: ${currentSettings.scrollEnabled}, pinchToZoomEnabled: ${currentSettings.pinchToZoomEnabled}',);
     } catch (e) {
       print('❌ [共享地图] 启用地图手势失败: $e');
     }
@@ -192,19 +192,19 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       // 限制一次添加的标记数量，避免卡顿
       final spotsToAdd = spots.length > 50 ? spots.take(50).toList() : spots;
       print(
-          '📍 [共享地图] 将添加 ${spotsToAdd.length} 个标记（总共 ${spots.length} 个），模式: ${widget.markerMode}');
+          '📍 [共享地图] 将添加 ${spotsToAdd.length} 个标记（总共 ${spots.length} 个），模式: ${widget.markerMode}',);
 
       // 先添加未选中的标记
       for (final spot in spotsToAdd.where((s) => s.id != selectedId)) {
         if (generation != _markerGeneration) return;
         try {
           print(
-              '📍 [共享地图] 添加标记: ${spot.name} at (${spot.latitude}, ${spot.longitude}), 模式: ${widget.markerMode}');
+              '📍 [共享地图] 添加标记: ${spot.name} at (${spot.latitude}, ${spot.longitude}), 模式: ${widget.markerMode}',);
           final annotation = await _createAnnotation(spot, isSelected: false);
           _annotationsBySpotId[spot.id] = annotation;
           _spotByAnnotationId[annotation.id] = spot;
           print(
-              '✅ [共享地图] 标记添加成功: ${spot.name}, annotationId: ${annotation.id}');
+              '✅ [共享地图] 标记添加成功: ${spot.name}, annotationId: ${annotation.id}',);
         } catch (e, stack) {
           print('⚠️ [共享地图] 添加标记失败: ${spot.name} - $e');
           print('⚠️ [共享地图] Stack: $stack');
@@ -281,7 +281,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
     if (widget.markerMode == MapboxMarkerMode.checkIn) {
       print(
-          '📍 [共享地图] 创建 checkIn 标记: ${spot.name}, iconSize: 1.0, symbolSortKey: 1000.0, 位置: (${spot.latitude}, ${spot.longitude})');
+          '📍 [共享地图] 创建 checkIn 标记: ${spot.name}, iconSize: 1.0, symbolSortKey: 1000.0, 位置: (${spot.latitude}, ${spot.longitude})',);
     }
 
     return manager.create(annotation);
@@ -309,7 +309,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final newSelectedId = widget.selectedSpot?.id;
 
     print(
-        '📍 [共享地图] 刷新选中标记: lastSelected=$_lastSelectedSpotId, newSelected=$newSelectedId');
+        '📍 [共享地图] 刷新选中标记: lastSelected=$_lastSelectedSpotId, newSelected=$newSelectedId',);
 
     if (newSelectedId == null) {
       print('⚠️ [共享地图] 新选中 ID 为空');
@@ -569,7 +569,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     // 画上半圆（从左侧底部到右侧底部，180度）
     path.addArc(
       Rect.fromCircle(
-        center: Offset(centerX, circleCenterY),
+        center: const Offset(centerX, circleCenterY),
         radius: radius,
       ),
       -3.14159, // -180度（从顶部开始）
@@ -593,9 +593,9 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
     // 对勾路径（在圆形区域内）
     final checkmarkPath = Path();
-    final checkmarkSize = radius * 0.55; // 对勾大小（稍微缩小）
-    final checkmarkX = centerX;
-    final checkmarkY = circleCenterY;
+    const checkmarkSize = radius * 0.55; // 对勾大小（稍微缩小）
+    const checkmarkX = centerX;
+    const checkmarkY = circleCenterY;
 
     // 对勾的左下角
     checkmarkPath.moveTo(
@@ -623,7 +623,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final result = byteData!.buffer.asUint8List();
     print(
-        '📍 [共享地图] checkIn 标记图片生成完成（水滴形状，缩小50%）: ${(markerWidth * scale).toInt()}x${(totalHeight * scale).toInt()}, ${result.length} bytes');
+        '📍 [共享地图] checkIn 标记图片生成完成（水滴形状，缩小50%）: ${(markerWidth * scale).toInt()}x${(totalHeight * scale).toInt()}, ${result.length} bytes',);
     return result;
   }
 
@@ -761,7 +761,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       ..style = PaintingStyle.fill;
 
     // 创建气泡形状路径
-    final left = offsetX;
+    const left = offsetX;
     final top = offsetY;
     final right = offsetX + markerWidth;
     final bottom = offsetY + markerHeight;
@@ -812,7 +812,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
     // 计算垂直居中位置
     final contentAreaTop = offsetY;
-    final contentAreaHeight = markerHeight;
+    const contentAreaHeight = markerHeight;
     final iconY = contentAreaTop + (contentAreaHeight - iconPainter.height) / 2;
 
     // 绘制 emoji
@@ -840,7 +840,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     textPainter.paint(
       canvas,
       Offset(
-          offsetX + horizontalPadding + iconPainter.width + iconTextGap, textY),
+          offsetX + horizontalPadding + iconPainter.width + iconTextGap, textY,),
     );
 
     // 如果关门，绘制右上角的 "Closed" 红色气泡
@@ -853,7 +853,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       const closedRadius = 8.0;
 
       final closedPainter = TextPainter(
-        text: TextSpan(
+        text: const TextSpan(
           text: closedText,
           style: TextStyle(
             color: Colors.white,
@@ -881,7 +881,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
 
       final closedRect = RRect.fromRectAndRadius(
         Rect.fromLTWH(
-            closedLeft, closedTop, closedBubbleWidth, closedBubbleHeight),
+            closedLeft, closedTop, closedBubbleWidth, closedBubbleHeight,),
         const Radius.circular(closedRadius),
       );
 
@@ -1124,7 +1124,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
                 await mapboxMap.annotations.createPointAnnotationManager();
 
             print(
-                '🗺️ [共享地图] 地图创建完成，初始中心: (${widget.initialCenter.lng}, ${widget.initialCenter.lat}), 缩放: ${widget.initialZoom}');
+                '🗺️ [共享地图] 地图创建完成，初始中心: (${widget.initialCenter.lng}, ${widget.initialCenter.lat}), 缩放: ${widget.initialZoom}',);
 
             await _enableMapGestures();
             await _addNativeMarkers();
@@ -1133,7 +1133,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
             // 确保地图显示正确的位置
             final cameraState = await mapboxMap.getCameraState();
             print(
-                '🗺️ [共享地图] 地图当前相机: (${cameraState.center.coordinates.lng}, ${cameraState.center.coordinates.lat}), 缩放: ${cameraState.zoom}');
+                '🗺️ [共享地图] 地图当前相机: (${cameraState.center.coordinates.lng}, ${cameraState.center.coordinates.lat}), 缩放: ${cameraState.zoom}',);
 
             _isMapReady = true; // 标记地图已准备好
             widget.onMapCreated?.call();

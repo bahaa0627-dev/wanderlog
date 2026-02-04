@@ -125,7 +125,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         });
         if (mounted) {
           CustomToast.showError(
-              context, 'Google login failed: Unable to get ID Token');
+              context, 'Google login failed: Unable to get ID Token',);
         }
         return;
       }
@@ -256,7 +256,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 24),
+                          horizontal: 20, vertical: 24,),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -277,11 +277,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 prefixIcon: const Icon(Icons.email_outlined),
                                 enabledBorder: UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Colors.grey.shade300, width: 1),
+                                      color: Colors.grey.shade300, width: 1,),
                                 ),
                                 focusedBorder: const UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Color(0xFFB8860B), width: 2),
+                                      color: Color(0xFFB8860B), width: 2,),
                                 ),
                               ),
                               validator: (value) {
@@ -311,11 +311,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 enabledBorder: UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Colors.grey.shade300, width: 1),
+                                      color: Colors.grey.shade300, width: 1,),
                                 ),
                                 focusedBorder: const UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Color(0xFFD4A017), width: 2),
+                                      color: Color(0xFFD4A017), width: 2,),
                                 ),
                               ),
                               validator: (value) {
@@ -341,7 +341,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                     side: const BorderSide(
-                                        color: Colors.black, width: 2),
+                                        color: Colors.black, width: 2,),
                                   ),
                                   shadowColor: Colors.transparent,
                                 ),
@@ -395,10 +395,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               child: Row(
                                 children: [
                                   const Expanded(
-                                      child: Divider(color: Color(0xFFE0E0E0))),
+                                      child: Divider(color: Color(0xFFE0E0E0)),),
                                   Padding(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 16),
+                                        horizontal: 16,),
                                     child: Text(
                                       'or',
                                       style: TextStyle(
@@ -409,7 +409,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     ),
                                   ),
                                   const Expanded(
-                                      child: Divider(color: Color(0xFFE0E0E0))),
+                                      child: Divider(color: Color(0xFFE0E0E0)),),
                                 ],
                               ),
                             ),
@@ -427,12 +427,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                         ),
                                       )
                                     : const Icon(Icons.account_circle_outlined,
-                                        color: Colors.black),
+                                        color: Colors.black,),
                                 onPressed:
                                     _isGoogleLoading ? null : _onGoogleLogin,
                                 style: OutlinedButton.styleFrom(
                                   side: const BorderSide(
-                                      color: Colors.black, width: 2),
+                                      color: Colors.black, width: 2,),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),

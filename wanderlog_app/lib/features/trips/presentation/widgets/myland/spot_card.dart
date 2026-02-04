@@ -154,9 +154,7 @@ class SpotCard extends StatelessWidget {
                     // Bottom section: Tags (no scroll, show what fits)
                     if (tagsLine != null && tagsLine.isNotEmpty)
                       LayoutBuilder(
-                        builder: (context, constraints) {
-                          return _buildFittingTags(context, tagsLine, constraints.maxWidth);
-                        },
+                        builder: (context, constraints) => _buildFittingTags(context, tagsLine, constraints.maxWidth),
                       ),
                   ],
                 ),
@@ -200,13 +198,13 @@ class SpotCard extends StatelessWidget {
           ),
           children: [
             const TextSpan(text: '🕒 '),
-            TextSpan(
+            const TextSpan(
               text: 'Closed,',
-              style: TextStyle(color: const Color(0xFFE53E3E)),
+              style: TextStyle(color: Color(0xFFE53E3E)),
             ),
             TextSpan(
               text: restText,
-              style: TextStyle(color: AppTheme.black),
+              style: const TextStyle(color: AppTheme.black),
             ),
           ],
         ),
@@ -713,8 +711,7 @@ class SpotCard extends StatelessWidget {
     return count.toString();
   }
 
-  Widget _buildTagChips(BuildContext context, List<String> tags) {
-    return Wrap(
+  Widget _buildTagChips(BuildContext context, List<String> tags) => Wrap(
       spacing: 6,
       runSpacing: 4,
       children: tags.map((tag) => Container(
@@ -732,7 +729,6 @@ class SpotCard extends StatelessWidget {
         ),
       )).toList(),
     );
-  }
 
   /// Build tags that fit within available width, max 2 tags
   Widget _buildFittingTags(BuildContext context, List<String> tags, double maxWidth) {
@@ -787,7 +783,7 @@ class SpotCard extends StatelessWidget {
       children: fittingTags.map((widget) => Padding(
         padding: EdgeInsets.only(right: widget == fittingTags.last ? 0 : spacing),
         child: widget,
-      )).toList(),
+      ),).toList(),
     );
   }
 

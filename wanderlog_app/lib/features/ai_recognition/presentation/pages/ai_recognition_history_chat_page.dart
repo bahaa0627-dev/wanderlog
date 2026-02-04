@@ -1211,7 +1211,7 @@ class SpotCardOverlay extends StatelessWidget {
                 Image.network(
                   spot.coverImage,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
+                  errorBuilder: (context, error, stackTrace) => ColoredBox(
                     color: AppTheme.lightGray,
                     child: const Center(
                       child: Icon(Icons.image_not_supported, color: AppTheme.mediumGray),
@@ -1219,7 +1219,7 @@ class SpotCardOverlay extends StatelessWidget {
                   ),
                 )
               else
-                Container(
+                ColoredBox(
                   color: AppTheme.lightGray,
                   child: const Center(
                     child: Icon(Icons.place, color: AppTheme.mediumGray, size: 40),

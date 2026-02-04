@@ -34,94 +34,6 @@ enum IntentType {
 
 /// SearchV2 完整响应结果
 class SearchV2Result {
-  static String _normalizeMarkdownText(String input) {
-    var text = (input).trim();
-    if (text.isEmpty) return '';
-
-    // Remove leading response wrapper if present
-    text = text
-        .replaceFirst(
-            RegExp(r'^\s*["“]?response["”]?\s*[:：]\s*', caseSensitive: false),
-            '')
-        .replaceFirst(
-            RegExp(r'^\s*["“]?description["”]?\s*[:：]\s*',
-                caseSensitive: false),
-            '')
-        .replaceFirst(
-            RegExp(r'^\s*["“]?textContent["”]?\s*[:：]\s*',
-                caseSensitive: false),
-            '')
-        .replaceFirst(
-            RegExp(r'^\s*["“]?content["”]?\s*[:：]\s*', caseSensitive: false),
-            '')
-        .trim();
-    text = text
-        .replaceFirst(RegExp(r'^"+'), '')
-        .replaceFirst(RegExp(r'"+$'), '')
-        .trim();
-
-    // If it's a JSON string or JSON object, try to decode.
-    if ((text.startsWith('{') && text.endsWith('}')) ||
-        (text.startsWith('[') && text.endsWith(']')) ||
-        (text.startsWith('"') && text.endsWith('"'))) {
-      try {
-        final decoded = jsonDecode(text);
-        if (decoded is Map) {
-          final candidates = [
-            decoded['textContent'],
-            decoded['response'],
-            decoded['content'],
-            decoded['description'],
-          ];
-          for (final c in candidates) {
-            if (c is String && c.trim().isNotEmpty) {
-              text = c;
-              break;
-            }
-          }
-        } else if (decoded is List) {
-          for (final item in decoded) {
-            if (item is String && item.trim().isNotEmpty) {
-              text = item;
-              break;
-            }
-            if (item is Map) {
-              final candidates = [
-                item['textContent'],
-                item['response'],
-                item['content'],
-                item['description']
-              ];
-              for (final c in candidates) {
-                if (c is String && c.trim().isNotEmpty) {
-                  text = c;
-                  break;
-                }
-              }
-            }
-          }
-        } else if (decoded is String) {
-          text = decoded;
-        }
-      } catch (_) {
-        // ignore and keep original
-      }
-    }
-
-    // Unescape common sequences if they are still escaped.
-    text = text
-        .replaceAll('\\r\\n', '\n')
-        .replaceAll('\\n', '\n')
-        .replaceAll('\\t', '\t')
-        .replaceAll('\\"', '"')
-        .replaceAll('\\\\', '\\');
-
-    text = text
-        .replaceFirst(RegExp(r'^[\[\{\"\s]+'), '')
-        .replaceFirst(RegExp(r'[\]\}\"\s]+$'), '')
-        .trim();
-    return text;
-  }
 
   /// 从 JSON 创建
   factory SearchV2Result.fromJson(Map<String, dynamic> json) {
@@ -367,6 +279,94 @@ class SearchV2Result {
     this.supplementText,
     this.nameMapping,
   });
+  static String _normalizeMarkdownText(String input) {
+    var text = (input).trim();
+    if (text.isEmpty) return '';
+
+    // Remove leading response wrapper if present
+    text = text
+        .replaceFirst(
+            RegExp(r'^\s*["“]?response["”]?\s*[:：]\s*', caseSensitive: false),
+            '',)
+        .replaceFirst(
+            RegExp(r'^\s*["“]?description["”]?\s*[:：]\s*',
+                caseSensitive: false,),
+            '',)
+        .replaceFirst(
+            RegExp(r'^\s*["“]?textContent["”]?\s*[:：]\s*',
+                caseSensitive: false,),
+            '',)
+        .replaceFirst(
+            RegExp(r'^\s*["“]?content["”]?\s*[:：]\s*', caseSensitive: false),
+            '',)
+        .trim();
+    text = text
+        .replaceFirst(RegExp(r'^"+'), '')
+        .replaceFirst(RegExp(r'"+$'), '')
+        .trim();
+
+    // If it's a JSON string or JSON object, try to decode.
+    if ((text.startsWith('{') && text.endsWith('}')) ||
+        (text.startsWith('[') && text.endsWith(']')) ||
+        (text.startsWith('"') && text.endsWith('"'))) {
+      try {
+        final decoded = jsonDecode(text);
+        if (decoded is Map) {
+          final candidates = [
+            decoded['textContent'],
+            decoded['response'],
+            decoded['content'],
+            decoded['description'],
+          ];
+          for (final c in candidates) {
+            if (c is String && c.trim().isNotEmpty) {
+              text = c;
+              break;
+            }
+          }
+        } else if (decoded is List) {
+          for (final item in decoded) {
+            if (item is String && item.trim().isNotEmpty) {
+              text = item;
+              break;
+            }
+            if (item is Map) {
+              final candidates = [
+                item['textContent'],
+                item['response'],
+                item['content'],
+                item['description'],
+              ];
+              for (final c in candidates) {
+                if (c is String && c.trim().isNotEmpty) {
+                  text = c;
+                  break;
+                }
+              }
+            }
+          }
+        } else if (decoded is String) {
+          text = decoded;
+        }
+      } catch (_) {
+        // ignore and keep original
+      }
+    }
+
+    // Unescape common sequences if they are still escaped.
+    text = text
+        .replaceAll(r'\r\n', '\n')
+        .replaceAll(r'\n', '\n')
+        .replaceAll(r'\t', '\t')
+        .replaceAll(r'\"', '"')
+        .replaceAll(r'\\', r'\');
+
+    text = text
+        .replaceFirst(RegExp(r'^[\[\{\"\s]+'), '')
+        .replaceFirst(RegExp(r'[\]\}\"\s]+$'), '')
+        .trim();
+    return text;
+  }
 
   /// 意图类型
   final IntentType? intent;
@@ -509,12 +509,12 @@ class SearchV2Result {
 
     debugPrint('💾 [SearchV2Result.toJson] intent: $intentStr');
     debugPrint(
-        '💾 [SearchV2Result.toJson] categories: ${categories?.length ?? 0}');
+        '💾 [SearchV2Result.toJson] categories: ${categories?.length ?? 0}',);
     debugPrint('💾 [SearchV2Result.toJson] places: ${places.length}');
     debugPrint(
-        '💾 [SearchV2Result.toJson] textContent: ${textContent?.isNotEmpty ?? false}');
+        '💾 [SearchV2Result.toJson] textContent: ${textContent?.isNotEmpty ?? false}',);
     debugPrint(
-        '💾 [SearchV2Result.toJson] acknowledgment: ${acknowledgment.isNotEmpty}');
+        '💾 [SearchV2Result.toJson] acknowledgment: ${acknowledgment.isNotEmpty}',);
 
     return {
       'success': success,

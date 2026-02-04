@@ -37,8 +37,7 @@ class VagoPlaceholder extends StatelessWidget {
   final double iconSize;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       color: backgroundColor ?? defaultBackgroundColor,
       child: Center(
         child: Column(
@@ -66,7 +65,6 @@ class VagoPlaceholder extends StatelessWidget {
         ),
       ),
     );
-  }
 }
 
 /// 小尺寸 VAGO 占位符（用于卡片、缩略图等）
@@ -74,9 +72,7 @@ class VagoPlaceholderSmall extends StatelessWidget {
   const VagoPlaceholderSmall({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const VagoPlaceholder(fontSize: 14);
-  }
+  Widget build(BuildContext context) => const VagoPlaceholder(fontSize: 14);
 }
 
 /// 中等尺寸 VAGO 占位符（用于列表项、网格等）
@@ -84,9 +80,7 @@ class VagoPlaceholderMedium extends StatelessWidget {
   const VagoPlaceholderMedium({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const VagoPlaceholder(fontSize: 20);
-  }
+  Widget build(BuildContext context) => const VagoPlaceholder(fontSize: 20);
 }
 
 /// 大尺寸 VAGO 占位符（用于全屏、详情页等）
@@ -94,7 +88,5 @@ class VagoPlaceholderLarge extends StatelessWidget {
   const VagoPlaceholderLarge({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const VagoPlaceholder(fontSize: 32, showIcon: true, iconSize: 48);
-  }
+  Widget build(BuildContext context) => const VagoPlaceholder(fontSize: 32, showIcon: true, iconSize: 48);
 }

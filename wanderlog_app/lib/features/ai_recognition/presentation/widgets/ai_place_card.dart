@@ -141,7 +141,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                   color: AppTheme.primaryYellow.withOpacity(0.8),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'AI Recommended',
                   style: TextStyle(
                     color: AppTheme.mediumGray,
@@ -245,7 +245,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.auto_awesome,
-              size: 12, color: AppTheme.primaryYellow),
+              size: 12, color: AppTheme.primaryYellow,),
           const SizedBox(width: 4),
           Text(
             phrase,
@@ -373,7 +373,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                     color: AppTheme.black,
                   ),
                 ),
-              ))
+              ),)
           .toList(),
     );
   }
@@ -693,7 +693,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               border: Border.all(
-                  color: AppTheme.black, width: AppTheme.borderMedium),
+                  color: AppTheme.black, width: AppTheme.borderMedium,),
               boxShadow: AppTheme.cardShadow,
             ),
             child: ClipRRect(
@@ -732,7 +732,7 @@ class _AIPlaceCardState extends ConsumerState<AIPlaceCard> {
                           border: Border.all(color: AppTheme.black, width: 1.5),
                         ),
                         child: const Icon(Icons.favorite_border,
-                            size: 16, color: AppTheme.black),
+                            size: 16, color: AppTheme.black,),
                       ),
                     ),
                   ),

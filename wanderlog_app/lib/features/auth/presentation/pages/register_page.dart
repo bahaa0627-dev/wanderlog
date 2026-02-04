@@ -99,7 +99,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       try {
         // 直接使用 Supabase Auth 注册
         debugPrint(
-            'Registering with emailRedirectTo: https://vago.to/authentication');
+            'Registering with emailRedirectTo: https://vago.to/authentication',);
         final response = await SupabaseConfig.auth.signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text,
@@ -111,7 +111,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         debugPrint('SignUp response: ${response.user?.email}');
         debugPrint('SignUp identities: ${response.user?.identities}');
         debugPrint(
-            'SignUp identities length: ${response.user?.identities?.length}');
+            'SignUp identities length: ${response.user?.identities?.length}',);
 
         if (response.user != null) {
           // 检查用户是否已经存在（identities 为空表示用户已存在）
@@ -225,7 +225,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 24),
+                          horizontal: 20, vertical: 24,),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -252,11 +252,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                 ),
                                 enabledBorder: UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Colors.grey.shade300, width: 1),
+                                      color: Colors.grey.shade300, width: 1,),
                                 ),
                                 focusedBorder: const UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Color(0xFFD4A017), width: 2),
+                                      color: Color(0xFFD4A017), width: 2,),
                                 ),
                               ),
                               validator: _validateName,
@@ -283,11 +283,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                 ),
                                 enabledBorder: UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Colors.grey.shade300, width: 1),
+                                      color: Colors.grey.shade300, width: 1,),
                                 ),
                                 focusedBorder: const UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Color(0xFFB8860B), width: 2),
+                                      color: Color(0xFFB8860B), width: 2,),
                                 ),
                               ),
                               validator: (value) {
@@ -322,11 +322,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                 ),
                                 enabledBorder: UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Colors.grey.shade300, width: 1),
+                                      color: Colors.grey.shade300, width: 1,),
                                 ),
                                 focusedBorder: const UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Color(0xFFD4A017), width: 2),
+                                      color: Color(0xFFD4A017), width: 2,),
                                 ),
                               ),
                               validator: (value) {
@@ -361,11 +361,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                 ),
                                 enabledBorder: UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Colors.grey.shade300, width: 1),
+                                      color: Colors.grey.shade300, width: 1,),
                                 ),
                                 focusedBorder: const UnderlineInputBorder(
                                   borderSide: BorderSide(
-                                      color: Color(0xFFD4A017), width: 2),
+                                      color: Color(0xFFD4A017), width: 2,),
                                 ),
                               ),
                               validator: (value) {
@@ -388,7 +388,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                     side: const BorderSide(
-                                        color: Colors.black, width: 2),
+                                        color: Colors.black, width: 2,),
                                   ),
                                 ),
                                 child: _isLoading

@@ -8,7 +8,7 @@ const _filteredTags = {'place', 'landmark'};
 /// 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
 /// 过滤掉旧的通用标签（如 "place", "landmark"）
 List<String> _buildDisplayTags(
-    String? category, List<String> parsedTags, List<String> parsedAiTags) {
+    String? category, List<String> parsedTags, List<String> parsedAiTags,) {
   final displayTagsEn = <String>[];
   final seenTags = <String>{};
 
@@ -81,7 +81,7 @@ class SupabaseCollectionRepository {
   /// [includeAll] = true: 返回所有已发布的合集（用于 explore 页面）
   /// [includeAll] = false: 返回当前用户收藏的合集（用于 MyLand 页面）
   Future<List<Map<String, dynamic>>> listCollections(
-      {bool includeAll = false}) async {
+      {bool includeAll = false,}) async {
     if (includeAll) {
       // 返回所有已发布的合集
       final response = await _client
@@ -130,7 +130,7 @@ class SupabaseCollectionRepository {
 
   /// 转换合集列表，添加 spotCount 和转换字段名
   List<Map<String, dynamic>> _convertCollectionsList(List<dynamic> collections,
-          {bool isFavorited = false}) =>
+          {bool isFavorited = false,}) =>
       collections
           .map((collection) {
             final spots =
@@ -353,7 +353,7 @@ class SupabaseCollectionRepository {
           ''').order('sort_order', ascending: true);
 
       print(
-          '📦 Loaded ${items.length} recommendation items in ${DateTime.now().difference(startTime).inMilliseconds}ms');
+          '📦 Loaded ${items.length} recommendation items in ${DateTime.now().difference(startTime).inMilliseconds}ms',);
 
       // 获取推荐组信息
       final recommendations = await _client
@@ -435,7 +435,7 @@ class SupabaseCollectionRepository {
               topCities.add((
                 city: entry.key,
                 maxRatingCount: entry.value.maxRatingCount,
-              ));
+              ),);
             }
           }
 
@@ -479,7 +479,7 @@ class SupabaseCollectionRepository {
               // 获取 spot count
               final collectionSpots =
                   collection['collection_spots'] as List<dynamic>?;
-              final spotCount = collectionSpots?.isNotEmpty == true
+              final spotCount = collectionSpots?.isNotEmpty ?? false
                   ? (collectionSpots!.first['count'] as int?) ?? 0
                   : 0;
 
@@ -506,7 +506,7 @@ class SupabaseCollectionRepository {
 
       final totalTime = DateTime.now().difference(startTime).inMilliseconds;
       print(
-          '✅ [Fast] Returning ${result.length} recommendations in ${totalTime}ms');
+          '✅ [Fast] Returning ${result.length} recommendations in ${totalTime}ms',);
       return result;
     } catch (e, stackTrace) {
       print('❌ Error in listRecommendations: $e');
@@ -517,11 +517,11 @@ class SupabaseCollectionRepository {
 
   /// 转换 collection 字段名从 snake_case 到 camelCase
   Map<String, dynamic> _convertCollectionFields(
-      Map<String, dynamic> collection) {
+      Map<String, dynamic> collection,) {
     try {
       final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
       print(
-          '🔄 Converting collection ${collection['id']}, spots count: ${spots.length}');
+          '🔄 Converting collection ${collection['id']}, spots count: ${spots.length}',);
 
       final convertedSpots = spots.map((spot) {
         try {
@@ -666,7 +666,7 @@ class SupabaseCollectionRepository {
     final items = await _client
         .from('collection_recommendation_items')
         .select(
-            '*, collection:collections(*, collectionSpots:collection_spots(*, place:places(*)))')
+            '*, collection:collections(*, collectionSpots:collection_spots(*, place:places(*)))',)
         .eq('recommendation_id', id)
         .order('sort_order', ascending: true);
 
@@ -719,7 +719,7 @@ class SupabaseCollectionRepository {
   /// 获取地点关联的合集列表（只返回已发布的合集）
   /// 用于在地点详情页显示合集入口，同时预加载合集详情数据
   Future<List<Map<String, dynamic>>> getCollectionsForPlace(
-      String placeId) async {
+      String placeId,) async {
     // 验证 placeId 是有效的 UUID 格式
     final uuidRegex = RegExp(
       r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
@@ -727,7 +727,7 @@ class SupabaseCollectionRepository {
     );
     if (!uuidRegex.hasMatch(placeId)) {
       print(
-          '⚠️ [getCollectionsForPlace] Invalid UUID format, skipping: $placeId');
+          '⚠️ [getCollectionsForPlace] Invalid UUID format, skipping: $placeId',);
       return [];
     }
 
@@ -736,7 +736,7 @@ class SupabaseCollectionRepository {
       final response = await _client
           .from('collection_spots')
           .select(
-              'collection:collections(id, name, cover_image, description, people, works, is_published, collection_spots(*, place:places(*)))')
+              'collection:collections(id, name, cover_image, description, people, works, is_published, collection_spots(*, place:places(*)))',)
           .eq('place_id', placeId);
 
       // 获取当前用户的收藏状态

@@ -5,19 +5,16 @@ class CollectionModel {
     required this.id,
     required this.name,
     required this.coverImage,
-    this.description,
+    required this.createdAt, required this.updatedAt, this.description,
     this.people,
     this.works,
     this.source,
     this.isPublished = false,
     this.publishedAt,
     this.sortOrder = 0,
-    required this.createdAt,
-    required this.updatedAt,
   });
 
-  factory CollectionModel.fromJson(Map<String, dynamic> json) {
-    return CollectionModel(
+  factory CollectionModel.fromJson(Map<String, dynamic> json) => CollectionModel(
       id: json['id'] as String,
       name: json['name'] as String,
       coverImage: json['cover_image'] as String,
@@ -33,7 +30,6 @@ class CollectionModel {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
-  }
   final String id;
   final String name;
   final String coverImage;

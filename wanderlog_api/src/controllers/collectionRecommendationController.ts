@@ -52,12 +52,12 @@ class CollectionRecommendationController {
           items: {
             include: {
               collection: {
-                include: {
-                  collectionSpots: {
-                    include: {
-                      place: true,
-                    },
-                  },
+                select: {
+                  id: true,
+                  name: true,
+                  coverImage: true,
+                  description: true,
+                  isPublished: true,
                 },
               },
             },
@@ -233,6 +233,7 @@ class CollectionRecommendationController {
 
   /**
    * 获取合集推荐详情
+   * 优化版本：只加载编辑表单所需的基本信息，不加载 collectionSpots 数据
    */
   async getById(req: Request, res: Response) {
     try {
@@ -244,12 +245,12 @@ class CollectionRecommendationController {
           items: {
             include: {
               collection: {
-                include: {
-                  collectionSpots: {
-                    include: {
-                      place: true,
-                    },
-                  },
+                select: {
+                  id: true,
+                  name: true,
+                  coverImage: true,
+                  description: true,
+                  isPublished: true,
                 },
               },
             },
@@ -331,12 +332,12 @@ class CollectionRecommendationController {
           items: {
             include: {
               collection: {
-                include: {
-                  collectionSpots: {
-                    include: {
-                      place: true,
-                    },
-                  },
+                select: {
+                  id: true,
+                  name: true,
+                  coverImage: true,
+                  description: true,
+                  isPublished: true,
                 },
               },
             },

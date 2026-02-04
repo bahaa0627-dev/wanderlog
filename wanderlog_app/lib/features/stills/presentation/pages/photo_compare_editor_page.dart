@@ -77,7 +77,7 @@ class _PhotoCompareEditorPageState extends State<PhotoCompareEditorPage> {
                           child: Image.network(
                             widget.stillImageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorBuilder: (_, __, ___) => ColoredBox(
                               color: AppTheme.lightGray,
                               child: const Center(
                                 child: Icon(
@@ -173,8 +173,7 @@ class _PhotoCompareEditorPageState extends State<PhotoCompareEditorPage> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
+  PreferredSizeWidget _buildAppBar() => AppBar(
       backgroundColor: AppTheme.white,
       elevation: 0,
       leading: IconButton(
@@ -189,14 +188,10 @@ class _PhotoCompareEditorPageState extends State<PhotoCompareEditorPage> {
       ),
       centerTitle: true,
     );
-  }
 
-  Widget _buildUserPhotoSection() {
-    return Image.file(_userPhoto!, fit: BoxFit.cover);
-  }
+  Widget _buildUserPhotoSection() => Image.file(_userPhoto!, fit: BoxFit.cover);
 
-  Widget _buildUploadPlaceholder() {
-    return Container(
+  Widget _buildUploadPlaceholder() => Container(
       color: AppTheme.lightGray,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -232,11 +227,9 @@ class _PhotoCompareEditorPageState extends State<PhotoCompareEditorPage> {
         ],
       ),
     );
-  }
 
   /// 两个按钮：拍照 和 相册（普通黑色边框样式）
-  Widget _buildAddPhotoButtons() {
-    return Row(
+  Widget _buildAddPhotoButtons() => Row(
       children: [
         // 拍照按钮
         Expanded(
@@ -297,10 +290,8 @@ class _PhotoCompareEditorPageState extends State<PhotoCompareEditorPage> {
         ),
       ],
     );
-  }
 
-  Widget _buildActionButtons() {
-    return Row(
+  Widget _buildActionButtons() => Row(
       children: [
         // 重新选择按钮
         Expanded(
@@ -370,7 +361,6 @@ class _PhotoCompareEditorPageState extends State<PhotoCompareEditorPage> {
         ),
       ],
     );
-  }
 
   void _showPhotoSourceDialog() {
     showModalBottomSheet<void>(
@@ -554,7 +544,7 @@ class _PhotoCompareEditorPageState extends State<PhotoCompareEditorPage> {
       ),
     );
     
-    if (shouldOpenSettings == true) {
+    if (shouldOpenSettings ?? false) {
       await openAppSettings();
     }
   }

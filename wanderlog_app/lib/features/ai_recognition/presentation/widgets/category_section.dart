@@ -71,7 +71,7 @@ class CategorySection extends StatelessWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.only(
-                  left: 16, right: 16), // 左边 16px 让第一个卡片对齐标题
+                  left: 16, right: 16,), // 左边 16px 让第一个卡片对齐标题
               clipBehavior: Clip.none,
               itemCount: placesWithImage.length,
               separatorBuilder: (_, __) => const SizedBox(width: 12),
@@ -118,8 +118,7 @@ class CategorySection extends StatelessWidget {
 class _PlaceCardWithSummary extends StatelessWidget {
   const _PlaceCardWithSummary({
     required this.place,
-    this.onTap,
-    required this.summaryStyle,
+    required this.summaryStyle, this.onTap,
   });
 
   final PlaceResult place;

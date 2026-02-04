@@ -50,8 +50,7 @@ class QueryIntent { // 用户说"我附近"
     this.wantsNearMe = false,
   });
 
-  factory QueryIntent.fromJson(Map<String, dynamic> json) {
-    return QueryIntent(
+  factory QueryIntent.fromJson(Map<String, dynamic> json) => QueryIntent(
       city: json['city'] as String?,
       country: json['country'] as String?,
       category: json['category'] as String?,
@@ -63,7 +62,6 @@ class QueryIntent { // 用户说"我附近"
       nearbyLocation: json['nearby_location'] as String?,
       wantsNearMe: json['wants_near_me'] as bool? ?? false,
     );
-  }
   final String? city;
   final String? country;
   final String? category;
@@ -1006,7 +1004,7 @@ class AIRecognitionService {
   Future<List<String>> _getTextOnlyRecommendations(
     String query,
     QueryIntent intent,
-    int count) async {
+    int count,) async {
     // 简化实现：直接返回空列表，因为主要的 AI 推荐已经通过后端代理
     // 如果需要纯文本推荐，可以在后端添加相应的接口
     return [];

@@ -42,7 +42,7 @@ class AuthRepository {
   }
 
   Future<AuthResult> register(String email, String password, String? name,
-      {String? language}) async {
+      {String? language,}) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/auth/register',

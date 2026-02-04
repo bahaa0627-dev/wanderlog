@@ -83,7 +83,7 @@ class SettingsPage extends ConsumerWidget {
                       padding: const EdgeInsets.only(top: 8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                            horizontal: 12, vertical: 6,),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryYellow,
                           borderRadius: BorderRadius.circular(16),
@@ -126,7 +126,7 @@ class SettingsPage extends ConsumerWidget {
   }
 
   void _showLogoutDialog(
-      BuildContext context, WidgetRef ref, AppLocalizations l10n) {
+      BuildContext context, WidgetRef ref, AppLocalizations l10n,) {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -141,7 +141,7 @@ class SettingsPage extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(l10n.cancel,
-                style: const TextStyle(color: AppTheme.mediumGray)),
+                style: const TextStyle(color: AppTheme.mediumGray),),
           ),
           TextButton(
             onPressed: () async {
@@ -152,7 +152,7 @@ class SettingsPage extends ConsumerWidget {
               }
             },
             child: Text(l10n.confirm,
-                style: const TextStyle(color: AppTheme.error)),
+                style: const TextStyle(color: AppTheme.error),),
           ),
         ],
       ),
@@ -167,7 +167,7 @@ class SettingsPage extends ConsumerWidget {
   }
 
   void _showRecommendPlaceDialog(
-      BuildContext context, WidgetRef ref, AppLocalizations l10n) {
+      BuildContext context, WidgetRef ref, AppLocalizations l10n,) {
     showDialog<void>(
       context: context,
       builder: (context) => _RecommendPlaceDialog(l10n: l10n, ref: ref),
@@ -415,7 +415,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                       errorBuilder: (context, error, stackTrace) =>
                           const Center(
                         child: Icon(Icons.qr_code,
-                            size: 80, color: AppTheme.mediumGray),
+                            size: 80, color: AppTheme.mediumGray,),
                       ),
                     ),
                   ),
@@ -649,7 +649,7 @@ class _RecommendPlaceDialogState extends ConsumerState<_RecommendPlaceDialog> {
                 ),
                 const SizedBox(height: 8),
                 _buildTextField(
-                    _placeNameController, widget.l10n.placeNameLabel),
+                    _placeNameController, widget.l10n.placeNameLabel,),
                 const SizedBox(height: 16),
 
                 // Image upload

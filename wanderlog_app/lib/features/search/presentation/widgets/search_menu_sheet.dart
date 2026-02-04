@@ -450,7 +450,7 @@ class _CustomDropdownState extends State<_CustomDropdown> {
                   item,
                   style: AppTheme.bodyMedium(context).copyWith(fontSize: 14),
                 ),
-              )).toList();
+              ),).toList();
             },
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),

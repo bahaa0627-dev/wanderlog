@@ -426,7 +426,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         _lastClickTime != null &&
         now.difference(_lastClickTime!).inMilliseconds < 1000) {
       print(
-          '🔧 [myland_spots_map_page.dart] Debouncing rapid clicks for ${spot.name}');
+          '🔧 [myland_spots_map_page.dart] Debouncing rapid clicks for ${spot.name}',);
       return;
     }
 
@@ -536,12 +536,11 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
             final collections = await collectionRepo
                 .getCollectionsForPlace(spot.id)
                 .timeout(const Duration(milliseconds: 1200),
-                    onTimeout: () => []);
+                    onTimeout: () => [],);
             if (collections.isNotEmpty) {
               // 随机选择一个合集展示
               final random = math.Random();
-              linkedCollection = collections[random.nextInt(collections.length)]
-                  as Map<String, dynamic>;
+              linkedCollection = collections[random.nextInt(collections.length)];
             }
           }
         } catch (e) {
@@ -1151,7 +1150,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         // 没有结果，显示 toast
         if (mounted) {
           DialogUtils.showToast(
-              context, 'Sorry no related places, please try again');
+              context, 'Sorry no related places, please try again',);
           setState(() {
             _isSearching = false;
           });
@@ -1181,7 +1180,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
       print('❌ [MyLandSpotsMapPage] 搜索失败: $e');
       if (mounted) {
         DialogUtils.showToast(
-            context, 'Sorry no related places, please try again');
+            context, 'Sorry no related places, please try again',);
         setState(() {
           _isSearching = false;
         });
@@ -1217,7 +1216,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
 
   /// 计算地点的中心点和缩放级别
   ({Position center, double zoom}) _calculateCenterAndZoomForSpots(
-      List<map_page.Spot> spots) {
+      List<map_page.Spot> spots,) {
     if (spots.isEmpty) {
       return (center: Position(139.6503, 35.6762), zoom: 14.0);
     }
@@ -1425,8 +1424,7 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onTap: widget.onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 6),
@@ -1527,7 +1525,6 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
         ),
       ),
     );
-  }
 
   Widget _buildCover() {
     const placeholder = VagoPlaceholderSmall();
@@ -1645,7 +1642,7 @@ class _CountryCityPickerSheetState
   }
 
   String? _findCountryForCity(
-      String city, CountriesCitiesStatsState statsState) {
+      String city, CountriesCitiesStatsState statsState,) {
     // 跳过 "All" 选项
     if (city == 'All') {
       return statsState.countries.isNotEmpty
@@ -1725,7 +1722,7 @@ class _CountryCityPickerSheetState
                   ),
                   if (isSelected)
                     const Icon(Icons.check,
-                        size: 18, color: AppTheme.primaryYellow),
+                        size: 18, color: AppTheme.primaryYellow,),
                 ],
               ),
             ),
@@ -1735,7 +1732,7 @@ class _CountryCityPickerSheetState
 
   /// 国家城市两列选择
   Widget _buildCountryCityColumns(
-      ScrollController scrollController, CountriesCitiesStatsState statsState) {
+      ScrollController scrollController, CountriesCitiesStatsState statsState,) {
     final countries = statsState.countries;
     // 只显示用户收藏的城市（在 allCities 中的城市）
     final userCities = widget.allCities.where((c) => c != 'All').toSet();
@@ -1747,9 +1744,7 @@ class _CountryCityPickerSheetState
         : <CityStats>[];
 
     // 过滤只显示有用户收藏城市的国家
-    final countriesWithUserCities = countries.where((country) {
-      return country.cities.any((c) => userCities.contains(c.name));
-    }).toList();
+    final countriesWithUserCities = countries.where((country) => country.cities.any((c) => userCities.contains(c.name))).toList();
 
     return Row(
       children: [
@@ -1757,7 +1752,7 @@ class _CountryCityPickerSheetState
         Expanded(
           flex: 2,
           child: Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               border: Border(
                 right: BorderSide(color: AppTheme.border, width: 1),
               ),
@@ -1775,7 +1770,7 @@ class _CountryCityPickerSheetState
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 14),
+                        horizontal: 12, vertical: 14,),
                     color: isSelected
                         ? AppTheme.primaryYellow.withOpacity(0.2)
                         : Colors.transparent,
@@ -1794,7 +1789,7 @@ class _CountryCityPickerSheetState
                         ),
                         if (isSelected)
                           const Icon(Icons.chevron_right,
-                              size: 18, color: AppTheme.mediumGray),
+                              size: 18, color: AppTheme.mediumGray,),
                       ],
                     ),
                   ),
@@ -1835,7 +1830,7 @@ class _CountryCityPickerSheetState
                       ),
                       if (isSelected)
                         const Icon(Icons.check,
-                            size: 18, color: AppTheme.primaryYellow),
+                            size: 18, color: AppTheme.primaryYellow,),
                     ],
                   ),
                 ),

@@ -20,7 +20,7 @@ import 'package:wanderlog/shared/utils/number_format_utils.dart';
 
 /// Callback for MustGo/TodaysPlan/Visited state changes
 typedef SpotStatusCallback = void Function(String spotId,
-    {bool? isMustGo, bool? isTodaysPlan, bool? isVisited, bool? isRemoved});
+    {bool? isMustGo, bool? isTodaysPlan, bool? isVisited, bool? isRemoved,});
 
 /// Spot Detail Modal for MyLand page - displays spot details with save functionality
 class MyLandSpotDetailModal extends ConsumerStatefulWidget {
@@ -552,20 +552,20 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
       final repo = ref.read(tripRepositoryProvider);
       final trips = await repo.getMyTrips();
       debugPrint(
-          '🔍 [spot_detail_modal] Loading status for spot: ${widget.spot.id}');
+          '🔍 [spot_detail_modal] Loading status for spot: ${widget.spot.id}',);
       debugPrint('🔍 [spot_detail_modal] Found ${trips.length} trips');
       for (final t in trips) {
         try {
           final detail = await repo.getTripById(t.id);
           debugPrint(
-              '🔍 [spot_detail_modal] Checking trip: ${t.id}, tripSpots: ${detail.tripSpots?.length}');
+              '🔍 [spot_detail_modal] Checking trip: ${t.id}, tripSpots: ${detail.tripSpots?.length}',);
           final tripSpot = detail.tripSpots?.firstWhere(
             (ts) => ts.spotId == widget.spot.id,
             orElse: () => throw StateError('not found'),
           );
           if (tripSpot != null) {
             debugPrint(
-                '✅ [spot_detail_modal] Found tripSpot for ${widget.spot.id}');
+                '✅ [spot_detail_modal] Found tripSpot for ${widget.spot.id}',);
             debugPrint('   - isSaved: ${tripSpot.isSaved}');
             debugPrint('   - isVisited: ${tripSpot.isVisited}');
             debugPrint('   - isMustGo: ${tripSpot.isMustGo}');
@@ -574,7 +574,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
             debugPrint('   - userRating: ${tripSpot.userRating}');
             debugPrint('   - userNotes: ${tripSpot.userNotes}');
             debugPrint(
-                '   - userPhotos: ${tripSpot.userPhotos?.length ?? 0} photos');
+                '   - userPhotos: ${tripSpot.userPhotos?.length ?? 0} photos',);
             _destinationId = detail.id;
             if (mounted) {
               setState(() {
@@ -597,7 +597,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
         }
       }
       debugPrint(
-          '❌ [spot_detail_modal] No tripSpot found for ${widget.spot.id}');
+          '❌ [spot_detail_modal] No tripSpot found for ${widget.spot.id}',);
     } catch (e) {
       debugPrint('❌ [spot_detail_modal] Error loading status: $e');
       // ignore preload errors
@@ -768,7 +768,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
         spot: widget.spot,
         initialPhotos: _userPhotos.isNotEmpty ? _userPhotos : null,
         onCheckIn: (visitDate, rating, notes,
-            {List<File>? newImages, List<String>? existingPhotos}) async {
+            {List<File>? newImages, List<String>? existingPhotos,}) async {
           try {
             final city = widget.spot.city ?? '';
             final destId =
@@ -816,7 +816,7 @@ class _MyLandSpotDetailModalState extends ConsumerState<MyLandSpotDetailModal> {
                     false; // Remove from Today's Plan when checked in
               });
               CustomToast.showSuccess(
-                  context, 'Checked in to ${widget.spot.name}');
+                  context, 'Checked in to ${widget.spot.name}',);
               // Notify parent about check-in
               widget.onStatusChanged?.call(
                 widget.spot.id,

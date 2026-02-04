@@ -86,6 +86,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   final List<XFile> _selectedImages = [];
   CancelToken? _cancelToken;
 
+  /// 用户是否正在手动拖动滚动（用于控制自动滚动）
+  bool _userIsDragging = false;
+
   // SearchV2 状态
   SearchLoadingState _searchLoadingState = const SearchLoadingState.complete();
 
@@ -249,10 +252,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     );
   }
 
-  Widget _buildOptionButton(
-          {required IconData icon,
-          required String label,
-          required VoidCallback onTap}) =>
+  Widget _buildOptionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) =>
       Expanded(
         child: InkWell(
           onTap: onTap,
@@ -283,9 +287,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     try {
       final remaining = 5 - _selectedImages.length;
       final images = await picker.pickMultiImage(
-          maxWidth: 1920, maxHeight: 1920, imageQuality: 85);
-      if (images.isNotEmpty)
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+      if (images.isNotEmpty) {
         setState(() => _selectedImages.addAll(images.take(remaining)));
+      }
     } catch (e) {
       print('选择图片错误: $e');
     }
@@ -295,10 +303,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     final picker = ImagePicker();
     try {
       final image = await picker.pickImage(
-          source: ImageSource.camera,
-          maxWidth: 1920,
-          maxHeight: 1920,
-          imageQuality: 85);
+        source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
       if (image != null) setState(() => _selectedImages.add(image));
     } catch (e) {
       print('拍照错误: $e');
@@ -342,11 +351,14 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           ),
         );
       } else {
-        _messages.add(_ChatMessage(
+        _messages.add(
+          _ChatMessage(
             id: userMessageId,
             isUser: true,
             text: textToSend,
-            timestamp: DateTime.now()));
+            timestamp: DateTime.now(),
+          ),
+        );
       }
       _isSendingMessage = true;
       _cancelToken = CancelToken();
@@ -356,12 +368,14 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     try {
       if (imagesToSend.isNotEmpty) {
         debugPrint(
-            '🖼️ [AIAssistant] Has images, calling _handleImageRecognition');
+          '🖼️ [AIAssistant] Has images, calling _handleImageRecognition',
+        );
         await _handleImageRecognition(imagesToSend, textToSend);
       } else {
         // 使用 SearchV2 进行文本搜索
         debugPrint(
-            '📝 [AIAssistant] Text only, calling _handleSearchV2: $textToSend');
+          '📝 [AIAssistant] Text only, calling _handleSearchV2: $textToSend',
+        );
         await _handleSearchV2(textToSend);
       }
     } catch (e) {
@@ -422,7 +436,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     final userSettingsLanguage = ref.read(localeProvider).languageCode;
     final language = _detectQueryLanguage(query, userSettingsLanguage);
     debugPrint(
-        '🌐 [SearchV2] Settings language: $userSettingsLanguage, Detected/Using: $language');
+      '🌐 [SearchV2] Settings language: $userSettingsLanguage, Detected/Using: $language',
+    );
 
     final result = await _searchV2Service.searchV2(
       query: query,
@@ -456,6 +471,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
     // 添加 SearchV2 结果消息（标记为新消息，触发渐显动画）
     setState(() {
+      // 重置用户拖动状态，允许新消息自动滚动
+      _userIsDragging = false;
       _messages.add(
         _ChatMessage(
           id: 'ai_v2_${DateTime.now().millisecondsSinceEpoch}',
@@ -491,7 +508,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
 
   Future<void> _handleImageRecognition(
-      List<XFile> images, String? additionalText) async {
+    List<XFile> images,
+    String? additionalText,
+  ) async {
     if (mounted) {
       setState(
         () => _searchLoadingState = const SearchLoadingState.analyzing(),
@@ -572,7 +591,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 将 PlaceResult 转换为 Spot
   Spot _placeResultToSpot(PlaceResult place) {
     debugPrint(
-        '🏷️ [_placeResultToSpot] Converting "${place.name}" - tags: ${place.tags}');
+      '🏷️ [_placeResultToSpot] Converting "${place.name}" - tags: ${place.tags}',
+    );
 
     // 解析 openingHours（可能是 JSON 字符串数组或 Map）
     Map<String, dynamic>? parsedOpeningHours;
@@ -594,17 +614,19 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     }
 
     // 组装展示标签（优先 displayTagsEn，否则用 tags + 推断分类）
-    List<String> effectiveDisplayTags =
+    final List<String> effectiveDisplayTags =
         place.displayTagsEn?.where((t) => t.isNotEmpty).toList() ?? [];
     if (effectiveDisplayTags.isEmpty) {
       final tags = place.tags ?? [];
       String? inferredCategory;
       final lowerTags = tags.map((t) => t.toLowerCase()).toList();
-      if (lowerTags.any((t) =>
-          t.contains('restaurant') ||
-          t.contains('ramen') ||
-          t.contains('food') ||
-          t.contains('cafe'))) {
+      if (lowerTags.any(
+        (t) =>
+            t.contains('restaurant') ||
+            t.contains('ramen') ||
+            t.contains('food') ||
+            t.contains('cafe'),
+      )) {
         inferredCategory = 'Restaurant';
       } else if (lowerTags.any((t) => t.contains('museum'))) {
         inferredCategory = 'Museum';
@@ -630,7 +652,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       category = place.tags!.first;
     }
     debugPrint(
-        '🏷️ [_placeResultToSpot] "${place.name}" category: $category, displayTagsEn: ${place.displayTagsEn}, all tags: ${place.tags}');
+      '🏷️ [_placeResultToSpot] "${place.name}" category: $category, displayTagsEn: ${place.displayTagsEn}, all tags: ${place.tags}',
+    );
 
     return Spot(
       id: place.id ?? place.name,
@@ -676,6 +699,10 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 如果详情字段缺失但有 ID，会从后端获取完整数据
   void _showPlaceDetail(PlaceResult place) async {
     debugPrint('🔍 [AIAssistant] _showPlaceDetail for: ${place.name}');
+    debugPrint('🔍 [AIAssistant] place.address: ${place.address}');
+    debugPrint('🔍 [AIAssistant] place.rating: ${place.rating}');
+    debugPrint('🔍 [AIAssistant] place.ratingCount: ${place.ratingCount}');
+    debugPrint('🔍 [AIAssistant] place.source: ${place.source}');
 
     final placeId = place.id;
     final isAiGeneratedPlace = (place.source == PlaceSource.ai) ||
@@ -697,7 +724,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
     if (needsFetch) {
       debugPrint(
-          '🔍 [AIAssistant] Fetching fresh data for place ID: ${place.id}');
+        '🔍 [AIAssistant] Fetching fresh data for place ID: ${place.id}',
+      );
 
       // 先显示 loading 状态的 modal
       showModalBottomSheet<void>(
@@ -815,10 +843,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             );
             if (uuidRegex.hasMatch(spotId)) {
               final collectionRepo = ref.read(collectionRepositoryProvider);
-              final collections = await collectionRepo
-                  .getCollectionsForPlace(spotId)
-                  .timeout(const Duration(milliseconds: 1200),
-                      onTimeout: () => <Map<String, dynamic>>[]);
+              final collections =
+                  await collectionRepo.getCollectionsForPlace(spotId).timeout(
+                        const Duration(milliseconds: 1200),
+                        onTimeout: () => <Map<String, dynamic>>[],
+                      );
               if (collections.isNotEmpty) {
                 // 随机选择一个合集展示
                 final random = math.Random();
@@ -896,7 +925,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   @override
   Widget build(BuildContext context) {
     print(
-        '🎨 AIAssistantPage build called, isLoading: $_isLoading, messages: ${_messages.length}');
+      '🎨 AIAssistantPage build called, isLoading: $_isLoading, messages: ${_messages.length}',
+    );
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -911,8 +941,10 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             Navigator.pop(context);
           },
         ),
-        title: Text('VAGO AI',
-            style: AppTheme.headlineMedium(context).copyWith(fontSize: 18)),
+        title: Text(
+          'VAGO AI',
+          style: AppTheme.headlineMedium(context).copyWith(fontSize: 18),
+        ),
         centerTitle: false,
         actions: const [],
       ),
@@ -922,8 +954,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             child: _isLoading
                 ? const Center(
                     child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                            AppTheme.primaryYellow)))
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppTheme.primaryYellow,
+                      ),
+                    ),
+                  )
                 : _messages.isEmpty
                     ? _buildEmptyState()
                     : SelectionArea(child: _buildMessageList()),
@@ -972,27 +1007,38 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         ),
       );
 
-  Widget _buildMessageList() => ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(16),
-        itemCount: _messages.length + (_isSendingMessage ? 1 : 0),
-        // 确保列表可以滚动到底部
-        shrinkWrap: false,
-        itemBuilder: (context, index) {
-          if (index == _messages.length) return _buildLoadingIndicator();
-          final message = _messages[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: message.isUser
-                ? _buildUserMessage(message)
-                : _AnimatedAIMessage(
-                    key: ValueKey(message.id),
-                    message: message,
-                    builder: _buildAIMessage,
-                    scrollController: _scrollController,
-                  ),
-          );
+  Widget _buildMessageList() => NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          // 检测用户手动拖动
+          if (notification is ScrollStartNotification &&
+              notification.dragDetails != null) {
+            _userIsDragging = true;
+          }
+          return false;
         },
+        child: ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(16),
+          itemCount: _messages.length + (_isSendingMessage ? 1 : 0),
+          // 确保列表可以滚动到底部
+          shrinkWrap: false,
+          itemBuilder: (context, index) {
+            if (index == _messages.length) return _buildLoadingIndicator();
+            final message = _messages[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: message.isUser
+                  ? _buildUserMessage(message)
+                  : _AnimatedAIMessage(
+                      key: ValueKey(message.id),
+                      message: message,
+                      builder: _buildAIMessage,
+                      scrollController: _scrollController,
+                      isUserDragging: () => _userIsDragging,
+                    ),
+            );
+          },
+        ),
       );
 
   /// 构建三阶段 loading 指示器
@@ -1017,7 +1063,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                   strokeWidth: 2,
                   value: progress < 1.0 ? null : progress,
                   valueColor: const AlwaysStoppedAnimation<Color>(
-                      AppTheme.primaryYellow),
+                    AppTheme.primaryYellow,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1066,7 +1113,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                 if (message.text != null && message.text!.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     constraints: const BoxConstraints(maxWidth: 280),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryYellow.withValues(alpha: 0.3),
@@ -1078,9 +1127,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                       ),
                       border: Border.all(color: AppTheme.black, width: 1.5),
                     ),
-                    child: Text(message.text!,
-                        style: AppTheme.bodyMedium(context)
-                            .copyWith(fontWeight: FontWeight.w500)),
+                    child: Text(
+                      message.text!,
+                      style: AppTheme.bodyMedium(context)
+                          .copyWith(fontWeight: FontWeight.w500),
+                    ),
                   ),
               ],
             ),
@@ -1122,16 +1173,21 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   Widget _buildSearchV2Result(SearchV2Result result) {
     debugPrint('🎨 [_buildSearchV2Result] intent: ${result.intent}');
     debugPrint(
-        '🎨 [_buildSearchV2Result] isTextResponse: ${result.isTextResponse}');
+      '🎨 [_buildSearchV2Result] isTextResponse: ${result.isTextResponse}',
+    );
     debugPrint(
-        '🎨 [_buildSearchV2Result] textContent: ${result.textContent?.length ?? 0} chars');
+      '🎨 [_buildSearchV2Result] textContent: ${result.textContent?.length ?? 0} chars',
+    );
     debugPrint(
-        '🎨 [_buildSearchV2Result] acknowledgment: ${result.acknowledgment.length} chars');
+      '🎨 [_buildSearchV2Result] acknowledgment: ${result.acknowledgment.length} chars',
+    );
     debugPrint(
-        '🎨 [_buildSearchV2Result] hasCategories: ${result.hasCategories}');
+      '🎨 [_buildSearchV2Result] hasCategories: ${result.hasCategories}',
+    );
     debugPrint('🎨 [_buildSearchV2Result] places: ${result.places.length}');
     debugPrint(
-        '🎨 [_buildSearchV2Result] cityPlaces: ${result.cityPlaces?.length ?? 0}');
+      '🎨 [_buildSearchV2Result] cityPlaces: ${result.cityPlaces?.length ?? 0}',
+    );
 
     // 处理文本响应（non_travel 或 travel_consultation 或 general_search_text）
     if (result.isTextResponse) {
@@ -1145,7 +1201,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       final textPlaces = _mergePlacesForText(allAvailablePlaces, []);
 
       debugPrint(
-          '🗺️ [_buildSearchV2Result] Text mode - mapPlaces: ${result.mapPlaces?.length ?? 0}, places: ${result.places.length}, textOnlyPlaces: ${result.textOnlyPlaces.length}, merged: ${textPlaces.length}');
+        '🗺️ [_buildSearchV2Result] Text mode - mapPlaces: ${result.mapPlaces?.length ?? 0}, places: ${result.places.length}, textOnlyPlaces: ${result.textOnlyPlaces.length}, merged: ${textPlaces.length}',
+      );
 
       // 如果没有文本内容，显示默认消息
       if (textContent.isEmpty) {
@@ -1176,7 +1233,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       final placesWithCoordinates =
           textPlaces.where((p) => p.latitude != 0 && p.longitude != 0).toList();
       debugPrint(
-          '🖼️ [_buildSearchV2Result] Places: ${placesWithImage.length} with image, ${placesWithCoordinates.length} with coordinates');
+        '🖼️ [_buildSearchV2Result] Places: ${placesWithImage.length} with image, ${placesWithCoordinates.length} with coordinates',
+      );
 
       // 检查是否为行程类文本（Day 1/第一天 + 时间段格式）
       final isItinerary = _looksLikeItinerary(textContent);
@@ -1190,7 +1248,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             _generateNameMappingFromText(textContent, textPlaces);
         if (effectiveNameMapping.isNotEmpty) {
           debugPrint(
-              '🗺️ [_buildSearchV2Result] Generated ${effectiveNameMapping.length} name mappings from text');
+            '🗺️ [_buildSearchV2Result] Generated ${effectiveNameMapping.length} name mappings from text',
+          );
         }
       }
 
@@ -1200,11 +1259,17 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           // 文本内容 - 行程使用卡片式展示，普通文本使用 Markdown
           // 传入 nameMapping 用于匹配中文地点名到英文数据库名
           if (isItinerary)
-            _buildItineraryPlan(textContent,
-                places: textPlaces, nameMapping: effectiveNameMapping)
+            _buildItineraryPlan(
+              textContent,
+              places: textPlaces,
+              nameMapping: effectiveNameMapping,
+            )
           else
-            _buildMarkdownText(textContent,
-                places: textPlaces, nameMapping: effectiveNameMapping),
+            _buildMarkdownText(
+              textContent,
+              places: textPlaces,
+              nameMapping: effectiveNameMapping,
+            ),
 
           // 显示地点卡片和地图的条件：
           // 1. 不是 non_travel 意图
@@ -1403,30 +1468,39 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     );
 
     debugPrint(
-        '🏙️ Building city content for ${cityPlaces.length} city groups, total ${allPlaces.length} places');
+      '🏙️ Building city content for ${cityPlaces.length} city groups, total ${allPlaces.length} places',
+    );
 
     // 检测是否为城市推荐模式（多个城市，每个城市有简短描述）
     // 特征：多个城市（>=3）且每个城市的地点数较少（<=5）
     final isCityRecommendation =
         cityPlaces.length >= 3 && cityPlaces.every((g) => g.places.length <= 5);
     debugPrint(
-        '🏙️ [_buildInterleavedCityContent] isCityRecommendation: $isCityRecommendation');
+      '🏙️ [_buildInterleavedCityContent] isCityRecommendation: $isCityRecommendation',
+    );
 
     final isItinerary = _looksLikeItinerary(textContent);
     debugPrint('📅 [_buildInterleavedCityContent] isItinerary: $isItinerary');
 
     if (isCityRecommendation && !isItinerary) {
       // 城市推荐模式：按城市分段显示，每个城市后显示该城市的景点卡片
-      widgets.addAll(_buildCityRecommendationContent(
-        textContent,
-        cityPlaces,
-        allPlaces,
-        nameMapping: nameMapping,
-      ));
+      widgets.addAll(
+        _buildCityRecommendationContent(
+          textContent,
+          cityPlaces,
+          allPlaces,
+          nameMapping: nameMapping,
+        ),
+      );
     } else if (isItinerary) {
       // 行程模式
-      widgets.add(_buildItineraryPlan(textContent,
-          places: allPlaces, nameMapping: nameMapping));
+      widgets.add(
+        _buildItineraryPlan(
+          textContent,
+          places: allPlaces,
+          nameMapping: nameMapping,
+        ),
+      );
       // 收集所有有图片的地点在末尾显示
       final allPlacesWithImage = cityPlaces
           .expand((g) => g.places)
@@ -1438,8 +1512,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       }
     } else {
       // 默认模式：文本 + 所有卡片在末尾
-      widgets.add(_buildMarkdownText(textContent,
-          places: allPlaces, nameMapping: nameMapping));
+      widgets.add(
+        _buildMarkdownText(
+          textContent,
+          places: allPlaces,
+          nameMapping: nameMapping,
+        ),
+      );
 
       // 收集所有有图片的地点在末尾显示
       final allPlacesWithImage = <PlaceResult>[];
@@ -1448,7 +1527,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             group.places.where((p) => p.hasValidCoverImage).toList();
         allPlacesWithImage.addAll(placesWithImage);
         debugPrint(
-            '🏙️ [_buildInterleavedCityContent] City "${group.city}": ${group.places.length} total, ${placesWithImage.length} with images');
+          '🏙️ [_buildInterleavedCityContent] City "${group.city}": ${group.places.length} total, ${placesWithImage.length} with images',
+        );
       }
 
       if (allPlacesWithImage.isNotEmpty) {
@@ -1461,13 +1541,16 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     final placesWithCoordinates =
         allPlaces.where((p) => p.latitude != 0 && p.longitude != 0).toList();
     debugPrint(
-        '🗺️ [_buildInterleavedCityContent] All places: ${allPlaces.length}');
+      '🗺️ [_buildInterleavedCityContent] All places: ${allPlaces.length}',
+    );
     for (final p in allPlaces) {
       debugPrint(
-          '🗺️ [_buildInterleavedCityContent] "${p.name}": lat=${p.latitude}, lng=${p.longitude}');
+        '🗺️ [_buildInterleavedCityContent] "${p.name}": lat=${p.latitude}, lng=${p.longitude}',
+      );
     }
     debugPrint(
-        '🗺️ [_buildInterleavedCityContent] Places with valid coordinates: ${placesWithCoordinates.length}');
+      '🗺️ [_buildInterleavedCityContent] Places with valid coordinates: ${placesWithCoordinates.length}',
+    );
     if (placesWithCoordinates.isNotEmpty) {
       widgets.add(const SizedBox(height: 20));
       widgets.add(
@@ -1510,8 +1593,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
     if (matches.isEmpty) {
       // 没有检测到城市标题，使用默认模式
-      widgets.add(_buildMarkdownText(textContent,
-          places: allPlaces, nameMapping: nameMapping));
+      widgets.add(
+        _buildMarkdownText(
+          textContent,
+          places: allPlaces,
+          nameMapping: nameMapping,
+        ),
+      );
       return widgets;
     }
 
@@ -1524,7 +1612,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       final blockText = textContent.substring(startIndex, endIndex).trim();
       cityBlocks[cityName.toLowerCase()] = blockText;
       debugPrint(
-          '🏙️ [_buildCityRecommendationContent] City block "$cityName": ${blockText.length} chars');
+        '🏙️ [_buildCityRecommendationContent] City block "$cityName": ${blockText.length} chars',
+      );
     }
 
     // 按 cityPlaces 顺序显示每个城市
@@ -1545,8 +1634,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
       if (blockText != null && blockText.isNotEmpty) {
         // 显示该城市的文本
-        widgets.add(_buildMarkdownText(blockText,
-            places: allPlaces, nameMapping: nameMapping));
+        widgets.add(
+          _buildMarkdownText(
+            blockText,
+            places: allPlaces,
+            nameMapping: nameMapping,
+          ),
+        );
       }
 
       // 显示该城市的景点卡片
@@ -1562,8 +1656,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     // 显示未处理的城市文本块（如果有）
     for (final entry in cityBlocks.entries) {
       if (!processedCities.contains(entry.key)) {
-        widgets.add(_buildMarkdownText(entry.value,
-            places: allPlaces, nameMapping: nameMapping));
+        widgets.add(
+          _buildMarkdownText(
+            entry.value,
+            places: allPlaces,
+            nameMapping: nameMapping,
+          ),
+        );
         widgets.add(const SizedBox(height: 12));
       }
     }
@@ -1575,14 +1674,17 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   Widget _buildHorizontalSpotCards(List<PlaceResult> places) {
     // 过滤掉没有图片的地点
     debugPrint(
-        '🖼️ [_buildHorizontalSpotCards] Input places: ${places.length}');
+      '🖼️ [_buildHorizontalSpotCards] Input places: ${places.length}',
+    );
     for (final p in places) {
       debugPrint(
-          '🖼️ [_buildHorizontalSpotCards] "${p.name}" coverImage: "${p.coverImage.isEmpty ? 'EMPTY' : p.coverImage.substring(0, 50)}..."');
+        '🖼️ [_buildHorizontalSpotCards] "${p.name}" coverImage: "${p.coverImage.isEmpty ? 'EMPTY' : p.coverImage.substring(0, 50)}..."',
+      );
     }
     final placesWithImage = places.where((p) => p.hasValidCoverImage).toList();
     debugPrint(
-        '🖼️ [_buildHorizontalSpotCards] After filter: ${placesWithImage.length} places with images');
+      '🖼️ [_buildHorizontalSpotCards] After filter: ${placesWithImage.length} places with images',
+    );
     if (placesWithImage.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
@@ -1606,8 +1708,10 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
   bool _looksLikeItinerary(String text) {
     // 支持多种天数格式：第一天、Day 1、📅 Day 1
-    final dayRegex = RegExp(r'(第[一二三四五六七八九十0-9]+天|Day\s*\d+|📅\s*Day\s*\d+)',
-        caseSensitive: false);
+    final dayRegex = RegExp(
+      r'(第[一二三四五六七八九十0-9]+天|Day\s*\d+|📅\s*Day\s*\d+)',
+      caseSensitive: false,
+    );
     // 支持多种时间格式：上午、Morning、🌅 上午、🌅 Morning
     final timeRegex = RegExp(
       r'(上午|中午|下午|傍晚|晚上|夜晚|清晨|早上|午后|夜间|Morning|Afternoon|Evening|Night|🌅|☀️|🌆|🌙)',
@@ -1616,8 +1720,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     return dayRegex.hasMatch(text) && timeRegex.hasMatch(text);
   }
 
-  Widget _buildItineraryPlan(String text,
-      {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
+  Widget _buildItineraryPlan(
+    String text, {
+    List<PlaceResult>? places,
+    List<PlaceNameMapping>? nameMapping,
+  }) {
     final days = _parseItinerary(text);
     if (days.isEmpty) {
       return _buildMarkdownText(text, places: places, nameMapping: nameMapping);
@@ -1632,8 +1739,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
 
   /// 构建单个日期的内容
-  Widget _buildItineraryDay(_ItineraryDay day, List<PlaceResult>? places,
-      List<PlaceNameMapping>? nameMapping) {
+  Widget _buildItineraryDay(
+    _ItineraryDay day,
+    List<PlaceResult>? places,
+    List<PlaceNameMapping>? nameMapping,
+  ) {
     // 检测是否为实用贴士/Tips 类型的 day
     final isTipsSection = day.title.contains('实用贴士') ||
         day.title.contains('旅行贴士') ||
@@ -1646,9 +1756,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         Padding(
           padding: const EdgeInsets.only(top: 12, bottom: 6),
           child: Text(
-            _cleanDayTitle(day.subtitle.isNotEmpty
-                ? '${day.title}: ${day.subtitle}'
-                : day.title),
+            _cleanDayTitle(
+              day.subtitle.isNotEmpty
+                  ? '${day.title}: ${day.subtitle}'
+                  : day.title,
+            ),
             style: AppTheme.titleMedium(context).copyWith(
               color: AppTheme.black,
               fontWeight: FontWeight.bold,
@@ -1658,8 +1770,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         ),
         // 时间段内容
         for (final slot in day.slots) ...[
-          _buildItinerarySlot(slot, places, nameMapping,
-              isTipsSection: isTipsSection),
+          _buildItinerarySlot(
+            slot,
+            places,
+            nameMapping,
+            isTipsSection: isTipsSection,
+          ),
           const SizedBox(height: 8),
         ],
         // 备注
@@ -1667,7 +1783,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           for (final note in day.notes) ...[
             _buildRichText(note, places: places, nameMapping: nameMapping),
             const SizedBox(height: 4),
-          ]
+          ],
         ],
         const SizedBox(height: 8),
       ],
@@ -1675,9 +1791,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
 
   /// 构建单个时间槽的内容
-  Widget _buildItinerarySlot(_ItinerarySlot slot, List<PlaceResult>? places,
-      List<PlaceNameMapping>? nameMapping,
-      {bool isTipsSection = false}) {
+  Widget _buildItinerarySlot(
+    _ItinerarySlot slot,
+    List<PlaceResult>? places,
+    List<PlaceNameMapping>? nameMapping, {
+    bool isTipsSection = false,
+  }) {
     // 如果是实用贴士区域，不显示时间标签，直接显示普通文本内容
     if (isTipsSection) {
       return Column(
@@ -1728,16 +1847,18 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
 
   /// 检测是否为 Tip 行
-  bool _isTipItem(String text) {
-    return text.trim().startsWith('💡') ||
-        text.trim().toLowerCase().startsWith('tip') ||
-        text.contains('Tip:') ||
-        text.contains('💡 Tip');
-  }
+  bool _isTipItem(String text) =>
+      text.trim().startsWith('💡') ||
+      text.trim().toLowerCase().startsWith('tip') ||
+      text.contains('Tip:') ||
+      text.contains('💡 Tip');
 
   /// 构建单个地点条目（带可点击标题和元数据 bullet points）
-  Widget _buildPlaceEntry(String text, List<PlaceResult>? places,
-      List<PlaceNameMapping>? nameMapping) {
+  Widget _buildPlaceEntry(
+    String text,
+    List<PlaceResult>? places,
+    List<PlaceNameMapping>? nameMapping,
+  ) {
     final parsed = _parseSlotItem(text);
 
     // 检测是否为 Tip 行（💡 Tip: 或 Tip:）
@@ -1761,7 +1882,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     PlaceResult? matchedPlace;
     if (places != null && places.isNotEmpty) {
       // 清理标题（移除可能的 ** 标记和 markdown 标题符号）
-      String cleanTitle = parsed.title
+      final String cleanTitle = parsed.title
           .replaceAll(RegExp(r'^#{1,4}\s*'), '') // 移除 #, ##, ###, ####
           .replaceAll(RegExp(r'^\*\*'), '')
           .replaceAll(RegExp(r'\*\*$'), '')
@@ -1826,14 +1947,16 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     // 使用 Unicode 转义来匹配星号 emoji
     cleaned = cleaned.replaceAll(
       RegExp(
-          r'的\s*[\(\uff08]\s*[\d\.]+\s*[\u2b50\u2606\u2605\u2729\u272a\u{1F31F}]?\s*[\)\uff09]\s*[。\.]?',
-          unicode: true),
+        r'的\s*[\(\uff08]\s*[\d\.]+\s*[\u2b50\u2606\u2605\u2729\u272a\u{1F31F}]?\s*[\)\uff09]\s*[。\.]?',
+        unicode: true,
+      ),
       '。',
     );
     cleaned = cleaned.replaceAll(
       RegExp(
-          r'[\(\uff08]\s*[\d\.]+\s*[\u2b50\u2606\u2605\u2729\u272a\u{1F31F}]?\s*[\)\uff09]\s*[。\.]?',
-          unicode: true),
+        r'[\(\uff08]\s*[\d\.]+\s*[\u2b50\u2606\u2605\u2729\u272a\u{1F31F}]?\s*[\)\uff09]\s*[。\.]?',
+        unicode: true,
+      ),
       '',
     );
 
@@ -1875,10 +1998,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 清理日期标题，移除 emoji 和多余空格
   String _cleanDayTitle(String title) {
     // 移除常见 emoji（📅、💡、🗓 等）
-    String cleaned = title
+    final String cleaned = title
         .replaceAll(
-            RegExp(r'[\u{1F4C5}\u{1F4A1}\u{1F5D3}\u{1F3AF}]', unicode: true),
-            '')
+          RegExp(r'[\u{1F4C5}\u{1F4A1}\u{1F5D3}\u{1F3AF}]', unicode: true),
+          '',
+        )
         .replaceAll(RegExp(r'^[\s：:]+'), '')
         .trim();
     return cleaned;
@@ -2022,37 +2146,36 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   }
 
   /// 构建元数据 bullet point
-  Widget _buildMetadataBullet(String label, String value, PlaceResult? place) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '• ',
-            style: AppTheme.bodySmall(context).copyWith(
-              color: AppTheme.darkGray,
-            ),
-          ),
-          Text(
-            '$label: ',
-            style: AppTheme.bodySmall(context).copyWith(
-              color: AppTheme.darkGray,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
+  Widget _buildMetadataBullet(String label, String value, PlaceResult? place) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '• ',
               style: AppTheme.bodySmall(context).copyWith(
                 color: AppTheme.darkGray,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            Text(
+              '$label: ',
+              style: AppTheme.bodySmall(context).copyWith(
+                color: AppTheme.darkGray,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                value,
+                style: AppTheme.bodySmall(context).copyWith(
+                  color: AppTheme.darkGray,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 
   /// 构建网站 bullet point（带可点击链接）
   Widget _buildWebsiteBullet(String websiteText, PlaceResult? place) {
@@ -2261,15 +2384,22 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
   /// 构建 Markdown 文本（简单实现）
   /// [nameMapping] 用于匹配中文地点名到英文数据库名
-  Widget _buildMarkdownText(String text,
-      {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
+  Widget _buildMarkdownText(
+    String text, {
+    List<PlaceResult>? places,
+    List<PlaceNameMapping>? nameMapping,
+  }) {
     final isItineraryLike = _looksLikeItinerary(text);
+    // 检测文本语言：如果包含中文字符则使用中文标签
+    final isChineseContent = _containsChinese(text);
+    final websiteLabel = isChineseContent ? '网站：' : 'Website: ';
     // Debug: 打印原始文本内容
     debugPrint('📝 _buildMarkdownText input (first 500 chars):');
     debugPrint(text.substring(0, text.length > 500 ? 500 : text.length));
     if (nameMapping != null && nameMapping.isNotEmpty) {
       debugPrint(
-          '📝 _buildMarkdownText nameMapping: ${nameMapping.length} entries');
+        '📝 _buildMarkdownText nameMapping: ${nameMapping.length} entries',
+      );
       for (final mapping in nameMapping) {
         debugPrint('  "${mapping.displayName}" -> "${mapping.englishName}"');
       }
@@ -2339,7 +2469,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       if (value.startsWith('## ') || value.startsWith('### ')) return false;
       if (value.startsWith('- ') ||
           value.startsWith('•') ||
-          value.startsWith('* ')) return false;
+          value.startsWith('* ')) {
+        return false;
+      }
       if (RegExp(r'^\d+\.\s').hasMatch(value)) return false;
       if (RegExp(r'[。.!?;：:]').hasMatch(value)) return false;
       return true;
@@ -2474,8 +2606,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         widgets.add(
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 4),
-            child: _buildClickableHeader(titleText,
-                places: places, nameMapping: nameMapping),
+            child: _buildClickableHeader(
+              titleText,
+              places: places,
+              nameMapping: nameMapping,
+            ),
           ),
         );
       } else if (line.startsWith('- ') || line.startsWith('  - ')) {
@@ -2531,12 +2666,16 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('• ',
-                        style: AppTheme.bodyMedium(context)
-                            .copyWith(color: AppTheme.black)),
+                    Text(
+                      '• ',
+                      style: AppTheme.bodyMedium(context)
+                          .copyWith(color: AppTheme.black),
+                    ),
                     Expanded(
-                      child: _buildRichText(content,
-                          places: null), // 不传places，禁用正文地点链接
+                      child: _buildRichText(
+                        content,
+                        places: null,
+                      ), // 不传places，禁用正文地点链接
                     ),
                   ],
                 ),
@@ -2550,12 +2689,16 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('• ',
-                      style: AppTheme.bodyMedium(context)
-                          .copyWith(color: AppTheme.black)),
+                  Text(
+                    '• ',
+                    style: AppTheme.bodyMedium(context)
+                        .copyWith(color: AppTheme.black),
+                  ),
                   Expanded(
-                    child: _buildRichText(content,
-                        places: null), // 不传places，禁用正文地点链接
+                    child: _buildRichText(
+                      content,
+                      places: null,
+                    ), // 不传places，禁用正文地点链接
                   ),
                 ],
               ),
@@ -2597,8 +2740,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             widgets.add(
               Padding(
                 padding: const EdgeInsets.only(top: 2, bottom: 2),
-                child: _buildRichText(content,
-                    places: places, nameMapping: nameMapping),
+                child: _buildRichText(
+                  content,
+                  places: places,
+                  nameMapping: nameMapping,
+                ),
               ),
             );
           }
@@ -2606,8 +2752,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           widgets.add(
             Padding(
               padding: const EdgeInsets.only(top: 2, bottom: 2),
-              child: _buildRichText(content,
-                  places: places, nameMapping: nameMapping),
+              child: _buildRichText(
+                content,
+                places: places,
+                nameMapping: nameMapping,
+              ),
             ),
           );
         }
@@ -2624,9 +2773,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('$number. ',
-                        style: AppTheme.bodyMedium(context)
-                            .copyWith(color: AppTheme.black)),
+                    Text(
+                      '$number. ',
+                      style: AppTheme.bodyMedium(context)
+                          .copyWith(color: AppTheme.black),
+                    ),
                     Expanded(
                       child: _buildItineraryMarkdownPlace(
                         content,
@@ -2645,12 +2796,17 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('$number. ',
-                        style: AppTheme.bodyMedium(context)
-                            .copyWith(color: AppTheme.black)),
+                    Text(
+                      '$number. ',
+                      style: AppTheme.bodyMedium(context)
+                          .copyWith(color: AppTheme.black),
+                    ),
                     Expanded(
-                      child: _buildRichText(content,
-                          places: places, nameMapping: nameMapping),
+                      child: _buildRichText(
+                        content,
+                        places: places,
+                        nameMapping: nameMapping,
+                      ),
                     ),
                   ],
                 ),
@@ -2660,7 +2816,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         } else {
           // fallback: 直接渲染
           widgets.add(
-              _buildRichText(line, places: places, nameMapping: nameMapping));
+            _buildRichText(line, places: places, nameMapping: nameMapping),
+          );
         }
       } else {
         // 普通段落 - 支持内联加粗
@@ -2686,7 +2843,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           final fullUrl = websiteMarkdownMatch.group(3) ?? '';
 
           print(
-              '🌐 Detected website line (markdown): $line -> display: $displayText, URL: $fullUrl');
+            '🌐 Detected website line (markdown): $line -> display: $displayText, URL: $fullUrl',
+          );
 
           widgets.add(
             Padding(
@@ -2702,7 +2860,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: '网站：',
+                        text: websiteLabel,
                         style: AppTheme.bodyMedium(context).copyWith(
                           color: AppTheme.black,
                           fontWeight: FontWeight.normal,
@@ -2746,7 +2904,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: '网站：',
+                        text: websiteLabel,
                         style: AppTheme.bodyMedium(context).copyWith(
                           color: AppTheme.black,
                           fontWeight: FontWeight.normal,
@@ -2785,11 +2943,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             );
           } else {
             widgets.add(
-                _buildRichText(line, places: places, nameMapping: nameMapping));
+              _buildRichText(line, places: places, nameMapping: nameMapping),
+            );
           }
         } else {
           widgets.add(
-              _buildRichText(line, places: places, nameMapping: nameMapping));
+            _buildRichText(line, places: places, nameMapping: nameMapping),
+          );
         }
       }
     }
@@ -2804,8 +2964,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// 用于 ### 级别标题，匹配地点名称后变为可点击样式
   /// 支持 "金田家 Kanada-Ya" 格式（中文名 + 英文名）
   /// [nameMapping] 用于将中文显示名称映射到英文数据库名称
-  Widget _buildClickableHeader(String titleText,
-      {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
+  Widget _buildClickableHeader(
+    String titleText, {
+    List<PlaceResult>? places,
+    List<PlaceNameMapping>? nameMapping,
+  }) {
     // 🔧 清理可能遗留的 markdown 标题符号（支持有无空格）
     String cleanedTitle = titleText;
     final headingMatch = RegExp(r'^(#{1,6})\s*(.*)$').firstMatch(cleanedTitle);
@@ -2838,7 +3001,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               mapping.displayName.toLowerCase().contains(placeNameLower)) {
             englishNameToSearch = mapping.englishName.toLowerCase();
             debugPrint(
-                '🗺️ _buildClickableHeader: Found mapping "$placeName" -> "${mapping.englishName}"');
+              '🗺️ _buildClickableHeader: Found mapping "$placeName" -> "${mapping.englishName}"',
+            );
             break;
           }
         }
@@ -2871,7 +3035,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               pNameLower.contains(namePart)) {
             matchedPlace = place;
             debugPrint(
-                '🗺️ _buildClickableHeader: Matched "$placeName" to place "${place.name}"');
+              '🗺️ _buildClickableHeader: Matched "$placeName" to place "${place.name}"',
+            );
             break;
           }
         }
@@ -2916,8 +3081,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     }
   }
 
-  Widget _buildItineraryMarkdownPlace(String content,
-      {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
+  Widget _buildItineraryMarkdownPlace(
+    String content, {
+    List<PlaceResult>? places,
+    List<PlaceNameMapping>? nameMapping,
+  }) {
     final parsed = _parseItineraryMarkdownEntry(content);
     if (parsed == null) {
       return _buildRichText(content, places: places, nameMapping: nameMapping);
@@ -2933,8 +3101,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildClickableHeader(parsed.title,
-            places: places, nameMapping: nameMapping),
+        _buildClickableHeader(
+          parsed.title,
+          places: places,
+          nameMapping: nameMapping,
+        ),
         if (description != null && description.isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(
@@ -2944,7 +3115,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               height: 1.4,
             ),
           ),
-        ]
+        ],
       ],
     );
   }
@@ -2969,11 +3140,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         title.startsWith('建议');
   }
 
-  String _stripRatingFromTitle(String title) {
-    return title
-        .replaceAll(RegExp(r'\s*[（(]\d+\.?\d*(?:分)?[）)]\s*$'), '')
-        .trim();
-  }
+  String _stripRatingFromTitle(String title) =>
+      title.replaceAll(RegExp(r'\s*[（(]\d+\.?\d*(?:分)?[）)]\s*$'), '').trim();
 
   bool _isItineraryPlaceLine(String content) {
     final match = RegExp(r'^([^：:]{1,60})[：:]\s*(.+)$').firstMatch(content);
@@ -3007,8 +3175,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// **地点名** 会显示为加粗可点击的样式，点击打开详情页
   /// [链接文字](URL) 会显示为可点击的蓝色链接
   /// [nameMapping] 用于将中文显示名称映射到英文数据库名称
-  Widget _buildRichText(String text,
-      {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
+  Widget _buildRichText(
+    String text, {
+    List<PlaceResult>? places,
+    List<PlaceNameMapping>? nameMapping,
+  }) {
     final spans = <InlineSpan>[];
 
     // 🔧 清理 markdown 标题符号（####、###、##、# 开头，支持有无空格）
@@ -3040,15 +3211,18 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     final linkRegex = RegExp(r'\[([^\]]+)\]\(([^)\s]+)\)');
     // 纯文本链接正则：名称(https://...) 或 名称（https://...）
     final plainLinkRegex = RegExp(
-        r'([\u4e00-\u9fffA-Za-z0-9][\u4e00-\u9fffA-Za-z0-9\s·&\-]{0,40})\((https?:\/\/[^)\s]+)\)');
+      r'([\u4e00-\u9fffA-Za-z0-9][\u4e00-\u9fffA-Za-z0-9\s·&\-]{0,40})\((https?:\/\/[^)\s]+)\)',
+    );
     final plainLinkRegexCn = RegExp(
-        r'([\u4e00-\u9fffA-Za-z0-9][\u4e00-\u9fffA-Za-z0-9\s·&\-]{0,40})（(https?:\/\/[^）\s]+)）');
+      r'([\u4e00-\u9fffA-Za-z0-9][\u4e00-\u9fffA-Za-z0-9\s·&\-]{0,40})（(https?:\/\/[^）\s]+)）',
+    );
     // 网站标签链接正则：网站: URL 或 Website: URL 或 官网: URL
     // 支持两种格式：完整URL (https://...) 或简短域名 (example.com)
     // 注意：也捕获后面可能的评分如 "(4.5)" 以便一起移除
     final websiteLabelRegex = RegExp(
-        r'(网站|官网|Website|website)[：:]\s*((?:https?:\/\/)?[a-zA-Z0-9][\w\-\.]*\.[a-zA-Z]{2,})(?:\s*[\(\（][\d\.]+[\)\）])?',
-        caseSensitive: false);
+      r'(网站|官网|Website|website)[：:]\s*((?:https?:\/\/)?[a-zA-Z0-9][\w\-\.]*\.[a-zA-Z]{2,})(?:\s*[\(\（][\d\.]+[\)\）])?',
+      caseSensitive: false,
+    );
     // 加粗正则：**text** - also handle escaped asterisks
     final boldRegex = RegExp(r'\*\*([^*]+)\*\*');
 
@@ -3061,7 +3235,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     // Debug: 打印原始文本
     if (text.contains('**')) {
       debugPrint(
-          '🔍 _buildRichText bold check (first 300 chars): "${text.substring(0, text.length > 300 ? 300 : text.length)}"');
+        '🔍 _buildRichText bold check (first 300 chars): "${text.substring(0, text.length > 300 ? 300 : text.length)}"',
+      );
       final boldMatches = boldRegex.allMatches(text).toList();
       debugPrint('🔍 Bold regex found ${boldMatches.length} matches');
       for (final m in boldMatches) {
@@ -3070,7 +3245,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     }
     if (text.contains('[') && text.contains('](')) {
       debugPrint(
-          '🔍 _buildRichText input (first 300 chars): "${text.substring(0, text.length > 300 ? 300 : text.length)}"');
+        '🔍 _buildRichText input (first 300 chars): "${text.substring(0, text.length > 300 ? 300 : text.length)}"',
+      );
 
       // 测试链接正则
       final linkMatches = linkRegex.allMatches(text).toList();
@@ -3087,11 +3263,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     // 匹配 "网站:xxx.com" 或 "网站: xxx.com (4.6)" 格式
     final websiteMatches = websiteLabelRegex.allMatches(text).toList();
     debugPrint(
-        '🌐 websiteLabelRegex found ${websiteMatches.length} matches in text');
+      '🌐 websiteLabelRegex found ${websiteMatches.length} matches in text',
+    );
     for (final match in websiteMatches) {
       final url = match.group(2)!;
       debugPrint(
-          '🌐 Website match: full="${match.group(0)}", url="$url", start=${match.start}, end=${match.end}');
+        '🌐 Website match: full="${match.group(0)}", url="$url", start=${match.start}, end=${match.end}',
+      );
       allMatches.add(
         _RichTextMatch(
           start: match.start,
@@ -3211,7 +3389,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           );
           if (!overlaps) {
             debugPrint(
-                '📍 Found numbered list place: "$placeName" -> "${matchedPlace.name}" at $actualStart-$placeNameEnd');
+              '📍 Found numbered list place: "$placeName" -> "${matchedPlace.name}" at $actualStart-$placeNameEnd',
+            );
             allMatches.add(
               _RichTextMatch(
                 start: actualStart,
@@ -3391,7 +3570,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                 recognizer: TapGestureRecognizer()
                   ..onTap = () {
                     debugPrint(
-                        '📍 Tapped on place marker link: ${placeToShow.name}');
+                      '📍 Tapped on place marker link: ${placeToShow.name}',
+                    );
                     _showPlaceDetail(placeToShow);
                   },
               ),
@@ -3450,7 +3630,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                   recognizer: TapGestureRecognizer()
                     ..onTap = () {
                       debugPrint(
-                          '📍 Tapped on place link: ${placeToShow.name}');
+                        '📍 Tapped on place link: ${placeToShow.name}',
+                      );
                       _showPlaceDetail(placeToShow);
                     },
                 ),
@@ -3498,7 +3679,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                   recognizer: TapGestureRecognizer()
                     ..onTap = () {
                       debugPrint(
-                          '📍 Tapped on matched place link: ${placeToShow.name}');
+                        '📍 Tapped on matched place link: ${placeToShow.name}',
+                      );
                       _showPlaceDetail(placeToShow);
                     },
                 ),
@@ -3552,7 +3734,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         // 🆕 编号列表中的地点名 - 仅添加下划线，不改变字体大小和颜色，点击跳转详情页
         final placeToShow = match.place!;
         debugPrint(
-            '📍 Creating numbered place link: "${match.text}" -> "${placeToShow.name}"');
+          '📍 Creating numbered place link: "${match.text}" -> "${placeToShow.name}"',
+        );
 
         spans.add(
           TextSpan(
@@ -3892,12 +4075,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: places.map((place) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildTextOnlyPlaceItem(place),
-        );
-      }).toList(),
+      children: places
+          .map((place) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildTextOnlyPlaceItem(place),
+              ))
+          .toList(),
     );
   }
 
@@ -3912,14 +4095,19 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     // 移除 "网站:xxx.com" 或 "Website: xxx.com" 格式的文本（可能在句中或句末）
     cleanedSummary = cleanedSummary
         .replaceAll(
-            RegExp(r'[。\.\s]*网站[:：]\s*[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}[/\w\-\.]*',
-                caseSensitive: false),
-            '')
+          RegExp(
+            r'[。\.\s]*网站[:：]\s*[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}[/\w\-\.]*',
+            caseSensitive: false,
+          ),
+          '',
+        )
         .replaceAll(
-            RegExp(
-                r'[。\.\s]*Website[:：]\s*[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}[/\w\-\.]*',
-                caseSensitive: false),
-            '')
+          RegExp(
+            r'[。\.\s]*Website[:：]\s*[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}[/\w\-\.]*',
+            caseSensitive: false,
+          ),
+          '',
+        )
         .trim();
     final hasDescription = cleanedSummary.isNotEmpty;
 
@@ -4038,8 +4226,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                   width: 80,
                   height: 80,
                   color: AppTheme.lightGray,
-                  child: const Icon(Icons.broken_image,
-                      size: 24, color: AppTheme.mediumGray),
+                  child: const Icon(
+                    Icons.broken_image,
+                    size: 24,
+                    color: AppTheme.mediumGray,
+                  ),
                 ),
               ),
             ),
@@ -4050,10 +4241,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
   Widget _buildInputArea() => Container(
         padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 12,
-            bottom: MediaQuery.of(context).padding.bottom + 12),
+          left: 16,
+          right: 16,
+          top: 12,
+          bottom: MediaQuery.of(context).padding.bottom + 12,
+        ),
         decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(top: BorderSide(color: AppTheme.lightGray, width: 1)),
@@ -4138,8 +4330,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.file(File(_selectedImages[index].path),
-                    width: 80, height: 80, fit: BoxFit.cover),
+                child: Image.file(
+                  File(_selectedImages[index].path),
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                ),
               ),
               Positioned(
                 top: 4,
@@ -4150,7 +4346,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                     width: 20,
                     height: 20,
                     decoration: const BoxDecoration(
-                        color: Colors.black54, shape: BoxShape.circle),
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
                     child:
                         const Icon(Icons.close, color: Colors.white, size: 14),
                   ),
@@ -4163,8 +4361,10 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
   /// 构建地图+底部横滑卡片组件
   /// 没有图片的地点使用白底小卡片
-  Widget _buildMapWithBottomCards(List<PlaceResult> places,
-      {bool isEnglish = false}) {
+  Widget _buildMapWithBottomCards(
+    List<PlaceResult> places, {
+    bool isEnglish = false,
+  }) {
     if (places.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -4221,10 +4421,12 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                     placeholder: (_, __) => Container(
                       color: AppTheme.lightGray,
                     ),
-                    errorWidget: (_, __, ___) => Container(
+                    errorWidget: (_, __, ___) => ColoredBox(
                       color: AppTheme.lightGray,
-                      child: const Icon(Icons.image_not_supported,
-                          color: AppTheme.mediumGray),
+                      child: const Icon(
+                        Icons.image_not_supported,
+                        color: AppTheme.mediumGray,
+                      ),
                     ),
                   ),
                   // 渐变遮罩
@@ -4330,7 +4532,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     }
 
     debugPrint(
-        '🗺️ [_getAllPlacesWithCoordinates] Found ${allPlaces.length} places with coordinates');
+      '🗺️ [_getAllPlacesWithCoordinates] Found ${allPlaces.length} places with coordinates',
+    );
     return allPlaces;
   }
 
@@ -4396,14 +4599,17 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         for (final place in places) {
           if (seenEnglishNames.contains(place.name.toLowerCase())) continue;
           if (_matchPlaceName(englishName, place.name)) {
-            nameMapping.add(PlaceNameMapping(
-              displayName: displayName,
-              englishName: place.name,
-            ));
+            nameMapping.add(
+              PlaceNameMapping(
+                displayName: displayName,
+                englishName: place.name,
+              ),
+            );
             seenDisplayNames.add(displayName.toLowerCase());
             seenEnglishNames.add(place.name.toLowerCase());
             debugPrint(
-                '🗺️ _generateNameMappingFromText (dict): "$displayName" -> "${place.name}"');
+              '🗺️ _generateNameMappingFromText (dict): "$displayName" -> "${place.name}"',
+            );
             break;
           }
         }
@@ -4422,14 +4628,17 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         if (textContent.contains(chineseName) ||
             textContent.contains('**$chineseName**')) {
           if (!seenDisplayNames.contains(chineseName.toLowerCase())) {
-            nameMapping.add(PlaceNameMapping(
-              displayName: chineseName,
-              englishName: place.name,
-            ));
+            nameMapping.add(
+              PlaceNameMapping(
+                displayName: chineseName,
+                englishName: place.name,
+              ),
+            );
             seenDisplayNames.add(chineseName.toLowerCase());
             seenEnglishNames.add(place.name.toLowerCase());
             debugPrint(
-                '🗺️ _generateNameMappingFromText (reverse): "$chineseName" -> "${place.name}"');
+              '🗺️ _generateNameMappingFromText (reverse): "$chineseName" -> "${place.name}"',
+            );
             break;
           }
         }
@@ -4725,19 +4934,30 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
     const placeholder = ColoredBox(
       color: AppTheme.lightGray,
       child: Center(
-          child: Icon(Icons.image_not_supported,
-              size: 48, color: AppTheme.mediumGray)),
+        child: Icon(
+          Icons.image_not_supported,
+          size: 48,
+          color: AppTheme.mediumGray,
+        ),
+      ),
     );
     if (imageUrl.isEmpty) return placeholder;
     if (imageUrl.startsWith('data:')) {
       final bytes = _decodeBase64Image(imageUrl);
-      if (bytes != null)
-        return Image.memory(bytes,
-            fit: BoxFit.cover, errorBuilder: (_, __, ___) => placeholder);
+      if (bytes != null) {
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => placeholder,
+        );
+      }
       return placeholder;
     }
-    return Image.network(imageUrl,
-        fit: BoxFit.cover, errorBuilder: (_, __, ___) => placeholder);
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => placeholder,
+    );
   }
 
   Future<void> _handleWishlistTap() async {
@@ -4972,7 +5192,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                         colors: [
                           Colors.transparent,
                           Colors.black.withValues(alpha: 0.3),
-                          Colors.black.withValues(alpha: 0.75)
+                          Colors.black.withValues(alpha: 0.75),
                         ],
                         stops: const [0.35, 0.65, 1.0],
                       ),
@@ -4996,7 +5216,9 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                               .map(
                                 (tag) => Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AppTheme.primaryYellow,
                                     borderRadius: BorderRadius.circular(4),
@@ -5017,9 +5239,10 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                       Text(
                         widget.spot.name,
                         style: AppTheme.labelLarge(context).copyWith(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold),
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -5030,17 +5253,21 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.auto_awesome,
-                                size: 12, color: AppTheme.primaryYellow),
+                            const Icon(
+                              Icons.auto_awesome,
+                              size: 12,
+                              color: AppTheme.primaryYellow,
+                            ),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
                                 widget.spot.recommendationPhrase ??
                                     'AI Recommended',
                                 style: AppTheme.bodySmall(context).copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12),
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -5051,22 +5278,27 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.star,
-                                size: 14, color: AppTheme.primaryYellow),
+                            const Icon(
+                              Icons.star,
+                              size: 14,
+                              color: AppTheme.primaryYellow,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               widget.spot.rating.toStringAsFixed(1),
                               style: AppTheme.bodySmall(context).copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
                             ),
                             const SizedBox(width: 4),
                             Text(
                               formatRatingCount(widget.spot.ratingCount),
                               style: AppTheme.bodySmall(context).copyWith(
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                  fontSize: 11),
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         ),
@@ -5279,10 +5511,11 @@ class _PlaceDetailLoaderState extends ConsumerState<_PlaceDetailLoader> {
         );
         if (uuidRegex.hasMatch(tempSpot.id)) {
           final collectionRepo = ref.read(collectionRepositoryProvider);
-          final collections = await collectionRepo
-              .getCollectionsForPlace(tempSpot.id)
-              .timeout(const Duration(milliseconds: 1200),
-                  onTimeout: () => <Map<String, dynamic>>[]);
+          final collections =
+              await collectionRepo.getCollectionsForPlace(tempSpot.id).timeout(
+                    const Duration(milliseconds: 1200),
+                    onTimeout: () => <Map<String, dynamic>>[],
+                  );
           if (collections.isNotEmpty) {
             final random = math.Random();
             _linkedCollection = collections[random.nextInt(collections.length)];
@@ -5290,7 +5523,8 @@ class _PlaceDetailLoaderState extends ConsumerState<_PlaceDetailLoader> {
         }
       } catch (e) {
         debugPrint(
-            '⚠️ [PlaceDetailLoader] Error loading linked collection: $e');
+          '⚠️ [PlaceDetailLoader] Error loading linked collection: $e',
+        );
       }
 
       if (!mounted) return;
@@ -5471,13 +5705,11 @@ bool _matchPlaceName(String searchName, String dbName) {
     'le',
     'les',
   };
-  List<String> getSignificantWords(String name) {
-    return name
-        .replaceAll(RegExp(r'[^\w\s\u00C0-\u017F]'), ' ') // 保留带重音的字母
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty && w.length > 2 && !stopWords.contains(w))
-        .toList();
-  }
+  List<String> getSignificantWords(String name) => name
+      .replaceAll(RegExp(r'[^\w\s\u00C0-\u017F]'), ' ') // 保留带重音的字母
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty && w.length > 2 && !stopWords.contains(w))
+      .toList();
 
   final searchWords = getSignificantWords(searchLower);
   final dbWords = getSignificantWords(dbLower);
@@ -5598,7 +5830,8 @@ PlaceResult? _findPlaceWithMapping(
           searchLower.contains(displayLower)) {
         englishNameToSearch = mapping.englishName;
         debugPrint(
-            '🗺️ _findPlaceWithMapping: Found mapping "$searchName" -> "${mapping.englishName}"');
+          '🗺️ _findPlaceWithMapping: Found mapping "$searchName" -> "${mapping.englishName}"',
+        );
         break;
       }
     }
@@ -5611,11 +5844,13 @@ PlaceResult? _findPlaceWithMapping(
         // 🆕 检查是否有封面图
         if (place.coverImage.isEmpty) {
           debugPrint(
-              '🗺️ _findPlaceWithMapping: Skipping "${place.name}" - no cover image');
+            '🗺️ _findPlaceWithMapping: Skipping "${place.name}" - no cover image',
+          );
           continue;
         }
         debugPrint(
-            '🗺️ _findPlaceWithMapping: Matched via mapping to "${place.name}"');
+          '🗺️ _findPlaceWithMapping: Matched via mapping to "${place.name}"',
+        );
         return place;
       }
     }
@@ -5627,11 +5862,13 @@ PlaceResult? _findPlaceWithMapping(
       // 🆕 检查是否有封面图
       if (place.coverImage.isEmpty) {
         debugPrint(
-            '🗺️ _findPlaceWithMapping: Skipping "${place.name}" - no cover image');
+          '🗺️ _findPlaceWithMapping: Skipping "${place.name}" - no cover image',
+        );
         continue;
       }
       debugPrint(
-          '🗺️ _findPlaceWithMapping: Matched directly "$searchName" to "${place.name}"');
+        '🗺️ _findPlaceWithMapping: Matched directly "$searchName" to "${place.name}"',
+      );
       return place;
     }
   }
@@ -5742,7 +5979,7 @@ _ParsedPlaceEntry _parseSlotItem(String text) {
   }
 
   // 从 remaining 或 title 中提取元数据
-  String textToParse = remaining.isNotEmpty ? remaining : title;
+  final String textToParse = remaining.isNotEmpty ? remaining : title;
 
   // 提取时间 (时间: xxx)
   String? time;
@@ -5977,7 +6214,9 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 border: Border.all(
-                    color: AppTheme.black, width: AppTheme.borderMedium),
+                  color: AppTheme.black,
+                  width: AppTheme.borderMedium,
+                ),
                 boxShadow: AppTheme.cardShadow,
               ),
               child: ClipRRect(
@@ -5998,7 +6237,8 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                    AppTheme.primaryYellow),
+                                  AppTheme.primaryYellow,
+                                ),
                               ),
                             ),
                           );
@@ -6006,8 +6246,11 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                         errorBuilder: (_, __, ___) => const ColoredBox(
                           color: AppTheme.lightGray,
                           child: Center(
-                            child: Icon(Icons.image_not_supported,
-                                size: 48, color: AppTheme.mediumGray),
+                            child: Icon(
+                              Icons.image_not_supported,
+                              size: 48,
+                              color: AppTheme.mediumGray,
+                            ),
                           ),
                         ),
                       )
@@ -6015,8 +6258,11 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                       const ColoredBox(
                         color: AppTheme.lightGray,
                         child: Center(
-                          child: Icon(Icons.place,
-                              size: 48, color: AppTheme.mediumGray),
+                          child: Icon(
+                            Icons.place,
+                            size: 48,
+                            color: AppTheme.mediumGray,
+                          ),
                         ),
                       ),
                     // 渐变遮罩
@@ -6065,7 +6311,8 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                        AppTheme.black),
+                                      AppTheme.black,
+                                    ),
                                   ),
                                 )
                               : Icon(
@@ -6094,24 +6341,27 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                               runSpacing: 4,
                               children: englishOnlyTags
                                   .take(2)
-                                  .map((tag) => Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primaryYellow,
-                                          borderRadius:
-                                              BorderRadius.circular(4),
+                                  .map(
+                                    (tag) => Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryYellow,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        tag,
+                                        style: AppTheme.bodySmall(context)
+                                            .copyWith(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.black,
                                         ),
-                                        child: Text(
-                                          tag,
-                                          style: AppTheme.bodySmall(context)
-                                              .copyWith(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppTheme.black,
-                                          ),
-                                        ),
-                                      ))
+                                      ),
+                                    ),
+                                  )
                                   .toList(),
                             ),
                           const SizedBox(height: 8),
@@ -6133,8 +6383,11 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.auto_awesome,
-                                    size: 16, color: AppTheme.primaryYellow),
+                                const Icon(
+                                  Icons.auto_awesome,
+                                  size: 16,
+                                  color: AppTheme.primaryYellow,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   widget.place.recommendationPhrase ??
@@ -6151,8 +6404,11 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.star,
-                                    size: 16, color: AppTheme.primaryYellow),
+                                const Icon(
+                                  Icons.star,
+                                  size: 16,
+                                  color: AppTheme.primaryYellow,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   widget.place.rating!.toStringAsFixed(1),
@@ -6195,21 +6451,25 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
             children: englishOnlyTags
                 .skip(2)
                 .take(4)
-                .map((tag) => Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.lightGray,
-                        borderRadius: BorderRadius.circular(12),
+                .map(
+                  (tag) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightGray,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      tag,
+                      style: AppTheme.bodySmall(context).copyWith(
+                        fontSize: 12,
+                        color: AppTheme.darkGray,
                       ),
-                      child: Text(
-                        tag,
-                        style: AppTheme.bodySmall(context).copyWith(
-                          fontSize: 12,
-                          color: AppTheme.darkGray,
-                        ),
-                      ),
-                    ))
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         ],
@@ -6234,15 +6494,17 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
 /// 用户可以随时向上滚动查看已显示内容，不会被强制跳回
 class _AnimatedAIMessage extends StatefulWidget {
   const _AnimatedAIMessage({
-    super.key,
     required this.message,
     required this.builder,
+    super.key,
     this.scrollController,
+    this.isUserDragging,
   });
 
   final _ChatMessage message;
   final Widget Function(_ChatMessage) builder;
   final ScrollController? scrollController;
+  final bool Function()? isUserDragging;
 
   @override
   State<_AnimatedAIMessage> createState() => _AnimatedAIMessageState();
@@ -6294,11 +6556,26 @@ class _AnimatedAIMessageState extends State<_AnimatedAIMessage>
     }
   }
 
-  /// 动画进度回调（仅触发重绘，不自动滚动）
+  /// 动画进度回调（触发重绘并在动画中自动滚动）
   void _onRevealProgress() {
     if (!mounted) return;
     // 触发重绘以更新遮罩
     setState(() {});
+    // 仅在动画进行中且用户未手动拖动时自动滚动
+    final userDragging = widget.isUserDragging?.call() ?? false;
+    if (!userDragging && _revealController.isAnimating) {
+      _scrollToBottom();
+    }
+  }
+
+  /// 滚动到底部
+  void _scrollToBottom() {
+    final sc = widget.scrollController;
+    if (sc == null || !sc.hasClients) return;
+    final maxExtent = sc.position.maxScrollExtent;
+    if (maxExtent > 0) {
+      sc.jumpTo(maxExtent);
+    }
   }
 
   void _measureAndStartReveal() {
@@ -6417,11 +6694,11 @@ class _TypingIndicatorState extends State<_TypingIndicator>
       ),
     );
 
-    _animations = _controllers.map((controller) {
-      return Tween<double>(begin: 0, end: -8).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
-      );
-    }).toList();
+    _animations = _controllers
+        .map((controller) => Tween<double>(begin: 0, end: -8).animate(
+              CurvedAnimation(parent: controller, curve: Curves.easeInOut),
+            ))
+        .toList();
 
     // 依次启动动画
     _startAnimations();
@@ -6452,34 +6729,32 @@ class _TypingIndicatorState extends State<_TypingIndicator>
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(3, (index) {
-          return AnimatedBuilder(
-            animation: _animations[index],
-            builder: (context, child) {
-              return Transform.translate(
-                offset: Offset(0, _animations[index].value),
-                child: child,
-              );
-            },
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade400,
-                shape: BoxShape.circle,
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            return AnimatedBuilder(
+              animation: _animations[index],
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(0, _animations[index].value),
+                  child: child,
+                );
+              },
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  shape: BoxShape.circle,
+                ),
               ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
+            );
+          }),
+        ),
+      );
 }
 
 /// 紧凑型收藏按钮（用于无图片的小卡片）

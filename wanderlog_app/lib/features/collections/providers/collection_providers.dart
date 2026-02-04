@@ -5,9 +5,7 @@ import 'package:wanderlog/core/providers/dio_provider.dart';
 
 // Supabase Collection Repository Provider
 final supabaseCollectionRepositoryProvider =
-    Provider<SupabaseCollectionRepository>((ref) {
-  return SupabaseCollectionRepository();
-});
+    Provider<SupabaseCollectionRepository>((ref) => SupabaseCollectionRepository());
 
 // 使用混合 Repository：
 // - 推荐列表使用 API（返回完整的 spotCount 数据）

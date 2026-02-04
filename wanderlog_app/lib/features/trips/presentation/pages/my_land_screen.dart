@@ -122,6 +122,7 @@ class _MyLandScreenState extends State<MyLandScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppTheme.background,
+        resizeToAvoidBottomInset: false,
         body: Column(
           children: [
             // 顶部安全区域

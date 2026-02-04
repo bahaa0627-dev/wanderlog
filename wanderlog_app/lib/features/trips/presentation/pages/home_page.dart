@@ -349,6 +349,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppTheme.background,
+        resizeToAvoidBottomInset: false,
         body: Stack(
           children: [
             // 根据底部 tab 显示不同内容
@@ -471,8 +472,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   child: SizedBox(
                                     height: constraints.maxHeight,
                                     child: const Center(
-                                      child: Text(
-                                          'No recommendations available'),
+                                      child:
+                                          Text('No recommendations available'),
                                     ),
                                   ),
                                 );
@@ -485,8 +486,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   physics:
                                       const AlwaysScrollableScrollPhysics(),
                                   itemCount: _recommendations.length,
-                                  itemBuilder:
-                                      (context, recommendationIndex) {
+                                  itemBuilder: (context, recommendationIndex) {
                                     final recommendation =
                                         _recommendations[recommendationIndex];
                                     final items = recommendation['items']
@@ -542,13 +542,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     },
                                                     child: Text(
                                                       'more >',
-                                                      style: AppTheme.labelSmall(
-                                                              context)
-                                                          .copyWith(
+                                                      style:
+                                                          AppTheme.labelSmall(
+                                                                  context)
+                                                              .copyWith(
                                                         fontWeight:
                                                             FontWeight.w400,
-                                                        color:
-                                                            AppTheme.textSecondary,
+                                                        color: AppTheme
+                                                            .textSecondary,
                                                       ),
                                                     ),
                                                   ),
@@ -569,13 +570,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                                               padding: const EdgeInsets.only(
                                                   left: 16, right: 16),
                                               itemCount: displayItems.length,
-                                              itemBuilder: (context, itemIndex) {
+                                              itemBuilder:
+                                                  (context, itemIndex) {
                                                 final item =
                                                     displayItems[itemIndex];
-                                                final collection = item[
-                                                            'collection']
-                                                        as Map<String, dynamic>? ??
-                                                    {};
+                                                final collection =
+                                                    item['collection'] as Map<
+                                                            String, dynamic>? ??
+                                                        {};
                                                 final collectionId =
                                                     collection['id'] as String?;
                                                 final collectionName =
@@ -583,249 +585,274 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                             as String? ??
                                                         'Collection';
 
-                                            // 调试：查看数据结构
-                                            print('🔍 合集: $collectionName');
-                                            print('🔍 item结构: ${item.keys}');
-                                            print(
-                                                '🔍 collection.spotCount: ${collection['spotCount']}');
+                                                // 调试：查看数据结构
+                                                print('🔍 合集: $collectionName');
+                                                print(
+                                                    '🔍 item结构: ${item.keys}');
+                                                print(
+                                                    '🔍 collection.spotCount: ${collection['spotCount']}');
 
-                                            // 获取合集的地点信息
-                                            final collectionSpots =
-                                                collection['collectionSpots']
-                                                        as List<dynamic>? ??
-                                                    [];
+                                                // 获取合集的地点信息
+                                                final collectionSpots =
+                                                    collection['collectionSpots']
+                                                            as List<dynamic>? ??
+                                                        [];
 
-                                            // 使用 API 返回的 spotCount，如果没有则使用 collectionSpots 数组长度
-                                            final count =
-                                                collection['spotCount']
-                                                        as int? ??
-                                                    collectionSpots.length;
-                                            print('🔍 最终count: $count');
+                                                // 使用 API 返回的 spotCount，如果没有则使用 collectionSpots 数组长度
+                                                final count =
+                                                    collection['spotCount']
+                                                            as int? ??
+                                                        collectionSpots.length;
+                                                print('🔍 最终count: $count');
 
-                                            // 优先使用 API 返回的主要城市
-                                            String city = collection['mainCity']
-                                                    as String? ??
-                                                'Multi-city';
+                                                // 优先使用 API 返回的主要城市
+                                                String city =
+                                                    collection['mainCity']
+                                                            as String? ??
+                                                        'Multi-city';
 
-                                            // 如果 API 没有返回主要城市，尝试从合集名称中提取
-                                            if (city == 'Multi-city' ||
-                                                city.isEmpty) {
-                                              // 尝试从合集名称中提取城市
-                                              final namePatterns = {
-                                                'Copenhagen': ['Copenhagen'],
-                                                'Tokyo': [
-                                                  'Tokyo',
-                                                  'Japan',
-                                                  '🇯🇵'
-                                                ],
-                                                'Paris': ['Paris', '🇫🇷'],
-                                                'London': ['London', '🇬🇧'],
-                                                'New York': ['New York', 'NYC'],
-                                                'Seoul': [
-                                                  'Seoul',
-                                                  '🇰🇷',
-                                                  'Korea'
-                                                ],
-                                              };
+                                                // 如果 API 没有返回主要城市，尝试从合集名称中提取
+                                                if (city == 'Multi-city' ||
+                                                    city.isEmpty) {
+                                                  // 尝试从合集名称中提取城市
+                                                  final namePatterns = {
+                                                    'Copenhagen': [
+                                                      'Copenhagen'
+                                                    ],
+                                                    'Tokyo': [
+                                                      'Tokyo',
+                                                      'Japan',
+                                                      '🇯🇵'
+                                                    ],
+                                                    'Paris': ['Paris', '🇫🇷'],
+                                                    'London': [
+                                                      'London',
+                                                      '🇬🇧'
+                                                    ],
+                                                    'New York': [
+                                                      'New York',
+                                                      'NYC'
+                                                    ],
+                                                    'Seoul': [
+                                                      'Seoul',
+                                                      '🇰🇷',
+                                                      'Korea'
+                                                    ],
+                                                  };
 
-                                              for (final entry
-                                                  in namePatterns.entries) {
-                                                for (final pattern
-                                                    in entry.value) {
-                                                  if (collectionName
-                                                      .contains(pattern)) {
-                                                    city = entry.key;
-                                                    break;
-                                                  }
-                                                }
-                                                if (city != 'Multi-city') break;
-                                              }
-                                            }
-
-                                            // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
-                                            final List<dynamic> tagsList = [];
-                                            for (final spot
-                                                in collectionSpots) {
-                                              final place = spot['place']
-                                                  as Map<String, dynamic>?;
-                                              if (place == null) continue;
-
-                                              // 尝试获取 tags
-                                              final dynamic tagsValue =
-                                                  place['tags'];
-                                              if (tagsValue != null) {
-                                                if (tagsValue is List) {
-                                                  tagsList.addAll(tagsValue);
-                                                } else if (tagsValue
-                                                    is String) {
-                                                  try {
-                                                    final decoded =
-                                                        jsonDecode(tagsValue)
-                                                            as List<dynamic>?;
-                                                    if (decoded != null)
-                                                      tagsList.addAll(decoded);
-                                                  } catch (e) {
-                                                    // 忽略解析错误
-                                                  }
-                                                }
-                                              }
-
-                                              // 如果还没有标签，尝试使用 aiTags
-                                              if (tagsList.isEmpty) {
-                                                final dynamic aiTagsValue =
-                                                    place['aiTags'];
-                                                if (aiTagsValue != null) {
-                                                  if (aiTagsValue is List) {
-                                                    tagsList
-                                                        .addAll(aiTagsValue);
-                                                  } else if (aiTagsValue
-                                                      is String) {
-                                                    try {
-                                                      final decoded =
-                                                          jsonDecode(
-                                                                  aiTagsValue)
-                                                              as List<dynamic>?;
-                                                      if (decoded != null)
-                                                        tagsList
-                                                            .addAll(decoded);
-                                                    } catch (e) {
-                                                      // 忽略解析错误
-                                                    }
-                                                  }
-                                                }
-                                              }
-
-                                              // 如果已经收集到足够的标签，可以提前退出
-                                              if (tagsList.length >= 3) break;
-                                            }
-
-                                            // 去重并取前3个
-                                            final uniqueTags =
-                                                tagsList.toSet().toList();
-                                            final tags = uniqueTags
-                                                .take(3)
-                                                .map((e) => '#$e')
-                                                .toList();
-
-                                            // 辅助函数：检查 URL 是否是有效的图片 URL
-                                            bool isValidImageUrl(String? url) {
-                                              if (url == null || url.isEmpty)
-                                                return false;
-                                              if (url.contains('example.com'))
-                                                return false;
-                                              if (url.contains('placeholder'))
-                                                return false;
-                                              return true;
-                                            }
-
-                                            // 获取封面图：优先使用 collection 的 coverImage，否则遍历所有地点找第一个有效图片
-                                            String coverImage = '';
-                                            final collectionCoverImage =
-                                                collection['coverImage']
-                                                    as String?;
-                                            if (isValidImageUrl(
-                                                collectionCoverImage)) {
-                                              coverImage =
-                                                  collectionCoverImage!;
-                                            } else {
-                                              // 遍历所有地点找第一个有效的封面图
-                                              for (final spot
-                                                  in collectionSpots) {
-                                                final place = spot['place']
-                                                    as Map<String, dynamic>?;
-                                                if (place == null) continue;
-                                                final placeCoverImage =
-                                                    place['coverImage']
-                                                        as String?;
-                                                if (isValidImageUrl(
-                                                    placeCoverImage)) {
-                                                  coverImage = placeCoverImage!;
-                                                  break;
-                                                }
-                                              }
-                                            }
-                                            // 如果还是没有图片，使用占位图
-                                            if (coverImage.isEmpty) {
-                                              coverImage =
-                                                  'https://via.placeholder.com/400x600';
-                                            }
-
-                                            return Padding(
-                                              padding: EdgeInsets.only(
-                                                right: itemIndex <
-                                                        displayItems.length - 1
-                                                    ? 12
-                                                    : 0,
-                                              ),
-                                              child: SizedBox(
-                                                width: 168,
-                                                height: 224,
-                                                child: _TripCard(
-                                                  city: city,
-                                                  count: count,
-                                                  title: collectionName,
-                                                  tags: tags,
-                                                  imageUrl: coverImage,
-                                                  onTap: () async {
-                                                    final result =
-                                                        await Navigator.of(
-                                                                context)
-                                                            .push<dynamic>(
-                                                      MaterialPageRoute<
-                                                          dynamic>(
-                                                        builder: (context) =>
-                                                            CollectionSpotsMapPage(
-                                                          city: city,
-                                                          collectionTitle:
-                                                              collectionName,
-                                                          collectionId:
-                                                              collectionId,
-                                                          initialIsFavorited:
-                                                              false,
-                                                          description: collection[
-                                                                  'description']
-                                                              as String?,
-                                                          coverImage: collection[
-                                                                  'coverImage']
-                                                              as String?,
-                                                          people: LinkItem
-                                                              .parseList(
-                                                                  collection[
-                                                                      'people'],
-                                                                  isPeople:
-                                                                      true),
-                                                          works: LinkItem
-                                                              .parseList(
-                                                                  collection[
-                                                                      'works'],
-                                                                  isPeople:
-                                                                      false),
-                                                        ),
-                                                      ),
-                                                    );
-
-                                                    if (result != null &&
-                                                        mounted) {
-                                                      if ((result is Map &&
-                                                              result['shouldRefresh'] ==
-                                                                  true) ||
-                                                          (result is bool &&
-                                                              result)) {
-                                                        // 后台静默刷新缓存，不影响当前页面显示
-                                                        // 使用 unawaited 让刷新在后台进行
-                                                        ref
-                                                            .read(
-                                                                collectionsCacheProvider
-                                                                    .notifier)
-                                                            .refresh();
-                                                        // recommendations 使用现有缓存显示，不重新加载
-                                                        // 缓存会在下次打开页面时自动刷新（如果过期）
+                                                  for (final entry
+                                                      in namePatterns.entries) {
+                                                    for (final pattern
+                                                        in entry.value) {
+                                                      if (collectionName
+                                                          .contains(pattern)) {
+                                                        city = entry.key;
+                                                        break;
                                                       }
                                                     }
-                                                  },
-                                                ),
-                                              ),
-                                            );
+                                                    if (city != 'Multi-city')
+                                                      break;
+                                                  }
+                                                }
+
+                                                // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
+                                                final List<dynamic> tagsList =
+                                                    [];
+                                                for (final spot
+                                                    in collectionSpots) {
+                                                  final place = spot['place']
+                                                      as Map<String, dynamic>?;
+                                                  if (place == null) continue;
+
+                                                  // 尝试获取 tags
+                                                  final dynamic tagsValue =
+                                                      place['tags'];
+                                                  if (tagsValue != null) {
+                                                    if (tagsValue is List) {
+                                                      tagsList
+                                                          .addAll(tagsValue);
+                                                    } else if (tagsValue
+                                                        is String) {
+                                                      try {
+                                                        final decoded =
+                                                            jsonDecode(
+                                                                    tagsValue)
+                                                                as List<
+                                                                    dynamic>?;
+                                                        if (decoded != null)
+                                                          tagsList
+                                                              .addAll(decoded);
+                                                      } catch (e) {
+                                                        // 忽略解析错误
+                                                      }
+                                                    }
+                                                  }
+
+                                                  // 如果还没有标签，尝试使用 aiTags
+                                                  if (tagsList.isEmpty) {
+                                                    final dynamic aiTagsValue =
+                                                        place['aiTags'];
+                                                    if (aiTagsValue != null) {
+                                                      if (aiTagsValue is List) {
+                                                        tagsList.addAll(
+                                                            aiTagsValue);
+                                                      } else if (aiTagsValue
+                                                          is String) {
+                                                        try {
+                                                          final decoded =
+                                                              jsonDecode(
+                                                                      aiTagsValue)
+                                                                  as List<
+                                                                      dynamic>?;
+                                                          if (decoded != null)
+                                                            tagsList.addAll(
+                                                                decoded);
+                                                        } catch (e) {
+                                                          // 忽略解析错误
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+
+                                                  // 如果已经收集到足够的标签，可以提前退出
+                                                  if (tagsList.length >= 3)
+                                                    break;
+                                                }
+
+                                                // 去重并取前3个
+                                                final uniqueTags =
+                                                    tagsList.toSet().toList();
+                                                final tags = uniqueTags
+                                                    .take(3)
+                                                    .map((e) => '#$e')
+                                                    .toList();
+
+                                                // 辅助函数：检查 URL 是否是有效的图片 URL
+                                                bool isValidImageUrl(
+                                                    String? url) {
+                                                  if (url == null ||
+                                                      url.isEmpty) return false;
+                                                  if (url
+                                                      .contains('example.com'))
+                                                    return false;
+                                                  if (url
+                                                      .contains('placeholder'))
+                                                    return false;
+                                                  return true;
+                                                }
+
+                                                // 获取封面图：优先使用 collection 的 coverImage，否则遍历所有地点找第一个有效图片
+                                                String coverImage = '';
+                                                final collectionCoverImage =
+                                                    collection['coverImage']
+                                                        as String?;
+                                                if (isValidImageUrl(
+                                                    collectionCoverImage)) {
+                                                  coverImage =
+                                                      collectionCoverImage!;
+                                                } else {
+                                                  // 遍历所有地点找第一个有效的封面图
+                                                  for (final spot
+                                                      in collectionSpots) {
+                                                    final place = spot['place']
+                                                        as Map<String,
+                                                            dynamic>?;
+                                                    if (place == null) continue;
+                                                    final placeCoverImage =
+                                                        place['coverImage']
+                                                            as String?;
+                                                    if (isValidImageUrl(
+                                                        placeCoverImage)) {
+                                                      coverImage =
+                                                          placeCoverImage!;
+                                                      break;
+                                                    }
+                                                  }
+                                                }
+                                                // 如果还是没有图片，使用占位图
+                                                if (coverImage.isEmpty) {
+                                                  coverImage =
+                                                      'https://via.placeholder.com/400x600';
+                                                }
+
+                                                return Padding(
+                                                  padding: EdgeInsets.only(
+                                                    right: itemIndex <
+                                                            displayItems
+                                                                    .length -
+                                                                1
+                                                        ? 12
+                                                        : 0,
+                                                  ),
+                                                  child: SizedBox(
+                                                    width: 168,
+                                                    height: 224,
+                                                    child: _TripCard(
+                                                      city: city,
+                                                      count: count,
+                                                      title: collectionName,
+                                                      tags: tags,
+                                                      imageUrl: coverImage,
+                                                      onTap: () async {
+                                                        final result =
+                                                            await Navigator.of(
+                                                                    context)
+                                                                .push<dynamic>(
+                                                          MaterialPageRoute<
+                                                              dynamic>(
+                                                            builder: (context) =>
+                                                                CollectionSpotsMapPage(
+                                                              city: city,
+                                                              collectionTitle:
+                                                                  collectionName,
+                                                              collectionId:
+                                                                  collectionId,
+                                                              initialIsFavorited:
+                                                                  false,
+                                                              description:
+                                                                  collection[
+                                                                          'description']
+                                                                      as String?,
+                                                              coverImage: collection[
+                                                                      'coverImage']
+                                                                  as String?,
+                                                              people: LinkItem
+                                                                  .parseList(
+                                                                      collection[
+                                                                          'people'],
+                                                                      isPeople:
+                                                                          true),
+                                                              works: LinkItem
+                                                                  .parseList(
+                                                                      collection[
+                                                                          'works'],
+                                                                      isPeople:
+                                                                          false),
+                                                            ),
+                                                          ),
+                                                        );
+
+                                                        if (result != null &&
+                                                            mounted) {
+                                                          if ((result is Map &&
+                                                                  result['shouldRefresh'] ==
+                                                                      true) ||
+                                                              (result is bool &&
+                                                                  result)) {
+                                                            // 后台静默刷新缓存，不影响当前页面显示
+                                                            // 使用 unawaited 让刷新在后台进行
+                                                            ref
+                                                                .read(collectionsCacheProvider
+                                                                    .notifier)
+                                                                .refresh();
+                                                            // recommendations 使用现有缓存显示，不重新加载
+                                                            // 缓存会在下次打开页面时自动刷新（如果过期）
+                                                          }
+                                                        }
+                                                      },
+                                                    ),
+                                                  ),
+                                                );
                                               },
                                             ),
                                           ),

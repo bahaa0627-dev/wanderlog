@@ -36,7 +36,8 @@ class MinePage extends ConsumerStatefulWidget {
 class _MinePageState extends ConsumerState<MinePage> {
   final ScrollController _scrollController = ScrollController();
 
-  Future<void> _openSpotDetailFromMineData(map_page.Spot spot, MinePageData data) async {
+  Future<void> _openSpotDetailFromMineData(
+      map_page.Spot spot, MinePageData data) async {
     TripSpot? ts;
     for (final item in data.visitedSpots) {
       if (item.spot?.id == spot.id) {
@@ -81,7 +82,8 @@ class _MinePageState extends ConsumerState<MinePage> {
             .getCollectionsForPlace(spot.id)
             .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
         if (collections.isNotEmpty) {
-          linkedCollection = collections[math.Random().nextInt(collections.length)];
+          linkedCollection =
+              collections[math.Random().nextInt(collections.length)];
         }
       }
     } catch (e) {
@@ -125,6 +127,7 @@ class _MinePageState extends ConsumerState<MinePage> {
     if (!authState.isAuthenticated) {
       return const Scaffold(
         backgroundColor: AppTheme.background,
+        resizeToAvoidBottomInset: false,
         body: LoginPage(),
       );
     }
@@ -133,6 +136,7 @@ class _MinePageState extends ConsumerState<MinePage> {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
+      resizeToAvoidBottomInset: false,
       body: mineDataAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(),
@@ -1318,11 +1322,13 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
             final collectionRepo = ref.read(collectionRepositoryProvider);
             final collections = await collectionRepo
                 .getCollectionsForPlace(spot.id)
-                .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
+                .timeout(const Duration(milliseconds: 1200),
+                    onTimeout: () => []);
             if (collections.isNotEmpty) {
               // 随机选择一个合集展示
               final random = math.Random();
-              linkedCollection = collections[random.nextInt(collections.length)] as Map<String, dynamic>;
+              linkedCollection = collections[random.nextInt(collections.length)]
+                  as Map<String, dynamic>;
             }
           }
         } catch (e) {

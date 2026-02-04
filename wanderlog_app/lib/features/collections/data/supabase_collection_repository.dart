@@ -374,13 +374,17 @@ class SupabaseCollectionRepository {
       }
 
       // 获取每个合集的地点数据（用于计算主要城市）
-      final collectionSpotDetails = await _client
-          .from('collection_spots')
-          .select('''
-            collection_id,
-            place:public_places(city, rating_count)
-          ''')
-          .inFilter('collection_id', collectionIds.toList());
+      // 注意：如果 collectionIds 为空，跳过查询避免错误
+      List<dynamic> collectionSpotDetails = [];
+      if (collectionIds.isNotEmpty) {
+        collectionSpotDetails = await _client
+            .from('collection_spots')
+            .select('''
+              collection_id,
+              place:places(city, rating_count)
+            ''')
+            .inFilter('collection_id', collectionIds.toList());
+      }
 
       // 计算每个合集的主要城市
       // 规则：
@@ -388,7 +392,7 @@ class SupabaseCollectionRepository {
       // 2. 如果有多个城市地点数相同，选择其中评价人数（ratingCount）最多的地点所对应的城市
       final mainCityMap = <String, String>{};
       for (final collectionId in collectionIds) {
-        final spots = (collectionSpotDetails as List<dynamic>)
+        final spots = collectionSpotDetails
             .where((s) => s['collection_id'] == collectionId)
             .toList();
 

@@ -1000,6 +1000,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                     key: ValueKey(message.id),
                     message: message,
                     builder: _buildAIMessage,
+                    scrollController: _scrollController,
                   ),
           );
         },
@@ -6235,16 +6236,18 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
 }
 
 /// AI 消息渐显动画包装器
-/// 新消息会触发分块淡入动画效果，模拟逐步输出
+/// 新消息会触发渐显滚动效果，一屏一屏自动向下滚动显示内容
 class _AnimatedAIMessage extends StatefulWidget {
   const _AnimatedAIMessage({
     super.key,
     required this.message,
     required this.builder,
+    this.scrollController,
   });
 
   final _ChatMessage message;
   final Widget Function(_ChatMessage) builder;
+  final ScrollController? scrollController;
 
   @override
   State<_AnimatedAIMessage> createState() => _AnimatedAIMessageState();
@@ -6254,12 +6257,25 @@ class _AnimatedAIMessageState extends State<_AnimatedAIMessage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   bool _showContent = false;
+  final GlobalKey _contentKey = GlobalKey();
+  double _contentHeight = 0;
+  double _revealedHeight = 0;
+  bool _isAnimating = false;
+
+  /// 每次滚动显示的高度（约一屏的高度）
+  static const double _screenRevealHeight = 300.0;
+  
+  /// 每屏显示的时间间隔
+  static const Duration _screenRevealDuration = Duration(milliseconds: 600);
+  
+  /// 淡入动画时长
+  static const Duration _fadeInDuration = Duration(milliseconds: 400);
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: _fadeInDuration,
       vsync: this,
     );
 
@@ -6269,15 +6285,90 @@ class _AnimatedAIMessageState extends State<_AnimatedAIMessage>
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
           setState(() => _showContent = true);
-          _controller.forward().then((_) {
-            widget.message.isNew = false;
+          // 等待内容布局完成后开始渐显动画
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _measureAndStartReveal();
           });
         }
       });
     } else {
       _showContent = true;
       _controller.value = 1.0;
+      _revealedHeight = double.infinity; // 直接显示全部
     }
+  }
+
+  /// 测量内容高度并开始渐显滚动动画
+  void _measureAndStartReveal() {
+    if (!mounted) return;
+    
+    final RenderBox? renderBox = 
+        _contentKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null) {
+      _contentHeight = renderBox.size.height;
+      _startRevealAnimation();
+    } else {
+      // 如果还没布局完成，延迟后重试
+      Future.delayed(const Duration(milliseconds: 50), _measureAndStartReveal);
+    }
+  }
+
+  /// 开始渐显滚动动画
+  Future<void> _startRevealAnimation() async {
+    if (!mounted || _isAnimating) return;
+    _isAnimating = true;
+
+    // 初始显示第一屏
+    setState(() {
+      _revealedHeight = _screenRevealHeight;
+    });
+    _controller.forward();
+    _scrollToBottom();
+
+    // 等待初始淡入完成
+    await Future.delayed(_fadeInDuration);
+
+    // 逐屏显示剩余内容
+    while (mounted && _revealedHeight < _contentHeight) {
+      await Future.delayed(_screenRevealDuration);
+      if (!mounted) break;
+      
+      setState(() {
+        _revealedHeight = (_revealedHeight + _screenRevealHeight)
+            .clamp(0, _contentHeight + 100);
+      });
+      _scrollToBottom();
+    }
+
+    // 确保最终显示全部内容
+    if (mounted) {
+      setState(() {
+        _revealedHeight = double.infinity;
+      });
+      widget.message.isNew = false;
+      _scrollToBottom();
+    }
+    
+    _isAnimating = false;
+  }
+
+  /// 平滑滚动到底部
+  void _scrollToBottom() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final controller = widget.scrollController;
+      if (controller != null && controller.hasClients) {
+        final maxExtent = controller.position.maxScrollExtent;
+        if (maxExtent > 0) {
+          controller.animateTo(
+            maxExtent,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      }
+    });
   }
 
   @override
@@ -6293,18 +6384,35 @@ class _AnimatedAIMessageState extends State<_AnimatedAIMessage>
       return const _TypingIndicator();
     }
 
+    // 构建实际内容
+    final content = widget.builder(widget.message);
+
+    // 如果已经完全显示或不是新消息，直接返回内容
+    if (_revealedHeight == double.infinity) {
+      return content;
+    }
+
+    // 渐显动画：使用 ClipRect 逐步显示内容
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        return Opacity(
-          opacity: _controller.value,
-          child: Transform.translate(
-            offset: Offset(0, 20 * (1 - _controller.value)),
-            child: child,
+        return ClipRect(
+          child: Align(
+            alignment: Alignment.topLeft,
+            heightFactor: _revealedHeight > 0 && _contentHeight > 0
+                ? (_revealedHeight / _contentHeight).clamp(0.0, 1.0)
+                : 1.0,
+            child: Opacity(
+              opacity: _controller.value.clamp(0.0, 1.0),
+              child: child,
+            ),
           ),
         );
       },
-      child: widget.builder(widget.message),
+      child: KeyedSubtree(
+        key: _contentKey,
+        child: content,
+      ),
     );
   }
 }

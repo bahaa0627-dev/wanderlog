@@ -3,7 +3,7 @@ import 'package:wanderlog/core/theme/app_theme.dart';
 
 /// VAGO 品牌占位符组件
 /// 用于图片加载失败或未加载时显示
-/// 淡灰色背景 + 中间 VAGO 文字 logo
+/// 淡灰色背景 + 中间 VAGO 文字 logo (Reem Kufi 字体)
 class VagoPlaceholder extends StatelessWidget {
   const VagoPlaceholder({
     super.key,
@@ -15,13 +15,16 @@ class VagoPlaceholder extends StatelessWidget {
     this.iconSize = 32,
   });
 
+  /// 占位符默认背景色 - 浅灰色，与合集卡片保持一致
+  static const Color defaultBackgroundColor = Color(0xFFF2F2F2);
+
   /// 文字大小
   final double fontSize;
 
   /// 文字颜色，默认为 mediumGray
   final Color? textColor;
 
-  /// 背景颜色，默认为 lightGray
+  /// 背景颜色，默认为浅灰色 (0xFFF2F2F2)
   final Color? backgroundColor;
 
   /// 是否显示图标（在 VAGO 文字上方）
@@ -36,7 +39,7 @@ class VagoPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: backgroundColor ?? AppTheme.lightGray,
+      color: backgroundColor ?? defaultBackgroundColor,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

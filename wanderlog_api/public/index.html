@@ -1984,10 +1984,17 @@
                     }
                     return true;
                 }
-                return false;
+                // 401/403 表示 token 确实无效
+                if (res.status === 401 || res.status === 403) {
+                    return false;
+                }
+                // 其他错误（如网络问题），假设 token 有效，让后续请求处理
+                console.warn('Token 验证请求失败，状态码:', res.status);
+                return true;
             } catch (err) {
-                console.error('Token 验证失败:', err);
-                return false;
+                // 网络错误（如 CORS），假设 token 有效，让后续请求处理
+                console.warn('Token 验证网络错误，假设有效:', err.message);
+                return true;
             }
         }
 

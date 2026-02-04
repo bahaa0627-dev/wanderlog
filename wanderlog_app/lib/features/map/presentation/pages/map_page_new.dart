@@ -1655,11 +1655,13 @@ class _MapPageState extends ConsumerState<MapPage> {
             final collectionRepo = ref.read(collectionRepositoryProvider);
             final collections = await collectionRepo
                 .getCollectionsForPlace(spot.id)
-                .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
+                .timeout(const Duration(milliseconds: 1200),
+                    onTimeout: () => []);
             if (collections.isNotEmpty) {
               // 随机选择一个合集展示
               final random = math.Random();
-              linkedCollection = collections[random.nextInt(collections.length)] as Map<String, dynamic>;
+              linkedCollection = collections[random.nextInt(collections.length)]
+                  as Map<String, dynamic>;
             }
           }
         } catch (e) {
@@ -1731,11 +1733,13 @@ class _MapPageState extends ConsumerState<MapPage> {
           if (collections.isNotEmpty) {
             // 随机选择一个合集展示
             final random = math.Random();
-            linkedCollection = collections[random.nextInt(collections.length)] as Map<String, dynamic>;
+            linkedCollection = collections[random.nextInt(collections.length)]
+                as Map<String, dynamic>;
           }
         }
       } catch (e) {
-        print('⚠️ [MapPageNew] Error loading linked collection (unauthenticated): $e');
+        print(
+            '⚠️ [MapPageNew] Error loading linked collection (unauthenticated): $e');
       }
     }
 
@@ -3018,18 +3022,19 @@ class _BottomSpotCardState extends ConsumerState<_BottomSpotCard> {
                           decoration: BoxDecoration(
                             color: AppTheme.primaryYellow,
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.black, width: 1),
-                            boxShadow: [
+                            border:
+                                Border.all(color: AppTheme.black, width: 1.5),
+                            boxShadow: const [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                                color: AppTheme.black,
+                                blurRadius: 0,
+                                offset: Offset(0, 1),
                               ),
                             ],
                           ),
                           child: const Icon(
                             Icons.check,
-                            color: AppTheme.white,
+                            color: AppTheme.black,
                             size: 14,
                           ),
                         )
@@ -3039,18 +3044,19 @@ class _BottomSpotCardState extends ConsumerState<_BottomSpotCard> {
                           decoration: BoxDecoration(
                             color: AppTheme.primaryYellow,
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.black, width: 1),
-                            boxShadow: [
+                            border:
+                                Border.all(color: AppTheme.black, width: 1.5),
+                            boxShadow: const [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                                color: AppTheme.black,
+                                blurRadius: 0,
+                                offset: Offset(0, 1),
                               ),
                             ],
                           ),
                           child: const Icon(
                             Icons.favorite,
-                            color: AppTheme.white,
+                            color: AppTheme.black,
                             size: 14,
                           ),
                         ),

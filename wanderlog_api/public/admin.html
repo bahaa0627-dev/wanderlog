@@ -1505,55 +1505,44 @@
             </div>
             
             <div class="form-card" style="margin:8px 0;">
-                <div class="section-title">图片管理</div>
-                <div class="form-group">
-                    <label>封面图 URL</label>
-                    <div style="display:flex; gap:8px; align-items:flex-start;">
-                        <input id="placeCoverImage" type="text" placeholder="https://..." style="flex:1;" autocomplete="off" onchange="validateCoverImageUrl(this.value)">
-                        <button type="button" class="btn btn-secondary" onclick="uploadPlaceCoverImage()" style="white-space:nowrap;">📷 上传封面</button>
+                <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>图片管理</span>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('placeImageUpload').click()" style="padding:4px 10px; font-size:12px;">📷 上传图片</button>
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('placeStillUpload').click()" style="padding:4px 10px; font-size:12px;">🎬 上传剧照</button>
                     </div>
-                    <div class="upload-hint" style="margin-top:4px;">支持直接输入 R2 URL，或点击"上传封面"按钮上传新图片</div>
-                    <div id="coverImagePreview" style="margin-top:8px;"></div>
                 </div>
-                <div class="form-group">
-                    <label>上传新图片</label>
-                    <div class="upload-hint" style="margin-bottom:8px;">支持本地图片上传，自动上传到 Cloudflare R2。<br>💡 <strong>多选方法</strong>：按住 <kbd>Ctrl</kbd>（Windows）或 <kbd>Cmd</kbd>（Mac）键，然后点击多张图片；或直接拖拽多张图片到下方区域。</div>
-                    <div id="placeImageDropZone" style="border:2px dashed #ddd; border-radius:8px; padding:30px; text-align:center; background:#f9f9f9; cursor:pointer; transition:all 0.3s; position:relative;" 
-                         ondrop="handleImageDropZone(event, 'placeImageUpload')" 
-                         ondragover="event.preventDefault(); this.style.borderColor='#007bff'; this.style.background='#f0f8ff';" 
-                         ondragleave="this.style.borderColor='#ddd'; this.style.background='#f9f9f9';">
-                        <input id="placeImageUpload" type="file" accept="image/*" multiple onchange="handlePlaceImageUpload(this.files)" style="position:absolute; width:100%; height:100%; top:0; left:0; opacity:0; cursor:pointer; z-index:1;">
-                        <div style="pointer-events:none; z-index:0;">
-                            <div style="font-size:32px; margin-bottom:8px;">📁</div>
-                            <div style="color:#666; font-size:14px; font-weight:500; margin-bottom:4px;">点击选择多张图片</div>
-                            <div style="color:#999; font-size:12px;">或拖拽多张图片到这里</div>
+                <input type="hidden" id="placeCoverImage">
+                <input type="hidden" id="placeCollectionCoverImage">
+                <input id="placeImageUpload" type="file" accept="image/*" multiple onchange="handlePlaceImageUpload(this.files)" style="display:none;">
+                <input id="placeStillUpload" type="file" accept="image/*" multiple onchange="handlePlaceStillUpload(this.files)" style="display:none;">
+                
+                <!-- 封面图区域：分为普通封面和合集封面 -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:12px;">
+                    <!-- 普通封面图 -->
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:12px; color:#155724;">📍 普通封面图 <small style="color:#999;">(AI/搜索/列表)</small></label>
+                        <div id="coverImagePreview" style="margin-top:6px; min-height:80px; border:1px dashed #d4edda; border-radius:6px; background:#f8fff9; display:flex; align-items:center; justify-content:center; cursor:pointer;" onclick="selectCoverFromImages('regular')">
+                            <span style="color:#999; font-size:12px;">从图片列表选择</span>
                         </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>图片列表（点击设为封面）</label>
-                    <div id="placeImagesList" class="chip-list" style="margin-top:8px;"></div>
+                    <!-- 合集封面图 -->
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:12px; color:#0c5460;">📚 合集封面图 <small style="color:#999;">(合集地图/详情)</small></label>
+                        <div id="collectionCoverImagePreview" style="margin-top:6px; min-height:80px; border:1px dashed #d1ecf1; border-radius:6px; background:#f0faff; display:flex; align-items:center; justify-content:center; cursor:pointer;" onclick="selectCoverFromImages('collection')">
+                            <span style="color:#999; font-size:12px;">从图片列表选择</span>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="section-title" style="margin-top:16px;">剧照（可选）</div>
                 <div class="form-group">
-                    <label>上传剧照</label>
-                    <div class="upload-hint" style="margin-bottom:8px;">与该地点相关的影视剧照，非必填。<br>💡 <strong>多选方法</strong>：按住 <kbd>Ctrl</kbd>（Windows）或 <kbd>Cmd</kbd>（Mac）键，然后点击多张图片；或直接拖拽多张图片到下方区域。</div>
-                    <div id="placeStillDropZone" style="border:2px dashed #ddd; border-radius:8px; padding:30px; text-align:center; background:#f9f9f9; cursor:pointer; transition:all 0.3s; position:relative;" 
-                         ondrop="handleImageDropZone(event, 'placeStillUpload')" 
-                         ondragover="event.preventDefault(); this.style.borderColor='#007bff'; this.style.background='#f0f8ff';" 
-                         ondragleave="this.style.borderColor='#ddd'; this.style.background='#f9f9f9';">
-                        <input id="placeStillUpload" type="file" accept="image/*" multiple onchange="handlePlaceStillUpload(this.files)" style="position:absolute; width:100%; height:100%; top:0; left:0; opacity:0; cursor:pointer; z-index:1;">
-                        <div style="pointer-events:none; z-index:0;">
-                            <div style="font-size:32px; margin-bottom:8px;">🎬</div>
-                            <div style="color:#666; font-size:14px; font-weight:500; margin-bottom:4px;">点击选择多张剧照</div>
-                            <div style="color:#999; font-size:12px;">或拖拽多张图片到这里</div>
-                        </div>
-                    </div>
+                    <label style="font-size:12px;">图片列表 <small style="color:#999;">（点击设为封面）</small></label>
+                    <div id="placeImagesList" class="chip-list" style="margin-top:6px;"></div>
                 </div>
-                <div class="form-group">
-                    <label>剧照列表</label>
-                    <div id="placeStillsList" class="chip-list" style="margin-top:8px;"></div>
+                
+                <div class="form-group" style="margin-top:12px;">
+                    <label style="font-size:12px;">剧照列表 <small style="color:#999;">（影视相关）</small></label>
+                    <div id="placeStillsList" class="chip-list" style="margin-top:6px;"></div>
                 </div>
             </div>
             
@@ -4123,6 +4112,7 @@
                 document.getElementById('placeWebsite').value = place.website || '';
                 document.getElementById('placePhone').value = place.phoneNumber || '';
                 document.getElementById('placeCoverImage').value = place.coverImage || '';
+                document.getElementById('placeCollectionCoverImage').value = place.collectionCoverImage || '';
                 
                 // 解析营业时间
                 let openingHoursText = '';
@@ -4166,6 +4156,10 @@
                 if (place.coverImage) {
                     placeImages.push(place.coverImage);
                 }
+                // 添加合集封面图（如果不同于普通封面）
+                if (place.collectionCoverImage && place.collectionCoverImage !== place.coverImage) {
+                    placeImages.push(place.collectionCoverImage);
+                }
                 if (place.images) {
                     try {
                         const imgs = typeof place.images === 'string' ? JSON.parse(place.images) : place.images;
@@ -4183,6 +4177,7 @@
                 
                 renderPlaceImages();
                 updateCoverImagePreview();
+                updateCollectionCoverImagePreview();
                 
                 // 解析剧照
                 placeStills = [];
@@ -4511,6 +4506,7 @@
             document.getElementById('placeTagsJson').value = '';
             document.getElementById('placeAiTagsJson').value = '';
             document.getElementById('placeCoverImage').value = '';
+            document.getElementById('placeCollectionCoverImage').value = '';
             document.getElementById('placeImageUpload').value = '';
             document.getElementById('tagInput').value = '';
             document.getElementById('aiTagInput').value = '';
@@ -4520,6 +4516,7 @@
             placeImages = [];
             renderPlaceImages();
             updateCoverImagePreview();
+            updateCollectionCoverImagePreview();
             // 清空剧照
             placeStills = [];
             renderPlaceStills();
@@ -4578,11 +4575,17 @@
         function renderPlaceImages() {
             const container = document.getElementById('placeImagesList');
             const coverImage = document.getElementById('placeCoverImage').value;
+            const collectionCoverImage = document.getElementById('placeCollectionCoverImage').value;
             
             container.innerHTML = placeImages.map((img, idx) => {
-                const isCover = img === coverImage;
+                const isRegularCover = img === coverImage;
+                const isCollectionCover = img === collectionCoverImage;
+                let badges = [];
+                if (isRegularCover) badges.push('<span style="font-size:9px;color:#fff;background:#155724;padding:1px 4px;border-radius:3px;">普通</span>');
+                if (isCollectionCover) badges.push('<span style="font-size:9px;color:#fff;background:#0c5460;padding:1px 4px;border-radius:3px;">合集</span>');
+                const badgeStyle = (isRegularCover || isCollectionCover) ? 'border:2px solid #667eea;' : '';
                 return `
-                    <div class="chip draggable-image" style="padding:4px;cursor:move;${isCover ? 'border:2px solid #667eea;' : ''}"
+                    <div class="chip draggable-image" style="padding:4px;cursor:move;${badgeStyle}"
                          draggable="true"
                          ondragstart="handleImageDragStart(event, ${idx}, 'images')"
                          ondragend="handleImageDragEnd(event)"
@@ -4590,21 +4593,76 @@
                          ondrop="handleImageDrop(event, ${idx}, 'images')">
                         <span style="font-size:10px;color:#999;margin-right:4px;">${idx + 1}</span>
                         <img src="${img}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;cursor:pointer;" 
-                             onclick="setAsCoverImage(${idx})" title="点击设为封面，长按拖拽调整顺序" 
+                             onclick="showCoverSelectMenu(event, ${idx})" title="点击选择封面类型" 
                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>📷</text></svg>'">
-                        ${isCover ? '<span style="font-size:10px;color:#667eea;">封面</span>' : ''}
+                        <div style="display:flex;flex-direction:column;gap:2px;">${badges.join('')}</div>
                         <button onclick="removePlaceImage(${idx})" style="margin-left:4px;">×</button>
                     </div>
                 `;
             }).join('');
         }
         
-        // 设置封面图
-        function setAsCoverImage(idx) {
+        // 显示封面类型选择菜单
+        function showCoverSelectMenu(event, idx) {
+            event.stopPropagation();
+            // 移除已有的菜单
+            const existingMenu = document.getElementById('coverSelectMenu');
+            if (existingMenu) existingMenu.remove();
+            
+            const menu = document.createElement('div');
+            menu.id = 'coverSelectMenu';
+            menu.style.cssText = 'position:fixed;background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.15);z-index:10000;padding:4px 0;';
+            menu.innerHTML = `
+                <div onclick="setAsCoverImage(${idx}, 'regular')" style="padding:8px 16px;cursor:pointer;font-size:13px;white-space:nowrap;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📍 设为普通封面</div>
+                <div onclick="setAsCoverImage(${idx}, 'collection')" style="padding:8px 16px;cursor:pointer;font-size:13px;white-space:nowrap;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📚 设为合集封面</div>
+                <div onclick="setAsCoverImage(${idx}, 'both')" style="padding:8px 16px;cursor:pointer;font-size:13px;white-space:nowrap;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🔗 设为两种封面</div>
+            `;
+            document.body.appendChild(menu);
+            
+            // 定位菜单
+            const rect = event.target.getBoundingClientRect();
+            menu.style.left = `${rect.left}px`;
+            menu.style.top = `${rect.bottom + 4}px`;
+            
+            // 点击其他地方关闭菜单
+            setTimeout(() => {
+                document.addEventListener('click', function closeMenu() {
+                    menu.remove();
+                    document.removeEventListener('click', closeMenu);
+                });
+            }, 0);
+        }
+        
+        // 从图片列表选择封面
+        function selectCoverFromImages(coverType) {
+            if (placeImages.length === 0) {
+                alert('请先上传图片');
+                return;
+            }
+            // 如果只有一张图片，直接设置
+            if (placeImages.length === 1) {
+                setAsCoverImage(0, coverType);
+                return;
+            }
+            // 提示用户在图片列表中点击选择
+            showToast(`请在下方图片列表中点击选择${coverType === 'regular' ? '普通' : '合集'}封面`, 'info');
+        }
+        
+        // 设置封面图 - 支持两种封面类型
+        function setAsCoverImage(idx, coverType = 'regular') {
+            const menu = document.getElementById('coverSelectMenu');
+            if (menu) menu.remove();
+            
             if (placeImages[idx]) {
-                document.getElementById('placeCoverImage').value = placeImages[idx];
+                if (coverType === 'regular' || coverType === 'both') {
+                    document.getElementById('placeCoverImage').value = placeImages[idx];
+                }
+                if (coverType === 'collection' || coverType === 'both') {
+                    document.getElementById('placeCollectionCoverImage').value = placeImages[idx];
+                }
                 renderPlaceImages();
                 updateCoverImagePreview();
+                updateCollectionCoverImagePreview();
             }
         }
         
@@ -4613,17 +4671,24 @@
             const removedImg = placeImages[idx];
             placeImages.splice(idx, 1);
             
-            // 如果删除的是封面图，清空封面或设置第一张为封面
+            // 如果删除的是普通封面图，清空或设置第一张为封面
             const coverImage = document.getElementById('placeCoverImage').value;
             if (removedImg === coverImage) {
                 document.getElementById('placeCoverImage').value = placeImages[0] || '';
                 updateCoverImagePreview();
             }
             
+            // 如果删除的是合集封面图，清空或设置第一张为封面
+            const collectionCoverImage = document.getElementById('placeCollectionCoverImage').value;
+            if (removedImg === collectionCoverImage) {
+                document.getElementById('placeCollectionCoverImage').value = placeImages[0] || '';
+                updateCollectionCoverImagePreview();
+            }
+            
             renderPlaceImages();
         }
         
-        // 上传地点封面图
+        // 上传地点封面图（保留向后兼容）
         async function uploadPlaceCoverImage() {
             const input = document.createElement('input');
             input.type = 'file';
@@ -4688,19 +4753,26 @@
             if (!preview) return;
             
             if (coverImage) {
-                // 检查是否是 DataURL
-                if (coverImage.startsWith('data:image/')) {
-                    preview.innerHTML = `
-                        <img src="${coverImage}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" onerror="this.style.display='none'">
-                        <div style="margin-top:8px; padding:8px; background:#fff3cd; border:1px solid #ffc107; border-radius:4px; color:#856404; font-size:11px;">
-                            ⚠️ 这是 DataURL 格式，建议上传到 R2
-                        </div>
-                    `;
-                } else {
-                    preview.innerHTML = `<img src="${coverImage}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" onerror="this.style.display='none'">`;
-                }
+                preview.style.cursor = 'pointer';
+                preview.onclick = () => selectCoverFromImages('regular');
+                preview.innerHTML = `<img src="${coverImage}" style="width:100%;height:80px;object-fit:cover;border-radius:5px;" onerror="this.parentElement.innerHTML='<span style=\\'color:#999;font-size:12px;\\'>加载失败</span>'">`;
             } else {
-                preview.innerHTML = '';
+                preview.innerHTML = '<span style="color:#999; font-size:12px;">从图片列表选择</span>';
+            }
+        }
+        
+        // 更新合集封面图预览
+        function updateCollectionCoverImagePreview() {
+            const collectionCoverImage = document.getElementById('placeCollectionCoverImage').value;
+            const preview = document.getElementById('collectionCoverImagePreview');
+            if (!preview) return;
+            
+            if (collectionCoverImage) {
+                preview.style.cursor = 'pointer';
+                preview.onclick = () => selectCoverFromImages('collection');
+                preview.innerHTML = `<img src="${collectionCoverImage}" style="width:100%;height:80px;object-fit:cover;border-radius:5px;" onerror="this.parentElement.innerHTML='<span style=\\'color:#999;font-size:12px;\\'>加载失败</span>'">`;
+            } else {
+                preview.innerHTML = '<span style="color:#999; font-size:12px;">从图片列表选择</span>';
             }
         }
         
@@ -5094,6 +5166,7 @@
                 
                 // 构建请求数据
                 let coverImage = document.getElementById('placeCoverImage').value.trim();
+                let collectionCoverImage = document.getElementById('placeCollectionCoverImage').value.trim();
                 
                 // 验证封面图：如果是 DataURL，提示用户上传到 R2
                 if (coverImage && coverImage.startsWith('data:image/')) {
@@ -5154,6 +5227,7 @@
                     tags: tags ? JSON.stringify(tags) : undefined,
                     aiTags: JSON.stringify(aiTags),  // 始终发送 aiTags，即使是空数组
                     coverImage: coverImage || undefined,
+                    collectionCoverImage: collectionCoverImage || undefined,
                     images: placeImages.length > 0 ? JSON.stringify(placeImages) : undefined,
                     customFields: customFields,
                     source: isEdit ? undefined : 'manual',

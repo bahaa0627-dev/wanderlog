@@ -255,6 +255,9 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
   // 构建响应对象
   let result: any;
   
+  // 合集封面图（如果没有设置，fallback 到普通封面图）
+  const collectionCoverImage = place.collectionCoverImage || coverImage;
+  
   if (includeInternalTags) {
     // 后台管理：保留 tags 字段
     result = {
@@ -262,6 +265,7 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
       placeId: place.id, // 始终使用 UUID
       images,
       coverImage,
+      collectionCoverImage,
       category,
       categorySlug,
       categoryEn,
@@ -282,6 +286,7 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
       placeId: place.id, // 始终使用 UUID
       images,
       coverImage,
+      collectionCoverImage,
       category,
       categorySlug,
       categoryEn,

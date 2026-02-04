@@ -83,7 +83,8 @@ model Place {
   tags           Json?     @default("{}")          // jsonb 结构化对象 (style, theme, award, meal, cuisine, etc.)
   aiTags         Json?     @default("[]") @map("ai_tags")  // jsonb[] 对象数组，最多 2 个元素
   i18n           Json?                             // 多语言文本容器
-  coverImage     String?   @map("cover_image")
+  coverImage     String?   @map("cover_image")     // 普通封面图（AI、搜索、列表等场景使用）
+  collectionCoverImage String? @map("collection_cover_image") // 合集封面图（仅合集渠道展示）
   photoReference String?   @map("photo_reference") // Google photo reference for future extraction
   images         Json?     @default("[]")
   price          String?                           // 价格范围文本 (如 €10–20, $20–40)

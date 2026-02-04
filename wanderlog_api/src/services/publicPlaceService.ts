@@ -15,6 +15,7 @@ export interface PublicPlaceData {
   country?: string;
   category?: string;
   coverImage?: string;
+  collectionCoverImage?: string;  // 合集封面图（仅合集渠道展示）
   images?: string[];
   rating?: number;
   ratingCount?: number;
@@ -705,6 +706,7 @@ class PublicPlaceService {
     if (updates.city !== undefined) updateData.city = updates.city || null;
     if (updates.country !== undefined) updateData.country = updates.country || null;
     if (updates.coverImage !== undefined) updateData.coverImage = updates.coverImage || null;
+    if (updates.collectionCoverImage !== undefined) updateData.collectionCoverImage = updates.collectionCoverImage || null;
     if (updates.images !== undefined) {
       updateData.images = updates.images ? (typeof updates.images === 'string' ? JSON.parse(updates.images) : updates.images) : [];
     }

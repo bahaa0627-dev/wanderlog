@@ -5106,9 +5106,7 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                       child: Icon(
                         _isInWishlist ? Icons.favorite : Icons.favorite_border,
                         size: 18,
-                        color: _isInWishlist
-                            ? const Color(0xFFFF6264)
-                            : AppTheme.black,
+                        color: AppTheme.black,
                       ),
                     ),
                   ),
@@ -6080,9 +6078,7 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                                       ? Icons.favorite
                                       : Icons.favorite_border,
                                   size: 20,
-                                  color: _isInWishlist
-                                      ? const Color(0xFFFF6264)
-                                      : AppTheme.black,
+                                  color: AppTheme.black,
                                 ),
                         ),
                       ),
@@ -6535,7 +6531,7 @@ class _CompactSaveButtonState extends ConsumerState<_CompactSaveButton> {
         ),
         child: Icon(
           _isInWishlist ? Icons.favorite : Icons.favorite_border,
-          color: _isInWishlist ? const Color(0xFFFF6264) : AppTheme.black,
+          color: AppTheme.black,
           size: 20,
         ),
       ),

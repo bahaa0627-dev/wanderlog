@@ -1720,6 +1720,8 @@ class LinkItem {
 class _LinkChip extends StatelessWidget {
   const _LinkChip({
     required this.label,
+    this.url,
+    this.leading,
   });
 
   final String label;

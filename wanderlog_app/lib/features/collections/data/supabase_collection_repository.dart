@@ -8,7 +8,10 @@ const _filteredTags = {'place', 'landmark'};
 /// 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
 /// 过滤掉旧的通用标签（如 "place", "landmark"）
 List<String> _buildDisplayTags(
-    String? category, List<String> parsedTags, List<String> parsedAiTags,) {
+  String? category,
+  List<String> parsedTags,
+  List<String> parsedAiTags,
+) {
   final displayTagsEn = <String>[];
   final seenTags = <String>{};
 
@@ -80,8 +83,9 @@ class SupabaseCollectionRepository {
   /// 获取合集列表
   /// [includeAll] = true: 返回所有已发布的合集（用于 explore 页面）
   /// [includeAll] = false: 返回当前用户收藏的合集（用于 MyLand 页面）
-  Future<List<Map<String, dynamic>>> listCollections(
-      {bool includeAll = false,}) async {
+  Future<List<Map<String, dynamic>>> listCollections({
+    bool includeAll = false,
+  }) async {
     if (includeAll) {
       // 返回所有已发布的合集
       final response = await _client
@@ -129,8 +133,10 @@ class SupabaseCollectionRepository {
   }
 
   /// 转换合集列表，添加 spotCount 和转换字段名
-  List<Map<String, dynamic>> _convertCollectionsList(List<dynamic> collections,
-          {bool isFavorited = false,}) =>
+  List<Map<String, dynamic>> _convertCollectionsList(
+    List<dynamic> collections, {
+    bool isFavorited = false,
+  }) =>
       collections
           .map((collection) {
             final spots =
@@ -353,7 +359,8 @@ class SupabaseCollectionRepository {
           ''').order('sort_order', ascending: true);
 
       print(
-          '📦 Loaded ${items.length} recommendation items in ${DateTime.now().difference(startTime).inMilliseconds}ms',);
+        '📦 Loaded ${items.length} recommendation items in ${DateTime.now().difference(startTime).inMilliseconds}ms',
+      );
 
       // 获取推荐组信息
       final recommendations = await _client
@@ -377,13 +384,11 @@ class SupabaseCollectionRepository {
       // 注意：如果 collectionIds 为空，跳过查询避免错误
       List<dynamic> collectionSpotDetails = [];
       if (collectionIds.isNotEmpty) {
-        collectionSpotDetails = await _client
-            .from('collection_spots')
-            .select('''
+        collectionSpotDetails =
+            await _client.from('collection_spots').select('''
               collection_id,
               place:places(city, rating_count)
-            ''')
-            .inFilter('collection_id', collectionIds.toList());
+            ''').inFilter('collection_id', collectionIds.toList());
       }
 
       // 计算每个合集的主要城市
@@ -432,10 +437,12 @@ class SupabaseCollectionRepository {
           final topCities = <({String city, int maxRatingCount})>[];
           for (final entry in cityStats.entries) {
             if (entry.value.count == maxCount) {
-              topCities.add((
-                city: entry.key,
-                maxRatingCount: entry.value.maxRatingCount,
-              ),);
+              topCities.add(
+                (
+                  city: entry.key,
+                  maxRatingCount: entry.value.maxRatingCount,
+                ),
+              );
             }
           }
 
@@ -444,7 +451,8 @@ class SupabaseCollectionRepository {
             mainCityMap[collectionId] = topCities.first.city;
           } else {
             // 平局时，选择评价人数最多的地点所在的城市
-            topCities.sort((a, b) => b.maxRatingCount.compareTo(a.maxRatingCount));
+            topCities
+                .sort((a, b) => b.maxRatingCount.compareTo(a.maxRatingCount));
             mainCityMap[collectionId] = topCities.first.city;
           }
         }
@@ -506,7 +514,8 @@ class SupabaseCollectionRepository {
 
       final totalTime = DateTime.now().difference(startTime).inMilliseconds;
       print(
-          '✅ [Fast] Returning ${result.length} recommendations in ${totalTime}ms',);
+        '✅ [Fast] Returning ${result.length} recommendations in ${totalTime}ms',
+      );
       return result;
     } catch (e, stackTrace) {
       print('❌ Error in listRecommendations: $e');
@@ -517,11 +526,13 @@ class SupabaseCollectionRepository {
 
   /// 转换 collection 字段名从 snake_case 到 camelCase
   Map<String, dynamic> _convertCollectionFields(
-      Map<String, dynamic> collection,) {
+    Map<String, dynamic> collection,
+  ) {
     try {
       final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
       print(
-          '🔄 Converting collection ${collection['id']}, spots count: ${spots.length}',);
+        '🔄 Converting collection ${collection['id']}, spots count: ${spots.length}',
+      );
 
       final convertedSpots = spots.map((spot) {
         try {
@@ -666,7 +677,8 @@ class SupabaseCollectionRepository {
     final items = await _client
         .from('collection_recommendation_items')
         .select(
-            '*, collection:collections(*, collectionSpots:collection_spots(*, place:places(*)))',)
+          '*, collection:collections(*, collectionSpots:collection_spots(*, place:places(*)))',
+        )
         .eq('recommendation_id', id)
         .order('sort_order', ascending: true);
 
@@ -679,9 +691,75 @@ class SupabaseCollectionRepository {
 
       // 转换 collection 字段名
       final convertedCollection = _convertCollectionFields(collection);
+
+      // 计算 mainCity（与 listRecommendations 保持一致）
+      final collectionSpots =
+          convertedCollection['collectionSpots'] as List<dynamic>? ?? [];
+      String? mainCity;
+
+      if (collectionSpots.isNotEmpty) {
+        // 统计每个城市的地点数量和最高评价数
+        final cityStats = <String, ({int count, int maxRatingCount})>{};
+
+        for (final spot in collectionSpots) {
+          final place = spot['place'] as Map<String, dynamic>?;
+          final city = place?['city'] as String?;
+          final ratingCount = (place?['ratingCount'] as num?)?.toInt() ?? 0;
+
+          if (city != null && city.isNotEmpty) {
+            final existing = cityStats[city];
+            if (existing != null) {
+              cityStats[city] = (
+                count: existing.count + 1,
+                maxRatingCount: existing.maxRatingCount > ratingCount
+                    ? existing.maxRatingCount
+                    : ratingCount,
+              );
+            } else {
+              cityStats[city] = (count: 1, maxRatingCount: ratingCount);
+            }
+          }
+        }
+
+        if (cityStats.isNotEmpty) {
+          // 找出地点数量最多的城市
+          var maxCount = 0;
+          for (final stats in cityStats.values) {
+            if (stats.count > maxCount) {
+              maxCount = stats.count;
+            }
+          }
+
+          // 筛选出所有地点数量等于最大值的城市
+          final topCities = <({String city, int maxRatingCount})>[];
+          for (final entry in cityStats.entries) {
+            if (entry.value.count == maxCount) {
+              topCities.add(
+                (
+                  city: entry.key,
+                  maxRatingCount: entry.value.maxRatingCount,
+                ),
+              );
+            }
+          }
+
+          // 如果只有一个城市，直接使用；如果有多个，按最高评价数排序
+          if (topCities.length == 1) {
+            mainCity = topCities.first.city;
+          } else {
+            topCities
+                .sort((a, b) => b.maxRatingCount.compareTo(a.maxRatingCount));
+            mainCity = topCities.first.city;
+          }
+        }
+      }
+
       return {
         ...item,
-        'collection': convertedCollection,
+        'collection': {
+          ...convertedCollection,
+          'mainCity': mainCity,
+        },
       };
     }).toList();
 
@@ -719,7 +797,8 @@ class SupabaseCollectionRepository {
   /// 获取地点关联的合集列表（只返回已发布的合集）
   /// 用于在地点详情页显示合集入口，同时预加载合集详情数据
   Future<List<Map<String, dynamic>>> getCollectionsForPlace(
-      String placeId,) async {
+    String placeId,
+  ) async {
     // 验证 placeId 是有效的 UUID 格式
     final uuidRegex = RegExp(
       r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
@@ -727,7 +806,8 @@ class SupabaseCollectionRepository {
     );
     if (!uuidRegex.hasMatch(placeId)) {
       print(
-          '⚠️ [getCollectionsForPlace] Invalid UUID format, skipping: $placeId',);
+        '⚠️ [getCollectionsForPlace] Invalid UUID format, skipping: $placeId',
+      );
       return [];
     }
 
@@ -736,7 +816,8 @@ class SupabaseCollectionRepository {
       final response = await _client
           .from('collection_spots')
           .select(
-              'collection:collections(id, name, cover_image, description, people, works, is_published, collection_spots(*, place:places(*)))',)
+            'collection:collections(id, name, cover_image, description, people, works, is_published, collection_spots(*, place:places(*)))',
+          )
           .eq('place_id', placeId);
 
       // 获取当前用户的收藏状态

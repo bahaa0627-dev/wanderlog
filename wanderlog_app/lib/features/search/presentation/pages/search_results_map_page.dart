@@ -1,18 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart' as picker;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
-import 'package:wanderlog/core/providers/dio_provider.dart';
-import 'package:wanderlog/features/trips/providers/image_upload_provider.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/features/search/data/search_repository.dart';
@@ -27,8 +23,6 @@ import 'package:wanderlog/features/search/providers/countries_cities_stats_provi
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
 import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
-import 'package:wanderlog/core/providers/locale_provider.dart';
-import 'package:wanderlog/core/l10n/app_localizations.dart';
 import 'package:wanderlog/features/map/providers/public_place_providers.dart';
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
 import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
@@ -85,7 +79,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   bool _isLoading = true;
   bool _isAiGenerated = false;
   bool _isAiGenerationFailed = false;
-  bool _isEmptyOverlayDismissed = false;
   bool _isExiting = false;
   String? _error;
   Position? _currentMapCenter;
@@ -160,15 +153,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     });
   }
 
-  void _dismissEmptyOverlay() {
-    if (_isEmptyOverlayDismissed) return;
-    setState(() {
-      _isEmptyOverlayDismissed = true;
-      _currentMapCenter ??= Position(2.3522, 48.8566);
-      _currentZoom = 12.0;
-    });
-  }
-
   /// 计算所有地点的标签统计
   void _computeTagsCounts() {
     final counts = <String, int>{};
@@ -215,7 +199,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
       _isLoading = true;
       _error = null;
       _isAiGenerationFailed = false;
-      _isEmptyOverlayDismissed = false;
     });
 
     try {
@@ -233,7 +216,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
         );
         print('📍 Keyword search result: ${result.places.length} places');
 
-        // 关键词搜索没有结果时：保持地图页，保留上次结果
+        // 关键词搜索没有结果时：显示 toast 提醒，保持地图页
         if (result.places.isEmpty) {
           setState(() {
             _isLoading = false;
@@ -243,10 +226,16 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
               _currentZoom = 12.0;
             }
           });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              CustomToast.showInfo(
+                  context, 'No spots found, try another search');
+            }
+          });
           return;
         }
       } else if (_currentCity.isEmpty) {
-        // 选择了 "All" 但没有搜索关键词，提示用户输入搜索词
+        // 选择了 "All" 但没有搜索关键词，显示空地图
         setState(() {
           _isLoading = false;
           _spots = [];
@@ -314,7 +303,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
         _spots = limitedSpots;
         _isAiGenerated = result.isAiGenerated;
         _isLoading = false;
-        _isEmptyOverlayDismissed = false;
         _computeTagsCounts();
         _updateFilteredSpots(); // 更新过滤后的缓存
 
@@ -1071,34 +1059,60 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
             ),
 
             // Loading overlay
-            if (_isLoading && !_isEmptyOverlayDismissed)
-              Positioned.fill(
-                child: ColoredBox(
-                  color: Colors.white.withOpacity(0.92),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(
-                          width: 48,
-                          height: 48,
+            if (_isLoading)
+              Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                    border: Border.all(color: AppTheme.black, width: 1),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppTheme.black,
+                        offset: Offset(1, 2),
+                        blurRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const SizedBox(
+                          width: 24,
+                          height: 24,
                           child: CircularProgressIndicator(
                             strokeWidth: 3,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(AppTheme.black),
+                            color: AppTheme.primaryYellow,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        Text('Finding spots for you...',
-                            style: AppTheme.bodyLarge(context)),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Finding spots for you...',
+                        style: AppTheme.bodyLarge(context),
+                      ),
+                    ],
                   ),
                 ),
               ),
 
             // Error overlay
-            if (_error != null && !_isEmptyOverlayDismissed)
+            if (_error != null)
               Positioned.fill(
                 child: Container(
                   color: Colors.white.withOpacity(0.95),
@@ -1190,15 +1204,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
               ),
 
             // AI generation failed overlay
-            if (_isAiGenerationFailed && !_isEmptyOverlayDismissed)
-              _buildAiFailedOverlay(),
-
-            // Empty state
-            if (!_isLoading &&
-                _error == null &&
-                filteredSpots.isEmpty &&
-                !_isAiGenerationFailed)
-              _buildEmptyState(),
+            if (_isAiGenerationFailed) _buildAiFailedOverlay(),
           ],
         ),
       ),
@@ -1358,139 +1364,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
           ),
         ),
       );
-
-  Widget _buildEmptyState() {
-    // 判断是否是 "All" 模式且没有搜索词
-    final isAllModeWithoutSearch =
-        _currentCity.isEmpty && (_searchQuery == null || _searchQuery!.isEmpty);
-
-    if (_isEmptyOverlayDismissed) {
-      return const SizedBox.shrink();
-    }
-
-    return Positioned.fill(
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: _dismissEmptyOverlay,
-        child: Center(
-          child: GestureDetector(
-            onTap: () {},
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 32),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                border: Border.all(color: AppTheme.black, width: 1),
-                boxShadow: AppTheme.cardShadow,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      GestureDetector(
-                        onTap: _dismissEmptyOverlay,
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.black, width: 1),
-                          ),
-                          child: const Icon(
-                            Icons.close,
-                            size: 14,
-                            color: AppTheme.black,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Icon(
-                    isAllModeWithoutSearch ? Icons.search : Icons.search_off,
-                    size: 48,
-                    color: AppTheme.mediumGray,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    isAllModeWithoutSearch
-                        ? 'Enter a search term'
-                        : 'No spots found',
-                    style: AppTheme.headlineMedium(context),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    isAllModeWithoutSearch
-                        ? 'Search for places like "Eiffel Tower" or "Tokyo Tower"'
-                        : 'Try to find another place',
-                    style: AppTheme.bodyMedium(context)
-                        .copyWith(color: AppTheme.mediumGray),
-                    textAlign: TextAlign.center,
-                  ),
-                  // Only show recommend button when no spots found (not in All mode)
-                  if (!isAllModeWithoutSearch) ...[
-                    const SizedBox(height: 20),
-                    _buildRecommendPlaceButton(),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 构建推荐地点按钮 - Neo Brutalism 风格
-  Widget _buildRecommendPlaceButton() {
-    final l10n = AppLocalizations(ref.read(localeProvider).languageCode);
-    return GestureDetector(
-      onTap: () => _showRecommendPlaceDialog(l10n),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryYellow,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(color: AppTheme.black, width: 2),
-          boxShadow: const [
-            BoxShadow(
-              color: AppTheme.black,
-              offset: Offset(3, 3),
-              blurRadius: 0,
-            ),
-          ],
-        ),
-        child: Text(
-          l10n.recommendPlaceTitle,
-          style: AppTheme.labelLarge(context).copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 显示推荐地点弹窗
-  void _showRecommendPlaceDialog(AppLocalizations l10n) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => _RecommendPlaceDialogInSearch(
-        l10n: l10n,
-        ref: ref,
-        onSuccess: () {
-          CustomToast.showSuccess(
-            context,
-            l10n.isEnglish ? 'Recommendation received' : '已收到推荐',
-          );
-        },
-      ),
-    );
-  }
 }
 
 class _MapSurface extends StatelessWidget {
@@ -1967,309 +1840,4 @@ class _SearchCityPickerSheetState
       ],
     );
   }
-}
-
-/// 搜索页面专用的推荐地点弹窗
-class _RecommendPlaceDialogInSearch extends ConsumerStatefulWidget {
-  const _RecommendPlaceDialogInSearch({
-    required this.l10n,
-    required this.ref,
-    this.onSuccess,
-  });
-
-  final AppLocalizations l10n;
-  final WidgetRef ref;
-  final VoidCallback? onSuccess;
-
-  @override
-  ConsumerState<_RecommendPlaceDialogInSearch> createState() =>
-      _RecommendPlaceDialogInSearchState();
-}
-
-class _RecommendPlaceDialogInSearchState
-    extends ConsumerState<_RecommendPlaceDialogInSearch> {
-  final _countryController = TextEditingController();
-  final _cityController = TextEditingController();
-  final _placeNameController = TextEditingController();
-  File? _selectedImage;
-  bool _isSubmitting = false;
-
-  @override
-  void dispose() {
-    _countryController.dispose();
-    _cityController.dispose();
-    _placeNameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickImage() async {
-    try {
-      final imagePicker = picker.ImagePicker();
-      final pickedFile = await imagePicker.pickImage(
-        source: picker.ImageSource.gallery,
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 85,
-      );
-      if (pickedFile != null) {
-        setState(() {
-          _selectedImage = File(pickedFile.path);
-        });
-      }
-    } catch (e) {
-      debugPrint('Pick image error: $e');
-    }
-  }
-
-  Future<void> _submit() async {
-    final country = _countryController.text.trim();
-    final city = _cityController.text.trim();
-    final placeName = _placeNameController.text.trim();
-
-    if (country.isEmpty) {
-      CustomToast.showError(context, widget.l10n.pleaseEnterCountry);
-      return;
-    }
-    if (city.isEmpty) {
-      CustomToast.showError(context, widget.l10n.pleaseEnterCity);
-      return;
-    }
-    if (placeName.isEmpty) {
-      CustomToast.showError(context, widget.l10n.pleaseEnterPlaceName);
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-
-    try {
-      String? imageUrl;
-
-      // Upload image if selected
-      if (_selectedImage != null) {
-        final uploadService = ref.read(imageUploadServiceProvider);
-        imageUrl = await uploadService.uploadImage(_selectedImage!);
-      }
-
-      // Submit recommendation
-      final dio = ref.read(dioProvider);
-      final response = await dio.post<Map<String, dynamic>>(
-        '/user-recommendations',
-        data: {
-          'country': country,
-          'city': city,
-          'placeName': placeName,
-          'imageUrl': imageUrl,
-          'userNickname': 'Anonymous',
-        },
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        if (mounted) {
-          Navigator.of(context).pop();
-          widget.onSuccess?.call();
-        }
-      } else {
-        throw Exception('Failed to submit');
-      }
-    } catch (e) {
-      debugPrint('Submit recommendation error: $e');
-      if (mounted) {
-        CustomToast.showError(context, widget.l10n.submitFailed);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 360),
-          decoration: BoxDecoration(
-            color: AppTheme.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            border: Border.all(color: AppTheme.black, width: 2),
-            boxShadow: const [
-              BoxShadow(
-                color: AppTheme.black,
-                offset: Offset(2, 4),
-                blurRadius: 0,
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      widget.l10n.recommendPlaceTitle,
-                      style: AppTheme.headlineMedium(context),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      child:
-                          const Icon(Icons.close, color: AppTheme.mediumGray),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.l10n.recommendPlaceDescription,
-                  style: AppTheme.bodySmall(context).copyWith(
-                    color: AppTheme.darkGray,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Country field
-                Text(
-                  widget.l10n.countryLabel,
-                  style: AppTheme.labelMedium(context),
-                ),
-                const SizedBox(height: 8),
-                _buildTextField(_countryController, widget.l10n.countryLabel),
-                const SizedBox(height: 16),
-
-                // City field
-                Text(
-                  widget.l10n.cityLabel,
-                  style: AppTheme.labelMedium(context),
-                ),
-                const SizedBox(height: 8),
-                _buildTextField(_cityController, widget.l10n.cityLabel),
-                const SizedBox(height: 16),
-
-                // Place name field
-                Text(
-                  widget.l10n.placeNameLabel,
-                  style: AppTheme.labelMedium(context),
-                ),
-                const SizedBox(height: 8),
-                _buildTextField(
-                    _placeNameController, widget.l10n.placeNameLabel),
-                const SizedBox(height: 16),
-
-                // Image upload
-                Text(
-                  widget.l10n.uploadImageOptional,
-                  style: AppTheme.labelMedium(context),
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: Container(
-                    width: double.infinity,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: AppTheme.lightGray.withValues(alpha: 0.3),
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.radiusMedium),
-                      border: Border.all(
-                        color: AppTheme.lightGray,
-                        width: 1,
-                        style: BorderStyle.solid,
-                      ),
-                    ),
-                    child: _selectedImage != null
-                        ? ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusMedium),
-                            child: Image.file(
-                              _selectedImage!,
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.add_photo_alternate_outlined,
-                                size: 36,
-                                color: AppTheme.mediumGray,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                widget.l10n.tapToUploadImage,
-                                style: AppTheme.bodySmall(context).copyWith(
-                                  color: AppTheme.mediumGray,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Submit button
-                GestureDetector(
-                  onTap: _isSubmitting ? null : _submit,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: _isSubmitting
-                          ? AppTheme.lightGray
-                          : AppTheme.primaryYellow,
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.radiusMedium),
-                      border: Border.all(color: AppTheme.black, width: 2),
-                      boxShadow: _isSubmitting
-                          ? null
-                          : const [
-                              BoxShadow(
-                                color: AppTheme.black,
-                                offset: Offset(2, 4),
-                                blurRadius: 0,
-                              ),
-                            ],
-                    ),
-                    child: Center(
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(
-                              widget.l10n.submit,
-                              style: AppTheme.labelLarge(context),
-                            ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-
-  Widget _buildTextField(TextEditingController controller, String hint) =>
-      Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(color: AppTheme.lightGray),
-        ),
-        child: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: AppTheme.bodyMedium(context).copyWith(
-              color: AppTheme.mediumGray,
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            border: InputBorder.none,
-          ),
-          style: AppTheme.bodyMedium(context),
-        ),
-      );
 }

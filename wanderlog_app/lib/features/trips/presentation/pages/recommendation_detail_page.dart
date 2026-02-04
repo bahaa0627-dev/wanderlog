@@ -11,17 +11,21 @@ import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_p
 
 class RecommendationDetailPage extends ConsumerStatefulWidget {
   const RecommendationDetailPage({
-    required this.recommendationId, required this.recommendationName, super.key,
+    required this.recommendationId,
+    required this.recommendationName,
+    super.key,
   });
 
   final String recommendationId;
   final String recommendationName;
 
   @override
-  ConsumerState<RecommendationDetailPage> createState() => _RecommendationDetailPageState();
+  ConsumerState<RecommendationDetailPage> createState() =>
+      _RecommendationDetailPageState();
 }
 
-class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailPage> {
+class _RecommendationDetailPageState
+    extends ConsumerState<RecommendationDetailPage> {
   Map<String, dynamic>? _recommendation;
   bool _isLoading = false;
 
@@ -42,7 +46,8 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(collectionRepositoryProvider);
-      final recommendation = await repo.getRecommendation(widget.recommendationId);
+      final recommendation =
+          await repo.getRecommendation(widget.recommendationId);
       setState(() => _recommendation = recommendation);
     } catch (_) {
       setState(() => _recommendation = null);
@@ -55,29 +60,29 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
 
   @override
   Widget build(BuildContext context) => Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
         backgroundColor: AppTheme.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.black),
-          onPressed: () => context.pop(),
+        appBar: AppBar(
+          backgroundColor: AppTheme.background,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppTheme.black),
+            onPressed: () => context.pop(),
+          ),
+          title: Text(
+            widget.recommendationName,
+            style: AppTheme.headlineLarge(context),
+          ),
         ),
-        title: Text(
-          widget.recommendationName,
-          style: AppTheme.headlineLarge(context),
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _recommendation == null
-              ? const Center(child: Text('Recommendation not found'))
-              : _buildContent(),
-    );
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _recommendation == null
+                ? const Center(child: Text('Recommendation not found'))
+                : _buildContent(),
+      );
 
   Widget _buildContent() {
     final items = _recommendation!['items'] as List<dynamic>? ?? [];
-    
+
     if (items.isEmpty) {
       return const Center(child: Text('No collections in this recommendation'));
     }
@@ -94,21 +99,23 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
       itemBuilder: (context, index) {
         final item = items[index];
         final collection = item['collection'] as Map<String, dynamic>? ?? {};
-        final collectionSpots = collection['collectionSpots'] as List<dynamic>? ?? [];
+        final collectionSpots =
+            collection['collectionSpots'] as List<dynamic>? ?? [];
         final firstSpot = collectionSpots.isNotEmpty
             ? (collectionSpots.first['place'] as Map<String, dynamic>?)
             : null;
-        
-        final city = (firstSpot?['city'] as String?)?.isNotEmpty ?? false
-            ? firstSpot!['city'] as String
+
+        // 优先使用 API 返回的 mainCity，与首页保持一致
+        final city = (collection['mainCity'] as String?)?.isNotEmpty ?? false
+            ? collection['mainCity'] as String
             : 'Multi-city';
-        
+
         // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
         final List<dynamic> tagsList = [];
         for (final spot in collectionSpots) {
           final place = spot['place'] as Map<String, dynamic>?;
           if (place == null) continue;
-          
+
           // 尝试获取 tags
           final dynamic tagsValue = place['tags'];
           if (tagsValue != null) {
@@ -123,7 +130,7 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
               }
             }
           }
-          
+
           // 如果还没有标签，尝试使用 aiTags
           if (tagsList.isEmpty) {
             final dynamic aiTagsValue = place['aiTags'];
@@ -140,24 +147,22 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
               }
             }
           }
-          
+
           // 如果已经收集到足够的标签，可以提前退出
           if (tagsList.length >= 3) break;
         }
-        
+
         // 去重并取前3个
         final uniqueTags = tagsList.toSet().toList();
-        final tags = uniqueTags
-            .take(3)
-            .map((e) => '#$e')
-            .toList();
-        
+        final tags = uniqueTags.take(3).map((e) => '#$e').toList();
+
         final collectionName = collection['name'] as String? ?? 'Collection';
         final coverImage = collection['coverImage'] as String? ??
             (firstSpot?['coverImage'] as String? ??
                 'https://via.placeholder.com/400x600');
-        final count = collectionSpots.length;
-        
+        // 使用 API 返回的 spotCount，如果没有则使用 collectionSpots 数组长度，与首页保持一致
+        final count = collection['spotCount'] as int? ?? collectionSpots.length;
+
         return _TripCard(
           city: city,
           count: count,
@@ -174,8 +179,10 @@ class _RecommendationDetailPageState extends ConsumerState<RecommendationDetailP
                   initialIsFavorited: false,
                   description: collection['description'] as String?,
                   coverImage: collection['coverImage'] as String?,
-                  people: LinkItem.parseList(collection['people'], isPeople: true),
-                  works: LinkItem.parseList(collection['works'], isPeople: false),
+                  people:
+                      LinkItem.parseList(collection['people'], isPeople: true),
+                  works:
+                      LinkItem.parseList(collection['works'], isPeople: false),
                 ),
               ),
             );
@@ -236,7 +243,7 @@ class _TripCardState extends State<_TripCard> {
 
   Future<void> _extractDominantColor() async {
     if (widget.imageUrl.isEmpty) return;
-    
+
     try {
       final ImageProvider imageProvider;
       if (widget.imageUrl.startsWith('data:image/')) {
@@ -244,13 +251,13 @@ class _TripCardState extends State<_TripCard> {
       } else {
         imageProvider = NetworkImage(widget.imageUrl);
       }
-      
+
       final paletteGenerator = await PaletteGenerator.fromImageProvider(
         imageProvider,
         size: const Size(100, 100),
         maximumColorCount: 5,
       );
-      
+
       if (mounted) {
         setState(() {
           _dominantColor = paletteGenerator.dominantColor?.color ??
@@ -294,35 +301,38 @@ class _TripCardState extends State<_TripCard> {
               fit: StackFit.expand,
               children: [
                 // 背景图片
-                if (widget.imageUrl.startsWith('data:image/')) Image.memory(
-                        _decodeBase64Image(widget.imageUrl),
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                        filterQuality: FilterQuality.low,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const ColoredBox(
-                          color: AppTheme.lightGray,
-                          child: Icon(
-                            Icons.image,
-                            size: 50,
-                            color: AppTheme.mediumGray,
-                          ),
-                        ),
-                      ) else Image.network(
-                        widget.imageUrl,
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                        filterQuality: FilterQuality.low,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const ColoredBox(
-                          color: AppTheme.lightGray,
-                          child: Icon(
-                            Icons.image,
-                            size: 50,
-                            color: AppTheme.mediumGray,
-                          ),
-                        ),
+                if (widget.imageUrl.startsWith('data:image/'))
+                  Image.memory(
+                    _decodeBase64Image(widget.imageUrl),
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    filterQuality: FilterQuality.low,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const ColoredBox(
+                      color: AppTheme.lightGray,
+                      child: Icon(
+                        Icons.image,
+                        size: 50,
+                        color: AppTheme.mediumGray,
                       ),
+                    ),
+                  )
+                else
+                  Image.network(
+                    widget.imageUrl,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    filterQuality: FilterQuality.low,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const ColoredBox(
+                      color: AppTheme.lightGray,
+                      child: Icon(
+                        Icons.image,
+                        size: 50,
+                        color: AppTheme.mediumGray,
+                      ),
+                    ),
+                  ),
 
                 // 底部渐变蒙层 - 使用提取的主色
                 Positioned(
@@ -359,32 +369,39 @@ class _TripCardState extends State<_TripCard> {
                       // 顶部标签 - 右侧对齐
                       LayoutBuilder(
                         builder: (context, constraints) {
-                          final textStyle = AppTheme.labelSmall(context).copyWith(
+                          final textStyle =
+                              AppTheme.labelSmall(context).copyWith(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                           );
-                          
+
                           // 计算城市名称需要的宽度
                           final cityTextPainter = TextPainter(
                             text: TextSpan(text: widget.city, style: textStyle),
                             maxLines: 1,
                             textDirection: TextDirection.ltr,
                           )..layout();
-                          
+
                           // 计算地点数量需要的宽度
                           final countTextPainter = TextPainter(
-                            text: TextSpan(text: widget.count.toString(), style: textStyle),
+                            text: TextSpan(
+                                text: widget.count.toString(),
+                                style: textStyle),
                             maxLines: 1,
                             textDirection: TextDirection.ltr,
                           )..layout();
-                          
-                          final cityTagWidth = cityTextPainter.width + 24; // padding 12*2
-                          final countTagWidth = countTextPainter.width + 20 + 12; // padding 10*2 + icon 10 + spacing 2
+
+                          final cityTagWidth =
+                              cityTextPainter.width + 24; // padding 12*2
+                          final countTagWidth = countTextPainter.width +
+                              20 +
+                              12; // padding 10*2 + icon 10 + spacing 2
                           const spacing = 8.0;
-                          final totalNeeded = cityTagWidth + countTagWidth + spacing;
-                          
+                          final totalNeeded =
+                              cityTagWidth + countTagWidth + spacing;
+
                           final showCount = totalNeeded <= constraints.maxWidth;
-                          
+
                           return Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
@@ -404,7 +421,8 @@ class _TripCardState extends State<_TripCard> {
                                     children: [
                                       Text(
                                         widget.count.toString(),
-                                        style: AppTheme.labelSmall(context).copyWith(
+                                        style: AppTheme.labelSmall(context)
+                                            .copyWith(
                                           fontSize: 10,
                                           color: AppTheme.black,
                                           fontWeight: FontWeight.bold,
@@ -434,7 +452,8 @@ class _TripCardState extends State<_TripCard> {
                                   ),
                                   child: Text(
                                     widget.city,
-                                    style: AppTheme.labelSmall(context).copyWith(
+                                    style:
+                                        AppTheme.labelSmall(context).copyWith(
                                       fontSize: 10,
                                       color: AppTheme.black,
                                       fontWeight: FontWeight.bold,
@@ -505,4 +524,3 @@ class _TripCardState extends State<_TripCard> {
     }
   }
 }
-

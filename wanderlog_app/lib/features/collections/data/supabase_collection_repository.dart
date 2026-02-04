@@ -7,16 +7,17 @@ const _filteredTags = {'place', 'landmark'};
 
 /// 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
 /// 过滤掉旧的通用标签（如 "place", "landmark"）
-List<String> _buildDisplayTags(String? category, List<String> parsedTags, List<String> parsedAiTags) {
+List<String> _buildDisplayTags(
+    String? category, List<String> parsedTags, List<String> parsedAiTags) {
   final displayTagsEn = <String>[];
   final seenTags = <String>{};
-  
+
   // 1. 先添加 category
   if (category != null && category.isNotEmpty) {
     displayTagsEn.add(category);
     seenTags.add(category.toLowerCase());
   }
-  
+
   // 2. 添加 tags（过滤掉旧的通用标签）
   for (final tag in parsedTags) {
     if (displayTagsEn.length >= 4) break;
@@ -25,7 +26,7 @@ List<String> _buildDisplayTags(String? category, List<String> parsedTags, List<S
       displayTagsEn.add(tag);
     }
   }
-  
+
   // 3. 添加 aiTags（过滤掉旧的通用标签）
   for (final tag in parsedAiTags) {
     if (displayTagsEn.length >= 4) break;
@@ -34,7 +35,7 @@ List<String> _buildDisplayTags(String? category, List<String> parsedTags, List<S
       displayTagsEn.add(tag);
     }
   }
-  
+
   return displayTagsEn;
 }
 
@@ -79,7 +80,8 @@ class SupabaseCollectionRepository {
   /// 获取合集列表
   /// [includeAll] = true: 返回所有已发布的合集（用于 explore 页面）
   /// [includeAll] = false: 返回当前用户收藏的合集（用于 MyLand 页面）
-  Future<List<Map<String, dynamic>>> listCollections({bool includeAll = false}) async {
+  Future<List<Map<String, dynamic>>> listCollections(
+      {bool includeAll = false}) async {
     if (includeAll) {
       // 返回所有已发布的合集
       final response = await _client
@@ -87,7 +89,7 @@ class SupabaseCollectionRepository {
           .select('*, collection_spots(*, place:places(*))')
           .eq('is_published', true)
           .order('sort_order');
-      
+
       return _convertCollectionsList(response, isFavorited: false);
     } else {
       // 返回当前用户收藏的合集
@@ -96,65 +98,72 @@ class SupabaseCollectionRepository {
         print('📭 No user logged in, returning empty collections');
         return [];
       }
-      
+
       print('📡 Loading favorites for user: $userId');
-      
+
       // 先获取用户收藏的合集 ID
       final favorites = await _client
           .from('user_collection_favorites')
           .select('collection_id')
           .eq('user_id', userId);
-      
+
       if (favorites.isEmpty) {
         print('📭 User has no favorites');
         return [];
       }
-      
-      final collectionIds = favorites.map((f) => f['collection_id'] as String).toList();
+
+      final collectionIds =
+          favorites.map((f) => f['collection_id'] as String).toList();
       print('📦 Found ${collectionIds.length} favorite collection IDs');
-      
+
       // 获取这些合集的详细信息
       final response = await _client
           .from('collections')
           .select('*, collection_spots(*, place:places(*))')
           .inFilter('id', collectionIds)
           .order('sort_order');
-      
+
       // 用户收藏的合集，isFavorited 为 true
       return _convertCollectionsList(response, isFavorited: true);
     }
   }
-  
+
   /// 转换合集列表，添加 spotCount 和转换字段名
-  List<Map<String, dynamic>> _convertCollectionsList(List<dynamic> collections, {bool isFavorited = false}) => collections.map((collection) {
-      final spots = collection['collection_spots'] as List<dynamic>? ?? [];
-      final convertedSpots = spots.map((spot) {
-        final place = spot['place'] as Map<String, dynamic>?;
-        return {
-          'id': spot['id'],
-          'collectionId': spot['collection_id'],
-          'spotId': spot['place_id'],
-          'placeId': spot['place_id'],
-          'city': spot['city'],
-          'sortOrder': spot['sort_order'],
-          'spot': place != null ? _convertPlaceToSpot(place) : null,
-          'place': place != null ? _convertPlaceFields(place) : null,
-        };
-      }).toList();
-      
-      return {
-        'id': collection['id'],
-        'name': collection['name'],
-        'coverImage': collection['cover_image'],
-        'description': collection['description'],
-        'people': collection['people'],
-        'works': collection['works'],
-        'isPublished': collection['is_published'],
-        'isFavorited': isFavorited,
-        'spotCount': spots.length,
-        'collectionSpots': convertedSpots,
-      };
-    }).toList().cast<Map<String, dynamic>>();
+  List<Map<String, dynamic>> _convertCollectionsList(List<dynamic> collections,
+          {bool isFavorited = false}) =>
+      collections
+          .map((collection) {
+            final spots =
+                collection['collection_spots'] as List<dynamic>? ?? [];
+            final convertedSpots = spots.map((spot) {
+              final place = spot['place'] as Map<String, dynamic>?;
+              return {
+                'id': spot['id'],
+                'collectionId': spot['collection_id'],
+                'spotId': spot['place_id'],
+                'placeId': spot['place_id'],
+                'city': spot['city'],
+                'sortOrder': spot['sort_order'],
+                'spot': place != null ? _convertPlaceToSpot(place) : null,
+                'place': place != null ? _convertPlaceFields(place) : null,
+              };
+            }).toList();
+
+            return {
+              'id': collection['id'],
+              'name': collection['name'],
+              'coverImage': collection['cover_image'],
+              'description': collection['description'],
+              'people': collection['people'],
+              'works': collection['works'],
+              'isPublished': collection['is_published'],
+              'isFavorited': isFavorited,
+              'spotCount': spots.length,
+              'collectionSpots': convertedSpots,
+            };
+          })
+          .toList()
+          .cast<Map<String, dynamic>>();
 
   /// 获取单个合集详情（含地点）- 单次查询优化
   Future<Map<String, dynamic>> getCollection(String id) async {
@@ -166,7 +175,7 @@ class SupabaseCollectionRepository {
         .single();
 
     final spots = collection['collection_spots'] as List<dynamic>? ?? [];
-    
+
     // 按 sort_order 排序
     spots.sort((a, b) {
       final aOrder = (a['sort_order'] as num?) ?? 999;
@@ -180,11 +189,11 @@ class SupabaseCollectionRepository {
       return {
         'id': spot['id'],
         'collectionId': spot['collection_id'],
-        'spotId': spot['place_id'],  // 前端期望 spotId
+        'spotId': spot['place_id'], // 前端期望 spotId
         'placeId': spot['place_id'],
         'city': spot['city'],
         'sortOrder': spot['sort_order'],
-        'spot': place != null ? _convertPlaceToSpot(place) : null,  // 前端期望 spot
+        'spot': place != null ? _convertPlaceToSpot(place) : null, // 前端期望 spot
         'place': place != null ? _convertPlaceFields(place) : null,
       };
     }).toList();
@@ -201,6 +210,11 @@ class SupabaseCollectionRepository {
           .maybeSingle();
       isFavorited = favorites != null;
     }
+
+    // Debug: Log people and works data
+    // print('🔍 [getCollection] id: $id');
+    // print('🔍 [getCollection] people raw: ${collection['people']} (type: ${collection['people']?.runtimeType})');
+    // print('🔍 [getCollection] works raw: ${collection['works']} (type: ${collection['works']?.runtimeType})');
 
     return {
       'id': collection['id'],
@@ -221,10 +235,12 @@ class SupabaseCollectionRepository {
     // 封面图 fallback: cover_image -> images[0] -> 空
     String? coverImage = place['cover_image']?.toString();
     final images = place['images'];
-    if ((coverImage == null || coverImage.isEmpty) && images is List && images.isNotEmpty) {
+    if ((coverImage == null || coverImage.isEmpty) &&
+        images is List &&
+        images.isNotEmpty) {
       coverImage = images[0]?.toString();
     }
-    
+
     // 解析 ai_tags - 支持对象数组格式 [{en, zh, kind, id, priority}]
     final rawAiTags = place['ai_tags'] as List?;
     final parsedAiTags = <String>[];
@@ -240,7 +256,7 @@ class SupabaseCollectionRepository {
         }
       }
     }
-    
+
     // 安全解析 tags - 支持 List 和 Map 两种格式
     final List<String> parsedTags = [];
     final rawTags = place['tags'];
@@ -270,13 +286,14 @@ class SupabaseCollectionRepository {
         }
       }
     }
-    
+
     // 获取 category（优先使用 category_en）
-    final category = (place['category_en'] as String?) ?? (place['category'] as String?);
-    
+    final category =
+        (place['category_en'] as String?) ?? (place['category'] as String?);
+
     // 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
     final displayTagsEn = _buildDisplayTags(category, parsedTags, parsedAiTags);
-    
+
     return {
       'id': place['id'],
       'name': place['name'],
@@ -312,11 +329,10 @@ class SupabaseCollectionRepository {
     try {
       print('📡 [Fast] Fetching recommendations from Supabase');
       final startTime = DateTime.now();
-      
+
       // 一次性获取所有需要的数据，包括 spot count
-      final items = await _client
-          .from('collection_recommendation_items')
-          .select('''
+      final items =
+          await _client.from('collection_recommendation_items').select('''
             id,
             recommendation_id,
             collection_id,
@@ -326,15 +342,17 @@ class SupabaseCollectionRepository {
               name,
               description,
               cover_image,
+              people,
+              works,
               is_published,
               created_at,
               updated_at,
               collection_spots(count)
             )
-          ''')
-          .order('sort_order', ascending: true);
+          ''').order('sort_order', ascending: true);
 
-      print('📦 Loaded ${items.length} recommendation items in ${DateTime.now().difference(startTime).inMilliseconds}ms');
+      print(
+          '📦 Loaded ${items.length} recommendation items in ${DateTime.now().difference(startTime).inMilliseconds}ms');
 
       // 获取推荐组信息
       final recommendations = await _client
@@ -350,7 +368,7 @@ class SupabaseCollectionRepository {
       for (final item in items) {
         final recId = item['recommendation_id'] as String;
         final collection = item['collection'] as Map<String, dynamic>?;
-        
+
         // 只包含已发布的合集
         if (collection != null && collection['is_published'] == true) {
           groupedItems.putIfAbsent(recId, () => []).add(item);
@@ -362,7 +380,7 @@ class SupabaseCollectionRepository {
       for (final rec in recommendations) {
         final recId = rec['id'] as String;
         final recItems = groupedItems[recId] ?? [];
-        
+
         if (recItems.isNotEmpty) {
           result.add({
             'id': recId,
@@ -371,11 +389,12 @@ class SupabaseCollectionRepository {
             'items': recItems.map((item) {
               final collection = item['collection'] as Map<String, dynamic>;
               // 获取 spot count
-              final collectionSpots = collection['collection_spots'] as List<dynamic>?;
-              final spotCount = collectionSpots?.isNotEmpty == true 
+              final collectionSpots =
+                  collection['collection_spots'] as List<dynamic>?;
+              final spotCount = collectionSpots?.isNotEmpty == true
                   ? (collectionSpots!.first['count'] as int?) ?? 0
                   : 0;
-              
+
               return {
                 'id': item['id'],
                 'collection': {
@@ -383,6 +402,8 @@ class SupabaseCollectionRepository {
                   'name': collection['name'],
                   'description': collection['description'],
                   'coverImage': collection['cover_image'],
+                  'people': collection['people'],
+                  'works': collection['works'],
                   'isPublished': collection['is_published'],
                   'createdAt': collection['created_at'],
                   'updatedAt': collection['updated_at'],
@@ -395,7 +416,8 @@ class SupabaseCollectionRepository {
       }
 
       final totalTime = DateTime.now().difference(startTime).inMilliseconds;
-      print('✅ [Fast] Returning ${result.length} recommendations in ${totalTime}ms');
+      print(
+          '✅ [Fast] Returning ${result.length} recommendations in ${totalTime}ms');
       return result;
     } catch (e, stackTrace) {
       print('❌ Error in listRecommendations: $e');
@@ -405,11 +427,13 @@ class SupabaseCollectionRepository {
   }
 
   /// 转换 collection 字段名从 snake_case 到 camelCase
-  Map<String, dynamic> _convertCollectionFields(Map<String, dynamic> collection) {
+  Map<String, dynamic> _convertCollectionFields(
+      Map<String, dynamic> collection) {
     try {
       final spots = collection['collectionSpots'] as List<dynamic>? ?? [];
-      print('🔄 Converting collection ${collection['id']}, spots count: ${spots.length}');
-      
+      print(
+          '🔄 Converting collection ${collection['id']}, spots count: ${spots.length}');
+
       final convertedSpots = spots.map((spot) {
         try {
           final spotMap = spot as Map<String, dynamic>;
@@ -418,12 +442,12 @@ class SupabaseCollectionRepository {
             print('⚠️ Spot ${spotMap['id']} has no place data');
             return spotMap;
           }
-          
+
           return <String, dynamic>{
             ...spotMap,
             'place': _convertPlaceFields(place),
-            'spot': _convertPlaceToSpot(place),  // 添加 spot 字段
-            'spotId': spotMap['place_id'],  // 添加 spotId 字段
+            'spot': _convertPlaceToSpot(place), // 添加 spot 字段
+            'spotId': spotMap['place_id'], // 添加 spotId 字段
           };
         } catch (e) {
           print('⚠️ Error converting spot: $e');
@@ -456,10 +480,12 @@ class SupabaseCollectionRepository {
     // 封面图 fallback: cover_image -> images[0] -> 空
     String? coverImage = place['cover_image']?.toString();
     final images = place['images'];
-    if ((coverImage == null || coverImage.isEmpty) && images is List && images.isNotEmpty) {
+    if ((coverImage == null || coverImage.isEmpty) &&
+        images is List &&
+        images.isNotEmpty) {
       coverImage = images[0]?.toString();
     }
-    
+
     // 解析 ai_tags - 支持对象数组格式 [{en, zh, kind, id, priority}]
     final rawAiTags = place['ai_tags'] as List?;
     final parsedAiTags = <String>[];
@@ -475,7 +501,7 @@ class SupabaseCollectionRepository {
         }
       }
     }
-    
+
     // 安全解析 tags - 支持 List 和 Map 两种格式
     final List<String> parsedTags = [];
     final rawTags = place['tags'];
@@ -505,13 +531,14 @@ class SupabaseCollectionRepository {
         }
       }
     }
-    
+
     // 获取 category（优先使用 category_en）
-    final category = (place['category_en'] as String?) ?? (place['category'] as String?);
-    
+    final category =
+        (place['category_en'] as String?) ?? (place['category'] as String?);
+
     // 生成 displayTagsEn: category + tags + aiTags，取前 4 个，去重
     final displayTagsEn = _buildDisplayTags(category, parsedTags, parsedAiTags);
-    
+
     return {
       'id': place['id'],
       'name': place['name'],
@@ -548,7 +575,8 @@ class SupabaseCollectionRepository {
     // 获取关联的合集，包含 collectionSpots 和 place 信息
     final items = await _client
         .from('collection_recommendation_items')
-        .select('*, collection:collections(*, collectionSpots:collection_spots(*, place:places(*)))')
+        .select(
+            '*, collection:collections(*, collectionSpots:collection_spots(*, place:places(*)))')
         .eq('recommendation_id', id)
         .order('sort_order', ascending: true);
 
@@ -556,17 +584,16 @@ class SupabaseCollectionRepository {
     final filteredItems = items
         .where((item) => item['collection']?['is_published'] == true)
         .map((item) {
-          final collection = item['collection'] as Map<String, dynamic>?;
-          if (collection == null) return item;
-          
-          // 转换 collection 字段名
-          final convertedCollection = _convertCollectionFields(collection);
-          return {
-            ...item,
-            'collection': convertedCollection,
-          };
-        })
-        .toList();
+      final collection = item['collection'] as Map<String, dynamic>?;
+      if (collection == null) return item;
+
+      // 转换 collection 字段名
+      final convertedCollection = _convertCollectionFields(collection);
+      return {
+        ...item,
+        'collection': convertedCollection,
+      };
+    }).toList();
 
     return {
       'id': rec['id'],
@@ -601,22 +628,25 @@ class SupabaseCollectionRepository {
 
   /// 获取地点关联的合集列表（只返回已发布的合集）
   /// 用于在地点详情页显示合集入口，同时预加载合集详情数据
-  Future<List<Map<String, dynamic>>> getCollectionsForPlace(String placeId) async {
+  Future<List<Map<String, dynamic>>> getCollectionsForPlace(
+      String placeId) async {
     // 验证 placeId 是有效的 UUID 格式
     final uuidRegex = RegExp(
       r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
       caseSensitive: false,
     );
     if (!uuidRegex.hasMatch(placeId)) {
-      print('⚠️ [getCollectionsForPlace] Invalid UUID format, skipping: $placeId');
+      print(
+          '⚠️ [getCollectionsForPlace] Invalid UUID format, skipping: $placeId');
       return [];
     }
-    
+
     try {
       // 查询 collection_spots 表，获取包含该地点的所有合集，同时获取合集的完整信息
       final response = await _client
           .from('collection_spots')
-          .select('collection:collections(id, name, cover_image, description, people, works, is_published, collection_spots(*, place:places(*)))')
+          .select(
+              'collection:collections(id, name, cover_image, description, people, works, is_published, collection_spots(*, place:places(*)))')
           .eq('place_id', placeId);
 
       // 获取当前用户的收藏状态
@@ -627,7 +657,8 @@ class SupabaseCollectionRepository {
             .from('user_collection_favorites')
             .select('collection_id')
             .eq('user_id', userId);
-        favoritedIds = favorites.map((f) => f['collection_id'] as String).toSet();
+        favoritedIds =
+            favorites.map((f) => f['collection_id'] as String).toSet();
       }
 
       // 过滤出已发布的合集并转换格式
@@ -636,7 +667,7 @@ class SupabaseCollectionRepository {
         final collection = item['collection'] as Map<String, dynamic>?;
         if (collection != null && collection['is_published'] == true) {
           final collectionId = collection['id'] as String;
-          
+
           // 转换 spots 数据
           final spots = collection['collection_spots'] as List<dynamic>? ?? [];
           final convertedSpots = spots.map((spot) {

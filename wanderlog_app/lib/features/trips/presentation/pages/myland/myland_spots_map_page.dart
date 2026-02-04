@@ -525,7 +525,9 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
                 .getCollectionsForPlace(spot.id)
                 .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
             if (collections.isNotEmpty) {
-              linkedCollection = collections[math.Random().nextInt(collections.length)];
+              // 随机选择一个合集展示
+              final random = math.Random();
+              linkedCollection = collections[random.nextInt(collections.length)] as Map<String, dynamic>;
             }
           }
         } catch (e) {
@@ -562,6 +564,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => UnifiedSpotDetailModal(
         spot: spot,
+        linkedCollection: linkedCollection,
         initialIsSaved: isSaved,
         initialIsMustGo: isMustGo,
         initialIsTodaysPlan: isTodaysPlan,
@@ -571,7 +574,6 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         initialUserNotes: userNotes,
         initialUserPhotos: userPhotos,
         initialDestinationId: destinationId,
-        // linkedCollection 不再预加载，由详情页自己异步加载
       ),
     ).then((hasChanged) {
       // Only refresh if status actually changed

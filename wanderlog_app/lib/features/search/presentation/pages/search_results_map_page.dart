@@ -494,6 +494,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
               .getCollectionsForPlace(spot.id)
               .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
           if (collections.isNotEmpty) {
+            // 随机选择一个合集展示
             final random = math.Random();
             return collections[random.nextInt(collections.length)];
           }

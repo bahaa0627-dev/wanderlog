@@ -1316,7 +1316,9 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
                 .getCollectionsForPlace(spot.id)
                 .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
             if (collections.isNotEmpty) {
-              linkedCollection = collections[math.Random().nextInt(collections.length)];
+              // 随机选择一个合集展示
+              final random = math.Random();
+              linkedCollection = collections[random.nextInt(collections.length)] as Map<String, dynamic>;
             }
           }
         } catch (e) {

@@ -27,6 +27,7 @@ import 'package:wanderlog/features/map/data/models/public_place_dto.dart'
     show PlaceCustomFields;
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/core/providers/locale_provider.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
@@ -34,6 +35,7 @@ import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
+import 'dart:math' as math;
 import 'package:wanderlog/shared/models/trip_spot_model.dart'
     show TripSpot, TripSpotStatus;
 
@@ -828,8 +830,9 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               final collectionRepo = ref.read(collectionRepositoryProvider);
               final collections = await collectionRepo
                   .getCollectionsForPlace(spotId)
-                  .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
+                  .timeout(const Duration(milliseconds: 1200), onTimeout: () => <Map<String, dynamic>>[]);
               if (collections.isNotEmpty) {
+                // 随机选择一个合集展示
                 final random = math.Random();
                 linkedCollection = collections[random.nextInt(collections.length)];
               }
@@ -5140,6 +5143,9 @@ class _PlaceDetailLoaderState extends ConsumerState<_PlaceDetailLoader> {
   Spot? _spot;
   String? _error;
 
+  // Linked collection (preloaded)
+  Map<String, dynamic>? _linkedCollection;
+
   // User status fields
   bool? _initialIsSaved;
   bool? _initialIsMustGo;
@@ -5272,6 +5278,26 @@ class _PlaceDetailLoaderState extends ConsumerState<_PlaceDetailLoader> {
         _initialUserNotes = fullStatus?.userNotes;
         _initialUserPhotos = fullStatus?.userPhotos;
         _initialDestinationId = fullStatus?.destinationId;
+      }
+
+      // 加载关联的合集数据（预加载，避免详情页闪现）
+      try {
+        final uuidRegex = RegExp(
+          r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+          caseSensitive: false,
+        );
+        if (uuidRegex.hasMatch(tempSpot.id)) {
+          final collectionRepo = ref.read(collectionRepositoryProvider);
+          final collections = await collectionRepo
+              .getCollectionsForPlace(tempSpot.id)
+              .timeout(const Duration(milliseconds: 1200), onTimeout: () => <Map<String, dynamic>>[]);
+          if (collections.isNotEmpty) {
+            final random = math.Random();
+            _linkedCollection = collections[random.nextInt(collections.length)];
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ [PlaceDetailLoader] Error loading linked collection: $e');
       }
 
       if (!mounted) return;

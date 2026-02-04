@@ -1369,10 +1369,8 @@ class _UnifiedSpotDetailModalState
         if (collections.isNotEmpty) {
           // 随机选择一个合集展示
           final random = math.Random();
-          final selectedCollection =
-              collections[random.nextInt(collections.length)];
           setState(() {
-            _linkedCollection = selectedCollection;
+            _linkedCollection = collections[random.nextInt(collections.length)];
             _isCollectionLoaded = true;
           });
         } else {

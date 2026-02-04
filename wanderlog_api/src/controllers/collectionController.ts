@@ -241,14 +241,18 @@ class CollectionController {
         });
       }
 
+      // 处理 people 和 works - 统一使用 JSON 字符串格式存储（与 update 方法保持一致）
+      const normalizedPeople = people !== undefined && people !== null ? JSON.stringify(people) : null;
+      const normalizedWorks = works !== undefined && works !== null ? JSON.stringify(works) : null;
+
       // 使用 Prisma ORM 创建合集
       const collection = await prisma.collection.create({
         data: {
           name,
           coverImage,
           description: description || null,
-          people: people || null,
-          works: works || null,
+          people: normalizedPeople,
+          works: normalizedWorks,
           isPublished: false,
           collectionSpots: {
             create: places.map((place) => ({

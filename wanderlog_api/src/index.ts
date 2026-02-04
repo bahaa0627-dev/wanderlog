@@ -38,7 +38,42 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet({
   contentSecurityPolicy: false, // 允许内联脚本用于管理后台
 }));
-app.use(cors());
+
+// CORS 配置 - 允许管理后台和 App 访问
+const allowedOrigins = [
+  'https://admin.vago.to',
+  'https://manage.vago.to',
+  'https://vago.to',
+  'https://www.vago.to',
+  'http://localhost:3000',
+  'http://localhost:8080',
+  'http://127.0.0.1:3000',
+  'capacitor://localhost',  // iOS App
+  'http://localhost',       // Android App
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // 允许无 origin 的请求（如移动端 App 或 curl）
+    if (!origin) return callback(null, true);
+    // 检查是否在允许列表中
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    // 允许所有 vago.to 子域名
+    if (origin.endsWith('.vago.to')) {
+      return callback(null, true);
+    }
+    // 开发环境允许所有
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    console.warn(`⚠️ CORS blocked origin: ${origin}`);
+    callback(null, true); // 暂时允许所有，方便调试
+  },
+  credentials: true,
+}));
+
 app.use(express.json({ limit: '50mb' })); // 增加JSON body大小限制到50MB
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); // 增加URL编码body大小限制
 

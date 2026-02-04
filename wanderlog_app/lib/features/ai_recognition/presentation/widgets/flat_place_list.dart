@@ -848,7 +848,7 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
                         ),
                       ),
                     ),
-                    // 右上角收藏按钮 - 收藏后黄底黑桃心
+                    // 右上角收藏按钮 - 收藏后黄底红桃心
                     Positioned(
                       top: 8,
                       right: 8,
@@ -864,6 +864,13 @@ class _FlatPlaceCardState extends ConsumerState<FlatPlaceCard> {
                             shape: BoxShape.circle,
                             border:
                                 Border.all(color: AppTheme.black, width: 1.5),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: AppTheme.black,
+                                offset: Offset(0, 1),
+                                blurRadius: 0,
+                              ),
+                            ],
                           ),
                           child: _isSaving
                               ? const Padding(

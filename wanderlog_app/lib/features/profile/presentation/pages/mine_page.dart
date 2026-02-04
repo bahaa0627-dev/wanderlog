@@ -23,6 +23,7 @@ import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
+import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 
 /// Mine page - displays user's visited places and check-in photos
 class MinePage extends ConsumerStatefulWidget {
@@ -35,7 +36,7 @@ class MinePage extends ConsumerStatefulWidget {
 class _MinePageState extends ConsumerState<MinePage> {
   final ScrollController _scrollController = ScrollController();
 
-  void _openSpotDetailFromMineData(map_page.Spot spot, MinePageData data) {
+  Future<void> _openSpotDetailFromMineData(map_page.Spot spot, MinePageData data) async {
     TripSpot? ts;
     for (final item in data.visitedSpots) {
       if (item.spot?.id == spot.id) {
@@ -67,12 +68,35 @@ class _MinePageState extends ConsumerState<MinePage> {
       userPhotos: userPhotos,
     );
 
+    // 预加载合集数据（避免详情页闪现）
+    Map<String, dynamic>? linkedCollection;
+    try {
+      final uuidRegex = RegExp(
+        r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+        caseSensitive: false,
+      );
+      if (uuidRegex.hasMatch(spot.id)) {
+        final collectionRepo = ref.read(collectionRepositoryProvider);
+        final collections = await collectionRepo
+            .getCollectionsForPlace(spot.id)
+            .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
+        if (collections.isNotEmpty) {
+          linkedCollection = collections[math.Random().nextInt(collections.length)];
+        }
+      }
+    } catch (e) {
+      print('⚠️ [MinePage] Error loading linked collection: $e');
+    }
+
+    if (!mounted) return;
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => UnifiedSpotDetailModal(
         spot: spot,
+        linkedCollection: linkedCollection,
         initialIsSaved: isSaved,
         initialIsMustGo: isMustGo,
         initialIsTodaysPlan: isTodaysPlan,
@@ -1212,6 +1236,7 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
     String? userNotes;
     List<String>? userPhotos;
     String? destinationId;
+    Map<String, dynamic>? linkedCollection;
 
     try {
       final authState = ref.read(authProvider);
@@ -1279,6 +1304,25 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
           userPhotos: userPhotos,
         );
 
+        // 预加载合集数据（避免详情页闪现）
+        try {
+          final uuidRegex = RegExp(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+            caseSensitive: false,
+          );
+          if (uuidRegex.hasMatch(spot.id)) {
+            final collectionRepo = ref.read(collectionRepositoryProvider);
+            final collections = await collectionRepo
+                .getCollectionsForPlace(spot.id)
+                .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
+            if (collections.isNotEmpty) {
+              linkedCollection = collections[math.Random().nextInt(collections.length)];
+            }
+          }
+        } catch (e) {
+          print('⚠️ [mine_page.dart] Error loading linked collection: $e');
+        }
+
         // 关闭loading dialog
         if (mounted && Navigator.canPop(context)) {
           Navigator.pop(context);
@@ -1341,6 +1385,7 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
       backgroundColor: Colors.transparent,
       builder: (context) => UnifiedSpotDetailModal(
         spot: spot,
+        linkedCollection: linkedCollection,
         initialIsSaved: isSaved,
         initialIsMustGo: isMustGo,
         initialIsTodaysPlan: isTodaysPlan,

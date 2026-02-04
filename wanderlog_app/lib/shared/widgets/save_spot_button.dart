@@ -6,13 +6,21 @@ typedef SaveSpotCallback = Future<bool> Function();
 typedef ToggleOptionCallback = Future<bool> Function(bool isChecked);
 
 /// Neo Brutalism save button with MustGo/Today's Plan options
-/// 
+///
 /// Always shows all buttons directly without animation:
 /// - Left: Save/Unsave heart button
 /// - Right: MustGo and Today's Plan checkboxes
 class SaveSpotButton extends StatefulWidget {
   const SaveSpotButton({
-    required this.isSaved, required this.isMustGo, required this.isTodaysPlan, required this.onSave, required this.onUnsave, required this.onToggleMustGo, required this.onToggleTodaysPlan, this.isClosed = false, super.key,
+    required this.isSaved,
+    required this.isMustGo,
+    required this.isTodaysPlan,
+    required this.onSave,
+    required this.onUnsave,
+    required this.onToggleMustGo,
+    required this.onToggleTodaysPlan,
+    this.isClosed = false,
+    super.key,
   });
 
   final bool isSaved;
@@ -22,6 +30,7 @@ class SaveSpotButton extends StatefulWidget {
   final SaveSpotCallback onUnsave;
   final ToggleOptionCallback onToggleMustGo;
   final ToggleOptionCallback onToggleTodaysPlan;
+
   /// 地点是否关门 - 关门时 MustGo/Today's Plan 显示置灰样式
   final bool isClosed;
 
@@ -51,83 +60,83 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
 
   @override
   Widget build(BuildContext context) => Row(
-      children: [
-        // Left: Save/Unsave circle button
-        _buildSaveCircleButton(),
-        const SizedBox(width: 12),
-        // Right: Options panel with MustGo and Today's Plan
-        Expanded(child: _buildOptionsPanel()),
-      ],
-    );
+        children: [
+          // Left: Save/Unsave circle button
+          _buildSaveCircleButton(),
+          const SizedBox(width: 12),
+          // Right: Options panel with MustGo and Today's Plan
+          Expanded(child: _buildOptionsPanel()),
+        ],
+      );
 
   Widget _buildSaveCircleButton() => GestureDetector(
-      onTap: _handleSaveTap,
-      child: Container(
-        width: 48,
+        onTap: _handleSaveTap,
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppTheme.primaryYellow,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppTheme.black,
+              width: 2,
+            ),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Icon(
+            widget.isSaved ? Icons.favorite : Icons.favorite_border,
+            color: AppTheme.black,
+            size: 24,
+          ),
+        ),
+      );
+
+  Widget _buildOptionsPanel() => Container(
         height: 48,
         decoration: BoxDecoration(
-          color: AppTheme.primaryYellow,
-          shape: BoxShape.circle,
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
           border: Border.all(
             color: AppTheme.black,
             width: 2,
           ),
           boxShadow: AppTheme.cardShadow,
         ),
-        child: Icon(
-          widget.isSaved ? Icons.favorite : Icons.favorite_border,
-          color: AppTheme.white,
-          size: 24,
-        ),
-      ),
-    );
-
-  Widget _buildOptionsPanel() => Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-        border: Border.all(
-          color: AppTheme.black,
-          width: 2,
-        ),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Row(
-        children: [
-          // MustGo checkbox
-          Expanded(
-            child: _OptionCheckbox(
-              label: 'MustGo',
-              icon: Icons.star,
-              isChecked: widget.isMustGo,
-              isEnabled: widget.isSaved,
-              isClosed: widget.isClosed,
-              activeColor: AppTheme.primaryYellow,
-              onTap: widget.isSaved ? _handleMustGoToggle : null,
+        child: Row(
+          children: [
+            // MustGo checkbox
+            Expanded(
+              child: _OptionCheckbox(
+                label: 'MustGo',
+                icon: Icons.star,
+                isChecked: widget.isMustGo,
+                isEnabled: widget.isSaved,
+                isClosed: widget.isClosed,
+                activeColor: AppTheme.primaryYellow,
+                onTap: widget.isSaved ? _handleMustGoToggle : null,
+              ),
             ),
-          ),
-          // Divider
-          Container(
-            width: 2,
-            height: 28,
-            color: AppTheme.black,
-          ),
-          // Today's Plan checkbox
-          Expanded(
-            child: _OptionCheckbox(
-              label: "Today's Plan",
-              icon: Icons.today,
-              isChecked: widget.isTodaysPlan,
-              isEnabled: widget.isSaved,
-              isClosed: widget.isClosed,
-              activeColor: AppTheme.accentBlue,
-              onTap: widget.isSaved ? _handleTodaysPlanToggle : null,
+            // Divider
+            Container(
+              width: 2,
+              height: 28,
+              color: AppTheme.black,
             ),
-          ),
-        ],
-      ),
-    );
+            // Today's Plan checkbox
+            Expanded(
+              child: _OptionCheckbox(
+                label: "Today's Plan",
+                icon: Icons.today,
+                isChecked: widget.isTodaysPlan,
+                isEnabled: widget.isSaved,
+                isClosed: widget.isClosed,
+                activeColor: AppTheme.accentBlue,
+                onTap: widget.isSaved ? _handleTodaysPlanToggle : null,
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _OptionCheckbox extends StatelessWidget {
@@ -147,17 +156,18 @@ class _OptionCheckbox extends StatelessWidget {
   final bool isEnabled;
   final Color activeColor;
   final VoidCallback? onTap;
+
   /// 地点是否关门 - 关门时显示置灰样式
   final bool isClosed;
 
   @override
   Widget build(BuildContext context) {
     final effectiveOpacity = isEnabled ? 1.0 : 0.4;
-    
+
     // 关门时的颜色：未选中浅灰，选中深灰
     final Color closedUncheckedColor = Colors.grey.shade300;
     final Color closedCheckedColor = Colors.grey.shade400;
-    
+
     // 确定 checkbox 的背景色
     Color checkboxColor;
     if (isClosed) {
@@ -165,16 +175,16 @@ class _OptionCheckbox extends StatelessWidget {
     } else {
       checkboxColor = isChecked ? activeColor : Colors.transparent;
     }
-    
+
     // 确定边框颜色
     final Color borderColor = isClosed ? Colors.grey.shade500 : AppTheme.black;
-    
+
     // 确定文字颜色
     final Color textColor = isClosed ? Colors.grey.shade500 : AppTheme.black;
-    
+
     // 确定勾选图标颜色
     final Color checkColor = isClosed ? Colors.grey.shade600 : AppTheme.black;
-    
+
     return GestureDetector(
       onTap: isEnabled ? onTap : null,
       behavior: HitTestBehavior.opaque,

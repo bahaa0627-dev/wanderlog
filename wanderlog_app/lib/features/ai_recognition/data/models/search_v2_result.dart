@@ -897,6 +897,7 @@ class PlaceResult {
     String? website,
     String? openingHours,
     String? ticketUrl,
+    Map<String, dynamic>? customFields,
   }) =>
       PlaceResult(
         id: id ?? this.id,
@@ -922,6 +923,7 @@ class PlaceResult {
         website: website ?? this.website,
         openingHours: openingHours ?? this.openingHours,
         ticketUrl: ticketUrl ?? this.ticketUrl,
+        customFields: customFields ?? this.customFields,
       );
 }
 

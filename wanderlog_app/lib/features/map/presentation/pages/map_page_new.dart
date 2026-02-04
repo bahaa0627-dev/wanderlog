@@ -27,6 +27,7 @@ import 'package:wanderlog/shared/widgets/unified_spot_detail_modal.dart';
 import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/features/ai_recognition/presentation/pages/ai_assistant_page.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
+import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/shared/models/trip_model.dart';
 import 'package:wanderlog/shared/models/trip_spot_model.dart';
 
@@ -1531,6 +1532,9 @@ class _MapPageState extends ConsumerState<MapPage> {
     String? initialUserNotes;
     List<String>? initialUserPhotos;
 
+    // 预加载关联合集
+    Map<String, dynamic>? linkedCollection;
+
     if (authState.isAuthenticated) {
       print(
           '🗺️ [MapPageNew] User authenticated, loading full status from server...');
@@ -1641,6 +1645,25 @@ class _MapPageState extends ConsumerState<MapPage> {
           userPhotos: initialUserPhotos,
         );
 
+        // 预加载合集数据（避免详情页闪现）
+        try {
+          final uuidRegex = RegExp(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+            caseSensitive: false,
+          );
+          if (uuidRegex.hasMatch(spot.id)) {
+            final collectionRepo = ref.read(collectionRepositoryProvider);
+            final collections = await collectionRepo
+                .getCollectionsForPlace(spot.id)
+                .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
+            if (collections.isNotEmpty) {
+              linkedCollection = collections[math.Random().nextInt(collections.length)];
+            }
+          }
+        } catch (e) {
+          print('⚠️ [MapPageNew] Error loading linked collection: $e');
+        }
+
         // 关闭loading dialog
         if (mounted && Navigator.canPop(context)) {
           Navigator.pop(context);
@@ -1691,6 +1714,25 @@ class _MapPageState extends ConsumerState<MapPage> {
     } else {
       // 未登录用户显示默认状态
       initialIsSaved = false;
+
+      // 未登录用户也预加载合集数据（避免详情页闪现）
+      try {
+        final uuidRegex = RegExp(
+          r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+          caseSensitive: false,
+        );
+        if (uuidRegex.hasMatch(spot.id)) {
+          final collectionRepo = ref.read(collectionRepositoryProvider);
+          final collections = await collectionRepo
+              .getCollectionsForPlace(spot.id)
+              .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
+          if (collections.isNotEmpty) {
+            linkedCollection = collections[math.Random().nextInt(collections.length)];
+          }
+        }
+      } catch (e) {
+        print('⚠️ [MapPageNew] Error loading linked collection (unauthenticated): $e');
+      }
     }
 
     if (!mounted) return;
@@ -1704,6 +1746,7 @@ class _MapPageState extends ConsumerState<MapPage> {
       backgroundColor: Colors.transparent,
       builder: (context) => UnifiedSpotDetailModal(
         spot: spot,
+        linkedCollection: linkedCollection,
         initialIsSaved: initialIsSaved,
         initialIsMustGo: initialIsMustGo,
         initialIsTodaysPlan: initialIsTodaysPlan,

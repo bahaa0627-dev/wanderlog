@@ -696,13 +696,15 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
         ).hasMatch(placeId);
 
-    // 检查是否需要从后端获取详情（有 ID 但缺少详情字段）
+    // 检查是否需要从后端获取详情（有 ID 但缺少详情字段或缺少 customFields）
     // 注意：AI 生成的 placeId（ai_xxx）不是数据库 UUID，后端通常无法按 ID 返回详情。
+    // 当 customFields 缺失时也需要获取，以确保剧照等数据能正确显示
     final needsFetch = isUuid &&
         !isAiGeneratedPlace &&
-        place.address == null &&
-        place.phoneNumber == null &&
-        place.website == null;
+        (place.customFields == null ||
+            (place.address == null &&
+                place.phoneNumber == null &&
+                place.website == null));
 
     if (needsFetch) {
       debugPrint(
@@ -733,6 +735,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       String? initialUserNotes;
       List<String>? initialUserPhotos;
       String? initialDestinationId;
+      Map<String, dynamic>? linkedCollection;
 
       try {
         final authState = ref.read(authProvider);
@@ -815,6 +818,26 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             userPhotos: initialUserPhotos,
           );
 
+          // 预加载合集数据（避免详情页闪现）
+          try {
+            final uuidRegex = RegExp(
+              r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+              caseSensitive: false,
+            );
+            if (uuidRegex.hasMatch(spotId)) {
+              final collectionRepo = ref.read(collectionRepositoryProvider);
+              final collections = await collectionRepo
+                  .getCollectionsForPlace(spotId)
+                  .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
+              if (collections.isNotEmpty) {
+                final random = math.Random();
+                linkedCollection = collections[random.nextInt(collections.length)];
+              }
+            }
+          } catch (e) {
+            debugPrint('⚠️ [AIAssistant] Error loading linked collection: $e');
+          }
+
           // 关闭loading dialog
           if (mounted && Navigator.canPop(context)) {
             Navigator.pop(context);
@@ -849,6 +872,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         builder: (context) => UnifiedSpotDetailModal(
           spot: spot,
           keepOpenOnAction: true,
+          linkedCollection: linkedCollection,
           initialIsSaved: initialIsSaved,
           initialIsMustGo: initialIsMustGo,
           initialIsTodaysPlan: initialIsTodaysPlan,
@@ -3153,17 +3177,21 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
 
     // 🆕 收集编号列表中的地点名匹配（用于 regular_travel 城市推荐场景）
     // 匹配格式：N.PlaceName - description 或 N. PlaceName - description
+    // 也支持：N. **PlaceName** - description (带 bold 标记)
     // 例如："1.罗马斗兽场 - 古罗马时期的重要竞技场"
     if (places != null && places.isNotEmpty) {
       // 编号列表地点名正则：匹配 "数字.地点名" 或 "数字. 地点名" 格式
       // 地点名可以是中文、英文或混合，以 " - " 或 "–" 或行尾结束
+      // 也支持 **bold** 格式
       final numberedPlaceRegex = RegExp(
-        r'(\d+)\.\s*([^\-–\n]+?)(?:\s*[\-–]|$)',
+        r'(\d+)\.\s*\*{0,2}([^*\-–\n]+?)\*{0,2}(?:\s*[\-–]|$)',
         multiLine: true,
       );
 
       for (final match in numberedPlaceRegex.allMatches(text)) {
-        final placeName = match.group(2)?.trim() ?? '';
+        String placeName = match.group(2)?.trim() ?? '';
+        // 移除任何残留的 ** 标记
+        placeName = placeName.replaceAll(RegExp(r'\*+'), '').trim();
         if (placeName.isEmpty || placeName.length > 50) continue;
 
         // 检查这个地点名是否能匹配到 places 列表中的地点
@@ -3171,14 +3199,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
             _findPlaceWithMapping(placeName, places, nameMapping);
         if (matchedPlace != null) {
           // 计算地点名在原文中的位置（排除编号部分）
-          final numberPart = '${match.group(1)}.';
-          final placeNameStart = match.start + numberPart.length;
-          // 跳过可能的空格
-          int actualStart = placeNameStart;
-          while (actualStart < text.length && text[actualStart] == ' ') {
-            actualStart++;
-          }
-          final placeNameEnd = actualStart + placeName.length;
+          final fullMatch = match.group(0) ?? '';
+          final placeNameInText = match.group(2)?.trim() ?? placeName;
+          // 找到地点名在完整匹配中的位置
+          final placeNameOffset = fullMatch.indexOf(placeNameInText);
+          final actualStart =
+              match.start + (placeNameOffset >= 0 ? placeNameOffset : 2);
+          final placeNameEnd = actualStart + placeNameInText.length;
 
           // 检查是否与已有匹配重叠
           final overlaps = allMatches.any(
@@ -3194,7 +3221,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                 start: actualStart,
                 end: placeNameEnd,
                 type: 'numbered_place',
-                text: placeName,
+                text: placeNameInText,
                 place: matchedPlace,
               ),
             );
@@ -5065,11 +5092,20 @@ class _SpotCardOverlayState extends ConsumerState<_SpotCardOverlay> {
                             : Colors.white,
                         shape: BoxShape.circle,
                         border: Border.all(color: AppTheme.black, width: 2),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: AppTheme.black,
+                            offset: Offset(0, 1),
+                            blurRadius: 0,
+                          ),
+                        ],
                       ),
                       child: Icon(
                         _isInWishlist ? Icons.favorite : Icons.favorite_border,
                         size: 18,
-                        color: AppTheme.black,
+                        color: _isInWishlist
+                            ? const Color(0xFFFF6264)
+                            : AppTheme.black,
                       ),
                     ),
                   ),
@@ -5153,6 +5189,7 @@ class _PlaceDetailLoaderState extends ConsumerState<_PlaceDetailLoader> {
                 : data['openingHours'] != null
                     ? jsonEncode(data['openingHours'])
                     : null,
+            customFields: data['customFields'] as Map<String, dynamic>?,
           );
 
           tempSpot = widget.placeResultToSpot(enrichedPlace);
@@ -5292,6 +5329,7 @@ class _PlaceDetailLoaderState extends ConsumerState<_PlaceDetailLoader> {
     return UnifiedSpotDetailModal(
       spot: _spot!,
       keepOpenOnAction: true,
+      linkedCollection: _linkedCollection,
       initialIsSaved: _initialIsSaved,
       initialIsMustGo: _initialIsMustGo,
       initialIsTodaysPlan: _initialIsTodaysPlan,
@@ -5994,6 +6032,13 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                                 : Colors.white,
                             shape: BoxShape.circle,
                             border: Border.all(color: AppTheme.black, width: 2),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: AppTheme.black,
+                                offset: Offset(0, 1),
+                                blurRadius: 0,
+                              ),
+                            ],
                           ),
                           child: _isSaving
                               ? const Padding(
@@ -6009,7 +6054,9 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
                                       ? Icons.favorite
                                       : Icons.favorite_border,
                                   size: 20,
-                                  color: AppTheme.black,
+                                  color: _isInWishlist
+                                      ? const Color(0xFFFF6264)
+                                      : AppTheme.black,
                                 ),
                         ),
                       ),
@@ -6449,13 +6496,20 @@ class _CompactSaveButtonState extends ConsumerState<_CompactSaveButton> {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _isInWishlist ? AppTheme.primaryYellow : Colors.white,
           shape: BoxShape.circle,
-          border: Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
+          border: Border.all(color: AppTheme.black, width: 1.5),
+          boxShadow: const [
+            BoxShadow(
+              color: AppTheme.black,
+              offset: Offset(0, 1),
+              blurRadius: 0,
+            ),
+          ],
         ),
         child: Icon(
           _isInWishlist ? Icons.favorite : Icons.favorite_border,
-          color: _isInWishlist ? Colors.red : AppTheme.black,
+          color: _isInWishlist ? const Color(0xFFFF6264) : AppTheme.black,
           size: 20,
         ),
       ),

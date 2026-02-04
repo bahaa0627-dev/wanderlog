@@ -425,8 +425,6 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     final isMustGo = widget.tabLabel == 'MustGo';
     final isTodaysPlan = widget.tabLabel == "Today's Plan";
 
-    // 注意：不再预加载合集数据，让详情页立即显示，合集数据由详情页自己异步加载
-
     // 加载完整的状态信息（包括 check-in 数据）
     bool? isSaved = true;
     bool? isVisited;
@@ -435,6 +433,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     String? userNotes;
     List<String>? userPhotos;
     String? destinationId;
+    Map<String, dynamic>? linkedCollection;
 
     try {
       final authState = ref.read(authProvider);
@@ -512,6 +511,25 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
             }
           }
           if (isSaved != null && destinationId != null) break;
+        }
+        
+        // 预加载合集数据（避免详情页闪现）
+        try {
+          final uuidRegex = RegExp(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+            caseSensitive: false,
+          );
+          if (uuidRegex.hasMatch(spot.id)) {
+            final collectionRepo = ref.read(collectionRepositoryProvider);
+            final collections = await collectionRepo
+                .getCollectionsForPlace(spot.id)
+                .timeout(const Duration(milliseconds: 1200), onTimeout: () => []);
+            if (collections.isNotEmpty) {
+              linkedCollection = collections[math.Random().nextInt(collections.length)];
+            }
+          }
+        } catch (e) {
+          print('⚠️ [MyLandSpotsMap] Error loading linked collection: $e');
         }
         
         // 关闭loading dialog

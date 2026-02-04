@@ -45,10 +45,77 @@ const googleClient = new OAuth2Client({
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
 });
 
+/**
+ * 验证 name 字段
+ * 中文最多10个字符，英文最多20个字符
+ */
+const validateName = (name: string | undefined, lang: string = 'en'): { valid: boolean; error?: string } => {
+  if (!name || name.trim() === '') {
+    return { valid: true }; // name 是可选的
+  }
+  
+  const trimmed = name.trim();
+  
+  // 计算中文和非中文字符数量
+  let chineseCount = 0;
+  let otherCount = 0;
+  
+  for (const char of trimmed) {
+    const code = char.codePointAt(0) || 0;
+    // 判断是否是中文字符
+    if ((code >= 0x4E00 && code <= 0x9FFF) ||   // CJK Unified Ideographs
+        (code >= 0x3400 && code <= 0x4DBF) ||   // CJK Unified Ideographs Extension A
+        (code >= 0x20000 && code <= 0x2A6DF) || // CJK Unified Ideographs Extension B
+        (code >= 0x2A700 && code <= 0x2B73F) || // CJK Unified Ideographs Extension C
+        (code >= 0x2B740 && code <= 0x2B81F) || // CJK Unified Ideographs Extension D
+        (code >= 0xF900 && code <= 0xFAFF) ||   // CJK Compatibility Ideographs
+        (code >= 0x2F800 && code <= 0x2FA1F)) { // CJK Compatibility Ideographs Supplement
+      chineseCount++;
+    } else {
+      otherCount++;
+    }
+  }
+  
+  const isChinese = lang === 'zh';
+  
+  // 如果全是中文，最多10个字符
+  if (otherCount === 0 && chineseCount > 10) {
+    return { 
+      valid: false, 
+      error: isChinese ? '中文名字最多10个字符' : 'Chinese name cannot exceed 10 characters' 
+    };
+  }
+  
+  // 如果全是非中文（英文/其他），最多20个字符
+  if (chineseCount === 0 && otherCount > 20) {
+    return { 
+      valid: false, 
+      error: isChinese ? '英文名字最多20个字符' : 'English name cannot exceed 20 characters' 
+    };
+  }
+  
+  // 如果是混合的，按加权计算（1个中文=2个英文字符）
+  const weightedLength = chineseCount * 2 + otherCount;
+  if (weightedLength > 20) {
+    return { 
+      valid: false, 
+      error: isChinese ? '名字太长，请缩短（中文最多10个，英文最多20个）' : 'Name is too long (max 10 Chinese or 20 English characters)' 
+    };
+  }
+  
+  return { valid: true };
+};
+
 export const register = async (req: Request, res: Response) => {
   try {
     await ensureAuthTablesExist();
-    const { email, password, name } = req.body;
+    const { email, password, name, language } = req.body;
+    
+    // 验证 name 字段
+    const nameValidation = validateName(name, language);
+    if (!nameValidation.valid) {
+      return res.status(400).json({ message: nameValidation.error });
+    }
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({

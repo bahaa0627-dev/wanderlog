@@ -15,7 +15,6 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
 // Auth State
 class AuthState {
-
   AuthState({
     this.user,
     this.isLoading = false,
@@ -31,16 +30,16 @@ class AuthState {
     User? user,
     bool? isLoading,
     String? error,
-  }) => AuthState(
-      user: user ?? this.user,
-      isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
-    );
+  }) =>
+      AuthState(
+        user: user ?? this.user,
+        isLoading: isLoading ?? this.isLoading,
+        error: error ?? this.error,
+      );
 }
 
 // Auth State Notifier
 class AuthNotifier extends StateNotifier<AuthState> {
-
   AuthNotifier(this._repository) : super(AuthState()) {
     _checkAuthStatus();
     // 监听 Supabase Auth 状态变化
@@ -69,14 +68,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     // 优先检查 Supabase Auth 状态
     final supabaseUser = SupabaseConfig.currentUser;
     final session = SupabaseConfig.auth.currentSession;
-    
+
     if (supabaseUser != null && session != null) {
       // 保存 Supabase token 到 StorageService，供 Dio 使用
       final accessToken = session.accessToken;
       if (accessToken.isNotEmpty) {
         await StorageService.instance.setSecure('auth_token', accessToken);
       }
-      
+
       // 从 Supabase 用户创建 User 对象
       final user = User(
         id: supabaseUser.id,
@@ -85,12 +84,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
         avatarUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
         isEmailVerified: supabaseUser.emailConfirmedAt != null,
         createdAt: DateTime.tryParse(supabaseUser.createdAt) ?? DateTime.now(),
-        updatedAt: DateTime.tryParse(supabaseUser.updatedAt ?? '') ?? DateTime.now(),
+        updatedAt:
+            DateTime.tryParse(supabaseUser.updatedAt ?? '') ?? DateTime.now(),
       );
       state = state.copyWith(user: user);
       return;
     }
-    
+
     // 回退到后端 API 检查
     final token = await _repository.getToken();
     if (token != null) {
@@ -103,7 +103,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
     }
   }
-  
+
   /// 刷新认证状态（从 Supabase 重新检查）
   Future<void> refreshAuthState() async {
     await _checkAuthStatus();
@@ -120,10 +120,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> register(String email, String password, String? name) async {
+  Future<void> register(String email, String password, String? name,
+      {String? language}) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final result = await _repository.register(email, password, name);
+      final result =
+          await _repository.register(email, password, name, language: language);
       state = AuthState(user: result.user, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -170,21 +172,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Supabase resetPasswordForEmail 默认不会告诉你邮箱是否存在（安全考虑）
       // 我们直接发送重置邮件，如果邮箱不存在，用户不会收到邮件
       // 但为了更好的用户体验，我们可以先尝试通过后端检查
-      
+
       // 尝试调用后端 API 检查邮箱是否存在
       try {
         await _repository.forgotPassword(email);
       } catch (e) {
         // 如果后端返回邮箱不存在的错误，直接抛出
         final errorStr = e.toString().toLowerCase();
-        if (errorStr.contains('not found') || 
+        if (errorStr.contains('not found') ||
             errorStr.contains("didn't sign up") ||
             errorStr.contains('not registered')) {
           rethrow;
         }
         // 其他错误（如网络错误），忽略后端检查，继续使用 Supabase
       }
-      
+
       // 使用 Supabase 发送重置邮件
       await SupabaseConfig.auth.resetPasswordForEmail(
         email,
@@ -217,7 +219,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Backward-compatible wrapper (legacy code-based reset).
   /// Supabase recovery flow doesn't require `email`/`code`.
-  Future<void> resetPassword(String email, String code, String newPassword) async {
+  Future<void> resetPassword(
+      String email, String code, String newPassword) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       await updatePassword(newPassword);
@@ -247,9 +250,3 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return AuthNotifier(repository);
 });
-
-
-
-
-
-

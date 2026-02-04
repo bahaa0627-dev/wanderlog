@@ -2400,12 +2400,20 @@ If you cannot identify a specific place, return "UNKNOWN".`;
       '清水寺': 'Kiyomizu-dera', '伏见稻荷大社': 'Fushimi Inari Shrine', '富士山': 'Mount Fuji',
       '皇居': 'Imperial Palace', '涉谷十字路口': 'Shibuya Crossing', '上野公园': 'Ueno Park',
       '银座': 'Ginza', '新宿御苑': 'Shinjuku Gyoen', '明治神宫': 'Meiji Shrine',
+      '秋叶原': 'Akihabara', '原宿': 'Harajuku', '表参道': 'Omotesando',
+      '涩谷': 'Shibuya', '新宿': 'Shinjuku', '池袋': 'Ikebukuro',
+      '筑地市场': 'Tsukiji Market', '东京站': 'Tokyo Station', '台场': 'Odaiba',
+      '天空树': 'Tokyo Skytree', '晴空塔': 'Tokyo Skytree', '东京晴空塔': 'Tokyo Skytree',
+      '奈良公园': 'Nara Park', '大阪城': 'Osaka Castle', '道顿堀': 'Dotonbori',
+      '姬路城': 'Himeji Castle', '�的严島神社': 'Itsukushima Shrine', '严岛神社': 'Itsukushima Shrine',
       // Famous landmarks - Europe
       '埃菲尔铁塔': 'Eiffel Tower', '卢浮宫': 'Louvre Museum', '凯旋门': 'Arc de Triomphe',
       '巴黎圣母院': 'Notre-Dame de Paris', '凡尔赛宫': 'Palace of Versailles',
+      '圣心大教堂': 'Sacré-Cœur', '蒙马特高地': 'Montmartre', '奥赛博物馆': 'Musée d\'Orsay',
       '大本钟': 'Big Ben', '伦敦塔': 'Tower of London', '白金汉宫': 'Buckingham Palace',
       '大英博物馆': 'British Museum', '泰晤士河': 'Thames River',
-      '斗兽场': 'Colosseum', '梵蒂冈': 'Vatican City', '圣彼得大教堂': 'St. Peter\'s Basilica',
+      '斗兽场': 'Colosseum', '罗马斗兽场': 'Colosseum', '梵蒂冈': 'Vatican City', 
+      '圣彼得大教堂': 'St. Peter\'s Basilica', '许愿池': 'Trevi Fountain',
       '威尼斯运河': 'Venice Canals', '比萨斜塔': 'Leaning Tower of Pisa',
       '圣家堂': 'Sagrada Familia', '米拉之家': 'Casa Milà', '巴特罗之家': 'Casa Batlló',
       // Famous landmarks - USA
@@ -4504,9 +4512,16 @@ Rules:
 
     const aiResult = await this.generateRegularTravelResponse(query, language);
     let textContent = aiResult.textContent;
-    const mentionedPlaceNames = aiResult.mentionedPlaceNames;
+    let mentionedPlaceNames = aiResult.mentionedPlaceNames;
 
     logger.info(`[IntentClassifier] Regular travel AI result: textContent=${textContent.length} chars, mentionedPlaces=${mentionedPlaceNames.length}`);
+
+    // Fallback: If AI didn't return place names, extract from text content
+    if (mentionedPlaceNames.length === 0) {
+      logger.info(`[IntentClassifier] No mentionedPlaces from AI, extracting from text...`);
+      mentionedPlaceNames = this.extractPlaceNamesFromRegularTravelText(textContent);
+      logger.info(`[IntentClassifier] Extracted ${mentionedPlaceNames.length} place names from text`);
+    }
 
     // Match mentioned places with database (only spots, not cities)
     let matchedPlaces: PlaceResult[] = [];
@@ -4520,6 +4535,72 @@ Rules:
       mentionedPlaceNames,
       matchedPlaces: matchedPlaces.length > 0 ? matchedPlaces : undefined,
     };
+  }
+
+  /**
+   * Extract place names from regular travel text content
+   * Matches patterns like:
+   * - 1. **Place Name** - description
+   * - 1. Place Name - description
+   * - **Place Name** in bold
+   */
+  private extractPlaceNamesFromRegularTravelText(text: string): string[] {
+    const placeNames: string[] = [];
+    const seen = new Set<string>();
+
+    // Pattern 1: Numbered list with optional bold - "1. **PlaceName**" or "1. PlaceName"
+    const numberedPattern = /\d+\.\s*\*?\*?([^*\n\-–]+?)\*?\*?\s*[\-–]/g;
+    let match;
+    while ((match = numberedPattern.exec(text)) !== null) {
+      const name = match[1].trim();
+      if (name && name.length >= 2 && name.length <= 50 && !seen.has(name.toLowerCase())) {
+        // Skip common section headers
+        if (!this.isSectionHeader(name)) {
+          placeNames.push(name);
+          seen.add(name.toLowerCase());
+        }
+      }
+    }
+
+    // Pattern 2: Bold text in recommendations section - "**PlaceName**"
+    const boldPattern = /\*\*([^*]+)\*\*/g;
+    while ((match = boldPattern.exec(text)) !== null) {
+      const name = match[1].trim();
+      if (name && name.length >= 2 && name.length <= 50 && !seen.has(name.toLowerCase())) {
+        // Skip common section headers and field labels
+        if (!this.isSectionHeader(name) && !this.isFieldLabel(name)) {
+          placeNames.push(name);
+          seen.add(name.toLowerCase());
+        }
+      }
+    }
+
+    return placeNames;
+  }
+
+  /**
+   * Check if a text is likely a section header (not a place name)
+   */
+  private isSectionHeader(text: string): boolean {
+    const headers = [
+      '推荐景点', '必游景点', 'Must-Visit', 'Must Visit', 'Highlights',
+      '实用贴士', 'Tips', '交通', 'Transport', '住宿', 'Accommodation',
+      '美食', 'Food', '购物', 'Shopping', '注意事项', 'Notes',
+    ];
+    const lower = text.toLowerCase();
+    return headers.some(h => lower.includes(h.toLowerCase()));
+  }
+
+  /**
+   * Check if a text is likely a field label (not a place name)
+   */
+  private isFieldLabel(text: string): boolean {
+    const labels = [
+      '城市特色', '适合人群', '最佳季节', 'City Vibe', 'Best For', 'Best Season',
+      '文化氛围', '历史背景', 'Culture', 'History',
+    ];
+    const lower = text.toLowerCase();
+    return labels.some(l => lower.includes(l.toLowerCase()));
   }
 
   /**
@@ -4590,6 +4671,7 @@ Rules:
   /**
    * Match place names with database
    * Only returns places that have valid cover images (spots level, not cities)
+   * Supports Chinese place names by translating them to English first
    */
   private async matchPlacesFromDatabase(
     placeNames: string[],
@@ -4602,8 +4684,8 @@ Rules:
     
     for (const name of placeNames) {
       try {
-        // Search by name (case insensitive, partial match)
-        const places = await prisma.place.findMany({
+        // First try direct search by name (case insensitive, partial match)
+        let places = await prisma.place.findMany({
           where: {
             name: {
               contains: name,
@@ -4618,6 +4700,30 @@ Rules:
             rating: 'desc',
           },
         });
+        
+        // If no match and name contains Chinese characters, try translating to English
+        if (places.length === 0 && /[\u4e00-\u9fff]/.test(name)) {
+          logger.info(`[IntentClassifier] No direct match for "${name}", trying translation...`);
+          const translatedName = await this.translatePlaceNameToEnglish(name);
+          if (translatedName && translatedName !== name) {
+            logger.info(`[IntentClassifier] Translated "${name}" -> "${translatedName}"`);
+            places = await prisma.place.findMany({
+              where: {
+                name: {
+                  contains: translatedName,
+                  mode: 'insensitive',
+                },
+                coverImage: {
+                  not: null,
+                },
+              },
+              take: 1,
+              orderBy: {
+                rating: 'desc',
+              },
+            });
+          }
+        }
         
         if (places.length > 0) {
           const place = places[0];

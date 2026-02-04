@@ -405,6 +405,8 @@ class _MinePageState extends ConsumerState<MinePage> {
         phoneNumber: spot.phoneNumber,
         website: spot.website,
         openingHours: spot.openingHours,
+        // 剧照数据
+        customFields: spot.customFields,
       );
     }).toList();
 
@@ -564,6 +566,8 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
         phoneNumber: spot.phoneNumber,
         website: spot.website,
         openingHours: spot.openingHours,
+        // 剧照数据
+        customFields: spot.customFields,
       );
     }).toList();
 

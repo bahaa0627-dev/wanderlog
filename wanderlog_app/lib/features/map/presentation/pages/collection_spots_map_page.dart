@@ -190,6 +190,8 @@ class _CollectionSpotsMapPageState
       phoneNumber: spot.phoneNumber,
       website: spot.website,
       openingHours: spot.openingHours,
+      // 剧照数据
+      customFields: spot.customFields,
     );
   }
 

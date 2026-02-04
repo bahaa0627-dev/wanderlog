@@ -49,6 +49,7 @@ class Spot {
     required this.rating,
     required this.ratingCount,
     required this.coverImage,
+    this.collectionCoverImage,
     required this.images,
     required this.tags,
     this.displayTagsEn = const [],
@@ -77,6 +78,7 @@ class Spot {
   final double rating;
   final int ratingCount;
   final String coverImage;
+  final String? collectionCoverImage;
   final List<String> images;
   final List<String> tags;
 
@@ -139,6 +141,7 @@ class Spot {
     double? rating,
     int? ratingCount,
     String? coverImage,
+    String? collectionCoverImage,
     List<String>? images,
     List<String>? tags,
     List<String>? displayTagsEn,
@@ -165,6 +168,7 @@ class Spot {
         rating: rating ?? this.rating,
         ratingCount: ratingCount ?? this.ratingCount,
         coverImage: coverImage ?? this.coverImage,
+        collectionCoverImage: collectionCoverImage ?? this.collectionCoverImage,
         images: images ?? this.images,
         tags: tags ?? this.tags,
         displayTagsEn: displayTagsEn ?? this.displayTagsEn,

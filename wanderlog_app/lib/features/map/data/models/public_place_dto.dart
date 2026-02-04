@@ -13,6 +13,7 @@ class PublicPlaceDto {
     this.categoryEn,
     this.categoryZh,
     this.coverImage,
+    this.collectionCoverImage,
     this.images = const [],
     this.rating,
     this.ratingCount,
@@ -44,6 +45,7 @@ class PublicPlaceDto {
         categoryEn: json['categoryEn'] as String?,
         categoryZh: json['categoryZh'] as String?,
         coverImage: json['coverImage'] as String?,
+        collectionCoverImage: json['collectionCoverImage'] as String?,
         images: _parseStringList(json['images']),
         rating: _parseDouble(json['rating']),
         ratingCount: _parseInt(json['ratingCount']),
@@ -115,6 +117,7 @@ class PublicPlaceDto {
         categoryEn: categoryEn,
         categoryZh: json['category_zh'] as String?,
         coverImage: json['cover_image'] as String?,
+        collectionCoverImage: json['collection_cover_image'] as String?,
         images: _parseStringList(json['images']),
         rating: _parseDouble(json['rating']),
         ratingCount: _parseInt(json['rating_count']),
@@ -146,6 +149,7 @@ class PublicPlaceDto {
   final String? categoryEn;
   final String? categoryZh;
   final String? coverImage;
+  final String? collectionCoverImage;
   final List<String> images;
   final double? rating;
   final int? ratingCount;

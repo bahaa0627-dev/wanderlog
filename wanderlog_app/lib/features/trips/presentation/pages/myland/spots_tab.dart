@@ -1912,13 +1912,23 @@ class _ErrorStateState extends State<_ErrorState> {
                 onTap: _isRetrying ? null : _handleRetry,
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                   decoration: BoxDecoration(
                     color: _isRetrying
                         ? AppTheme.primaryYellow.withOpacity(0.6)
                         : AppTheme.primaryYellow,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(100),
                     border: Border.all(color: AppTheme.black, width: 2),
+                    boxShadow: _isRetrying
+                        ? null
+                        : const [
+                            BoxShadow(
+                              color: AppTheme.black,
+                              offset: Offset(4, 4),
+                              blurRadius: 0,
+                              spreadRadius: 0,
+                            ),
+                          ],
                   ),
                   child: _isRetrying
                       ? const SizedBox(
@@ -2761,6 +2771,8 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
           phoneNumber: spot.phoneNumber,
           website: spot.website,
           openingHours: spot.openingHours,
+          // 剧照数据
+          customFields: spot.customFields,
         );
       }).toList();
 

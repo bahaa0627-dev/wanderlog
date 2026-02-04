@@ -4273,9 +4273,13 @@ export const searchV2 = async (req: Request, res: Response) => {
       if (result.relatedPlaces && result.relatedPlaces.length > 0) {
         // 过滤出 AI 生成的临时地点（需要持久化的）
         const aiPlaces = result.relatedPlaces.filter(p => p.source === 'ai' || p.id?.startsWith('temp_'));
+        // 统计数据库已匹配的地点数量
+        const dbMatchedCount = result.relatedPlaces.filter(p => p.source !== 'ai' && !p.id?.startsWith('temp_')).length;
         
         if (aiPlaces.length > 0) {
-          // 启用联网搜索，获取完整的地点信息（评分、地址、网站等）
+          // 🚀 优化：如果数据库已匹配 >= 3 个地点，跳过联网搜索；否则执行联网搜索补充信息
+          const shouldSkipWebSearch = dbMatchedCount >= 3;
+          logger.info(`[SearchV2] DB matched ${dbMatchedCount} places, AI places: ${aiPlaces.length}, skipWebSearch: ${shouldSkipWebSearch}`);
           logger.info(`[SearchV2] Persisting ${aiPlaces.length} AI places to database for travel_consultation...`);
           const persistedPlaces = await persistAIPlacesToDB(
             aiPlaces,
@@ -4283,7 +4287,7 @@ export const searchV2 = async (req: Request, res: Response) => {
             requiredCountry,
             narrativeLanguage,
             '', // category - travel consultation 可能没有特定分类
-            { skipWebSearch: false }, // 启用联网搜索获取评分等信息
+            { skipWebSearch: shouldSkipWebSearch }, // 根据数据库匹配数量决定是否联网搜索
           );
           
           // 用持久化后的地点替换原来的临时地点（使用模糊匹配）
@@ -4340,17 +4344,20 @@ export const searchV2 = async (req: Request, res: Response) => {
           if (group.places && group.places.length > 0) {
             // 过滤出 AI 生成的临时地点
             const aiPlaces = group.places.filter(p => p.source === 'ai' || p.id?.startsWith('temp_'));
+            // 统计数据库已匹配的地点数量
+            const dbMatchedCount = group.places.filter(p => p.source !== 'ai' && !p.id?.startsWith('temp_')).length;
             
             if (aiPlaces.length > 0) {
-              // 启用联网搜索，获取完整的地点信息（评分、地址、网站等）
-              logger.info(`[SearchV2] Persisting ${aiPlaces.length} AI places to database for city ${group.city}...`);
+              // 🚀 优化：如果数据库已匹配 >= 3 个地点，跳过联网搜索；否则执行联网搜索补充信息
+              const shouldSkipWebSearch = dbMatchedCount >= 3;
+              logger.info(`[SearchV2] City ${group.city}: DB matched ${dbMatchedCount} places, AI places: ${aiPlaces.length}, skipWebSearch: ${shouldSkipWebSearch}`);
               const persistedPlaces = await persistAIPlacesToDB(
                 aiPlaces,
                 group.city,
                 requiredCountry,
                 narrativeLanguage,
                 '',
-                { skipWebSearch: false }, // 启用联网搜索获取评分等信息
+                { skipWebSearch: shouldSkipWebSearch }, // 根据数据库匹配数量决定是否联网搜索
               );
               
               // 用持久化后的地点替换原来的临时地点（使用模糊匹配）

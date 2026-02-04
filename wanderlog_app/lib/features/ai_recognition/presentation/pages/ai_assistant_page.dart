@@ -926,7 +926,7 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                             AppTheme.primaryYellow)))
                 : _messages.isEmpty
                     ? _buildEmptyState()
-                    : _buildMessageList(),
+                    : SelectionArea(child: _buildMessageList()),
           ),
           _buildInputArea(),
         ],
@@ -1981,8 +1981,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           debugPrint('📍 Tapped on itinerary place: ${place.name}');
           _showPlaceDetail(place);
         },
-        child: RichText(
-          text: TextSpan(
+        child: Text.rich(
+          TextSpan(
             children: [
               TextSpan(
                 text: cleanTitle,
@@ -2698,8 +2698,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                     await launchUrl(uri, mode: LaunchMode.externalApplication);
                   }
                 },
-                child: RichText(
-                  text: TextSpan(
+                child: Text.rich(
+                  TextSpan(
                     children: [
                       TextSpan(
                         text: '网站：',
@@ -2742,8 +2742,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
                     await launchUrl(uri, mode: LaunchMode.externalApplication);
                   }
                 },
-                child: RichText(
-                  text: TextSpan(
+                child: Text.rich(
+                  TextSpan(
                     children: [
                       TextSpan(
                         text: '网站：',
@@ -3658,8 +3658,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       );
     }
 
-    return RichText(
-      text: TextSpan(children: spans),
+    return Text.rich(
+      TextSpan(children: spans),
     );
   }
 

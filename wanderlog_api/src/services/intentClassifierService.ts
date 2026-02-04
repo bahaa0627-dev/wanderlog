@@ -556,9 +556,14 @@ ${exampleSection}
 Return JSON:
 {
   "textContent": "Markdown response...",
-  "mentionedPlaces": [{"name": "English Name", "displayName": "Display name same as in textContent", "city": "City", "summary": "~50 char description in {language}", "address": "Address", "website": "URL", "country": "Country", "rating": 4.5, "ratingCount": 1200}],
+  "mentionedPlaces": [{"name": "Display name in textContent (中文 if Chinese response)", "nameEn": "English Name for database matching", "city": "City in English", "summary": "~50 char description in {language}", "address": "Address", "website": "URL", "country": "Country", "rating": 4.5, "ratingCount": 1200}],
   "cities": ["City1", "City2"]
-}`;
+}
+
+CRITICAL for mentionedPlaces:
+- "name": The EXACT display name used in textContent (e.g., "大英博物馆" if Chinese response)
+- "nameEn": The ENGLISH name for database lookup (e.g., "British Museum")
+- BOTH fields are REQUIRED for every place`;
   }
 
   /**
@@ -2412,6 +2417,27 @@ If you cannot identify a specific place, return "UNKNOWN".`;
       '圣心大教堂': 'Sacré-Cœur', '蒙马特高地': 'Montmartre', '奥赛博物馆': 'Musée d\'Orsay',
       '大本钟': 'Big Ben', '伦敦塔': 'Tower of London', '白金汉宫': 'Buckingham Palace',
       '大英博物馆': 'British Museum', '泰晤士河': 'Thames River',
+      // London - additional landmarks and hidden gems
+      '伦敦眼': 'London Eye', '威斯敏斯特教堂': 'Westminster Abbey', '圣保罗大教堂': 'St Paul\'s Cathedral',
+      '国家美术馆': 'National Gallery', '自然历史博物馆': 'Natural History Museum',
+      '维多利亚与艾尔伯特博物馆': 'Victoria and Albert Museum', 'V&A博物馆': 'Victoria and Albert Museum',
+      '科学博物馆': 'Science Museum', '泰特现代美术馆': 'Tate Modern', '泰特不列颠美术馆': 'Tate Britain',
+      '天空花园': 'Sky Garden', '碎片大厦': 'The Shard', '伦敦塔桥': 'Tower Bridge',
+      '哈罗德百货': 'Harrods', '诺丁山': 'Notting Hill', '卡姆登集市': 'Camden Market',
+      '波多贝罗市场': 'Portobello Road Market', '博罗市场': 'Borough Market',
+      '利德霍尔市场': 'Leadenhall Market', '老斯皮塔菲尔德市场': 'Old Spitalfields Market',
+      '肯辛顿宫': 'Kensington Palace', '肯辛顿花园': 'Kensington Gardens', '海德公园': 'Hyde Park',
+      '里士满公园': 'Richmond Park', '格林威治': 'Greenwich', '格林威治公园': 'Greenwich Park',
+      '丘吉尔战时内阁': 'Churchill War Rooms', '帝国战争博物馆': 'Imperial War Museum',
+      '设计博物馆': 'Design Museum', '萨默塞特府': 'Somerset House', '考陶尔德美术馆': 'Courtauld Gallery',
+      '华莱士收藏馆': 'Wallace Collection', '约翰·索恩爵士博物馆': 'Sir John Soane\'s Museum',
+      '丹尼斯·塞弗斯之家': 'Dennis Severs\' House', '小威尼斯': 'Little Venice',
+      '尼尔斯广场': 'Neal\'s Yard', '利文斯顿': 'Leyton', '肖迪奇': 'Shoreditch',
+      '达利奇画廊': 'Dulwich Picture Gallery', '汉普斯特德': 'Hampstead', '汉普斯特德荒原': 'Hampstead Heath',
+      '国王十字': 'King\'s Cross', '九又四分之三站台': 'Platform 9¾', '大英图书馆': 'British Library',
+      '摄政公园': 'Regent\'s Park', '女王剧院': 'Queen\'s Theatre', '西区剧院': 'West End Theatre',
+      '科文特花园': 'Covent Garden', '皮卡迪利广场': 'Piccadilly Circus', '莱斯特广场': 'Leicester Square',
+      '红砖巷': 'Brick Lane', '哥伦比亚路花市': 'Columbia Road Flower Market',
       '斗兽场': 'Colosseum', '罗马斗兽场': 'Colosseum', '梵蒂冈': 'Vatican City', 
       '圣彼得大教堂': 'St. Peter\'s Basilica', '许愿池': 'Trevi Fountain',
       '威尼斯运河': 'Venice Canals', '比萨斜塔': 'Leaning Tower of Pisa',

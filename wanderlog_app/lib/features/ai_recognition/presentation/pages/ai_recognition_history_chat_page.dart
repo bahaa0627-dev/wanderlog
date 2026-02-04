@@ -642,7 +642,7 @@ class _AIRecognitionHistoryChatPageState
                   ? const Center(child: CircularProgressIndicator())
                   : _messages.isEmpty
                       ? _buildEmptyState()
-                      : _buildMessageList(),
+                      : SelectionArea(child: _buildMessageList()),
             ),
             // 底部输入框
             _buildInputArea(),

@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:wanderlog/core/theme/app_theme.dart';
@@ -10,7 +12,9 @@ import 'package:wanderlog/core/providers/locale_provider.dart';
 import 'package:wanderlog/core/l10n/app_localizations.dart';
 import 'package:wanderlog/core/constants/app_config.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/features/trips/providers/image_upload_provider.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
+import 'package:wanderlog/core/providers/dio_provider.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -22,7 +26,6 @@ class SettingsPage extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final isLoggedIn = authState.isAuthenticated;
     final user = authState.user;
-    final currentLanguage = ref.watch(localeProvider.notifier).currentLanguage;
 
     return Scaffold(
       backgroundColor: AppTheme.white,
@@ -97,19 +100,12 @@ class SettingsPage extends ConsumerWidget {
                   ),
                   const _Divider(),
 
-                  // Language
+                  // Recommend Place (replaces Language)
                   _SettingsItem(
-                    title: l10n.languageTitle,
-                    subtitle: currentLanguage == AppLanguage.english
-                        ? 'English'
-                        : '中文',
+                    title: l10n.recommendPlaceTitle,
+                    subtitle: l10n.recommendPlaceDescription,
                     showArrow: true,
-                    onTap: () => _showLanguageSheet(
-                      context,
-                      ref,
-                      l10n,
-                      currentLanguage,
-                    ),
+                    onTap: () => _showRecommendPlaceDialog(context, ref, l10n),
                   ),
                   const _Divider(),
 
@@ -139,10 +135,8 @@ class SettingsPage extends ConsumerWidget {
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           side: const BorderSide(color: AppTheme.black, width: 2),
         ),
-        title:
-            Text(l10n.logoutTitle, style: AppTheme.headlineMedium(context)),
-        content:
-            Text(l10n.logoutConfirm, style: AppTheme.bodyMedium(context)),
+        title: Text(l10n.logoutTitle, style: AppTheme.headlineMedium(context)),
+        content: Text(l10n.logoutConfirm, style: AppTheme.bodyMedium(context)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -172,52 +166,11 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  void _showLanguageSheet(
-    BuildContext context,
-    WidgetRef ref,
-    AppLocalizations l10n,
-    AppLanguage currentLanguage,
-  ) {
-    showModalBottomSheet<void>(
+  void _showRecommendPlaceDialog(
+      BuildContext context, WidgetRef ref, AppLocalizations l10n) {
+    showDialog<void>(
       context: context,
-      backgroundColor: AppTheme.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.languageTitle, style: AppTheme.headlineMedium(context)),
-              const SizedBox(height: 20),
-              _LanguageOption(
-                label: 'English',
-                isSelected: currentLanguage == AppLanguage.english,
-                onTap: () {
-                  ref
-                      .read(localeProvider.notifier)
-                      .setLocale(AppLanguage.english);
-                  Navigator.of(context).pop();
-                },
-              ),
-              const SizedBox(height: 12),
-              _LanguageOption(
-                label: '中文',
-                isSelected: currentLanguage == AppLanguage.chinese,
-                onTap: () {
-                  ref
-                      .read(localeProvider.notifier)
-                      .setLocale(AppLanguage.chinese);
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+      builder: (context) => _RecommendPlaceDialog(l10n: l10n, ref: ref),
     );
   }
 }
@@ -290,48 +243,6 @@ class _Divider extends StatelessWidget {
   Widget build(BuildContext context) => const Padding(
         padding: EdgeInsets.symmetric(horizontal: 20),
         child: Divider(height: 1, color: AppTheme.lightGray),
-      );
-}
-
-class _LanguageOption extends StatelessWidget {
-  const _LanguageOption({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: isSelected ? AppTheme.primaryYellow : AppTheme.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? AppTheme.black : AppTheme.lightGray,
-              width: isSelected ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Text(
-                label,
-                style: AppTheme.bodyMedium(context).copyWith(
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-              const Spacer(),
-              if (isSelected)
-                const Icon(Icons.check, color: AppTheme.black, size: 20),
-            ],
-          ),
-        ),
       );
 }
 
@@ -458,8 +369,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                   alignment: Alignment.topRight,
                   child: GestureDetector(
                     onTap: () => Navigator.of(context).pop(),
-                    child:
-                        const Icon(Icons.close, color: AppTheme.mediumGray),
+                    child: const Icon(Icons.close, color: AppTheme.mediumGray),
                   ),
                 ),
                 // Title
@@ -495,12 +405,10 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                   height: 180,
                   decoration: BoxDecoration(
                     color: AppTheme.white,
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.radiusMedium),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
                   child: ClipRRect(
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.radiusMedium),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                     child: Image.asset(
                       AppConfig.feedbackQrCodeAsset,
                       fit: BoxFit.contain,
@@ -541,8 +449,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Text(
                               widget.l10n.saveToAlbum,
@@ -553,6 +460,310 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                 ),
               ],
             ),
+          ),
+        ),
+      );
+}
+
+class _RecommendPlaceDialog extends ConsumerStatefulWidget {
+  const _RecommendPlaceDialog({required this.l10n, required this.ref});
+
+  final AppLocalizations l10n;
+  final WidgetRef ref;
+
+  @override
+  ConsumerState<_RecommendPlaceDialog> createState() =>
+      _RecommendPlaceDialogState();
+}
+
+class _RecommendPlaceDialogState extends ConsumerState<_RecommendPlaceDialog> {
+  final _countryController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _placeNameController = TextEditingController();
+  File? _selectedImage;
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _countryController.dispose();
+    _cityController.dispose();
+    _placeNameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      debugPrint('Pick image error: $e');
+    }
+  }
+
+  Future<void> _submit() async {
+    final country = _countryController.text.trim();
+    final city = _cityController.text.trim();
+    final placeName = _placeNameController.text.trim();
+
+    if (country.isEmpty) {
+      CustomToast.showError(context, widget.l10n.pleaseEnterCountry);
+      return;
+    }
+    if (city.isEmpty) {
+      CustomToast.showError(context, widget.l10n.pleaseEnterCity);
+      return;
+    }
+    if (placeName.isEmpty) {
+      CustomToast.showError(context, widget.l10n.pleaseEnterPlaceName);
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      String? imageUrl;
+
+      // Upload image if selected
+      if (_selectedImage != null) {
+        final uploadService = ref.read(imageUploadServiceProvider);
+        imageUrl = await uploadService.uploadImage(_selectedImage!);
+      }
+
+      // Get user info
+      final authState = ref.read(authProvider);
+      final userNickname =
+          authState.user?.name ?? authState.user?.email ?? 'Anonymous';
+
+      // Submit recommendation
+      final dio = ref.read(dioProvider);
+      final response = await dio.post<Map<String, dynamic>>(
+        '/user-recommendations',
+        data: {
+          'country': country,
+          'city': city,
+          'placeName': placeName,
+          'imageUrl': imageUrl,
+          'userNickname': userNickname,
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (mounted) {
+          CustomToast.showSuccess(context, widget.l10n.submitSuccess);
+          Navigator.of(context).pop();
+        }
+      } else {
+        throw Exception('Failed to submit');
+      }
+    } catch (e) {
+      debugPrint('Submit recommendation error: $e');
+      if (mounted) {
+        CustomToast.showError(context, widget.l10n.submitFailed);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 360),
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+            border: Border.all(color: AppTheme.black, width: 2),
+            boxShadow: const [
+              BoxShadow(
+                color: AppTheme.black,
+                offset: Offset(2, 4),
+                blurRadius: 0,
+              ),
+            ],
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      widget.l10n.recommendPlaceTitle,
+                      style: AppTheme.headlineMedium(context),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child:
+                          const Icon(Icons.close, color: AppTheme.mediumGray),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.l10n.recommendPlaceDescription,
+                  style: AppTheme.bodySmall(context).copyWith(
+                    color: AppTheme.darkGray,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Country field
+                Text(
+                  widget.l10n.countryLabel,
+                  style: AppTheme.labelMedium(context),
+                ),
+                const SizedBox(height: 8),
+                _buildTextField(_countryController, widget.l10n.countryLabel),
+                const SizedBox(height: 16),
+
+                // City field
+                Text(
+                  widget.l10n.cityLabel,
+                  style: AppTheme.labelMedium(context),
+                ),
+                const SizedBox(height: 8),
+                _buildTextField(_cityController, widget.l10n.cityLabel),
+                const SizedBox(height: 16),
+
+                // Place name field
+                Text(
+                  widget.l10n.placeNameLabel,
+                  style: AppTheme.labelMedium(context),
+                ),
+                const SizedBox(height: 8),
+                _buildTextField(
+                    _placeNameController, widget.l10n.placeNameLabel),
+                const SizedBox(height: 16),
+
+                // Image upload
+                Text(
+                  widget.l10n.uploadImageOptional,
+                  style: AppTheme.labelMedium(context),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    width: double.infinity,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightGray.withValues(alpha: 0.3),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
+                      border: Border.all(
+                        color: AppTheme.lightGray,
+                        width: 1,
+                        style: BorderStyle.solid,
+                      ),
+                    ),
+                    child: _selectedImage != null
+                        ? ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusMedium),
+                            child: Image.file(
+                              _selectedImage!,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 36,
+                                color: AppTheme.mediumGray,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                widget.l10n.tapToUploadImage,
+                                style: AppTheme.bodySmall(context).copyWith(
+                                  color: AppTheme.mediumGray,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Submit button
+                GestureDetector(
+                  onTap: _isSubmitting ? null : _submit,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: _isSubmitting
+                          ? AppTheme.lightGray
+                          : AppTheme.primaryYellow,
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
+                      border: Border.all(color: AppTheme.black, width: 2),
+                      boxShadow: _isSubmitting
+                          ? null
+                          : const [
+                              BoxShadow(
+                                color: AppTheme.black,
+                                offset: Offset(2, 4),
+                                blurRadius: 0,
+                              ),
+                            ],
+                    ),
+                    child: Center(
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              widget.l10n.submit,
+                              style: AppTheme.labelLarge(context),
+                            ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+  Widget _buildTextField(TextEditingController controller, String hint) =>
+      Container(
+        decoration: BoxDecoration(
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(color: AppTheme.lightGray, width: 1),
+        ),
+        child: TextField(
+          controller: controller,
+          style: AppTheme.bodyMedium(context),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: AppTheme.bodyMedium(context).copyWith(
+              color: AppTheme.mediumGray,
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            border: InputBorder.none,
           ),
         ),
       );

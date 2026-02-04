@@ -255,8 +255,8 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
   // 构建响应对象
   let result: any;
   
-  // 合集封面图（如果没有设置，fallback 到普通封面图）
-  const collectionCoverImage = place.collectionCoverImage || coverImage;
+  // 合集封面图（返回原始值，让前端决定是否使用 fallback）
+  const collectionCoverImage = place.collectionCoverImage || null;
   
   if (includeInternalTags) {
     // 后台管理：保留 tags 字段

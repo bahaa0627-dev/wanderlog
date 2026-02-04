@@ -2445,6 +2445,7 @@ class _MapPageState extends ConsumerState<MapPage> {
       rating: place.rating ?? 4.0,
       ratingCount: place.ratingCount ?? 0,
       coverImage: images.first,
+      collectionCoverImage: place.collectionCoverImage,
       images: images,
       tags: place.aiTags,
       displayTagsEn: displayTags,

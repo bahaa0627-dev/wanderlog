@@ -182,6 +182,7 @@ class _CollectionSpotsMapPageState
       rating: ratingOverride ?? spot.rating ?? 0.0,
       ratingCount: ratingCountOverride ?? 0,
       coverImage: coverImg,
+      collectionCoverImage: null, // spot_model.Spot doesn't have collectionCoverImage
       images: imageList,
       tags: tagList,
       displayTagsEn: displayTags,
@@ -310,7 +311,8 @@ class _CollectionSpotsMapPageState
           final coverImg = spotData['coverImage']?.toString() ??
               spotData['cover_image']?.toString() ??
               '';
-          final imagesList = _parseImagesList(spotData['images'] ?? []);
+            final imagesList =
+              _parseImagesList(spotData['images'] ?? const <dynamic>[]);
 
           // 解析 openingHours
           Map<String, dynamic>? openingHours;
@@ -339,6 +341,8 @@ class _CollectionSpotsMapPageState
             city: spotData['city']?.toString() ?? '',
             country: spotData['country']?.toString(),
             coverImage: coverImg,
+            collectionCoverImage: spotData['collectionCoverImage']?.toString() ??
+                spotData['collection_cover_image']?.toString(),
             rating: (spotData['rating'] as num?)?.toDouble() ?? 0.0,
             ratingCount: (spotData['ratingCount'] as num?)?.toInt() ??
                 (spotData['rating_count'] as num?)?.toInt() ??
@@ -440,7 +444,8 @@ class _CollectionSpotsMapPageState
             final coverImg = spotData['coverImage']?.toString() ??
                 spotData['cover_image']?.toString() ??
                 '';
-            final imagesList = _parseImagesList(spotData['images'] ?? []);
+            final imagesList =
+              _parseImagesList(spotData['images'] ?? const <dynamic>[]);
 
             // 解析 openingHours
             Map<String, dynamic>? openingHours;
@@ -470,6 +475,8 @@ class _CollectionSpotsMapPageState
               city: spotData['city']?.toString() ?? '',
               country: spotData['country']?.toString(),
               coverImage: coverImg,
+              collectionCoverImage: spotData['collectionCoverImage']?.toString() ??
+                  spotData['collection_cover_image']?.toString(),
               rating: (spotData['rating'] as num?)?.toDouble() ?? 0.0,
               ratingCount: (spotData['ratingCount'] as num?)?.toInt() ??
                   (spotData['rating_count'] as num?)?.toInt() ??
@@ -1128,6 +1135,7 @@ class _CollectionSpotsMapPageState
       builder: (_) => UnifiedSpotDetailModal(
         spot: spot,
         hideCollectionEntry: true,
+        useCollectionCover: true,
         initialIsSaved: isSaved,
         initialIsMustGo: isMustGo,
         initialIsTodaysPlan: isTodaysPlan,

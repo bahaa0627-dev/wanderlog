@@ -34,6 +34,24 @@ class AppLocalizations {
   String get languageEnglish => 'English';
   String get languageChinese => '中文';
   
+  // Recommend Place
+  String get recommendPlaceTitle => isEnglish ? 'Recommend a Place' : '推荐新地点';
+  String get recommendPlaceDescription => isEnglish 
+      ? 'Help us build the database together' 
+      : '帮助我们共建数据库';
+  String get countryLabel => isEnglish ? 'Country' : '国家';
+  String get cityLabel => isEnglish ? 'City' : '城市';
+  String get placeNameLabel => isEnglish ? 'Place Name' : '地点名称';
+  String get uploadImageOptional => isEnglish ? 'Upload Image (Optional)' : '上传图片（选填）';
+  String get tapToUploadImage => isEnglish ? 'Tap to upload a signature photo' : '点击上传标志性图片';
+  String get submit => isEnglish ? 'Submit' : '提交';
+  String get submitting => isEnglish ? 'Submitting...' : '提交中...';
+  String get submitSuccess => isEnglish ? 'Thanks for your recommendation!' : '感谢您的推荐！';
+  String get submitFailed => isEnglish ? 'Submit failed, please try again' : '提交失败，请重试';
+  String get pleaseEnterCountry => isEnglish ? 'Please enter country' : '请输入国家';
+  String get pleaseEnterCity => isEnglish ? 'Please enter city' : '请输入城市';
+  String get pleaseEnterPlaceName => isEnglish ? 'Please enter place name' : '请输入地点名称';
+  
   // Feedback
   String get feedbackTitle => isEnglish ? 'Feedback' : '反馈';
   String get feedbackDescription => isEnglish 

@@ -45,6 +45,7 @@ class UnifiedSpotDetailModal extends ConsumerStatefulWidget {
     this.onStatusChanged,
     this.keepOpenOnAction = false,
     this.hideCollectionEntry = false,
+    this.useCollectionCover = false,
     this.linkedCollection,
     super.key,
   });
@@ -74,6 +75,8 @@ class UnifiedSpotDetailModal extends ConsumerStatefulWidget {
   final bool keepOpenOnAction; // If true, don't close modal after actions
   final bool
       hideCollectionEntry; // If true, don't show collection entry card (e.g. when opened from collection page)
+  final bool
+      useCollectionCover; // If true, use collectionCoverImage instead of coverImage
   final Map<String, dynamic>? linkedCollection; // 预加载的关联合集数据
 
   @override
@@ -413,6 +416,14 @@ class _UnifiedSpotDetailModalState
       return images.isNotEmpty ? images.first : null;
     }
     try {
+      // 如果设置了 useCollectionCover，优先使用 collectionCoverImage
+      if (widget.useCollectionCover) {
+        final collectionCoverImage =
+            (widget.spot as dynamic).collectionCoverImage as String?;
+        if (collectionCoverImage != null && collectionCoverImage.isNotEmpty) {
+          return collectionCoverImage;
+        }
+      }
       // map_page.Spot 有 coverImage 字段
       final coverImage = (widget.spot as dynamic).coverImage as String?;
       if (coverImage != null && coverImage.isNotEmpty) {
@@ -421,6 +432,18 @@ class _UnifiedSpotDetailModalState
       // 回退到 images[0]
       final images = (widget.spot as dynamic).images as List<String>?;
       return images != null && images.isNotEmpty ? images.first : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// 获取合集封面图（用于过滤）
+  String? get _spotCollectionCoverImage {
+    if (widget.spot is Spot) {
+      return null; // spot_model.Spot 没有 collectionCoverImage 字段
+    }
+    try {
+      return (widget.spot as dynamic).collectionCoverImage as String?;
     } catch (e) {
       return null;
     }
@@ -435,6 +458,14 @@ class _UnifiedSpotDetailModalState
         images = (widget.spot as dynamic).images as List<String>? ?? <String>[];
       } catch (e) {
         images = <String>[];
+      }
+    }
+
+    // 如果不是合集渠道，过滤掉合集封面图
+    if (!widget.useCollectionCover) {
+      final collectionCover = _spotCollectionCoverImage;
+      if (collectionCover != null && collectionCover.isNotEmpty) {
+        images = images.where((img) => img != collectionCover).toList();
       }
     }
 

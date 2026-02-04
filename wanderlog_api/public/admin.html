@@ -1010,6 +1010,7 @@
             <button class="tab-btn active" id="tab-places" onclick="showSection('places')">地点库</button>
             <button class="tab-btn" id="tab-collections" onclick="showSection('collections')">合集库</button>
             <button class="tab-btn" id="tab-recommendations" onclick="showSection('recommendations')">合集推荐</button>
+            <button class="tab-btn" id="tab-user-recommendations" onclick="showSection('user-recommendations')">用户推荐</button>
         </div>
 
         <div id="placesSection" class="section active">
@@ -1278,6 +1279,31 @@
                 </table>
             </div>
         </div> <!-- recommendationsSection -->
+
+        <div id="userRecommendationsSection" class="section">
+            <div class="collections-actions">
+                <button class="btn btn-secondary" type="button" onclick="refreshUserRecommendations()" style="margin-right: 8px;">🔄 刷新</button>
+                <span id="userRecommendationsStats" style="margin-left: 16px; font-size: 14px; color: #666;"></span>
+            </div>
+            <div id="userRecommendationsListContainer" class="table-container">
+                <div id="userRecommendationsLoading" class="loading">加载中</div>
+                <div id="userRecommendationsEmpty" class="empty" style="display:none;">暂无用户推荐</div>
+                <table id="userRecommendationsTable" style="display:none; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">国家</th>
+                            <th style="width: 100px;">城市</th>
+                            <th style="width: 200px;">地点名称</th>
+                            <th style="width: 80px;">图片</th>
+                            <th style="width: 140px;">提交时间</th>
+                            <th style="width: 120px;">提交用户</th>
+                            <th style="width: 100px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userRecommendationsBody"></tbody>
+                </table>
+            </div>
+        </div> <!-- userRecommendationsSection -->
     </div>
 
     <!-- 管理员登录弹窗 -->
@@ -1604,6 +1630,7 @@
         let allPlaces = []; // 缓存所有地点数据
         let collections = [];
         let recommendations = [];
+        let userRecommendations = [];
         let selectedSpots = [];
         let selectedCollections = []; // 用于编辑推荐时存储选中的合集
         let spotSearchTimer = null;
@@ -1815,9 +1842,11 @@
             document.getElementById('placesSection').classList.remove('active');
             document.getElementById('collectionsSection').classList.remove('active');
             document.getElementById('recommendationsSection').classList.remove('active');
+            document.getElementById('userRecommendationsSection').classList.remove('active');
             document.getElementById('tab-places').classList.remove('active');
             document.getElementById('tab-collections').classList.remove('active');
             document.getElementById('tab-recommendations').classList.remove('active');
+            document.getElementById('tab-user-recommendations').classList.remove('active');
 
             if (section === 'collections') {
                 document.getElementById('collectionsSection').classList.add('active');
@@ -1839,6 +1868,12 @@
                 // 如果不在编辑模式，显示列表
                 if (!editingRecommendationId) {
                     showRecommendationsList();
+                }
+            } else if (section === 'user-recommendations') {
+                document.getElementById('userRecommendationsSection').classList.add('active');
+                document.getElementById('tab-user-recommendations').classList.add('active');
+                if (userRecommendations.length === 0) {
+                    await loadUserRecommendations();
                 }
             } else {
                 document.getElementById('placesSection').classList.add('active');
@@ -5875,6 +5910,157 @@
         async function saveRecommendationsOrder() {
             const recommendationIds = recommendations.map(r => r.id);
             return saveRecommendationsOrderWithIds(recommendationIds);
+        }
+
+        // ============ 用户推荐相关功能 ============
+        
+        // 刷新用户推荐
+        async function refreshUserRecommendations() {
+            userRecommendations = [];
+            await loadUserRecommendations();
+        }
+
+        // 加载用户推荐列表
+        async function loadUserRecommendations() {
+            try {
+                document.getElementById('userRecommendationsLoading').style.display = 'block';
+                document.getElementById('userRecommendationsLoading').textContent = '加载中...';
+                document.getElementById('userRecommendationsEmpty').style.display = 'none';
+                document.getElementById('userRecommendationsTable').style.display = 'none';
+
+                const host = window.location.origin;
+                const res = await fetchWithTimeout(`${host}/api/user-recommendations`, {}, 30000);
+                const result = await res.json();
+                
+                if (result.success && Array.isArray(result.data)) {
+                    userRecommendations = result.data;
+                    renderUserRecommendations();
+                    // Update stats
+                    const statsRes = await fetchWithTimeout(`${host}/api/user-recommendations/stats`, {}, 10000);
+                    const statsResult = await statsRes.json();
+                    if (statsResult.success) {
+                        const stats = statsResult.data;
+                        document.getElementById('userRecommendationsStats').innerHTML = 
+                            `共 <strong>${stats.total}</strong> 条，待处理 <strong style="color: #e53935;">${stats.pending}</strong>，已处理 <strong style="color: #43a047;">${stats.processed}</strong>`;
+                    }
+                } else {
+                    throw new Error(result.message || '加载失败');
+                }
+            } catch (e) {
+                console.error('加载用户推荐失败:', e);
+                document.getElementById('userRecommendationsLoading').style.display = 'block';
+                document.getElementById('userRecommendationsLoading').textContent = `加载失败: ${e.message}`;
+                document.getElementById('userRecommendationsEmpty').style.display = 'none';
+                document.getElementById('userRecommendationsTable').style.display = 'none';
+            }
+        }
+
+        // 渲染用户推荐列表
+        function renderUserRecommendations() {
+            const body = document.getElementById('userRecommendationsBody');
+            body.innerHTML = '';
+
+            if (userRecommendations.length === 0) {
+                document.getElementById('userRecommendationsLoading').style.display = 'none';
+                document.getElementById('userRecommendationsEmpty').style.display = 'block';
+                document.getElementById('userRecommendationsTable').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('userRecommendationsLoading').style.display = 'none';
+            document.getElementById('userRecommendationsEmpty').style.display = 'none';
+            document.getElementById('userRecommendationsTable').style.display = 'table';
+
+            userRecommendations.forEach((rec) => {
+                const tr = document.createElement('tr');
+                const isPending = rec.status === 'pending';
+                tr.innerHTML = `
+                    <td>${rec.country || '-'}</td>
+                    <td>${rec.city || '-'}</td>
+                    <td class="place-name">${rec.placeName || rec.place_name || '-'}</td>
+                    <td>
+                        ${(rec.imageUrl || rec.image_url) ? 
+                            `<img src="${rec.imageUrl || rec.image_url}" 
+                                  style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; cursor: pointer;" 
+                                  onclick="showImagePreview('${rec.imageUrl || rec.image_url}')"
+                                  onerror="this.style.display='none'">` 
+                            : '<span style="color: #999;">-</span>'}
+                    </td>
+                    <td>${rec.createdAt || rec.created_at ? new Date(rec.createdAt || rec.created_at).toLocaleString() : '-'}</td>
+                    <td>${rec.userNickname || rec.user_nickname || '-'}</td>
+                    <td>
+                        <button class="btn ${isPending ? 'btn-secondary' : 'btn-primary'}" 
+                                style="font-size: 12px; padding: 6px 12px; ${isPending ? '' : 'background: #43a047; border-color: #43a047;'}"
+                                onclick="toggleUserRecommendationStatus('${rec.id}', '${rec.status}')">
+                            ${isPending ? '未处理' : '已处理'}
+                        </button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        // 切换用户推荐状态
+        async function toggleUserRecommendationStatus(id, currentStatus) {
+            const newStatus = currentStatus === 'pending' ? 'processed' : 'pending';
+            try {
+                const host = window.location.origin;
+                const res = await fetchWithTimeout(`${host}/api/user-recommendations/${id}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                }, 10000);
+                
+                const result = await res.json();
+                if (result.success) {
+                    // 更新本地数据
+                    const index = userRecommendations.findIndex(r => r.id === id);
+                    if (index !== -1) {
+                        userRecommendations[index].status = newStatus;
+                    }
+                    renderUserRecommendations();
+                    // 刷新统计
+                    await refreshUserRecommendationStats();
+                    showToast(newStatus === 'processed' ? '已标记为处理' : '已标记为未处理', 'success');
+                } else {
+                    throw new Error(result.message || '更新失败');
+                }
+            } catch (e) {
+                console.error('更新状态失败:', e);
+                showToast(`更新失败: ${e.message}`, 'error');
+            }
+        }
+
+        // 刷新用户推荐统计
+        async function refreshUserRecommendationStats() {
+            try {
+                const host = window.location.origin;
+                const statsRes = await fetchWithTimeout(`${host}/api/user-recommendations/stats`, {}, 10000);
+                const statsResult = await statsRes.json();
+                if (statsResult.success) {
+                    const stats = statsResult.data;
+                    document.getElementById('userRecommendationsStats').innerHTML = 
+                        `共 <strong>${stats.total}</strong> 条，待处理 <strong style="color: #e53935;">${stats.pending}</strong>，已处理 <strong style="color: #43a047;">${stats.processed}</strong>`;
+                }
+            } catch (e) {
+                console.error('刷新统计失败:', e);
+            }
+        }
+
+        // 显示图片预览
+        function showImagePreview(imageUrl) {
+            // 创建模态框
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000; cursor: pointer;';
+            modal.onclick = () => modal.remove();
+            
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.style.cssText = 'max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+            img.onclick = (e) => e.stopPropagation();
+            
+            modal.appendChild(img);
+            document.body.appendChild(modal);
         }
     </script>
 </body>

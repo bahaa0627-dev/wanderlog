@@ -232,6 +232,19 @@ export const login = async (req: Request, res: Response) => {
 export const getMe = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
+    
+    // 检查是否是管理员用户（管理员登录时 id 为 'admin'）
+    if (userId === 'admin' && req.user.role === 'admin') {
+      return res.json({
+        id: 'admin',
+        email: req.user.email,
+        name: 'Admin',
+        role: 'admin',
+        isEmailVerified: true,
+        authProvider: 'local',
+      });
+    }
+    
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {

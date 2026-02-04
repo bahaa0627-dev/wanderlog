@@ -1978,14 +1978,16 @@
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    if (data?.user?.email) {
-                        adminEmail = data.user.email;
+                    // getMe 直接返回 user 对象，不是 { user: {...} } 格式
+                    if (data?.email) {
+                        adminEmail = data.email;
                         localStorage.setItem('adminEmail', adminEmail);
                     }
                     return true;
                 }
-                // 401/403 表示 token 确实无效
-                if (res.status === 401 || res.status === 403) {
+                // 401/403/404 表示 token 无效或用户不存在
+                if (res.status === 401 || res.status === 403 || res.status === 404) {
+                    console.warn('Token 验证失败，状态码:', res.status);
                     return false;
                 }
                 // 其他错误（如网络问题），假设 token 有效，让后续请求处理

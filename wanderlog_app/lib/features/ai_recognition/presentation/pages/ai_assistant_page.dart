@@ -96,11 +96,6 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     print('🚀 AIAssistantPage initState called');
     _preloadWishlistStatus();
     _loadHistories();
-
-    // 首次构建完成后滚动到底部
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottomWithRetry();
-    });
   }
 
   /// 预加载收藏状态，确保卡片显示时状态已就绪
@@ -174,41 +169,33 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
     }
 
     setState(() => _isLoading = false);
-    // 多次尝试滚动，确保内容完全渲染后滚动到底部
-    _scrollToBottomWithRetry();
+    // 加载完历史后滚动到底部，显示最新内容
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottomOnNewMessage();
+    });
   }
 
-  /// 多次尝试滚动到底部，确保内容完全渲染
-  void _scrollToBottomWithRetry() {
-    // 立即尝试一次
-    _scrollToBottom();
-    // 100ms 后再试
-    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
-    // 300ms 后再试（等待图片等异步内容）
-    Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
-    // 500ms 后最后一次
-    Future.delayed(const Duration(milliseconds: 500), _scrollToBottom);
-  }
-
-  void _scrollToBottom({bool animated = false}) {
+  /// 滚动到底部（仅在 AI 输出内容时调用）
+  void _scrollToBottomOnNewMessage() {
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_scrollController.hasClients) {
         final maxExtent = _scrollController.position.maxScrollExtent;
         if (maxExtent > 0) {
-          if (animated) {
-            _scrollController.animateTo(
-              maxExtent,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          } else {
-            _scrollController.jumpTo(maxExtent);
-          }
+          _scrollController.animateTo(
+            maxExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
         }
       }
     });
+  }
+
+  // 保留旧方法名以兼容现有调用
+  void _scrollToBottom({bool animated = false}) {
+    _scrollToBottomOnNewMessage();
   }
 
   @override
@@ -480,8 +467,8 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       );
     });
 
-    // 🚀 修复：添加结果后自动滚动到底部，确保用户能看到完整响应
-    _scrollToBottomWithRetry();
+    // 🚀 AI 输出新内容后自动滚动到底部
+    _scrollToBottomOnNewMessage();
 
     // 保存历史记录（保存完整的 SearchV2Result）
     if (result.success) {
@@ -830,11 +817,13 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
               final collectionRepo = ref.read(collectionRepositoryProvider);
               final collections = await collectionRepo
                   .getCollectionsForPlace(spotId)
-                  .timeout(const Duration(milliseconds: 1200), onTimeout: () => <Map<String, dynamic>>[]);
+                  .timeout(const Duration(milliseconds: 1200),
+                      onTimeout: () => <Map<String, dynamic>>[]);
               if (collections.isNotEmpty) {
                 // 随机选择一个合集展示
                 final random = math.Random();
-                linkedCollection = collections[random.nextInt(collections.length)];
+                linkedCollection =
+                    collections[random.nextInt(collections.length)];
               }
             }
           } catch (e) {
@@ -2164,15 +2153,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
         .split('\n')
         .map((line) {
           var trimmed = line.trim();
-          // 移除 markdown 标题符号 (###, ####, ##, #)
-          if (trimmed.startsWith('#### ')) {
-            trimmed = trimmed.substring(5);
-          } else if (trimmed.startsWith('### ')) {
-            trimmed = trimmed.substring(4);
-          } else if (trimmed.startsWith('## ')) {
-            trimmed = trimmed.substring(3);
-          } else if (trimmed.startsWith('# ')) {
-            trimmed = trimmed.substring(2);
+          // 移除 markdown 标题符号 (####, ###, ##, #)，无论后面有没有空格
+          // 例如: "####第3周" -> "第3周", "### 标题" -> "标题"
+          final headingMatch = RegExp(r'^(#{1,6})\s*(.*)$').firstMatch(trimmed);
+          if (headingMatch != null) {
+            trimmed = headingMatch.group(2)!.trim();
           }
           return trimmed;
         })
@@ -2323,6 +2308,23 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
           .replaceFirst(RegExp(r'^"+'), '')
           .replaceFirst(RegExp(r'"+$'), '')
           .trim();
+      // 移除所有 markdown 标题符号 (####, ###, ##, #)，无论后面有没有空格
+      // 例如: "####第3周" -> "第3周", "### 标题" -> "标题"
+      final headingMatch = RegExp(r'^(#{1,6})\s*(.*)$').firstMatch(cleaned);
+      if (headingMatch != null) {
+        final level = headingMatch.group(1)!.length;
+        final content = headingMatch.group(2)!.trim();
+        // 转换为带空格的标准格式以便后续处理
+        if (level == 4) {
+          cleaned = '#### $content';
+        } else if (level == 3) {
+          cleaned = '### $content';
+        } else if (level == 2) {
+          cleaned = '## $content';
+        } else {
+          cleaned = content; // 一级标题或其他，直接显示内容
+        }
+      }
       // 如果整行是 **text** 格式（独立的加粗行），转为标题格式
       final boldLineMatch = RegExp(r'^\*\*(.+)\*\*$').firstMatch(cleaned);
       if (boldLineMatch != null) {
@@ -2804,16 +2806,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
   /// [nameMapping] 用于将中文显示名称映射到英文数据库名称
   Widget _buildClickableHeader(String titleText,
       {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
-    // 🔧 清理可能遗留的 markdown 标题符号
+    // 🔧 清理可能遗留的 markdown 标题符号（支持有无空格）
     String cleanedTitle = titleText;
-    if (cleanedTitle.startsWith('#### ')) {
-      cleanedTitle = cleanedTitle.substring(5);
-    } else if (cleanedTitle.startsWith('### ')) {
-      cleanedTitle = cleanedTitle.substring(4);
-    } else if (cleanedTitle.startsWith('## ')) {
-      cleanedTitle = cleanedTitle.substring(3);
-    } else if (cleanedTitle.startsWith('# ')) {
-      cleanedTitle = cleanedTitle.substring(2);
+    final headingMatch = RegExp(r'^(#{1,6})\s*(.*)$').firstMatch(cleanedTitle);
+    if (headingMatch != null) {
+      cleanedTitle = headingMatch.group(2)!.trim();
     }
     titleText = cleanedTitle;
 
@@ -3014,16 +3011,11 @@ class _AIAssistantPageState extends ConsumerState<AIAssistantPage> {
       {List<PlaceResult>? places, List<PlaceNameMapping>? nameMapping}) {
     final spans = <InlineSpan>[];
 
-    // 🔧 清理 markdown 标题符号（####、###、##、# 开头）
+    // 🔧 清理 markdown 标题符号（####、###、##、# 开头，支持有无空格）
     String cleanedText = text;
-    if (cleanedText.startsWith('#### ')) {
-      cleanedText = cleanedText.substring(5);
-    } else if (cleanedText.startsWith('### ')) {
-      cleanedText = cleanedText.substring(4);
-    } else if (cleanedText.startsWith('## ')) {
-      cleanedText = cleanedText.substring(3);
-    } else if (cleanedText.startsWith('# ')) {
-      cleanedText = cleanedText.substring(2);
+    final headingMatch = RegExp(r'^(#{1,6})\s*(.*)$').firstMatch(cleanedText);
+    if (headingMatch != null) {
+      cleanedText = headingMatch.group(2)!.trim();
     }
     // 使用清理后的文本
     text = cleanedText;
@@ -5289,14 +5281,16 @@ class _PlaceDetailLoaderState extends ConsumerState<_PlaceDetailLoader> {
           final collectionRepo = ref.read(collectionRepositoryProvider);
           final collections = await collectionRepo
               .getCollectionsForPlace(tempSpot.id)
-              .timeout(const Duration(milliseconds: 1200), onTimeout: () => <Map<String, dynamic>>[]);
+              .timeout(const Duration(milliseconds: 1200),
+                  onTimeout: () => <Map<String, dynamic>>[]);
           if (collections.isNotEmpty) {
             final random = math.Random();
             _linkedCollection = collections[random.nextInt(collections.length)];
           }
         }
       } catch (e) {
-        debugPrint('⚠️ [PlaceDetailLoader] Error loading linked collection: $e');
+        debugPrint(
+            '⚠️ [PlaceDetailLoader] Error loading linked collection: $e');
       }
 
       if (!mounted) return;
@@ -6236,7 +6230,8 @@ class _LargePlaceCardState extends ConsumerState<_LargePlaceCard> {
 }
 
 /// AI 消息渐显动画包装器
-/// 新消息会触发渐显滚动效果，一屏一屏自动向下滚动显示内容
+/// 模拟 ChatGPT 风格：内容从上到下逐渐显示，底部有渐隐遮罩
+/// 用户可以随时向上滚动查看已显示内容，不会被强制跳回
 class _AnimatedAIMessage extends StatefulWidget {
   const _AnimatedAIMessage({
     super.key,
@@ -6255,37 +6250,39 @@ class _AnimatedAIMessage extends StatefulWidget {
 
 class _AnimatedAIMessageState extends State<_AnimatedAIMessage>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+  late AnimationController _revealController;
   bool _showContent = false;
   final GlobalKey _contentKey = GlobalKey();
   double _contentHeight = 0;
-  double _revealedHeight = 0;
-  bool _isAnimating = false;
 
-  /// 每次滚动显示的高度（约一屏的高度）
-  static const double _screenRevealHeight = 300.0;
-  
-  /// 每屏显示的时间间隔
-  static const Duration _screenRevealDuration = Duration(milliseconds: 600);
-  
-  /// 淡入动画时长
-  static const Duration _fadeInDuration = Duration(milliseconds: 400);
+  /// 恒定滚动速度：每像素 4ms（稍慢一些，更像 ChatGPT）
+  static const double _msPerPixel = 4.0;
+
+  /// 最短动画时长
+  static const double _minDurationMs = 1000.0;
+
+  Duration get _totalRevealDuration {
+    if (_contentHeight <= 0) return const Duration(milliseconds: 2000);
+    final ms =
+        (_contentHeight * _msPerPixel).clamp(_minDurationMs, double.infinity);
+    return Duration(milliseconds: ms.toInt());
+  }
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: _fadeInDuration,
+    _revealController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
       vsync: this,
     );
 
-    // 如果是新消息，延迟显示内容；否则直接显示
+    // 监听动画进度（仅用于触发重绘）
+    _revealController.addListener(_onRevealProgress);
+
     if (widget.message.isNew) {
-      // 短暂延迟后开始显示
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
           setState(() => _showContent = true);
-          // 等待内容布局完成后开始渐显动画
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _measureAndStartReveal();
           });
@@ -6293,126 +6290,105 @@ class _AnimatedAIMessageState extends State<_AnimatedAIMessage>
       });
     } else {
       _showContent = true;
-      _controller.value = 1.0;
-      _revealedHeight = double.infinity; // 直接显示全部
+      _revealController.value = 1.0;
     }
   }
 
-  /// 测量内容高度并开始渐显滚动动画
+  /// 动画进度回调（仅触发重绘，不自动滚动）
+  void _onRevealProgress() {
+    if (!mounted) return;
+    // 触发重绘以更新遮罩
+    setState(() {});
+  }
+
   void _measureAndStartReveal() {
     if (!mounted) return;
-    
-    final RenderBox? renderBox = 
+
+    final RenderBox? renderBox =
         _contentKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox != null) {
+    if (renderBox != null && renderBox.hasSize) {
       _contentHeight = renderBox.size.height;
+      _revealController.duration = _totalRevealDuration;
       _startRevealAnimation();
     } else {
-      // 如果还没布局完成，延迟后重试
       Future.delayed(const Duration(milliseconds: 50), _measureAndStartReveal);
     }
   }
 
-  /// 开始渐显滚动动画
-  Future<void> _startRevealAnimation() async {
-    if (!mounted || _isAnimating) return;
-    _isAnimating = true;
-
-    // 初始显示第一屏
-    setState(() {
-      _revealedHeight = _screenRevealHeight;
-    });
-    _controller.forward();
-    _scrollToBottom();
-
-    // 等待初始淡入完成
-    await Future.delayed(_fadeInDuration);
-
-    // 逐屏显示剩余内容
-    while (mounted && _revealedHeight < _contentHeight) {
-      await Future.delayed(_screenRevealDuration);
-      if (!mounted) break;
-      
-      setState(() {
-        _revealedHeight = (_revealedHeight + _screenRevealHeight)
-            .clamp(0, _contentHeight + 100);
-      });
-      _scrollToBottom();
-    }
-
-    // 确保最终显示全部内容
-    if (mounted) {
-      setState(() {
-        _revealedHeight = double.infinity;
-      });
-      widget.message.isNew = false;
-      _scrollToBottom();
-    }
-    
-    _isAnimating = false;
-  }
-
-  /// 平滑滚动到底部
-  void _scrollToBottom() {
+  void _startRevealAnimation() {
     if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final controller = widget.scrollController;
-      if (controller != null && controller.hasClients) {
-        final maxExtent = controller.position.maxScrollExtent;
-        if (maxExtent > 0) {
-          controller.animateTo(
-            maxExtent,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOutCubic,
-          );
-        }
+
+    _revealController.forward().then((_) {
+      if (mounted) {
+        widget.message.isNew = false;
+        setState(() {}); // 触发最终重绘，移除遮罩
       }
     });
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _revealController.removeListener(_onRevealProgress);
+    _revealController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (!_showContent) {
-      // 显示打字指示器
       return const _TypingIndicator();
     }
 
-    // 构建实际内容
     final content = widget.builder(widget.message);
 
-    // 如果已经完全显示或不是新消息，直接返回内容
-    if (_revealedHeight == double.infinity) {
+    // 动画完成后直接返回内容
+    if (_revealController.isCompleted) {
       return content;
     }
 
-    // 渐显动画：使用 ClipRect 逐步显示内容
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return ClipRect(
+    final progress = _revealController.value;
+    final heightFactor = _contentHeight > 0 ? progress : 1.0;
+
+    // 构建带遮罩的动画内容
+    return Stack(
+      children: [
+        // 主内容（裁剪显示）
+        ClipRect(
           child: Align(
             alignment: Alignment.topLeft,
-            heightFactor: _revealedHeight > 0 && _contentHeight > 0
-                ? (_revealedHeight / _contentHeight).clamp(0.0, 1.0)
-                : 1.0,
-            child: Opacity(
-              opacity: _controller.value.clamp(0.0, 1.0),
-              child: child,
+            heightFactor: heightFactor.clamp(0.0, 1.0),
+            child: KeyedSubtree(
+              key: _contentKey,
+              child: content,
             ),
           ),
-        );
-      },
-      child: KeyedSubtree(
-        key: _contentKey,
-        child: content,
-      ),
+        ),
+        // 底部渐隐遮罩（覆盖在内容上方）
+        if (progress < 0.98 && progress > 0.05)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 80, // 遮罩高度
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0),
+                      Colors.white.withValues(alpha: 0.3),
+                      Colors.white.withValues(alpha: 0.7),
+                      Colors.white.withValues(alpha: 1.0),
+                    ],
+                    stops: const [0.0, 0.3, 0.7, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

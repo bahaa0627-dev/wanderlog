@@ -55,7 +55,7 @@ class VagoPlaceholder extends StatelessWidget {
             Text(
               'VAGO',
               style: TextStyle(
-                fontFamily: 'Reem Kufi',
+                fontFamily: 'ReemKufi',
                 fontSize: fontSize,
                 fontWeight: FontWeight.w600,
                 color: textColor ?? AppTheme.mediumGray,

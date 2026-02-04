@@ -133,7 +133,7 @@ class CollectionRecommendationController {
         _count: true,
       });
 
-      // 获取每个合集的地点数据（用于计算主要城市）
+      // 获取每个合集的地点数据（用于计算主要城市，包含 ratingCount 用于平局处理）
       const collectionSpots = await prisma.collectionSpot.findMany({
         where: { collectionId: { in: collectionIds } },
         include: {
@@ -141,35 +141,60 @@ class CollectionRecommendationController {
             select: {
               city: true,
               country: true,
+              ratingCount: true,
             }
           }
         }
       });
 
       // 计算每个合集的主要城市
+      // 规则：
+      // 1. 选择地点数量最多的城市
+      // 2. 如果有多个城市地点数相同，选择其中评价人数（ratingCount）最多的地点所对应的城市
       const mainCityMap = new Map<string, string>();
       collectionIds.forEach(collectionId => {
         const spots = collectionSpots.filter(s => s.collectionId === collectionId);
-        const cityCount = new Map<string, number>();
+        
+        // 统计每个城市的地点数量和最高评价数
+        const cityStats = new Map<string, { count: number; maxRatingCount: number }>();
         
         spots.forEach(spot => {
           const city = spot.place?.city;
+          const ratingCount = spot.place?.ratingCount ?? 0;
           if (city) {
-            cityCount.set(city, (cityCount.get(city) || 0) + 1);
+            const existing = cityStats.get(city) || { count: 0, maxRatingCount: 0 };
+            cityStats.set(city, {
+              count: existing.count + 1,
+              maxRatingCount: Math.max(existing.maxRatingCount, ratingCount),
+            });
           }
         });
 
-        if (cityCount.size > 0) {
-          // 找出出现次数最多的城市
-          let mainCity = '';
+        if (cityStats.size > 0) {
+          // 找出地点数量最多的城市（可能有多个）
           let maxCount = 0;
-          cityCount.forEach((count, city) => {
-            if (count > maxCount) {
-              maxCount = count;
-              mainCity = city;
+          cityStats.forEach((stats) => {
+            if (stats.count > maxCount) {
+              maxCount = stats.count;
             }
           });
-          mainCityMap.set(collectionId, mainCity);
+
+          // 筛选出所有地点数量等于最大值的城市
+          const topCities: { city: string; maxRatingCount: number }[] = [];
+          cityStats.forEach((stats, city) => {
+            if (stats.count === maxCount) {
+              topCities.push({ city, maxRatingCount: stats.maxRatingCount });
+            }
+          });
+
+          // 如果只有一个城市，直接使用；如果有多个，按最高评价数排序
+          if (topCities.length === 1) {
+            mainCityMap.set(collectionId, topCities[0].city);
+          } else {
+            // 平局时，选择评价人数最多的地点所在的城市
+            topCities.sort((a, b) => b.maxRatingCount - a.maxRatingCount);
+            mainCityMap.set(collectionId, topCities[0].city);
+          }
         }
       });
 

@@ -33,12 +33,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   /// 英文最多20个字符，中文最多10个字符
   String? _validateName(String? value) {
     if (value == null || value.isEmpty) {
-      return null; // name 是可选的
+      return _isChinese ? '请输入名字' : 'Name is required';
     }
 
     final trimmed = value.trim();
     if (trimmed.isEmpty) {
-      return null;
+      return _isChinese ? '请输入名字' : 'Name is required';
     }
 
     // 计算中文字符数量
@@ -67,24 +67,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
     // 如果全是中文，最多10个字符
     if (otherCount == 0 && chineseCount > 10) {
-      return _isChinese
-          ? '中文名字最多10个字符'
-          : 'Chinese name cannot exceed 10 characters';
+      return _isChinese ? '最多10个中文字符' : 'Max 10 Chinese chars';
     }
 
     // 如果全是非中文（英文/其他），最多20个字符
     if (chineseCount == 0 && otherCount > 20) {
-      return _isChinese
-          ? '英文名字最多20个字符'
-          : 'English name cannot exceed 20 characters';
+      return _isChinese ? '最多20个英文字符' : 'Max 20 English chars';
     }
 
     // 如果是混合的，按加权计算（1个中文=2个英文字符）
     final weightedLength = chineseCount * 2 + otherCount;
     if (weightedLength > 20) {
-      return _isChinese
-          ? '名字太长，请缩短（中文最多10个，英文最多20个）'
-          : 'Name is too long (max 10 Chinese or 20 English characters)';
+      return _isChinese ? '名字太长' : 'Name is too long';
     }
 
     return null;
@@ -111,7 +105,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           password: _passwordController.text,
           emailRedirectTo: 'https://vago.to/authentication',
           data: {
-            'name': _nameController.text.isEmpty ? null : _nameController.text,
+            'name': _nameController.text.trim(),
           },
         );
         debugPrint('SignUp response: ${response.user?.email}');
@@ -236,15 +230,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         key: _formKey,
                         child: Column(
                           children: [
-                            // Name 字段（可选）
+                            // Name 字段（必填）
                             TextFormField(
                               controller: _nameController,
                               keyboardType: TextInputType.name,
                               cursorColor: const Color(0xFFD4A017),
                               style: const TextStyle(fontFamily: 'ReemKufi'),
                               decoration: InputDecoration(
-                                labelText:
-                                    _isChinese ? '名字（可选）' : 'Name (optional)',
+                                labelText: _isChinese ? '名字' : 'Name',
                                 labelStyle:
                                     const TextStyle(fontFamily: 'ReemKufi'),
                                 floatingLabelStyle: const TextStyle(
@@ -252,13 +245,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                   color: Color(0xFFD4A017),
                                 ),
                                 prefixIcon: const Icon(Icons.person_outline),
-                                helperText: _isChinese
-                                    ? '中文最多10个字符，英文最多20个字符'
-                                    : 'Max 10 Chinese or 20 English characters',
-                                helperStyle: TextStyle(
+                                contentPadding: const EdgeInsets.only(left: 48),
+                                errorStyle: const TextStyle(
                                   fontFamily: 'ReemKufi',
                                   fontSize: 12,
-                                  color: Colors.grey.shade500,
                                 ),
                                 enabledBorder: UnderlineInputBorder(
                                   borderSide: BorderSide(
@@ -286,6 +276,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                   color: Color(0xFFD4A017),
                                 ),
                                 prefixIcon: const Icon(Icons.email_outlined),
+                                contentPadding: const EdgeInsets.only(left: 48),
+                                errorStyle: const TextStyle(
+                                  fontFamily: 'ReemKufi',
+                                  fontSize: 12,
+                                ),
                                 enabledBorder: UnderlineInputBorder(
                                   borderSide: BorderSide(
                                       color: Colors.grey.shade300, width: 1),
@@ -320,6 +315,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                   color: Color(0xFFD4A017),
                                 ),
                                 prefixIcon: const Icon(Icons.lock_outline),
+                                contentPadding: const EdgeInsets.only(left: 48),
+                                errorStyle: const TextStyle(
+                                  fontFamily: 'ReemKufi',
+                                  fontSize: 12,
+                                ),
                                 enabledBorder: UnderlineInputBorder(
                                   borderSide: BorderSide(
                                       color: Colors.grey.shade300, width: 1),
@@ -354,6 +354,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                   color: Color(0xFFD4A017),
                                 ),
                                 prefixIcon: const Icon(Icons.lock_outline),
+                                contentPadding: const EdgeInsets.only(left: 48),
+                                errorStyle: const TextStyle(
+                                  fontFamily: 'ReemKufi',
+                                  fontSize: 12,
+                                ),
                                 enabledBorder: UnderlineInputBorder(
                                   borderSide: BorderSide(
                                       color: Colors.grey.shade300, width: 1),

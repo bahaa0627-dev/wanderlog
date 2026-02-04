@@ -2720,7 +2720,10 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
   List<map_page.Spot> _convertToMapSpots() => widget.entries.map((entry) {
         final spot = entry.spot;
         final List<String> imageList = spot.images;
-        final String coverImg = imageList.isNotEmpty ? imageList.first : '';
+        // 优先使用 spot.coverImage（普通封面图），避免使用合集封面图
+        final String coverImg = (spot.coverImage != null && spot.coverImage!.isNotEmpty)
+            ? spot.coverImage!
+            : (imageList.isNotEmpty ? imageList.first : '');
 
         // 优先使用 displayTagsEn，过滤无效标签
         final List<String> tagList = [];
@@ -3879,18 +3882,26 @@ class _VisitedSpotCard extends StatelessWidget {
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             color: entry.isMustGo
-                ? AppTheme.primaryYellow.withOpacity(0.2)
+                ? AppTheme.primaryYellow
                 : AppTheme.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: AppTheme.black,
               width: AppTheme.borderThin,
             ),
+            boxShadow: const [
+              BoxShadow(
+                color: AppTheme.black,
+                offset: Offset(0, 1),
+                blurRadius: 0,
+                spreadRadius: 0,
+              ),
+            ],
           ),
           child: Icon(
             entry.isMustGo ? Icons.star : Icons.star_outline,
             size: 18,
-            color: entry.isMustGo ? AppTheme.primaryYellow : AppTheme.black,
+            color: AppTheme.black,
           ),
         ),
       );

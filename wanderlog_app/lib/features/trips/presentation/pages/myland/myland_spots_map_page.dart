@@ -280,7 +280,10 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
 
   map_page.Spot _convertSpot(Spot spot) {
     final List<String> imageList = spot.images;
-    final String coverImg = imageList.isNotEmpty ? imageList.first : '';
+    // 优先使用 spot.coverImage（普通封面图），避免使用合集封面图
+    final String coverImg = (spot.coverImage != null && spot.coverImage!.isNotEmpty)
+        ? spot.coverImage!
+        : (imageList.isNotEmpty ? imageList.first : '');
 
     // 优先使用 displayTagsEn，过滤无效标签，首字母大写（与 _getAllUniqueTags 保持一致）
     final List<String> tagList = [];

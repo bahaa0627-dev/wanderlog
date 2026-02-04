@@ -182,7 +182,8 @@ class _CollectionSpotsMapPageState
       rating: ratingOverride ?? spot.rating ?? 0.0,
       ratingCount: ratingCountOverride ?? 0,
       coverImage: coverImg,
-      collectionCoverImage: null, // spot_model.Spot doesn't have collectionCoverImage
+      collectionCoverImage:
+          null, // spot_model.Spot doesn't have collectionCoverImage
       images: imageList,
       tags: tagList,
       displayTagsEn: displayTags,
@@ -311,7 +312,7 @@ class _CollectionSpotsMapPageState
           final coverImg = spotData['coverImage']?.toString() ??
               spotData['cover_image']?.toString() ??
               '';
-            final imagesList =
+          final imagesList =
               _parseImagesList(spotData['images'] ?? const <dynamic>[]);
 
           // 解析 openingHours
@@ -341,8 +342,9 @@ class _CollectionSpotsMapPageState
             city: spotData['city']?.toString() ?? '',
             country: spotData['country']?.toString(),
             coverImage: coverImg,
-            collectionCoverImage: spotData['collectionCoverImage']?.toString() ??
-                spotData['collection_cover_image']?.toString(),
+            collectionCoverImage:
+                spotData['collectionCoverImage']?.toString() ??
+                    spotData['collection_cover_image']?.toString(),
             rating: (spotData['rating'] as num?)?.toDouble() ?? 0.0,
             ratingCount: (spotData['ratingCount'] as num?)?.toInt() ??
                 (spotData['rating_count'] as num?)?.toInt() ??
@@ -445,7 +447,7 @@ class _CollectionSpotsMapPageState
                 spotData['cover_image']?.toString() ??
                 '';
             final imagesList =
-              _parseImagesList(spotData['images'] ?? const <dynamic>[]);
+                _parseImagesList(spotData['images'] ?? const <dynamic>[]);
 
             // 解析 openingHours
             Map<String, dynamic>? openingHours;
@@ -475,8 +477,9 @@ class _CollectionSpotsMapPageState
               city: spotData['city']?.toString() ?? '',
               country: spotData['country']?.toString(),
               coverImage: coverImg,
-              collectionCoverImage: spotData['collectionCoverImage']?.toString() ??
-                  spotData['collection_cover_image']?.toString(),
+              collectionCoverImage:
+                  spotData['collectionCoverImage']?.toString() ??
+                      spotData['collection_cover_image']?.toString(),
               rating: (spotData['rating'] as num?)?.toDouble() ?? 0.0,
               ratingCount: (spotData['ratingCount'] as num?)?.toInt() ??
                   (spotData['rating_count'] as num?)?.toInt() ??
@@ -1425,6 +1428,15 @@ class _BottomSpotCard extends StatefulWidget {
 class _BottomSpotCardState extends State<_BottomSpotCard> {
   Color _dominantColor = Colors.black;
 
+  /// 获取有效的封面图：优先使用合集封面图，fallback 到普通封面图
+  String get _effectiveCoverImage {
+    final collectionCover = widget.spot.collectionCoverImage;
+    if (collectionCover != null && collectionCover.isNotEmpty) {
+      return collectionCover;
+    }
+    return widget.spot.coverImage;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1434,20 +1446,24 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
   @override
   void didUpdateWidget(_BottomSpotCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.spot.coverImage != widget.spot.coverImage) {
+    final oldCover =
+        oldWidget.spot.collectionCoverImage ?? oldWidget.spot.coverImage;
+    final newCover = widget.spot.collectionCoverImage ?? widget.spot.coverImage;
+    if (oldCover != newCover) {
       _extractDominantColor();
     }
   }
 
   Future<void> _extractDominantColor() async {
-    if (widget.spot.coverImage.isEmpty) return;
+    final coverImage = _effectiveCoverImage;
+    if (coverImage.isEmpty) return;
 
     try {
       final ImageProvider imageProvider;
-      if (widget.spot.coverImage.startsWith('data:image/')) {
-        imageProvider = MemoryImage(_decodeBase64Image(widget.spot.coverImage));
+      if (coverImage.startsWith('data:image/')) {
+        imageProvider = MemoryImage(_decodeBase64Image(coverImage));
       } else {
-        imageProvider = NetworkImage(widget.spot.coverImage);
+        imageProvider = NetworkImage(coverImage);
       }
 
       final paletteGenerator = await PaletteGenerator.fromImageProvider(
@@ -1559,13 +1575,14 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
 
   Widget _buildCover() {
     const placeholder = VagoPlaceholderSmall();
+    final coverImage = _effectiveCoverImage;
 
-    if (widget.spot.coverImage.isEmpty) {
+    if (coverImage.isEmpty) {
       return placeholder;
     }
 
-    if (widget.spot.coverImage.startsWith('data:image/')) {
-      final data = _decodeBase64Image(widget.spot.coverImage);
+    if (coverImage.startsWith('data:image/')) {
+      final data = _decodeBase64Image(coverImage);
       if (data.isEmpty) return placeholder;
       return Image.memory(
         data,
@@ -1575,7 +1592,7 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
     }
 
     return CachedNetworkImage(
-      imageUrl: widget.spot.coverImage,
+      imageUrl: coverImage,
       fit: BoxFit.cover,
       placeholder: (_, __) => const Center(
         child: SizedBox(

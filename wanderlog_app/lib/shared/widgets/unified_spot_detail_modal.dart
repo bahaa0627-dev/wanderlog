@@ -410,10 +410,15 @@ class _UnifiedSpotDetailModalState
   }
 
   String? get _spotCoverImage {
-    // spot_model.Spot 没有 coverImage 字段，使用 images[0] 作为封面
+    // spot_model.Spot 有 coverImage 字段
     if (widget.spot is Spot) {
-      final images = (widget.spot as Spot).images;
-      return images.isNotEmpty ? images.first : null;
+      final spot = widget.spot as Spot;
+      // 优先使用 coverImage
+      if (spot.coverImage != null && spot.coverImage!.isNotEmpty) {
+        return spot.coverImage;
+      }
+      // 回退到 images[0]
+      return spot.images.isNotEmpty ? spot.images.first : null;
     }
     try {
       // 如果设置了 useCollectionCover，优先使用 collectionCoverImage

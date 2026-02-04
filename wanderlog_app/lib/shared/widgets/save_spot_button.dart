@@ -130,7 +130,7 @@ class _SaveSpotButtonState extends State<SaveSpotButton> {
                 isChecked: widget.isTodaysPlan,
                 isEnabled: widget.isSaved,
                 isClosed: widget.isClosed,
-                activeColor: AppTheme.accentBlue,
+                activeColor: const Color(0xFF38BDFF),
                 onTap: widget.isSaved ? _handleTodaysPlanToggle : null,
               ),
             ),

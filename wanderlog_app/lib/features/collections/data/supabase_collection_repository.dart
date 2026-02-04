@@ -304,6 +304,7 @@ class SupabaseCollectionRepository {
       'address': place['address'],
       'description': place['description'],
       'coverImage': coverImage ?? '',
+      'collectionCoverImage': place['collection_cover_image'],
       'images': place['images'],
       'rating': place['rating'],
       'ratingCount': place['rating_count'],
@@ -324,7 +325,7 @@ class SupabaseCollectionRepository {
     };
   }
 
-  /// 获取合集推荐列表 - 优化版本：包含 spot count
+  /// 获取合集推荐列表 - 优化版本：包含 spot count 和 mainCity
   Future<List<Map<String, dynamic>>> listRecommendations() async {
     try {
       print('📡 [Fast] Fetching recommendations from Supabase');
@@ -363,6 +364,88 @@ class SupabaseCollectionRepository {
 
       print('📊 Found ${recommendations.length} recommendation groups');
 
+      // 获取所有合集ID
+      final collectionIds = <String>{};
+      for (final item in items) {
+        final collection = item['collection'] as Map<String, dynamic>?;
+        if (collection != null && collection['is_published'] == true) {
+          collectionIds.add(item['collection_id'] as String);
+        }
+      }
+
+      // 获取每个合集的地点数据（用于计算主要城市）
+      final collectionSpotDetails = await _client
+          .from('collection_spots')
+          .select('''
+            collection_id,
+            place:public_places(city, rating_count)
+          ''')
+          .inFilter('collection_id', collectionIds.toList());
+
+      // 计算每个合集的主要城市
+      // 规则：
+      // 1. 选择地点数量最多的城市
+      // 2. 如果有多个城市地点数相同，选择其中评价人数（ratingCount）最多的地点所对应的城市
+      final mainCityMap = <String, String>{};
+      for (final collectionId in collectionIds) {
+        final spots = (collectionSpotDetails as List<dynamic>)
+            .where((s) => s['collection_id'] == collectionId)
+            .toList();
+
+        // 统计每个城市的地点数量和最高评价数
+        final cityStats = <String, ({int count, int maxRatingCount})>{};
+
+        for (final spot in spots) {
+          final place = spot['place'] as Map<String, dynamic>?;
+          final city = place?['city'] as String?;
+          final ratingCount = (place?['rating_count'] as num?)?.toInt() ?? 0;
+
+          if (city != null && city.isNotEmpty) {
+            final existing = cityStats[city];
+            if (existing != null) {
+              cityStats[city] = (
+                count: existing.count + 1,
+                maxRatingCount: existing.maxRatingCount > ratingCount
+                    ? existing.maxRatingCount
+                    : ratingCount,
+              );
+            } else {
+              cityStats[city] = (count: 1, maxRatingCount: ratingCount);
+            }
+          }
+        }
+
+        if (cityStats.isNotEmpty) {
+          // 找出地点数量最多的城市（可能有多个）
+          var maxCount = 0;
+          for (final stats in cityStats.values) {
+            if (stats.count > maxCount) {
+              maxCount = stats.count;
+            }
+          }
+
+          // 筛选出所有地点数量等于最大值的城市
+          final topCities = <({String city, int maxRatingCount})>[];
+          for (final entry in cityStats.entries) {
+            if (entry.value.count == maxCount) {
+              topCities.add((
+                city: entry.key,
+                maxRatingCount: entry.value.maxRatingCount,
+              ));
+            }
+          }
+
+          // 如果只有一个城市，直接使用；如果有多个，按最高评价数排序
+          if (topCities.length == 1) {
+            mainCityMap[collectionId] = topCities.first.city;
+          } else {
+            // 平局时，选择评价人数最多的地点所在的城市
+            topCities.sort((a, b) => b.maxRatingCount.compareTo(a.maxRatingCount));
+            mainCityMap[collectionId] = topCities.first.city;
+          }
+        }
+      }
+
       // 按推荐组分组
       final Map<String, List<dynamic>> groupedItems = {};
       for (final item in items) {
@@ -375,7 +458,7 @@ class SupabaseCollectionRepository {
         }
       }
 
-      // 构建结果 - 包含 spotCount
+      // 构建结果 - 包含 spotCount 和 mainCity
       final result = <Map<String, dynamic>>[];
       for (final rec in recommendations) {
         final recId = rec['id'] as String;
@@ -388,6 +471,7 @@ class SupabaseCollectionRepository {
             'order': rec['sort_order'],
             'items': recItems.map((item) {
               final collection = item['collection'] as Map<String, dynamic>;
+              final collectionId = item['collection_id'] as String;
               // 获取 spot count
               final collectionSpots =
                   collection['collection_spots'] as List<dynamic>?;
@@ -408,6 +492,7 @@ class SupabaseCollectionRepository {
                   'createdAt': collection['created_at'],
                   'updatedAt': collection['updated_at'],
                   'spotCount': spotCount,
+                  'mainCity': mainCityMap[collectionId],
                 },
               };
             }).toList(),
@@ -549,6 +634,7 @@ class SupabaseCollectionRepository {
       'address': place['address'],
       'description': place['description'],
       'coverImage': coverImage ?? '',
+      'collectionCoverImage': place['collection_cover_image'],
       'images': place['images'],
       'rating': place['rating'],
       'ratingCount': place['rating_count'],

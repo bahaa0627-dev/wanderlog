@@ -282,18 +282,26 @@ class SpotCard extends StatelessWidget {
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             color: isMustGo
-                ? AppTheme.primaryYellow.withOpacity(0.2)
+                ? AppTheme.primaryYellow
                 : AppTheme.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: AppTheme.black,
               width: AppTheme.borderThin,
             ),
+            boxShadow: const [
+              BoxShadow(
+                color: AppTheme.black,
+                offset: Offset(0, 1),
+                blurRadius: 0,
+                spreadRadius: 0,
+              ),
+            ],
           ),
           child: Icon(
             isMustGo ? Icons.star : Icons.star_outline,
             size: 18,
-            color: isMustGo ? AppTheme.primaryYellow : AppTheme.black,
+            color: AppTheme.black,
           ),
         ),
       );

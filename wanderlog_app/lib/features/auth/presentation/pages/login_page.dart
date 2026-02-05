@@ -99,18 +99,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
 
     try {
+      debugPrint('🔐 [GoogleLogin] Starting Google Sign-In...');
       final googleUser = await GoogleAuthService.instance.signIn(context);
       if (googleUser == null) {
         // 用户取消登录或配置未完成
+        debugPrint('🔐 [GoogleLogin] User canceled or config incomplete');
         setState(() {
           _isGoogleLoading = false;
         });
         return;
       }
 
+      debugPrint('🔐 [GoogleLogin] Got Google user: ${googleUser.email}');
+
       // 在 google_sign_in 7.x 中，authentication 是一个 getter
       final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
+      debugPrint(
+          '🔐 [GoogleLogin] Got idToken: ${idToken != null ? "yes (${idToken.length} chars)" : "null"}');
 
       // 获取 accessToken 需要通过 authorizationClient
       final authorization =
@@ -118,8 +124,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         const ['email', 'profile'],
       );
       final accessToken = authorization?.accessToken;
+      debugPrint(
+          '🔐 [GoogleLogin] Got accessToken: ${accessToken != null ? "yes" : "null"}');
 
       if (idToken == null) {
+        debugPrint('❌ [GoogleLogin] idToken is null!');
         setState(() {
           _isGoogleLoading = false;
         });
@@ -133,15 +142,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       }
 
       // 使用 Supabase Auth 进行 Google 登录
+      debugPrint('🔐 [GoogleLogin] Calling Supabase signInWithIdToken...');
       final response = await SupabaseConfig.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
         accessToken: accessToken,
       );
+      debugPrint(
+          '🔐 [GoogleLogin] Supabase response user: ${response.user?.id}');
+      debugPrint(
+          '🔐 [GoogleLogin] Supabase response session: ${response.session != null}');
 
       if (response.user != null) {
+        debugPrint(
+            '✅ [GoogleLogin] Login successful, refreshing auth state...');
         // 刷新 authProvider 状态
         await ref.read(authProvider.notifier).refreshAuthState();
+        debugPrint('✅ [GoogleLogin] Auth state refreshed');
 
         // 登录成功
         setState(() {
@@ -152,6 +169,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           CustomToast.showSuccess(context, 'Google login successful');
           await Future<void>.delayed(const Duration(milliseconds: 300));
           if (mounted) {
+            debugPrint('🔐 [GoogleLogin] Navigating away from login page...');
             if (Navigator.of(context).canPop()) {
               Navigator.of(context).pop(true);
             } else {
@@ -160,6 +178,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           }
         }
       } else {
+        debugPrint('❌ [GoogleLogin] response.user is null');
         setState(() {
           _isGoogleLoading = false;
         });
@@ -168,29 +187,37 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         }
       }
     } on PlatformException catch (e) {
+      debugPrint('❌ [GoogleLogin] PlatformException: ${e.code} - ${e.message}');
       final hasSession = SupabaseConfig.auth.currentSession != null ||
           SupabaseConfig.currentUser != null;
       final isKeychainDup = e.code == '-25299' ||
           (e.message?.toLowerCase().contains('keychain') ?? false);
       if (isKeychainDup && hasSession) {
+        debugPrint(
+            '🔐 [GoogleLogin] Keychain duplicate but session exists, completing login...');
         await _completeLoginSuccess();
       } else if (mounted) {
         CustomToast.showError(context, e.message ?? 'Google login failed');
       }
-    } on AuthException catch (e) {
       setState(() {
         _isGoogleLoading = false;
       });
-      debugPrint('Google Login Auth Error: $e');
+    } on AuthException catch (e) {
+      debugPrint(
+          '❌ [GoogleLogin] AuthException: ${e.statusCode} - ${e.message}');
+      setState(() {
+        _isGoogleLoading = false;
+      });
       if (mounted) {
         CustomToast.showError(context, 'Google login failed: ${e.message}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       // 捕获所有异常，防止应用崩溃
+      debugPrint('❌ [GoogleLogin] Unexpected error: $e');
+      debugPrint('❌ [GoogleLogin] Stack trace: $stackTrace');
       setState(() {
         _isGoogleLoading = false;
       });
-      debugPrint('Google Login Error: $e');
       if (mounted) {
         CustomToast.showError(context, 'Google login failed: ${e.toString()}');
       }

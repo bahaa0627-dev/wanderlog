@@ -22,7 +22,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 const prisma = new PrismaClient();
 
 // 要删除的邮箱
-const EMAIL_TO_DELETE = '728300834@qq.com';
+const EMAIL_TO_DELETE = 'blcubahaa0627@gmail.com';
 
 async function deleteUserByEmail() {
   console.log(`🗑️  删除用户: ${EMAIL_TO_DELETE}\n`);

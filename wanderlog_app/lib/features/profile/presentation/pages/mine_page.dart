@@ -37,8 +37,17 @@ class MinePage extends ConsumerStatefulWidget {
 class _MinePageState extends ConsumerState<MinePage> {
   final ScrollController _scrollController = ScrollController();
 
+  /// 下拉刷新处理
+  Future<void> _handleRefresh() async {
+    ref.invalidate(minePageDataProvider);
+    // Wait for the provider to complete
+    await ref.read(minePageDataProvider.future);
+  }
+
   Future<void> _openSpotDetailFromMineData(
-      map_page.Spot spot, MinePageData data,) async {
+    map_page.Spot spot,
+    MinePageData data,
+  ) async {
     TripSpot? ts;
     for (final item in data.visitedSpots) {
       if (item.spot?.id == spot.id) {
@@ -149,8 +158,11 @@ class _MinePageState extends ConsumerState<MinePage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline,
-                      size: 48, color: AppTheme.error,),
+                  const Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: AppTheme.error,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Failed to load data',
@@ -211,141 +223,147 @@ class _MinePageState extends ConsumerState<MinePage> {
       ),
     );
 
-    return CustomScrollView(
-      controller: _scrollController,
-      slivers: [
-        // Pinned header (title + settings)
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _PinnedHeaderDelegate(
-            height: pinnedHeaderHeight,
-            child: ColoredBox(
-              color: AppTheme.background,
-              child: _buildHeader(context),
-            ),
-          ),
-        ),
-
-        // Stats card (pinned above map)
-        if (data.topCategories.isNotEmpty)
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      color: AppTheme.primaryYellow,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // Pinned header (title + settings)
           SliverPersistentHeader(
             pinned: true,
             delegate: _PinnedHeaderDelegate(
-              height: pinnedStatsHeight,
-              child: Container(
+              height: pinnedHeaderHeight,
+              child: ColoredBox(
                 color: AppTheme.background,
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-                child: _buildCategorySummaryCard(context, data),
+                child: _buildHeader(context),
               ),
             ),
-          )
-        else
-          const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-        // Globe map section
-        SliverPersistentHeader(
-          pinned: false,
-          floating: false,
-          delegate: _CollapsibleMapHeaderDelegate(
-            child: mapSection,
-            maxExtentHeight: mapSectionMaxExtent,
           ),
-        ),
 
-        // Photo wall section
-        SliverToBoxAdapter(
-          child: PhotoWall(
-            photos: data.photos,
-            topCategories: const [],
-          ),
-        ),
-
-        // Bottom padding
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 100),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) => Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Title
-          Text(
-            'Your flâneur',
-            style: AppTheme.displayLarge(context).copyWith(
-              fontSize: 32,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          // Settings button - gear icon
-          GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (context) => const SettingsPage(),
+          // Stats card (pinned above map)
+          if (data.topCategories.isNotEmpty)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _PinnedHeaderDelegate(
+                height: pinnedStatsHeight,
+                child: Container(
+                  color: AppTheme.background,
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+                  child: _buildCategorySummaryCard(context, data),
                 ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              child: const Icon(
-                Icons.settings_outlined,
-                size: 28,
-                color: AppTheme.darkGray,
               ),
+            )
+          else
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
+          // Globe map section
+          SliverPersistentHeader(
+            pinned: false,
+            floating: false,
+            delegate: _CollapsibleMapHeaderDelegate(
+              child: mapSection,
+              maxExtentHeight: mapSectionMaxExtent,
             ),
+          ),
+
+          // Photo wall section
+          SliverToBoxAdapter(
+            child: PhotoWall(
+              photos: data.photos,
+              topCategories: const [],
+            ),
+          ),
+
+          // Bottom padding
+          const SliverToBoxAdapter(
+            child: SizedBox(height: 100),
           ),
         ],
       ),
     );
+  }
 
-  Widget _buildCategorySummaryCard(BuildContext context, MinePageData data) => SizedBox(
-      height: 52,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppTheme.lightYellow,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderMedium,
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: AppTheme.black,
-              offset: Offset(2, 2),
-              blurRadius: 0,
+  Widget _buildHeader(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Title
+            Text(
+              'Your flâneur',
+              style: AppTheme.displayLarge(context).copyWith(
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            // Settings button - gear icon
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const SettingsPage(),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: const Icon(
+                  Icons.settings_outlined,
+                  size: 28,
+                  color: AppTheme.darkGray,
+                ),
+              ),
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: [
-                for (int i = 0; i < data.topCategories.length; i++) ...[
-                  Text(
-                    '${data.topCategories[i].emoji} ${data.topCategories[i].count} ${_pluralize(data.topCategories[i].category, data.topCategories[i].count)}',
-                    style: AppTheme.bodySmall(context).copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.black,
+      );
+
+  Widget _buildCategorySummaryCard(BuildContext context, MinePageData data) =>
+      SizedBox(
+        height: 52,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppTheme.lightYellow,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            border: Border.all(
+              color: AppTheme.black,
+              width: AppTheme.borderMedium,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: AppTheme.black,
+                offset: Offset(2, 2),
+                blurRadius: 0,
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  for (int i = 0; i < data.topCategories.length; i++) ...[
+                    Text(
+                      '${data.topCategories[i].emoji} ${data.topCategories[i].count} ${_pluralize(data.topCategories[i].category, data.topCategories[i].count)}',
+                      style: AppTheme.bodySmall(context).copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.black,
+                      ),
                     ),
-                  ),
-                  if (i != data.topCategories.length - 1)
-                    const SizedBox(width: 14),
+                    if (i != data.topCategories.length - 1)
+                      const SizedBox(width: 14),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
 
   String _pluralize(String word, int count) {
     final lower = word.toLowerCase();
@@ -450,7 +468,10 @@ class _CollapsibleMapHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent,) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     final remaining = (maxExtent - shrinkOffset).clamp(0.0, maxExtent);
     final progress = (remaining / maxExtent).clamp(0.0, 1.0);
 
@@ -469,8 +490,9 @@ class _CollapsibleMapHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(covariant _CollapsibleMapHeaderDelegate oldDelegate) => oldDelegate.child != child ||
-        oldDelegate.maxExtentHeight != maxExtentHeight;
+  bool shouldRebuild(covariant _CollapsibleMapHeaderDelegate oldDelegate) =>
+      oldDelegate.child != child ||
+      oldDelegate.maxExtentHeight != maxExtentHeight;
 }
 
 class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
@@ -490,13 +512,18 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent,) => SizedBox(
-      height: height,
-      child: child,
-    );
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) =>
+      SizedBox(
+        height: height,
+        child: child,
+      );
 
   @override
-  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) => oldDelegate.child != child || oldDelegate.height != height;
+  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) =>
+      oldDelegate.child != child || oldDelegate.height != height;
 }
 
 /// Globe map preview section
@@ -520,9 +547,11 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
   Widget build(BuildContext context) {
     // Convert visited spots to Spot list (limit to 10 most recent)
     print(
-        '🗺️ [GlobeMap] Total visitedSpots: ${widget.data.visitedSpots.length}',);
+      '🗺️ [GlobeMap] Total visitedSpots: ${widget.data.visitedSpots.length}',
+    );
     print(
-        '🗺️ [GlobeMap] Spots with place: ${widget.data.visitedSpots.where((ts) => ts.spot != null).length}',);
+      '🗺️ [GlobeMap] Spots with place: ${widget.data.visitedSpots.where((ts) => ts.spot != null).length}',
+    );
 
     final sortedVisitedSpots = List<TripSpot>.from(widget.data.visitedSpots)
       ..sort((a, b) {
@@ -541,7 +570,8 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
           : (spot.images.isNotEmpty ? spot.images.first : '');
 
       print(
-          '🗺️ [GlobeMap] Adding spot to previewSpots: ${spot.name} at (${spot.latitude}, ${spot.longitude})',);
+        '🗺️ [GlobeMap] Adding spot to previewSpots: ${spot.name} at (${spot.latitude}, ${spot.longitude})',
+      );
 
       return map_page.Spot(
         id: spot.id,
@@ -599,9 +629,11 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
       final maxDiff = math.max(latDiff, lngDiff);
 
       print(
-          '🗺️ [GlobeMap] Latest spot: ${latestSpot.name} at (${latestSpot.latitude}, ${latestSpot.longitude})',);
+        '🗺️ [GlobeMap] Latest spot: ${latestSpot.name} at (${latestSpot.latitude}, ${latestSpot.longitude})',
+      );
       print(
-          '🗺️ [GlobeMap] Bounds: lat=[$minLat, $maxLat] (diff=$latDiff), lng=[$minLng, $maxLng] (diff=$lngDiff)',);
+        '🗺️ [GlobeMap] Bounds: lat=[$minLat, $maxLat] (diff=$latDiff), lng=[$minLng, $maxLng] (diff=$lngDiff)',
+      );
 
       if (maxDiff > 100) {
         zoom = 2.5; // 提高基础 zoom
@@ -621,7 +653,8 @@ class _GlobeMapSectionState extends State<_GlobeMapSection> {
       zoom = math.max(zoom, 9.0);
 
       print(
-          '🗺️ [GlobeMap] Calculated center (latest spot): (${center.lng}, ${center.lat}), zoom: $zoom',);
+        '🗺️ [GlobeMap] Calculated center (latest spot): (${center.lng}, ${center.lat}), zoom: $zoom',
+      );
     }
 
     return Container(
@@ -1065,47 +1098,49 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
   }
 
   Widget _buildSearchBar() => Container(
-      height: 44,
-      decoration: BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
-        boxShadow: AppTheme.searchBoxShadow,
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 14),
-          const Icon(Icons.search, size: 20, color: AppTheme.mediumGray),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              style: AppTheme.bodyMedium(context),
-              decoration: InputDecoration(
-                hintText: 'Search places',
-                hintStyle: AppTheme.bodySmall(context).copyWith(
-                  color: AppTheme.mediumGray,
+        height: 44,
+        decoration: BoxDecoration(
+          color: AppTheme.white,
+          borderRadius: BorderRadius.circular(22),
+          border:
+              Border.all(color: AppTheme.black, width: AppTheme.borderMedium),
+          boxShadow: AppTheme.searchBoxShadow,
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 14),
+            const Icon(Icons.search, size: 20, color: AppTheme.mediumGray),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                style: AppTheme.bodyMedium(context),
+                decoration: InputDecoration(
+                  hintText: 'Search places',
+                  hintStyle: AppTheme.bodySmall(context).copyWith(
+                    color: AppTheme.mediumGray,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
                 ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                isDense: true,
               ),
             ),
-          ),
-          if (_searchController.text.isNotEmpty)
-            GestureDetector(
-              onTap: () {
-                _searchController.clear();
-              },
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.close, size: 18, color: AppTheme.mediumGray),
+            if (_searchController.text.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _searchController.clear();
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child:
+                      Icon(Icons.close, size: 18, color: AppTheme.mediumGray),
+                ),
               ),
-            ),
-          const SizedBox(width: 8),
-        ],
-      ),
-    );
+            const SizedBox(width: 8),
+          ],
+        ),
+      );
 
   Widget _buildCityDropdown() {
     final displayText = _selectedCity ?? 'All';
@@ -1309,14 +1344,16 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
           );
           if (uuidRegex.hasMatch(spot.id)) {
             final collectionRepo = ref.read(collectionRepositoryProvider);
-            final collections = await collectionRepo
-                .getCollectionsForPlace(spot.id)
-                .timeout(const Duration(milliseconds: 1200),
-                    onTimeout: () => [],);
+            final collections =
+                await collectionRepo.getCollectionsForPlace(spot.id).timeout(
+                      const Duration(milliseconds: 1200),
+                      onTimeout: () => [],
+                    );
             if (collections.isNotEmpty) {
               // 随机选择一个合集展示
               final random = math.Random();
-              linkedCollection = collections[random.nextInt(collections.length)];
+              linkedCollection =
+                  collections[random.nextInt(collections.length)];
             }
           }
         } catch (e) {
@@ -1495,8 +1532,11 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                     ),
                     const Spacer(),
                     if (isAllSelected)
-                      const Icon(Icons.check,
-                          size: 18, color: AppTheme.primaryYellow,),
+                      const Icon(
+                        Icons.check,
+                        size: 18,
+                        color: AppTheme.primaryYellow,
+                      ),
                   ],
                 ),
               ),
@@ -1528,7 +1568,9 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14,),
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
                               color: isSelected
                                   ? AppTheme.primaryYellow.withOpacity(0.2)
                                   : Colors.transparent,
@@ -1547,8 +1589,11 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                                     ),
                                   ),
                                   if (isSelected)
-                                    const Icon(Icons.chevron_right,
-                                        size: 18, color: AppTheme.mediumGray,),
+                                    const Icon(
+                                      Icons.chevron_right,
+                                      size: 18,
+                                      color: AppTheme.mediumGray,
+                                    ),
                                 ],
                               ),
                             ),
@@ -1573,7 +1618,9 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 14,),
+                              horizontal: 12,
+                              vertical: 14,
+                            ),
                             color: isSelected
                                 ? AppTheme.primaryYellow.withOpacity(0.2)
                                 : Colors.transparent,
@@ -1592,8 +1639,11 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                                   ),
                                 ),
                                 if (isSelected)
-                                  const Icon(Icons.check,
-                                      size: 18, color: AppTheme.primaryYellow,),
+                                  const Icon(
+                                    Icons.check,
+                                    size: 18,
+                                    color: AppTheme.primaryYellow,
+                                  ),
                               ],
                             ),
                           ),
@@ -1623,34 +1673,34 @@ class _NeoBrutalismIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: AppTheme.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderMedium,
-          ),
-          boxShadow: const [
-            BoxShadow(
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
               color: AppTheme.black,
-              offset: Offset(2, 2),
-              blurRadius: 0,
+              width: AppTheme.borderMedium,
             ),
-          ],
-        ),
-        child: Center(
-          child: Icon(
-            icon,
-            size: 20,
-            color: AppTheme.black,
+            boxShadow: const [
+              BoxShadow(
+                color: AppTheme.black,
+                offset: Offset(2, 2),
+                blurRadius: 0,
+              ),
+            ],
+          ),
+          child: Center(
+            child: Icon(
+              icon,
+              size: 20,
+              color: AppTheme.black,
+            ),
           ),
         ),
-      ),
-    );
+      );
 }
 
 /// Vertical spot card matching image 5 style - full image with gradient overlay
@@ -1755,98 +1805,98 @@ class _VerticalSpotCardState extends State<_VerticalSpotCard> {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-      onTap: widget.onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderMedium,
+        onTap: widget.onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            border: Border.all(
+              color: AppTheme.black,
+              width: AppTheme.borderMedium,
+            ),
+            boxShadow: AppTheme.cardShadow,
           ),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _buildCover(),
-              // Bottom gradient overlay
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  height: 140,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        _dominantColor.withOpacity(0.3),
-                        _dominantColor.withOpacity(0.6),
-                        _dominantColor.withOpacity(0.85),
-                      ],
-                      stops: const [0.0, 0.3, 0.6, 1.0],
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildCover(),
+                // Bottom gradient overlay
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: 140,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          _dominantColor.withOpacity(0.3),
+                          _dominantColor.withOpacity(0.6),
+                          _dominantColor.withOpacity(0.85),
+                        ],
+                        stops: const [0.0, 0.3, 0.6, 1.0],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      widget.spot.name,
-                      style: AppTheme.bodyLarge(context).copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
+                // Content
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        widget.spot.name,
+                        style: AppTheme.bodyLarge(context).copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (widget.spot.rating > 0) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.star,
-                            color: AppTheme.primaryYellow,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            widget.spot.rating.toStringAsFixed(1),
-                            style: AppTheme.bodyMedium(context).copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
+                      if (widget.spot.rating > 0) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              color: AppTheme.primaryYellow,
+                              size: 18,
                             ),
-                          ),
-                          if (widget.spot.ratingCount > 0) ...[
+                            const SizedBox(width: 6),
                             Text(
-                              ' (${_formatCount(widget.spot.ratingCount)})',
-                              style: AppTheme.bodySmall(context).copyWith(
-                                color: Colors.white70,
+                              widget.spot.rating.toStringAsFixed(1),
+                              style: AppTheme.bodyMedium(context).copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
+                            if (widget.spot.ratingCount > 0) ...[
+                              Text(
+                                ' (${_formatCount(widget.spot.ratingCount)})',
+                                style: AppTheme.bodySmall(context).copyWith(
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
 
   String _formatCount(int count) {
     if (count >= 1000) {

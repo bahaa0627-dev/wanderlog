@@ -1159,7 +1159,8 @@ class _MapPageState extends ConsumerState<MapPage> {
                 onTap: _clearSearch,
                 child: const Padding(
                   padding: EdgeInsets.only(left: 4, right: 4),
-                  child: Icon(Icons.close, size: 18, color: AppTheme.mediumGray),
+                  child:
+                      Icon(Icons.close, size: 18, color: AppTheme.mediumGray),
                 ),
               ),
             // Ask AI entry
@@ -2492,12 +2493,25 @@ class _MapPageState extends ConsumerState<MapPage> {
     }
   }
 
+  /// 检查是否为有效的图片 URL（排除占位符图片）
+  bool _isValidImageUrl(String url) {
+    if (url.isEmpty) return false;
+    // 排除占位符图片
+    if (url.contains('placeholder')) return false;
+    if (url.contains('example.com')) return false;
+    return true;
+  }
+
   List<String> _dedupeImages(List<String> rawImages) {
     final Set<String> seen = {};
     final List<String> results = [];
     for (final image in rawImages) {
       final normalized = image.trim();
       if (normalized.isEmpty) {
+        continue;
+      }
+      // 过滤占位符图片
+      if (!_isValidImageUrl(normalized)) {
         continue;
       }
       if (seen.add(normalized)) {

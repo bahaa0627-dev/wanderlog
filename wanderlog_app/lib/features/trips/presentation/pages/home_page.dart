@@ -399,7 +399,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                         },
                       ),
                       const SizedBox(
-                          height: 12,), // collection 切换底部距离合集推荐标题 12px
+                        height: 12,
+                      ), // collection 切换底部距离合集推荐标题 12px
                     ],
                     Expanded(
                       child: IndexedStack(
@@ -481,8 +482,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                               } else {
                                 collectionChild = ListView.builder(
                                   padding: const EdgeInsets.only(
-                                      bottom:
-                                          80,), // 底部 padding（底部导航栏高度约82px + 安全区域）
+                                    bottom: 80,
+                                  ), // 底部 padding（底部导航栏高度约82px + 安全区域）
                                   cacheExtent: 500, // 优化性能：减少预加载范围
                                   physics:
                                       const AlwaysScrollableScrollPhysics(),
@@ -502,8 +503,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       padding: EdgeInsets.only(
                                         bottom: recommendationIndex <
                                                 _recommendations.length - 1
-                                            ? 16
-                                            : 16, // 合集推荐之间间距 16px，最后一个合集底部也留 16px
+                                            ? 20
+                                            : 20, // 合集推荐之间间距 20px，最后一个合集底部也留 20px
                                       ),
                                       child: Column(
                                         crossAxisAlignment:
@@ -512,7 +513,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                           // 推荐标题行 - 不要黄色竖杠
                                           Padding(
                                             padding: const EdgeInsets.symmetric(
-                                                horizontal: 16,),
+                                              horizontal: 16,
+                                            ),
                                             child: Row(
                                               children: [
                                                 // 推荐名称 - 直接展示
@@ -521,8 +523,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     recommendationName,
                                                     style:
                                                         AppTheme.headlineLarge(
-                                                                context,)
-                                                            .copyWith(
+                                                      context,
+                                                    ).copyWith(
                                                       fontSize: 18,
                                                     ),
                                                   ),
@@ -544,9 +546,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     child: Text(
                                                       'more >',
                                                       style:
-                                                          AppTheme.labelSmall(
-                                                                  context,)
-                                                              .copyWith(
+                                                          AppTheme.labelMedium(
+                                                        context,
+                                                      ).copyWith(
                                                         fontWeight:
                                                             FontWeight.w400,
                                                         color: AppTheme
@@ -558,7 +560,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                             ),
                                           ),
                                           const SizedBox(
-                                              height: 8,), // 合集标题距离合集卡片 8px
+                                            height: 8,
+                                          ), // 合集标题距离合集卡片 8px
                                           // 横向滚动的合集列表 - 高度 = 卡片高度 224 + 底部间距 8
                                           SizedBox(
                                             height:
@@ -569,7 +572,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                               cacheExtent:
                                                   200, // 优化性能：减少横向预加载范围
                                               padding: const EdgeInsets.only(
-                                                  left: 16, right: 16,),
+                                                left: 16,
+                                                right: 16,
+                                              ),
                                               itemCount: displayItems.length,
                                               itemBuilder:
                                                   (context, itemIndex) {
@@ -589,9 +594,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                 // 调试：查看数据结构
                                                 print('🔍 合集: $collectionName');
                                                 print(
-                                                    '🔍 item结构: ${item.keys}',);
+                                                  '🔍 item结构: ${item.keys}',
+                                                );
                                                 print(
-                                                    '🔍 collection.spotCount: ${collection['spotCount']}',);
+                                                  '🔍 collection.spotCount: ${collection['spotCount']}',
+                                                );
 
                                                 // 获取合集的地点信息
                                                 final collectionSpots =
@@ -678,9 +685,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                       try {
                                                         final decoded =
                                                             jsonDecode(
-                                                                    tagsValue,)
-                                                                as List<
-                                                                    dynamic>?;
+                                                          tagsValue,
+                                                        ) as List<dynamic>?;
                                                         if (decoded != null) {
                                                           tagsList
                                                               .addAll(decoded);
@@ -698,18 +704,19 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     if (aiTagsValue != null) {
                                                       if (aiTagsValue is List) {
                                                         tagsList.addAll(
-                                                            aiTagsValue,);
+                                                          aiTagsValue,
+                                                        );
                                                       } else if (aiTagsValue
                                                           is String) {
                                                         try {
                                                           final decoded =
                                                               jsonDecode(
-                                                                      aiTagsValue,)
-                                                                  as List<
-                                                                      dynamic>?;
+                                                            aiTagsValue,
+                                                          ) as List<dynamic>?;
                                                           if (decoded != null) {
                                                             tagsList.addAll(
-                                                                decoded,);
+                                                              decoded,
+                                                            );
                                                           }
                                                         } catch (e) {
                                                           // 忽略解析错误
@@ -734,17 +741,18 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                                                 // 辅助函数：检查 URL 是否是有效的图片 URL
                                                 bool isValidImageUrl(
-                                                    String? url,) {
+                                                  String? url,
+                                                ) {
                                                   if (url == null ||
                                                       url.isEmpty) {
                                                     return false;
                                                   }
-                                                  if (url
-                                                      .contains('example.com')) {
+                                                  if (url.contains(
+                                                      'example.com')) {
                                                     return false;
                                                   }
-                                                  if (url
-                                                      .contains('placeholder')) {
+                                                  if (url.contains(
+                                                      'placeholder')) {
                                                     return false;
                                                   }
                                                   return true;
@@ -756,7 +764,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                     collection['coverImage']
                                                         as String?;
                                                 if (isValidImageUrl(
-                                                    collectionCoverImage,)) {
+                                                  collectionCoverImage,
+                                                )) {
                                                   coverImage =
                                                       collectionCoverImage!;
                                                 } else {
@@ -771,7 +780,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                         place['coverImage']
                                                             as String?;
                                                     if (isValidImageUrl(
-                                                        placeCoverImage,)) {
+                                                      placeCoverImage,
+                                                    )) {
                                                       coverImage =
                                                           placeCoverImage!;
                                                       break;
@@ -805,8 +815,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                       onTap: () async {
                                                         final result =
                                                             await Navigator.of(
-                                                                    context,)
-                                                                .push<dynamic>(
+                                                          context,
+                                                        ).push<dynamic>(
                                                           MaterialPageRoute<
                                                               dynamic>(
                                                             builder: (context) =>
@@ -827,16 +837,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                                   as String?,
                                                               people: LinkItem
                                                                   .parseList(
-                                                                      collection[
-                                                                          'people'],
-                                                                      isPeople:
-                                                                          true,),
+                                                                collection[
+                                                                    'people'],
+                                                                isPeople: true,
+                                                              ),
                                                               works: LinkItem
                                                                   .parseList(
-                                                                      collection[
-                                                                          'works'],
-                                                                      isPeople:
-                                                                          false,),
+                                                                collection[
+                                                                    'works'],
+                                                                isPeople: false,
+                                                              ),
                                                             ),
                                                           ),
                                                         );
@@ -851,8 +861,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                                                             // 后台静默刷新缓存，不影响当前页面显示
                                                             // 使用 unawaited 让刷新在后台进行
                                                             ref
-                                                                .read(collectionsCacheProvider
-                                                                    .notifier,)
+                                                                .read(
+                                                                  collectionsCacheProvider
+                                                                      .notifier,
+                                                                )
                                                                 .refresh();
                                                             // recommendations 使用现有缓存显示，不重新加载
                                                             // 缓存会在下次打开页面时自动刷新（如果过期）
@@ -881,25 +893,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                           // Tab 1: Map - 添加底部 padding 为底部导航栏留空间
                           LayoutBuilder(
                             builder: (context, constraints) => RefreshIndicator(
-                                onRefresh: _handlePullToRefresh,
-                                child: SingleChildScrollView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  child: SizedBox(
-                                    height: constraints.maxHeight,
-                                    child: Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 38),
-                                      child: MapPage(
-                                        key: const ValueKey('map-page-default'),
-                                        resetSelectionKey: _mapResetKey,
-                                        onFullscreenChanged:
-                                            _handleMapFullscreenChanged,
-                                      ),
+                              onRefresh: _handlePullToRefresh,
+                              child: SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                child: SizedBox(
+                                  height: constraints.maxHeight,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 38),
+                                    child: MapPage(
+                                      key: const ValueKey('map-page-default'),
+                                      resetSelectionKey: _mapResetKey,
+                                      onFullscreenChanged:
+                                          _handleMapFullscreenChanged,
                                     ),
                                   ),
                                 ),
                               ),
+                            ),
                           ),
                         ],
                       ),
@@ -1237,7 +1247,9 @@ class _TripCardState extends State<_TripCard> {
                         // 计算地点数量需要的宽度
                         final countTextPainter = TextPainter(
                           text: TextSpan(
-                              text: widget.count.toString(), style: textStyle,),
+                            text: widget.count.toString(),
+                            style: textStyle,
+                          ),
                           maxLines: 1,
                           textDirection: TextDirection.ltr,
                         )..layout();

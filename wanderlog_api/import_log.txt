@@ -1,33 +1,44 @@
-🌐 Using proxy: http://127.0.0.1:7890
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🗺️  Google Maps 列表导入工具
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ DATABASE_URL is configured
 
-📍 Google Maps URL: https://maps.app.goo.gl/Cd5DMwwW89C2jDbU9
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚀 开始导入地点...
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 Configuration:
+   Source:      Dataset (z2cLFGNKiSMYBVIS2)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: No
 
-🕷️ Starting Apify scraper for URL: https://maps.app.goo.gl/Cd5DMwwW89C2jDbU9
-🔑 Apify API Token: apify_api_XbmdrjhdbI...
-🎭 Apify Actor ID: tByXAQZA6aEfjFT0H
-✅ Apify run started, ID: c8NnJr5GLPu8Jl2K4
-⏳ Waiting for scraper to complete...
-Apify run status: RUNNING
-Apify run status: SUCCEEDED
-✅ Extracted 0 place IDs from Apify
+📥 Fetching data from Apify Dataset: z2cLFGNKiSMYBVIS2
+✅ Database connection established
+   Fetched 77 items...
+✅ Total items fetched: 77
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 导入结果
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 Starting import of 77 items (batch size: 100, dry-run: false)
 
-✅ 成功导入: 0 个地点
-❌ 失败: 0 个地点
-
-❌ 错误详情:
-  1. No places found in the link
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✨ 导入完成！
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📦 Processing batch 1/1 (77 items)
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Toba Aquarium
+   🖼️  Set Google image as coverImage: Toba Aquarium
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Nanaya Aoyama Store
+   🖼️  Set Google image as coverImage: Nanaya Aoyama Store
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Hankyu Department Store Umeda Main Store
+   🖼️  Set Google image as coverImage: Hankyu Department Store Umeda Main Store
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Nanaya Kyoto Sanjo Shop
+   🖼️  Set Google image as coverImage: Nanaya Kyoto Sanjo Shop
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: 手づくり工房 京豆庵 京都伏見稲荷店
+   🖼️  Set Google image as coverImage: 手づくり工房 京豆庵 京都伏見稲荷店
+   📍 Using existing city for Kamo River: Kyoto
+   🌍 Using existing country for Kamo River: Japan
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Kamo River
+   🖼️  Set Google image as coverImage: Kamo River
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: SOU・SOU Tabi
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Loutre otter cafe

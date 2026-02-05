@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -83,7 +84,9 @@ class SettingsPage extends ConsumerWidget {
                       padding: const EdgeInsets.only(top: 8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6,),
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryYellow,
                           borderRadius: BorderRadius.circular(16),
@@ -126,7 +129,10 @@ class SettingsPage extends ConsumerWidget {
   }
 
   void _showLogoutDialog(
-      BuildContext context, WidgetRef ref, AppLocalizations l10n,) {
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -140,8 +146,10 @@ class SettingsPage extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.cancel,
-                style: const TextStyle(color: AppTheme.mediumGray),),
+            child: Text(
+              l10n.cancel,
+              style: const TextStyle(color: AppTheme.mediumGray),
+            ),
           ),
           TextButton(
             onPressed: () async {
@@ -151,8 +159,10 @@ class SettingsPage extends ConsumerWidget {
                 CustomToast.showSuccess(context, l10n.logoutSuccess);
               }
             },
-            child: Text(l10n.confirm,
-                style: const TextStyle(color: AppTheme.error),),
+            child: Text(
+              l10n.confirm,
+              style: const TextStyle(color: AppTheme.error),
+            ),
           ),
         ],
       ),
@@ -167,7 +177,10 @@ class SettingsPage extends ConsumerWidget {
   }
 
   void _showRecommendPlaceDialog(
-      BuildContext context, WidgetRef ref, AppLocalizations l10n,) {
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) {
     showDialog<void>(
       context: context,
       builder: (context) => _RecommendPlaceDialog(l10n: l10n, ref: ref),
@@ -246,39 +259,91 @@ class _Divider extends StatelessWidget {
       );
 }
 
-class _FeedbackDialog extends StatefulWidget {
+class _FeedbackDialog extends ConsumerStatefulWidget {
   const _FeedbackDialog({required this.l10n});
 
   final AppLocalizations l10n;
 
   @override
-  State<_FeedbackDialog> createState() => _FeedbackDialogState();
+  ConsumerState<_FeedbackDialog> createState() => _FeedbackDialogState();
 }
 
-class _FeedbackDialogState extends State<_FeedbackDialog> {
+class _FeedbackDialogState extends ConsumerState<_FeedbackDialog> {
   bool _isSaving = false;
   Uint8List? _imageBytes;
+  String? _remoteQrCodeUrl;
+  bool _isLoadingFromRemote = true;
 
   @override
   void initState() {
     super.initState();
-    _loadImage();
+    _loadQrCode();
   }
 
-  Future<void> _loadImage() async {
+  /// 优先从后端获取二维码 URL，失败则使用本地 asset
+  Future<void> _loadQrCode() async {
+    try {
+      // 尝试从后端获取最新的二维码 URL
+      final dio = ref.read(dioProvider);
+      final response =
+          await dio.get<Map<String, dynamic>>('api/app-config/feedback-qr');
+
+      if (response.statusCode == 200 && response.data?['success'] == true) {
+        final url = response.data?['data']?['url'] as String?;
+        if (url != null && url.isNotEmpty) {
+          setState(() {
+            _remoteQrCodeUrl = url;
+            _isLoadingFromRemote = false;
+          });
+          // 预加载远程图片用于保存
+          await _loadRemoteImage(url);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch QR code from API: $e');
+    }
+
+    // 回退到本地 asset
+    setState(() {
+      _isLoadingFromRemote = false;
+    });
+    await _loadLocalImage();
+  }
+
+  Future<void> _loadRemoteImage(String url) async {
+    try {
+      final dio = Dio();
+      final response = await dio.get<List<int>>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      if (response.data != null) {
+        setState(() {
+          _imageBytes = Uint8List.fromList(response.data!);
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load remote QR code image: $e');
+      // 如果远程图片加载失败，回退到本地
+      await _loadLocalImage();
+    }
+  }
+
+  Future<void> _loadLocalImage() async {
     try {
       final data = await rootBundle.load(AppConfig.feedbackQrCodeAsset);
       setState(() {
         _imageBytes = data.buffer.asUint8List();
       });
     } catch (e) {
-      debugPrint('Failed to load QR code image: $e');
+      debugPrint('Failed to load local QR code image: $e');
     }
   }
 
   Future<void> _saveToAlbum() async {
     if (_imageBytes == null) {
-      await _loadImage();
+      await _loadLocalImage();
       if (_imageBytes == null) {
         if (mounted) {
           CustomToast.showError(context, widget.l10n.saveFailed);
@@ -399,7 +464,7 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
-                // QR code image
+                // QR code image - 优先显示远程图片，失败则显示本地 asset
                 Container(
                   width: 180,
                   height: 180,
@@ -409,15 +474,47 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                    child: Image.asset(
-                      AppConfig.feedbackQrCodeAsset,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Center(
-                        child: Icon(Icons.qr_code,
-                            size: 80, color: AppTheme.mediumGray,),
-                      ),
-                    ),
+                    child: _isLoadingFromRemote
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.primaryYellow,
+                            ),
+                          )
+                        : _remoteQrCodeUrl != null
+                            ? Image.network(
+                                _remoteQrCodeUrl!,
+                                fit: BoxFit.contain,
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.primaryYellow,
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Image.asset(
+                                  AppConfig.feedbackQrCodeAsset,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Center(
+                                    child: Icon(Icons.qr_code,
+                                        size: 80, color: AppTheme.mediumGray),
+                                  ),
+                                ),
+                              )
+                            : Image.asset(
+                                AppConfig.feedbackQrCodeAsset,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Center(
+                                  child: Icon(Icons.qr_code,
+                                      size: 80, color: AppTheme.mediumGray),
+                                ),
+                              ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -649,7 +746,9 @@ class _RecommendPlaceDialogState extends ConsumerState<_RecommendPlaceDialog> {
                 ),
                 const SizedBox(height: 8),
                 _buildTextField(
-                    _placeNameController, widget.l10n.placeNameLabel,),
+                  _placeNameController,
+                  widget.l10n.placeNameLabel,
+                ),
                 const SizedBox(height: 16),
 
                 // Image upload

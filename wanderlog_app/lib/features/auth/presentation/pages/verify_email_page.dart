@@ -10,7 +10,7 @@ import 'package:wanderlog/shared/widgets/custom_toast.dart';
 
 class VerifyEmailPage extends ConsumerStatefulWidget {
   const VerifyEmailPage({super.key, this.email});
-  
+
   final String? email;
 
   @override
@@ -48,7 +48,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
     try {
       await SupabaseConfig.auth.refreshSession();
       final user = SupabaseConfig.currentUser;
-      
+
       if (user != null && user.emailConfirmedAt != null) {
         _checkTimer?.cancel();
         await ref.read(authProvider.notifier).refreshAuthState();
@@ -110,9 +110,9 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
     // 根据邮箱域名打开对应的网页版邮箱
     if (_email.contains('@gmail.com')) {
       mailUrl = 'https://mail.google.com';
-    } else if (_email.contains('@outlook.com') || 
-               _email.contains('@hotmail.com') || 
-               _email.contains('@live.com')) {
+    } else if (_email.contains('@outlook.com') ||
+        _email.contains('@hotmail.com') ||
+        _email.contains('@live.com')) {
       mailUrl = 'https://outlook.live.com';
     } else if (_email.contains('@yahoo.com')) {
       mailUrl = 'https://mail.yahoo.com';
@@ -148,96 +148,158 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
     CustomToast.showSuccess(context, message);
   }
 
+  // Neo-brutalism 黄色
+  static const Color _primaryYellow = Color(0xFFFFE500);
+
   @override
   Widget build(BuildContext context) => Scaffold(
-      appBar: AppBar(
-        title: const Text('Verify Email'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/login'),
+        appBar: AppBar(
+          title: const Text(
+            'Verify Email',
+            style: TextStyle(
+              fontFamily: 'ReemKufi',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go('/login'),
+          ),
         ),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.mark_email_unread_outlined,
-                  size: 80,
-                  color: Colors.amber,
-                ),
-                const SizedBox(height: 32),
-                const Text(
-                  'Check Your Email',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _email,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Click the link in the email to verify your account.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // 打开邮箱按钮
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton.icon(
-                    onPressed: _openEmailInBrowser,
-                    icon: const Icon(Icons.open_in_new),
-                    label: const Text('Open Email'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      foregroundColor: Colors.black,
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 邮件图标
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: _primaryYellow,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.black, width: 2),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black,
+                          offset: Offset(3, 3),
+                          blurRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.mark_email_unread_outlined,
+                      size: 40,
+                      color: Colors.black,
                     ),
                   ),
-                ),
-
-                const SizedBox(height: 24),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Didn't receive the email? ",
-                      style: TextStyle(color: Colors.grey[600]),
+                  const SizedBox(height: 32),
+                  const Text(
+                    'Check Your Email',
+                    style: TextStyle(
+                      fontFamily: 'ReemKufi',
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
                     ),
-                    TextButton(
-                      onPressed: _canResend ? _onResend : null,
-                      child: Text(
-                        _canResend
-                            ? 'Resend'
-                            : 'Resend in ${_resendCountdown}s',
-                        style: TextStyle(
-                          color: _canResend ? Colors.amber[700] : Colors.grey,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _email,
+                    style: const TextStyle(
+                      fontFamily: 'ReemKufi',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Click the link in the email to verify your account.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'ReemKufi',
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Neo-brutalism 风格按钮
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _primaryYellow,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.black, width: 2),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black,
+                            offset: Offset(4, 4),
+                            blurRadius: 0,
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _openEmailInBrowser,
+                          borderRadius: BorderRadius.circular(10),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.open_in_new, color: Colors.black),
+                              SizedBox(width: 8),
+                              Text(
+                                'Open Email',
+                                style: TextStyle(
+                                  fontFamily: 'ReemKufi',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Didn't receive the email? ",
+                        style: TextStyle(
+                          fontFamily: 'ReemKufi',
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _canResend ? _onResend : null,
+                        child: Text(
+                          _canResend
+                              ? 'Resend'
+                              : 'Resend in ${_resendCountdown}s',
+                          style: TextStyle(
+                            fontFamily: 'ReemKufi',
+                            fontWeight: FontWeight.bold,
+                            color: _canResend ? _primaryYellow : Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
 }

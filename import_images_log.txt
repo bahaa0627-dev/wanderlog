@@ -1,0 +1,100 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (sZpelddgX22CAbCVd)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: No
+
+📥 Fetching data from Apify Dataset: sZpelddgX22CAbCVd
+✅ Database connection established
+   Fetched 92 items...
+✅ Total items fetched: 92
+
+🚀 Starting import of 92 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (92 items)
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Temple of Aesculapius
+   🖼️  Set Google image as coverImage: Temple of Aesculapius
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Colosseum
+   🖼️  Set Google image as coverImage: Colosseum
+   📍 Using existing city for Piazza di Spagna: Rome
+   🌍 Using existing country for Piazza di Spagna: Italy
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Piazza di Spagna
+   🖼️  Set Google image as coverImage: Piazza di Spagna
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Pantheon
+   🖼️  Set Google image as coverImage: Pantheon
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Trevi Fountain
+   🖼️  Set Google image as coverImage: Trevi Fountain
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Urban Holiday
+   🖼️  Set Google image as coverImage: Urban Holiday
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Roman Forum
+   🖼️  Set Google image as coverImage: Roman Forum
+   📍 Using existing city for Civita di Bagnoregio: Bagnoregio
+   🌍 Using existing country for Civita di Bagnoregio: Italy
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Civita di Bagnoregio
+   🖼️  Set Google image as coverImage: Civita di Bagnoregio
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: P.za Vittorio Emanuele II, 1
+   🖼️  Set Google image as coverImage: P.za Vittorio Emanuele II, 1
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Nikis Resort
+   🖼️  Set Google image as coverImage: Nikis Resort
+   📍 Using existing city for Piazza Navona: Rome
+   🌍 Using existing country for Piazza Navona: Italy
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Piazza Navona
+   🖼️  Set Google image as coverImage: Piazza Navona
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Nino and friends
+   🖼️  Set Google image as coverImage: Nino and friends
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Grand Hotel Cesare Augusto
+   🖼️  Set Google image as coverImage: Grand Hotel Cesare Augusto
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Antica Pizzeria Di Matteo
+   🖼️  Set Google image as coverImage: Antica Pizzeria Di Matteo
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: La Taverna di San Giuseppe
+   🖼️  Set Google image as coverImage: La Taverna di San Giuseppe
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: La Cambusa
+   🖼️  Set Google image as coverImage: La Cambusa
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Church San Michele
+   🖼️  Set Google image as coverImage: Church San Michele
+   📍 Using existing city for Anacapri: Anacapri
+   🌍 Using existing country for Anacapri: Italy
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Anacapri
+   🖼️  Set Google image as coverImage: Anacapri
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Museo Casa Rossa di Anacapri
+   🖼️  Set Google image as coverImage: Museo Casa Rossa di Anacapri
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Porto Turistico di Capri
+   🖼️  Set Google image as coverImage: Porto Turistico di Capri
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Monte Solaro Chair Lift
+   🖼️  Set Google image as coverImage: Monte Solaro Chair Lift
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Scala Fenicia
+   🖼️  Set Google image as coverImage: Scala Fenicia
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Porto di Sorrento
+   🖼️  Set Google image as coverImage: Porto di Sorrento
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Bagni Regina Giovanna
+   🖼️  Set Google image as coverImage: Bagni Regina Giovanna

@@ -32,6 +32,8 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
   final List<Map<String, dynamic>> _allCollections = [];
   List<Map<String, dynamic>> _filteredCollections = [];
   bool _isLoading = true; // 初始为 true，首次加载时显示转圈
+  bool _hasLoadError = false; // 加载错误状态
+  String? _loadErrorMessage; // 错误消息
 
   @override
   void initState() {
@@ -58,7 +60,8 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
     if (cacheState.hasData) {
       final cachedCollections = cacheState.collectionsById.values.toList();
       print(
-          '💾 [CollectionsTab] Showing ${cachedCollections.length} cached collections instantly',);
+        '💾 [CollectionsTab] Showing ${cachedCollections.length} cached collections instantly',
+      );
       if (mounted) {
         setState(() {
           _allCollections
@@ -91,13 +94,15 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
         onTimeout: () {
           print('⏱️ [CollectionsTab] Request timed out after 15 seconds');
           throw TimeoutException(
-              'Request timed out. Please check your connection.',);
+            'Request timed out. Please check your connection.',
+          );
         },
       );
 
       final loadTime = DateTime.now().difference(loadStart).inMilliseconds;
       print(
-          '📦 [CollectionsTab] Background loaded ${data.length} collections in ${loadTime}ms',);
+        '📦 [CollectionsTab] Background loaded ${data.length} collections in ${loadTime}ms',
+      );
 
       if (mounted) {
         setState(() {
@@ -108,7 +113,8 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
           _isLoading = false;
         });
         print(
-            '✅ [CollectionsTab] Updated to ${_filteredCollections.length} collections',);
+          '✅ [CollectionsTab] Updated to ${_filteredCollections.length} collections',
+        );
       }
 
       // 更新缓存
@@ -130,17 +136,9 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
           _allCollections.clear();
           _filteredCollections = [];
           _isLoading = false;
+          _hasLoadError = true;
+          _loadErrorMessage = e.toString();
         });
-        // 显示错误toast
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load collections: ${e.toString()}'),
-            action: SnackBarAction(
-              label: 'Retry',
-              onPressed: _loadCollections,
-            ),
-          ),
-        );
       }
     }
   }
@@ -168,7 +166,8 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
       }).toList();
     }
     print(
-        '🔍 Filtered collections: ${_filteredCollections.length} out of ${_allCollections.length}',);
+      '🔍 Filtered collections: ${_filteredCollections.length} out of ${_allCollections.length}',
+    );
     if (mounted) setState(() {});
   }
 
@@ -185,6 +184,12 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    // Show error state if there was an error and no data
+    if (_hasLoadError && _filteredCollections.isEmpty) {
+      return _buildErrorState();
+    }
+
     if (_filteredCollections.isEmpty) {
       return _buildEmptyState();
     }
@@ -436,6 +441,17 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
         ),
       );
 
+  Widget _buildErrorState() => _CollectionsErrorState(
+        onRetry: () async {
+          setState(() {
+            _hasLoadError = false;
+            _loadErrorMessage = null;
+          });
+          await _loadCollections();
+        },
+        message: _loadErrorMessage,
+      );
+
   Widget _buildEmptyState() => Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -462,13 +478,14 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
                       const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                   decoration: BoxDecoration(
                     color: AppTheme.primaryYellow,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.black, width: 2.5),
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(color: AppTheme.black, width: 2),
                     boxShadow: const [
                       BoxShadow(
                         color: AppTheme.black,
                         offset: Offset(4, 4),
                         blurRadius: 0,
+                        spreadRadius: 0,
                       ),
                     ],
                   ),
@@ -479,6 +496,110 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
                       color: AppTheme.black,
                     ),
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+/// Collections Error State - shown when server fails to load
+class _CollectionsErrorState extends StatefulWidget {
+  const _CollectionsErrorState({
+    required this.onRetry,
+    this.message,
+  });
+
+  final Future<void> Function() onRetry;
+  final String? message;
+
+  @override
+  State<_CollectionsErrorState> createState() => _CollectionsErrorStateState();
+}
+
+class _CollectionsErrorStateState extends State<_CollectionsErrorState> {
+  bool _isRetrying = false;
+
+  Future<void> _handleRetry() async {
+    if (_isRetrying) return;
+    setState(() => _isRetrying = true);
+    try {
+      await widget.onRetry();
+    } finally {
+      if (mounted) {
+        setState(() => _isRetrying = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/images/no_data.png',
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Failed to load',
+                style: AppTheme.bodyLarge(context).copyWith(
+                  color: AppTheme.darkGray,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.message ??
+                    'Failed to load collections. Please check your network connection.',
+                style: AppTheme.bodySmall(context).copyWith(
+                  color: AppTheme.mediumGray,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              GestureDetector(
+                onTap: _isRetrying ? null : _handleRetry,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: _isRetrying
+                        ? AppTheme.primaryYellow.withOpacity(0.6)
+                        : AppTheme.primaryYellow,
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(color: AppTheme.black, width: 2),
+                    boxShadow: _isRetrying
+                        ? null
+                        : const [
+                            BoxShadow(
+                              color: AppTheme.black,
+                              offset: Offset(4, 4),
+                              blurRadius: 0,
+                              spreadRadius: 0,
+                            ),
+                          ],
+                  ),
+                  child: _isRetrying
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.black,
+                          ),
+                        )
+                      : Text(
+                          'Retry',
+                          style: AppTheme.labelLarge(context).copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.black,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -678,8 +799,9 @@ class _CollectionCardState extends State<_CollectionCard> {
                       // 计算地点数量需要的宽度
                       final countTextPainter = TextPainter(
                         text: TextSpan(
-                            text: widget.spotsCount.toString(),
-                            style: textStyle,),
+                          text: widget.spotsCount.toString(),
+                          style: textStyle,
+                        ),
                         maxLines: 1,
                         textDirection: TextDirection.ltr,
                       )..layout();
@@ -784,30 +906,29 @@ class _CollectionCardState extends State<_CollectionCard> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (widget.tags.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: widget.tags
-                                .take(2)
-                                .map(
-                                  (tag) => Text(
-                                    tag,
-                                    style:
-                                        AppTheme.labelSmall(context).copyWith(
-                                      fontSize: 12,
-                                      color: _imageLoaded
-                                          ? AppTheme.white.withOpacity(0.9)
-                                          : AppTheme.textSecondary,
-                                    ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: widget.tags
+                              .take(2)
+                              .map(
+                                (tag) => Text(
+                                  tag,
+                                  style: AppTheme.labelSmall(context).copyWith(
+                                    fontSize: 12,
+                                    color: _imageLoaded
+                                        ? AppTheme.white.withOpacity(0.9)
+                                        : AppTheme.textSecondary,
                                   ),
-                                )
-                                .toList(),
-                          ),
-                        ],
+                                ),
+                              )
+                              .toList(),
+                        ),
                       ],
-                    ),
+                    ],
                   ),
+                ),
               ],
             ),
           ),

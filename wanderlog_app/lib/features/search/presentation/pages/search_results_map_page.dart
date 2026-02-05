@@ -291,7 +291,12 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
         }
       }
 
-      final spots = result.places.map(_convertToSpot).toList();
+      // 过滤掉没有封面图的地点
+      final placesWithCover = result.places.where(_hasValidCoverImage).toList();
+      print(
+          '📍 过滤有封面图的地点: ${placesWithCover.length} / ${result.places.length}');
+
+      final spots = placesWithCover.map(_convertToSpot).toList();
       final limitedSpots = spots.take(50).toList();
 
       if (spots.length > 50) {
@@ -361,12 +366,21 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
       longitude: place.longitude,
       rating: place.rating ?? 0.0,
       ratingCount: place.ratingCount ?? 0,
-      coverImage: place.coverImage ??
-          'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80',
+      coverImage: place.coverImage ?? '',
       images: place.images,
       tags: allTags,
       aiSummary: place.aiSummary,
     );
+  }
+
+  /// 检查是否有有效的封面图
+  bool _hasValidCoverImage(SearchPlaceResult place) {
+    final cover = place.coverImage;
+    if (cover == null || cover.isEmpty) return false;
+    // 排除占位符图片
+    if (cover.contains('placeholder')) return false;
+    if (cover.contains('example.com')) return false;
+    return true;
   }
 
   Position _getCityDefaultCenter(String city, String country) {

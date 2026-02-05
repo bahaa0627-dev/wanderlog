@@ -18,6 +18,7 @@ import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/providers/trips_provider.dart';
 import 'package:wanderlog/features/trips/providers/image_upload_provider.dart';
 import 'package:wanderlog/features/ai_recognition/providers/wishlist_status_provider.dart';
+import 'package:wanderlog/features/profile/providers/mine_page_provider.dart';
 import 'package:wanderlog/shared/utils/destination_utils.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/shared/utils/opening_hours_utils.dart';
@@ -1647,6 +1648,7 @@ class _UnifiedSpotDetailModalState
             );
             ref.invalidate(tripsProvider);
             ref.invalidate(wishlistStatusProvider);
+            ref.invalidate(minePageDataProvider);
             // 通知父组件重新加载数据，以确保 visited 列表更新
             widget.onStatusChanged?.call(
               _spotId,
@@ -1788,6 +1790,7 @@ class _UnifiedSpotDetailModalState
             // 4. 刷新缓存，确保其他页面也能看到最新数据
             ref.invalidate(tripsProvider);
             ref.invalidate(wishlistStatusProvider);
+            ref.invalidate(minePageDataProvider);
 
             // 5. 通知父组件更新，需要重新加载以显示最新数据
             widget.onStatusChanged?.call(
@@ -1888,6 +1891,7 @@ class _UnifiedSpotDetailModalState
         _updateWishlistCache(remove: true);
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
+        ref.invalidate(minePageDataProvider);
         if (mounted) {
           setState(() {
             _isVisited = false;
@@ -2243,6 +2247,7 @@ class _UnifiedSpotDetailModalState
       print('🔄 [_saveToBackend] Invalidating providers for immediate sync...');
       ref.invalidate(tripsProvider);
       ref.invalidate(wishlistStatusProvider);
+      ref.invalidate(minePageDataProvider);
 
       // 强制刷新 tripsProvider 以立即加载最新数据
       try {
@@ -2331,6 +2336,7 @@ class _UnifiedSpotDetailModalState
         }
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
+        ref.invalidate(minePageDataProvider);
         print('✅ [_handleRemoveWishlist] Providers invalidated');
 
         // 4. API完成后更新缓存（确保与服务器状态一致）

@@ -140,6 +140,8 @@ import mineRoutes from './routes/mineRoutes';
 console.log('  ✅ mineRoutes loaded');
 import userRecommendationRoutes from './routes/userRecommendationRoutes';
 console.log('  ✅ userRecommendationRoutes loaded');
+import appConfigRoutes from './routes/appConfigRoutes';
+console.log('  ✅ appConfigRoutes loaded');
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -160,6 +162,8 @@ app.use('/api/mine', mineRoutes);
 console.log('✅ Mine routes registered');
 app.use('/api/user-recommendations', userRecommendationRoutes);
 console.log('✅ User recommendations routes registered');
+app.use('/api/app-config', appConfigRoutes);
+console.log('✅ App config routes registered');
 // app.use('/api/trips', tripRoutes);
 // app.use('/api/spots', spotRoutes);
 

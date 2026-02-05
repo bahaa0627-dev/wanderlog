@@ -431,8 +431,13 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       context: context,
       builder: (context) => CheckInDialog(
         spot: spot,
-        onCheckIn: (visitDate, rating, notes,
-            {List<File>? newImages, List<String>? existingPhotos,}) async {
+        onCheckIn: (
+          visitDate,
+          rating,
+          notes, {
+          List<File>? newImages,
+          List<String>? existingPhotos,
+        }) async {
           try {
             final rawCity = (spot.city ?? '').trim();
             final rawCountry = (spot.country ?? '').trim();
@@ -490,7 +495,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
               final l10n =
                   AppLocalizations(ref.read(localeProvider).languageCode);
               DialogUtils.showSuccessSnackBar(
-                  context, l10n.checkedIn(spot.name),);
+                context,
+                l10n.checkedIn(spot.name),
+              );
               // Reload data to show the new check-in
               unawaited(_loadDestinationsFromServer());
             }
@@ -512,7 +519,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         _lastClickTime != null &&
         now.difference(_lastClickTime!).inMilliseconds < 1000) {
       print(
-          '🔧 [spots_tab.dart] Debouncing rapid clicks for ${entry.spot.name}',);
+        '🔧 [spots_tab.dart] Debouncing rapid clicks for ${entry.spot.name}',
+      );
       return;
     }
 
@@ -529,7 +537,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     print('🔧 [spots_tab.dart] entry.userRating: ${entry.userRating}');
     print('🔧 [spots_tab.dart] entry.userNotes: ${entry.userNotes}');
     print(
-        '🔧 [spots_tab.dart] entry.userPhotos: ${entry.userPhotos.length} photos',);
+      '🔧 [spots_tab.dart] entry.userPhotos: ${entry.userPhotos.length} photos',
+    );
     print('🔧 [spots_tab.dart] entry.destinationId: ${entry.destinationId}');
 
     // 优化：只在需要时才加载合集数据
@@ -589,17 +598,19 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             entry.userPhotos.isNotEmpty ? entry.userPhotos : null,
         initialDestinationId: entry.destinationId,
         linkedCollection: linkedCollection,
-        onStatusChanged: (spotId,
-            {isMustGo,
-            isTodaysPlan,
-            isVisited,
-            isRemoved,
-            needsReload,
-            visitDate,
-            userRating,
-            userNotes,
-            userPhotos,
-            destinationId,}) {
+        onStatusChanged: (
+          spotId, {
+          isMustGo,
+          isTodaysPlan,
+          isVisited,
+          isRemoved,
+          needsReload,
+          visitDate,
+          userRating,
+          userNotes,
+          userPhotos,
+          destinationId,
+        }) {
           // 失效缓存
           unawaited(_cacheService.clearCityCache(_selectedCitySlug));
 
@@ -625,16 +636,18 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     );
   }
 
-  void _handleStatusChanged(String spotId,
-      {bool? isMustGo,
-      bool? isTodaysPlan,
-      bool? isVisited,
-      bool? isRemoved,
-      DateTime? visitDate,
-      int? userRating,
-      String? userNotes,
-      List<String>? userPhotos,
-      String? destinationId,}) {
+  void _handleStatusChanged(
+    String spotId, {
+    bool? isMustGo,
+    bool? isTodaysPlan,
+    bool? isVisited,
+    bool? isRemoved,
+    DateTime? visitDate,
+    int? userRating,
+    String? userNotes,
+    List<String>? userPhotos,
+    String? destinationId,
+  }) {
     final index = _indexForSpot(spotId);
     if (index == -1) return;
 
@@ -1136,7 +1149,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       final cachedData = await _cacheService.getCitySpots(_selectedCitySlug);
       if (cachedData != null && !cachedData.isExpired) {
         print(
-            '💾 [SpotCache] Restoring ${cachedData.entries.length} entries from cache',);
+          '💾 [SpotCache] Restoring ${cachedData.entries.length} entries from cache',
+        );
         if (mounted) {
           setState(() {
             _isLoadingDestinations = false;
@@ -1198,7 +1212,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       // 确保认证状态是最新的
       final authState = ref.read(authProvider);
       print(
-          '🔐 [SpotsTab] Auth state: isAuthenticated=${authState.isAuthenticated}',);
+        '🔐 [SpotsTab] Auth state: isAuthenticated=${authState.isAuthenticated}',
+      );
 
       if (!authState.isAuthenticated) {
         if (mounted) {
@@ -1218,13 +1233,15 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         const Duration(seconds: 10),
         onTimeout: () {
           throw TimeoutException(
-              'Request timed out. Please check your connection.',);
+            'Request timed out. Please check your connection.',
+          );
         },
       );
 
       final loadTime = DateTime.now().difference(loadStart).inMilliseconds;
       print(
-          '📦 [SpotsTab] Loaded ${destinations.length} destinations in ${loadTime}ms',);
+        '📦 [SpotsTab] Loaded ${destinations.length} destinations in ${loadTime}ms',
+      );
 
       if (!mounted) return;
 
@@ -1267,16 +1284,18 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
               .toList();
 
       print(
-          '📋 [SpotsTab] Loading ${relevantDests.length} relevant destinations...',);
+        '📋 [SpotsTab] Loading ${relevantDests.length} relevant destinations...',
+      );
 
       // 并发加载详情（但限制为前100条）
       final limitedDests = relevantDests.take(_maxCachedItems).toList();
-      final detailFutures = limitedDests
-          .where((d) => d.city?.trim().isNotEmpty ?? false)
-          .map((d) => repo
-              .getTripById(d.id)
-              .timeout(const Duration(seconds: 5))
-              .catchError((_) => d),);
+      final detailFutures =
+          limitedDests.where((d) => d.city?.trim().isNotEmpty ?? false).map(
+                (d) => repo
+                    .getTripById(d.id)
+                    .timeout(const Duration(seconds: 5))
+                    .catchError((_) => d),
+              );
       final details = await Future.wait(detailFutures);
 
       print('📋 [SpotsTab] Processing ${details.length} trip details...');
@@ -1293,7 +1312,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           // 打印状态标记用于调试
           if (ts.isMustGo || ts.isTodaysPlan || ts.isVisited) {
             print(
-                '🏷️ [SpotsTab] Spot ${s.name}: mustGo=${ts.isMustGo}, todaysPlan=${ts.isTodaysPlan}, visited=${ts.isVisited}',);
+              '🏷️ [SpotsTab] Spot ${s.name}: mustGo=${ts.isMustGo}, todaysPlan=${ts.isTodaysPlan}, visited=${ts.isVisited}',
+            );
           }
 
           // 统计计数
@@ -1334,7 +1354,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             print('  - name: ${s.name}');
             print('  - address: ${s.address}');
             print(
-                '  - openingHours: ${s.openingHours != null ? "YES (${s.openingHours!.keys.length} keys)" : "NULL"}',);
+              '  - openingHours: ${s.openingHours != null ? "YES (${s.openingHours!.keys.length} keys)" : "NULL"}',
+            );
             print('  - website: ${s.website}');
             print('  - phoneNumber: ${s.phoneNumber}');
             print('  - rating: ${s.rating}');
@@ -1393,21 +1414,24 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       }
 
       // Step 2.4: 保存到缓存（保存完整的 Entry 数据）
-      final entriesToCache = entries.take(_maxCachedItems).map((e) => CachedSpotEntry(
-          spot: e.spot,
-          city: e.city,
-          citySlug: e.citySlug,
-          isSaved: e.isSaved,
-          isMustGo: e.isMustGo,
-          isTodaysPlan: e.isTodaysPlan,
-          isVisited: e.isVisited,
-          destinationId: e.destinationId,
-          addedAt: e.addedAt,
-          visitDate: e.visitDate,
-          userRating: e.userRating,
-          userNotes: e.userNotes,
-          userPhotos: e.userPhotos,
-        )).toList();
+      final entriesToCache = entries
+          .take(_maxCachedItems)
+          .map((e) => CachedSpotEntry(
+                spot: e.spot,
+                city: e.city,
+                citySlug: e.citySlug,
+                isSaved: e.isSaved,
+                isMustGo: e.isMustGo,
+                isTodaysPlan: e.isTodaysPlan,
+                isVisited: e.isVisited,
+                destinationId: e.destinationId,
+                addedAt: e.addedAt,
+                visitDate: e.visitDate,
+                userRating: e.userRating,
+                userNotes: e.userNotes,
+                userPhotos: e.userPhotos,
+              ))
+          .toList();
 
       // 调试：检查第一个缓存条目的数据完整性
       if (entriesToCache.isNotEmpty) {
@@ -1416,16 +1440,19 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         print('  - name: ${first.spot.name}');
         print('  - address: ${first.spot.address}');
         print(
-            '  - openingHours: ${first.spot.openingHours != null ? "YES" : "NULL"}',);
+          '  - openingHours: ${first.spot.openingHours != null ? "YES" : "NULL"}',
+        );
         print('  - website: ${first.spot.website}');
         print('  - phoneNumber: ${first.spot.phoneNumber}');
       }
 
-      unawaited(_cacheService.saveCitySpots(
-        citySlug: _selectedCitySlug,
-        entries: entriesToCache,
-        tabCounts: tabCounts,
-      ),);
+      unawaited(
+        _cacheService.saveCitySpots(
+          citySlug: _selectedCitySlug,
+          entries: entriesToCache,
+          tabCounts: tabCounts,
+        ),
+      );
 
       _notifyCityChanged();
       _notifyCityOptionsChanged();
@@ -1763,7 +1790,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           child: RefreshIndicator(
             onRefresh: () async {
               print(
-                  '🔄 [VAGO] Pull-to-refresh triggered, fetching latest data...',);
+                '🔄 [VAGO] Pull-to-refresh triggered, fetching latest data...',
+              );
               await _loadDestinationsFromServer();
               print('✅ [VAGO] Pull-to-refresh completed');
             },
@@ -1784,7 +1812,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
                         ? (_selectedSubTab == 1 || _selectedSubTab == 2)
                             ? _CompactMapPreview(
                                 key: ValueKey(
-                                    'compact-map-view-$_selectedSubTab-$_selectedCitySlug',),
+                                  'compact-map-view-$_selectedSubTab-$_selectedCitySlug',
+                                ),
                                 entries: filteredEntries,
                                 cityName: _selectedCityName,
                                 spotsCount: filteredEntries.length,
@@ -1887,8 +1916,6 @@ class _ErrorStateState extends State<_ErrorState> {
             children: [
               Image.asset(
                 'assets/images/no_data.png',
-                width: 260,
-                height: 260,
                 fit: BoxFit.contain,
               ),
               const SizedBox(height: 12),
@@ -1901,7 +1928,8 @@ class _ErrorStateState extends State<_ErrorState> {
               ),
               const SizedBox(height: 6),
               Text(
-                widget.message ?? 'Please check your network and try again',
+                widget.message ??
+                    'Failed to load spots. Please check your network connection.',
                 style: AppTheme.bodySmall(context).copyWith(
                   color: AppTheme.mediumGray,
                 ),
@@ -2527,90 +2555,90 @@ class _NoDestinationState extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/no data.png',
-              width: 320,
-              height: 320,
-              fit: BoxFit.contain,
-            ),
-            Transform.translate(
-              offset: const Offset(0, -44),
-              child: Column(
-                children: [
-                  Text(
-                    "It seems you don't have any plan",
-                    textAlign: TextAlign.center,
-                    style: AppTheme.bodyLarge(context).copyWith(
-                      color: AppTheme.black.withOpacity(0.65),
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Add one more city to explore',
-                    textAlign: TextAlign.center,
-                    style: AppTheme.bodyMedium(context).copyWith(
-                      color: AppTheme.black.withOpacity(0.45),
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  GestureDetector(
-                    onTap: () async {
-                      // Check authentication
-                      final authState = ref.read(authProvider);
-                      if (!authState.isAuthenticated) {
-                        // Navigate to login page using push so user can return to current page
-                        if (context.mounted) {
-                          context.push('/login');
-                        }
-                        return;
-                      }
-                      // User is authenticated, proceed with add destination
-                      onAddDestination();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 28,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryYellow,
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusSmall),
-                        border: Border.all(
-                          color: AppTheme.black,
-                          width: AppTheme.borderMedium,
-                        ),
-                        boxShadow: AppTheme.cardShadow,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.add, color: AppTheme.black),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Add destination',
-                            style: AppTheme.labelLarge(context).copyWith(
-                              color: AppTheme.black,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/images/no data.png',
+                width: 320,
+                height: 320,
+                fit: BoxFit.contain,
               ),
-            ),
-          ],
+              Transform.translate(
+                offset: const Offset(0, -44),
+                child: Column(
+                  children: [
+                    Text(
+                      "It seems you don't have any plan",
+                      textAlign: TextAlign.center,
+                      style: AppTheme.bodyLarge(context).copyWith(
+                        color: AppTheme.black.withOpacity(0.65),
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Add one more city to explore',
+                      textAlign: TextAlign.center,
+                      style: AppTheme.bodyMedium(context).copyWith(
+                        color: AppTheme.black.withOpacity(0.45),
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    GestureDetector(
+                      onTap: () async {
+                        // Check authentication
+                        final authState = ref.read(authProvider);
+                        if (!authState.isAuthenticated) {
+                          // Navigate to login page using push so user can return to current page
+                          if (context.mounted) {
+                            context.push('/login');
+                          }
+                          return;
+                        }
+                        // User is authenticated, proceed with add destination
+                        onAddDestination();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 28,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryYellow,
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusSmall),
+                          border: Border.all(
+                            color: AppTheme.black,
+                            width: AppTheme.borderMedium,
+                          ),
+                          boxShadow: AppTheme.cardShadow,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.add, color: AppTheme.black),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Add destination',
+                              style: AppTheme.labelLarge(context).copyWith(
+                                color: AppTheme.black,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
 }
 
 /// 紧凑地图预览组件 - 类似 home-map 初始态，展示真正的 Mapbox 地图、城市标签和放大按钮
@@ -2719,9 +2747,10 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
         final spot = entry.spot;
         final List<String> imageList = spot.images;
         // 优先使用 spot.coverImage（普通封面图），避免使用合集封面图
-        final String coverImg = (spot.coverImage != null && spot.coverImage!.isNotEmpty)
-            ? spot.coverImage!
-            : (imageList.isNotEmpty ? imageList.first : '');
+        final String coverImg =
+            (spot.coverImage != null && spot.coverImage!.isNotEmpty)
+                ? spot.coverImage!
+                : (imageList.isNotEmpty ? imageList.first : '');
 
         // 优先使用 displayTagsEn，过滤无效标签
         final List<String> tagList = [];
@@ -2831,8 +2860,10 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
                     return ListTile(
                       title: Text(city, style: AppTheme.bodyLarge(context)),
                       trailing: city == widget.cityName
-                          ? const Icon(Icons.check,
-                              color: AppTheme.primaryYellow,)
+                          ? const Icon(
+                              Icons.check,
+                              color: AppTheme.primaryYellow,
+                            )
                           : null,
                       onTap: () {
                         Navigator.pop(context);
@@ -2881,8 +2912,10 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
                 children: [
                   Row(
                     children: [
-                      Text('Select City',
-                          style: AppTheme.headlineMedium(context),),
+                      Text(
+                        'Select City',
+                        style: AppTheme.headlineMedium(context),
+                      ),
                       const Spacer(),
                       // "All" 选项放在标题行右侧
                       GestureDetector(
@@ -2894,7 +2927,9 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6,),
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: widget.cityName == 'All'
                                 ? AppTheme.primaryYellow.withOpacity(0.3)
@@ -2925,7 +2960,9 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
                             decoration: const BoxDecoration(
                               border: Border(
                                 right: BorderSide(
-                                    color: AppTheme.border, width: 1,),
+                                  color: AppTheme.border,
+                                  width: 1,
+                                ),
                               ),
                             ),
                             child: ListView.builder(
@@ -2946,7 +2983,9 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 14,),
+                                      horizontal: 12,
+                                      vertical: 14,
+                                    ),
                                     color: isSelected
                                         ? AppTheme.primaryYellow
                                             .withOpacity(0.2)
@@ -2966,9 +3005,11 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
                                           ),
                                         ),
                                         if (isSelected)
-                                          const Icon(Icons.chevron_right,
-                                              size: 18,
-                                              color: AppTheme.mediumGray,),
+                                          const Icon(
+                                            Icons.chevron_right,
+                                            size: 18,
+                                            color: AppTheme.mediumGray,
+                                          ),
                                       ],
                                     ),
                                   ),
@@ -2995,7 +3036,9 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 14,),
+                                    horizontal: 12,
+                                    vertical: 14,
+                                  ),
                                   color: isSelected
                                       ? AppTheme.primaryYellow.withOpacity(0.2)
                                       : Colors.transparent,
@@ -3014,9 +3057,11 @@ class _CompactMapPreviewState extends State<_CompactMapPreview> {
                                         ),
                                       ),
                                       if (isSelected)
-                                        const Icon(Icons.check,
-                                            size: 18,
-                                            color: AppTheme.primaryYellow,),
+                                        const Icon(
+                                          Icons.check,
+                                          size: 18,
+                                          color: AppTheme.primaryYellow,
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -3720,25 +3765,31 @@ class _VisitedSpotCard extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: tags
-              .map((tag) => Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3,),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF2F2F2),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                            color: AppTheme.black.withOpacity(0.2), width: 1,),
-                      ),
-                      child: Text(
-                        tag,
-                        style: AppTheme.labelSmall(context).copyWith(
-                          color: AppTheme.black.withOpacity(0.48),
-                        ),
+              .map(
+                (tag) => Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF2F2F2),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: AppTheme.black.withOpacity(0.2),
+                        width: 1,
                       ),
                     ),
-                  ),)
+                    child: Text(
+                      tag,
+                      style: AppTheme.labelSmall(context).copyWith(
+                        color: AppTheme.black.withOpacity(0.48),
+                      ),
+                    ),
+                  ),
+                ),
+              )
               .toList(),
         ),
       ),
@@ -3747,7 +3798,10 @@ class _VisitedSpotCard extends StatelessWidget {
 
   /// Build tags that fit within available width, max 2 tags
   Widget _buildFittingTags(
-      BuildContext context, List<String> tags, double maxWidth,) {
+    BuildContext context,
+    List<String> tags,
+    double maxWidth,
+  ) {
     final List<Widget> fittingTags = [];
     double usedWidth = 0;
     const double spacing = 6;
@@ -3799,11 +3853,14 @@ class _VisitedSpotCard extends StatelessWidget {
 
     return Row(
       children: fittingTags
-          .map((widget) => Padding(
-                padding: EdgeInsets.only(
-                    right: widget == fittingTags.last ? 0 : spacing,),
-                child: widget,
-              ),)
+          .map(
+            (widget) => Padding(
+              padding: EdgeInsets.only(
+                right: widget == fittingTags.last ? 0 : spacing,
+              ),
+              child: widget,
+            ),
+          )
           .toList(),
     );
   }
@@ -3816,13 +3873,24 @@ class _VisitedSpotCard extends StatelessWidget {
     for (int i = 0; i < 5; i++) {
       if (i < fullStars) {
         stars.add(
-            const Icon(Icons.star, size: 14, color: AppTheme.primaryYellow),);
+          const Icon(Icons.star, size: 14, color: AppTheme.primaryYellow),
+        );
       } else if (i == fullStars && hasHalfStar) {
-        stars.add(const Icon(Icons.star_half,
-            size: 14, color: AppTheme.primaryYellow,),);
+        stars.add(
+          const Icon(
+            Icons.star_half,
+            size: 14,
+            color: AppTheme.primaryYellow,
+          ),
+        );
       } else {
-        stars.add(Icon(Icons.star_outline,
-            size: 14, color: AppTheme.primaryYellow.withOpacity(0.5),),);
+        stars.add(
+          Icon(
+            Icons.star_outline,
+            size: 14,
+            color: AppTheme.primaryYellow.withOpacity(0.5),
+          ),
+        );
       }
     }
     return stars;
@@ -3880,9 +3948,7 @@ class _VisitedSpotCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: entry.isMustGo
-                ? AppTheme.primaryYellow
-                : AppTheme.white,
+            color: entry.isMustGo ? AppTheme.primaryYellow : AppTheme.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: AppTheme.black,
@@ -3980,8 +4046,11 @@ class _VisitedSpotCard extends StatelessWidget {
   }
 
   DateTime? _buildDateTimeForGoogleDay(
-      DateTime reference, int? googleDay, dynamic rawTime,
-      {bool futureOnly = false,}) {
+    DateTime reference,
+    int? googleDay,
+    dynamic rawTime, {
+    bool futureOnly = false,
+  }) {
     if (googleDay == null) return null;
     final normalizedTime = _normalizeTime(rawTime);
     if (normalizedTime == null) return null;
@@ -4170,8 +4239,9 @@ class _VisitedSpotCard extends StatelessWidget {
                           // Bottom section: Tags (no scroll, show what fits)
                           if (tags.isNotEmpty)
                             LayoutBuilder(
-                              builder: (context, constraints) => _buildFittingTags(
-                                    context, tags, constraints.maxWidth),
+                              builder: (context, constraints) =>
+                                  _buildFittingTags(
+                                      context, tags, constraints.maxWidth),
                             ),
                         ],
                       ),

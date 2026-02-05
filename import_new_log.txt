@@ -1,0 +1,61 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (sZpelddgX22CAbCVd)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: Yes
+
+📥 Fetching data from Apify Dataset: sZpelddgX22CAbCVd
+✅ Database connection established
+   Fetched 92 items...
+✅ Total items fetched: 92
+
+🚀 Starting import of 92 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (92 items)
+   📍 Using existing city for Piazza di Spagna: Rome
+   🌍 Using existing country for Piazza di Spagna: Italy
+   📍 Using existing city for Civita di Bagnoregio: Bagnoregio
+   🌍 Using existing country for Civita di Bagnoregio: Italy
+   📍 Using existing city for Piazza Navona: Rome
+   🌍 Using existing country for Piazza Navona: Italy
+   📍 Using existing city for Anacapri: Anacapri
+   🌍 Using existing country for Anacapri: Italy
+   📍 Using existing city for Via Marina Grande: Sorrento
+   🌍 Using existing country for Via Marina Grande: Italy
+   📍 Using existing city for Villa San Michele: Anacapri
+   🌍 Using existing country for Villa San Michele: Italy
+   📍 Using existing city for Ravello: Ravello
+   🌍 Using existing country for Ravello: Italy
+   📍 Using existing city for Blue Grotto: Anacapri
+   🌍 Using existing country for Blue Grotto: Italy
+   📍 Using existing city for Dante: Naples
+   🌍 Using existing country for Dante: Italy
+   📍 Using existing city for Santo Spirito: Florence
+   🌍 Using existing country for Santo Spirito: Italy
+   📍 Using existing city for Sant'Eustachio: Rome
+   🌍 Using existing country for Sant'Eustachio: Italy
+   🌍 Reverse geocoded Pienza: Pienza, IT
+   🌍 Reverse geocoded Orciano Pisano: Orciano Pisano, IT
+   🌍 Reverse geocoded Siena: Siena, IT
+   🌍 Reverse geocoded San Gimignano: San Gimignano, IT
+
+✅ Import complete!
+   Total: 92
+   Inserted: 17
+   Updated: 75
+   Skipped: 0
+   Failed: 0
+   Cities: 19
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 53.3%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,8 @@ import 'package:wanderlog/core/utils/color_utils.dart';
 import 'package:wanderlog/features/collections/providers/collection_providers.dart';
 import 'package:wanderlog/features/collections/providers/collections_cache_provider.dart';
 import 'package:wanderlog/features/map/presentation/pages/collection_spots_map_page.dart';
+import 'package:wanderlog/shared/utils/collection_utils.dart';
+import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 
 class RecommendationDetailPage extends ConsumerStatefulWidget {
   const RecommendationDetailPage({
@@ -29,13 +32,6 @@ class _RecommendationDetailPageState
     extends ConsumerState<RecommendationDetailPage> {
   Map<String, dynamic>? _recommendation;
   bool _isLoading = false;
-
-  bool _asBool(dynamic value) {
-    if (value is bool) return value;
-    if (value is num) return value != 0;
-    if (value is String) return value == 'true' || value == '1';
-    return false;
-  }
 
   @override
   void initState() {
@@ -102,14 +98,18 @@ class _RecommendationDetailPageState
         final collection = item['collection'] as Map<String, dynamic>? ?? {};
         final collectionSpots =
             collection['collectionSpots'] as List<dynamic>? ?? [];
-        final firstSpot = collectionSpots.isNotEmpty
-            ? (collectionSpots.first['place'] as Map<String, dynamic>?)
-            : null;
 
-        // 优先使用 API 返回的 mainCity，与首页保持一致
-        final city = (collection['mainCity'] as String?)?.isNotEmpty ?? false
-            ? collection['mainCity'] as String
-            : 'Multi-city';
+        // 优先使用 API 返回的 mainCity，如果没有则使用工具函数计算
+        final apiMainCity = collection['mainCity'] as String?;
+        final city = (apiMainCity != null && apiMainCity.isNotEmpty)
+            ? apiMainCity
+            : calculateMainCity(collectionSpots);
+
+        // 优先使用 API 返回的 spotCount，如果没有则使用工具函数计算
+        final count = calculateSpotCount(collection);
+
+        // 使用工具函数获取封面图
+        final coverImage = getCollectionCoverImage(collection);
 
         // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
         final List<dynamic> tagsList = [];
@@ -158,11 +158,6 @@ class _RecommendationDetailPageState
         final tags = uniqueTags.take(3).map((e) => '#$e').toList();
 
         final collectionName = collection['name'] as String? ?? 'Collection';
-        final coverImage = collection['coverImage'] as String? ??
-            (firstSpot?['coverImage'] as String? ??
-                'https://via.placeholder.com/400x600');
-        // 使用 API 返回的 spotCount，如果没有则使用 collectionSpots 数组长度，与首页保持一致
-        final count = collection['spotCount'] as int? ?? collectionSpots.length;
 
         return _TripCard(
           city: city,
@@ -225,8 +220,8 @@ class _TripCard extends StatefulWidget {
 }
 
 class _TripCardState extends State<_TripCard> {
-  Color _dominantColor = Colors.black;
-  bool _colorExtracted = false;
+  Color _dominantColor = AppTheme.mediumGray;
+  bool _imageLoaded = false;
 
   @override
   void initState() {
@@ -238,12 +233,17 @@ class _TripCardState extends State<_TripCard> {
   void didUpdateWidget(_TripCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.imageUrl != widget.imageUrl) {
+      setState(() {
+        _imageLoaded = false;
+      });
       _extractDominantColor();
     }
   }
 
   Future<void> _extractDominantColor() async {
-    if (widget.imageUrl.isEmpty) return;
+    if (widget.imageUrl.isEmpty || widget.imageUrl.contains('placeholder')) {
+      return;
+    }
 
     try {
       final ImageProvider imageProvider;
@@ -264,18 +264,38 @@ class _TripCardState extends State<_TripCard> {
           // 使用 ColorUtils 获取较深的主色，排除白色和浅色
           _dominantColor = ColorUtils.getDarkDominantColor(
             paletteGenerator,
-            fallback: Colors.black,
+            fallback: AppTheme.mediumGray,
           );
-          _colorExtracted = true;
+          _imageLoaded = true;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _dominantColor = Colors.black;
-          _colorExtracted = true;
+          _dominantColor = AppTheme.mediumGray;
+          _imageLoaded = false;
         });
       }
+    }
+  }
+
+  Widget _buildCoverImage() {
+    if (widget.imageUrl.startsWith('data:image/')) {
+      return Image.memory(
+        _decodeBase64Image(widget.imageUrl),
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.low,
+        errorBuilder: (context, error, stackTrace) =>
+            const VagoPlaceholderSmall(),
+      );
+    } else {
+      return CachedNetworkImage(
+        imageUrl: widget.imageUrl,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => const VagoPlaceholderSmall(),
+        errorWidget: (context, url, error) => const VagoPlaceholderSmall(),
+      );
     }
   }
 
@@ -302,212 +322,193 @@ class _TripCardState extends State<_TripCard> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // 背景图片
-                if (widget.imageUrl.startsWith('data:image/'))
-                  Image.memory(
-                    _decodeBase64Image(widget.imageUrl),
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                    filterQuality: FilterQuality.low,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const ColoredBox(
-                      color: AppTheme.lightGray,
-                      child: Icon(
-                        Icons.image,
-                        size: 50,
-                        color: AppTheme.mediumGray,
-                      ),
-                    ),
-                  )
-                else
-                  Image.network(
-                    widget.imageUrl,
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                    filterQuality: FilterQuality.low,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const ColoredBox(
-                      color: AppTheme.lightGray,
-                      child: Icon(
-                        Icons.image,
-                        size: 50,
-                        color: AppTheme.mediumGray,
-                      ),
-                    ),
-                  ),
+                // 底层占位符 - 始终显示
+                const VagoPlaceholderSmall(),
+                // 背景图片 - 支持 DataURL (base64) 和网络图片
+                if (widget.imageUrl.isNotEmpty &&
+                    !widget.imageUrl.contains('placeholder'))
+                  _buildCoverImage(),
 
-                // 底部渐变蒙层 - 使用提取的主色
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    height: 150,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          _dominantColor.withOpacity(0.3),
-                          _dominantColor.withOpacity(0.6),
-                          _dominantColor.withOpacity(0.85),
-                        ],
-                        stops: const [0.0, 0.3, 0.6, 1.0],
+                // 底部渐变蒙层 - 只在图片加载成功后显示
+                if (_imageLoaded)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      height: 140,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            _dominantColor.withOpacity(0.15),
+                            _dominantColor.withOpacity(0.4),
+                            _dominantColor.withOpacity(0.7),
+                            _dominantColor.withOpacity(0.9),
+                          ],
+                          stops: const [0.0, 0.2, 0.45, 0.7, 1.0],
+                        ),
                       ),
                     ),
                   ),
-                ),
 
-                // 内容层
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  top: 12,
-                  bottom: 12,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 顶部标签 - 右侧对齐
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final textStyle =
-                              AppTheme.labelSmall(context).copyWith(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          );
+                // 内容层 - 顶部标签（只在图片加载成功后显示）
+                if (_imageLoaded)
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    top: 12,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final textStyle = AppTheme.labelSmall(context).copyWith(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        );
 
-                          // 计算城市名称需要的宽度
-                          final cityTextPainter = TextPainter(
-                            text: TextSpan(text: widget.city, style: textStyle),
-                            maxLines: 1,
-                            textDirection: TextDirection.ltr,
-                          )..layout();
+                        // 计算城市名称需要的宽度
+                        final cityTextPainter = TextPainter(
+                          text: TextSpan(text: widget.city, style: textStyle),
+                          maxLines: 1,
+                          textDirection: TextDirection.ltr,
+                        )..layout();
 
-                          // 计算地点数量需要的宽度
-                          final countTextPainter = TextPainter(
-                            text: TextSpan(
-                                text: widget.count.toString(),
-                                style: textStyle),
-                            maxLines: 1,
-                            textDirection: TextDirection.ltr,
-                          )..layout();
+                        // 计算地点数量需要的宽度
+                        final countTextPainter = TextPainter(
+                          text: TextSpan(
+                            text: widget.count.toString(),
+                            style: textStyle,
+                          ),
+                          maxLines: 1,
+                          textDirection: TextDirection.ltr,
+                        )..layout();
 
-                          final cityTagWidth =
-                              cityTextPainter.width + 24; // padding 12*2
-                          final countTagWidth = countTextPainter.width +
-                              20 +
-                              12; // padding 10*2 + icon 10 + spacing 2
-                          const spacing = 8.0;
-                          final totalNeeded =
-                              cityTagWidth + countTagWidth + spacing;
+                        final cityTagWidth =
+                            cityTextPainter.width + 24; // padding 12*2
+                        final countTagWidth = countTextPainter.width +
+                            20 +
+                            12; // padding 10*2 + icon 10 + spacing 2
+                        const spacing = 8.0;
+                        final totalNeeded =
+                            cityTagWidth + countTagWidth + spacing;
 
-                          final showCount = totalNeeded <= constraints.maxWidth;
+                        final showCount = totalNeeded <= constraints.maxWidth;
 
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              if (showCount) ...[
-                                // 地点数量
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.white.withOpacity(0.64),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        widget.count.toString(),
-                                        style: AppTheme.labelSmall(context)
-                                            .copyWith(
-                                          fontSize: 10,
-                                          color: AppTheme.black,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 2),
-                                      const Icon(
-                                        Icons.location_on,
-                                        size: 10,
-                                        color: AppTheme.black,
-                                      ),
-                                    ],
-                                  ),
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (showCount) ...[
+                              // 地点数量
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
                                 ),
-                                const SizedBox(width: spacing),
-                              ],
-                              // 城市名称
-                              Flexible(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    widget.city,
-                                    style:
-                                        AppTheme.labelSmall(context).copyWith(
-                                      fontSize: 10,
-                                      color: AppTheme.black,
-                                      fontWeight: FontWeight.bold,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.white.withOpacity(0.64),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      widget.count.toString(),
+                                      style:
+                                          AppTheme.labelSmall(context).copyWith(
+                                        fontSize: 10,
+                                        color: AppTheme.black,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                    const SizedBox(width: 2),
+                                    const Icon(
+                                      Icons.location_on,
+                                      size: 10,
+                                      color: AppTheme.black,
+                                    ),
+                                  ],
                                 ),
                               ),
+                              const SizedBox(width: spacing),
                             ],
-                          );
-                        },
-                      ),
-
-                      const Spacer(),
-
-                      // 底部标题和标签
-                      Text(
-                        widget.title,
-                        style: AppTheme.headlineMedium(context).copyWith(
-                          fontSize: 16,
-                          color: AppTheme.white,
-                          shadows: [
-                            const Shadow(
-                              color: Colors.black,
-                              blurRadius: 4,
+                            // 城市名称
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  widget.city,
+                                  style: AppTheme.labelSmall(context).copyWith(
+                                    fontSize: 10,
+                                    color: AppTheme.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
                           ],
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: widget.tags
-                            .take(2)
-                            .map(
-                              (tag) => Text(
-                                tag,
-                                style: AppTheme.labelSmall(context).copyWith(
-                                  fontSize: 12,
-                                  color: AppTheme.white.withOpacity(0.9),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ],
+                        );
+                      },
+                    ),
                   ),
-                ),
+
+                // 底部标题和标签（只在图片加载成功后显示）
+                if (_imageLoaded)
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.title,
+                          style: AppTheme.headlineMedium(context).copyWith(
+                            fontSize: 16,
+                            color: AppTheme.white,
+                            shadows: [
+                              const Shadow(
+                                color: Colors.black,
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (widget.tags.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: widget.tags
+                                .take(2)
+                                .map(
+                                  (tag) => Text(
+                                    tag,
+                                    style:
+                                        AppTheme.labelSmall(context).copyWith(
+                                      fontSize: 12,
+                                      color: AppTheme.white.withOpacity(0.9),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),

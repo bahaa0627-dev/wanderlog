@@ -232,8 +232,8 @@ class CollectionRecommendationController {
   }
 
   /**
-   * 获取合集推荐详情
-   * 优化版本：只加载编辑表单所需的基本信息，不加载 collectionSpots 数据
+   * 获取合集推荐详情（包含完整数据）
+   * 返回包含 collectionSpots、spotCount 和 mainCity 的完整数据
    */
   async getById(req: Request, res: Response) {
     try {
@@ -245,13 +245,24 @@ class CollectionRecommendationController {
           items: {
             include: {
               collection: {
-                select: {
-                  id: true,
-                  name: true,
-                  coverImage: true,
-                  description: true,
-                  isPublished: true,
-                },
+                include: {
+                  collectionSpots: {
+                    include: {
+                      place: {
+                        select: {
+                          id: true,
+                          name: true,
+                          city: true,
+                          country: true,
+                          coverImage: true,
+                          ratingCount: true,
+                          tags: true,
+                          aiTags: true,
+                        }
+                      }
+                    }
+                  }
+                }
               },
             },
             orderBy: { sortOrder: 'asc' },
@@ -263,7 +274,78 @@ class CollectionRecommendationController {
         return res.status(404).json({ success: false, message: '推荐不存在' });
       }
 
-      return res.json({ success: true, data: recommendation });
+      // 计算每个合集的 spotCount 和 mainCity
+      const collectionIds = recommendation.items.map(item => item.collectionId);
+      
+      // 获取每个合集的地点数量
+      const spotCounts = await prisma.collectionSpot.groupBy({
+        by: ['collectionId'],
+        where: { collectionId: { in: collectionIds } },
+        _count: true,
+      });
+      const spotCountMap = new Map(spotCounts.map(s => [s.collectionId, s._count]));
+
+      // 计算每个合集的主要城市
+      const mainCityMap = new Map<string, string>();
+      for (const item of recommendation.items) {
+        const spots = item.collection?.collectionSpots || [];
+        
+        // 统计每个城市的地点数量和最高评价数
+        const cityStats = new Map<string, { count: number; maxRatingCount: number }>();
+        
+        for (const spot of spots) {
+          const city = spot.place?.city;
+          const ratingCount = spot.place?.ratingCount ?? 0;
+          if (city) {
+            const existing = cityStats.get(city) || { count: 0, maxRatingCount: 0 };
+            cityStats.set(city, {
+              count: existing.count + 1,
+              maxRatingCount: Math.max(existing.maxRatingCount, ratingCount),
+            });
+          }
+        }
+
+        if (cityStats.size > 0) {
+          // 找出地点数量最多的城市
+          let maxCount = 0;
+          cityStats.forEach((stats) => {
+            if (stats.count > maxCount) {
+              maxCount = stats.count;
+            }
+          });
+
+          // 筛选出所有地点数量等于最大值的城市
+          const topCities: { city: string; maxRatingCount: number }[] = [];
+          cityStats.forEach((stats, city) => {
+            if (stats.count === maxCount) {
+              topCities.push({ city, maxRatingCount: stats.maxRatingCount });
+            }
+          });
+
+          // 如果有多个城市，按最高评价数排序
+          if (topCities.length === 1) {
+            mainCityMap.set(item.collectionId, topCities[0].city);
+          } else {
+            topCities.sort((a, b) => b.maxRatingCount - a.maxRatingCount);
+            mainCityMap.set(item.collectionId, topCities[0].city);
+          }
+        }
+      }
+
+      // 构建返回数据，添加 spotCount 和 mainCity
+      const formattedData = {
+        ...recommendation,
+        items: recommendation.items.map(item => ({
+          ...item,
+          collection: {
+            ...item.collection,
+            spotCount: spotCountMap.get(item.collectionId) || 0,
+            mainCity: mainCityMap.get(item.collectionId) || null,
+          }
+        }))
+      };
+
+      return res.json({ success: true, data: formattedData });
     } catch (error: any) {
       console.error('获取合集推荐详情错误:', error);
       return res.status(500).json({ success: false, message: error.message || '获取失败' });

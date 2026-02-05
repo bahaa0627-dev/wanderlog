@@ -13,6 +13,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/core/utils/category_emoji.dart';
+import 'package:wanderlog/core/utils/color_utils.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/features/map/data/models/public_place_dto.dart';
 import 'package:wanderlog/features/map/data/supabase_place_repository.dart';
@@ -3003,10 +3004,11 @@ class _BottomSpotCardState extends ConsumerState<_BottomSpotCard> {
 
       if (mounted) {
         setState(() {
-          _dominantColor = paletteGenerator.dominantColor?.color ??
-              paletteGenerator.darkMutedColor?.color ??
-              paletteGenerator.darkVibrantColor?.color ??
-              Colors.black;
+          // 使用 ColorUtils 获取较深的主色，排除白色和浅色
+          _dominantColor = ColorUtils.getDarkDominantColor(
+            paletteGenerator,
+            fallback: Colors.black,
+          );
         });
       }
     } catch (e) {

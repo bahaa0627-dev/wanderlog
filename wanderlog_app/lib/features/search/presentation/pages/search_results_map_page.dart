@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/color_utils.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:wanderlog/features/search/data/search_repository.dart';
@@ -1454,10 +1455,11 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
 
       if (mounted) {
         setState(() {
-          _dominantColor = paletteGenerator.dominantColor?.color ??
-              paletteGenerator.darkMutedColor?.color ??
-              paletteGenerator.darkVibrantColor?.color ??
-              Colors.black;
+          // 使用 ColorUtils 获取较深的主色，排除白色和浅色
+          _dominantColor = ColorUtils.getDarkDominantColor(
+            paletteGenerator,
+            fallback: Colors.black,
+          );
         });
       }
     } catch (e) {

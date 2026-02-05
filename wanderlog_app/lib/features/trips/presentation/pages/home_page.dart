@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/color_utils.dart';
 import 'package:wanderlog/core/supabase/services/image_service.dart';
 import 'package:wanderlog/shared/widgets/ui_components.dart';
 import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
@@ -1136,11 +1137,11 @@ class _TripCardState extends State<_TripCard> {
 
       if (mounted) {
         setState(() {
-          // 优先使用主色，如果没有则使用暗色调或默认灰色
-          _dominantColor = paletteGenerator.dominantColor?.color ??
-              paletteGenerator.darkMutedColor?.color ??
-              paletteGenerator.darkVibrantColor?.color ??
-              AppTheme.mediumGray;
+          // 使用 ColorUtils 获取较深的主色，排除白色和浅色
+          _dominantColor = ColorUtils.getDarkDominantColor(
+            paletteGenerator,
+            fallback: AppTheme.mediumGray,
+          );
           _colorExtracted = true;
           _imageLoaded = true;
         });

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/color_utils.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/auth/presentation/pages/login_page.dart';
 import 'package:wanderlog/features/profile/providers/mine_page_provider.dart';
@@ -1704,10 +1705,11 @@ class _VerticalSpotCardState extends State<_VerticalSpotCard> {
 
       if (mounted) {
         setState(() {
-          _dominantColor = paletteGenerator.dominantColor?.color ??
-              paletteGenerator.darkMutedColor?.color ??
-              paletteGenerator.darkVibrantColor?.color ??
-              Colors.black;
+          // 使用 ColorUtils 获取较深的主色，排除白色和浅色
+          _dominantColor = ColorUtils.getDarkDominantColor(
+            paletteGenerator,
+            fallback: Colors.black,
+          );
         });
       }
     } catch (e) {

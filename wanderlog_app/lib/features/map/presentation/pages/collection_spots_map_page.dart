@@ -10,6 +10,7 @@ import 'package:palette_generator/palette_generator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wanderlog/shared/widgets/vago_placeholder.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
+import 'package:wanderlog/core/utils/color_utils.dart';
 import 'package:wanderlog/core/utils/dialog_utils.dart';
 import 'package:wanderlog/core/l10n/app_localizations.dart';
 import 'package:wanderlog/core/providers/locale_provider.dart';
@@ -1476,10 +1477,11 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
 
       if (mounted) {
         setState(() {
-          _dominantColor = paletteGenerator.dominantColor?.color ??
-              paletteGenerator.darkMutedColor?.color ??
-              paletteGenerator.darkVibrantColor?.color ??
-              Colors.black;
+          // 使用 ColorUtils 获取较深的主色，排除白色和浅色
+          _dominantColor = ColorUtils.getDarkDominantColor(
+            paletteGenerator,
+            fallback: Colors.black,
+          );
         });
       }
     } catch (e) {

@@ -58,7 +58,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>We need permission to save QR code images to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need access to your photo library to let you select images for AI location recognition.</string>
+	<string>We need access to your photo library to let you select images for memories.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

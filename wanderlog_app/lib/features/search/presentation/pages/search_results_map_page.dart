@@ -808,7 +808,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
   Widget _buildCitySelector() => GestureDetector(
         onTap: _showCityPicker,
         child: Container(
-          height: 36,
+          height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -886,6 +886,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
         return false;
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.white,
         body: Stack(
           children: [
@@ -941,14 +942,14 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                     children: [
                       IconButtonCustom(
                         icon: Icons.arrow_back,
-                        size: 36,
+                        size: 44,
                         onPressed: _handleExit,
                         backgroundColor: Colors.white,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Container(
-                          height: 36,
+                          height: 44,
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius:

@@ -281,9 +281,10 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
   map_page.Spot _convertSpot(Spot spot) {
     final List<String> imageList = spot.images;
     // 优先使用 spot.coverImage（普通封面图），避免使用合集封面图
-    final String coverImg = (spot.coverImage != null && spot.coverImage!.isNotEmpty)
-        ? spot.coverImage!
-        : (imageList.isNotEmpty ? imageList.first : '');
+    final String coverImg =
+        (spot.coverImage != null && spot.coverImage!.isNotEmpty)
+            ? spot.coverImage!
+            : (imageList.isNotEmpty ? imageList.first : '');
 
     // 优先使用 displayTagsEn，过滤无效标签，首字母大写（与 _getAllUniqueTags 保持一致）
     final List<String> tagList = [];
@@ -426,7 +427,8 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         _lastClickTime != null &&
         now.difference(_lastClickTime!).inMilliseconds < 1000) {
       print(
-          '🔧 [myland_spots_map_page.dart] Debouncing rapid clicks for ${spot.name}',);
+        '🔧 [myland_spots_map_page.dart] Debouncing rapid clicks for ${spot.name}',
+      );
       return;
     }
 
@@ -533,14 +535,16 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
           );
           if (uuidRegex.hasMatch(spot.id)) {
             final collectionRepo = ref.read(collectionRepositoryProvider);
-            final collections = await collectionRepo
-                .getCollectionsForPlace(spot.id)
-                .timeout(const Duration(milliseconds: 1200),
-                    onTimeout: () => [],);
+            final collections =
+                await collectionRepo.getCollectionsForPlace(spot.id).timeout(
+                      const Duration(milliseconds: 1200),
+                      onTimeout: () => [],
+                    );
             if (collections.isNotEmpty) {
               // 随机选择一个合集展示
               final random = math.Random();
-              linkedCollection = collections[random.nextInt(collections.length)];
+              linkedCollection =
+                  collections[random.nextInt(collections.length)];
             }
           }
         } catch (e) {
@@ -761,6 +765,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         return false;
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         body: Stack(
           children: [
             // 全屏地图
@@ -921,7 +926,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
           GestureDetector(
             onTap: widget.allCities.isNotEmpty ? _showCityPicker : null,
             child: Container(
-              height: 36,
+              height: 44,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -953,7 +958,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
           // 缩小按钮（返回）- 与 map_page_new 保持一致
           IconButtonCustom(
             icon: Icons.fullscreen_exit,
-            size: 36,
+            size: 44,
             onPressed: _handleExit,
             backgroundColor: Colors.white,
           ),
@@ -963,7 +968,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
   }
 
   Widget _buildSearchBar(BuildContext context) => Container(
-        height: 36,
+        height: 44,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -1150,7 +1155,9 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         // 没有结果，显示 toast
         if (mounted) {
           DialogUtils.showToast(
-              context, 'Sorry no related places, please try again',);
+            context,
+            'Sorry no related places, please try again',
+          );
           setState(() {
             _isSearching = false;
           });
@@ -1180,7 +1187,9 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
       print('❌ [MyLandSpotsMapPage] 搜索失败: $e');
       if (mounted) {
         DialogUtils.showToast(
-            context, 'Sorry no related places, please try again',);
+          context,
+          'Sorry no related places, please try again',
+        );
         setState(() {
           _isSearching = false;
         });
@@ -1216,7 +1225,8 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
 
   /// 计算地点的中心点和缩放级别
   ({Position center, double zoom}) _calculateCenterAndZoomForSpots(
-      List<map_page.Spot> spots,) {
+    List<map_page.Spot> spots,
+  ) {
     if (spots.isEmpty) {
       return (center: Position(139.6503, 35.6762), zoom: 14.0);
     }
@@ -1425,106 +1435,106 @@ class _BottomSpotCardState extends State<_BottomSpotCard> {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-      onTap: widget.onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(
-            color: AppTheme.black,
-            width: AppTheme.borderMedium,
+        onTap: widget.onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            border: Border.all(
+              color: AppTheme.black,
+              width: AppTheme.borderMedium,
+            ),
+            boxShadow: AppTheme.cardShadow,
           ),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _buildCover(),
-              // Check-in indicator badge
-              if (widget.isVisited)
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryYellow,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppTheme.black,
-                        width: 1.5,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 1),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildCover(),
+                // Check-in indicator badge
+                if (widget.isVisited)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryYellow,
+                        shape: BoxShape.circle,
+                        border: Border.all(
                           color: AppTheme.black,
-                          blurRadius: 0,
-                          offset: Offset(0, 1),
+                          width: 1.5,
                         ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.check,
-                      color: AppTheme.black,
-                      size: 14,
-                    ),
-                  ),
-                ),
-              // 底部渐变蒙层 - 使用提取的主色
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  height: 140, // 卡片高度 280 的一半
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        _dominantColor.withOpacity(0.3),
-                        _dominantColor.withOpacity(0.6),
-                        _dominantColor.withOpacity(0.85),
-                      ],
-                      stops: const [0.0, 0.3, 0.6, 1.0],
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Spacer(),
-                    // 地点名称
-                    Text(
-                      widget.spot.name,
-                      style: AppTheme.bodyLarge(context).copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
+                        boxShadow: const [
+                          BoxShadow(
+                            color: AppTheme.black,
+                            blurRadius: 0,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      child: const Icon(
+                        Icons.check,
+                        color: AppTheme.black,
+                        size: 14,
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    // 评分
-                    _RatingRow(
-                      rating: widget.spot.rating,
-                      ratingCount: widget.spot.ratingCount,
+                  ),
+                // 底部渐变蒙层 - 使用提取的主色
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: 140, // 卡片高度 280 的一半
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          _dominantColor.withOpacity(0.3),
+                          _dominantColor.withOpacity(0.6),
+                          _dominantColor.withOpacity(0.85),
+                        ],
+                        stops: const [0.0, 0.3, 0.6, 1.0],
+                      ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Spacer(),
+                      // 地点名称
+                      Text(
+                        widget.spot.name,
+                        style: AppTheme.bodyLarge(context).copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      // 评分
+                      _RatingRow(
+                        rating: widget.spot.rating,
+                        ratingCount: widget.spot.ratingCount,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
 
   Widget _buildCover() {
     const placeholder = VagoPlaceholderSmall();
@@ -1642,7 +1652,9 @@ class _CountryCityPickerSheetState
   }
 
   String? _findCountryForCity(
-      String city, CountriesCitiesStatsState statsState,) {
+    String city,
+    CountriesCitiesStatsState statsState,
+  ) {
     // 跳过 "All" 选项
     if (city == 'All') {
       return statsState.countries.isNotEmpty
@@ -1721,8 +1733,11 @@ class _CountryCityPickerSheetState
                     ),
                   ),
                   if (isSelected)
-                    const Icon(Icons.check,
-                        size: 18, color: AppTheme.primaryYellow,),
+                    const Icon(
+                      Icons.check,
+                      size: 18,
+                      color: AppTheme.primaryYellow,
+                    ),
                 ],
               ),
             ),
@@ -1732,7 +1747,9 @@ class _CountryCityPickerSheetState
 
   /// 国家城市两列选择
   Widget _buildCountryCityColumns(
-      ScrollController scrollController, CountriesCitiesStatsState statsState,) {
+    ScrollController scrollController,
+    CountriesCitiesStatsState statsState,
+  ) {
     final countries = statsState.countries;
     // 只显示用户收藏的城市（在 allCities 中的城市）
     final userCities = widget.allCities.where((c) => c != 'All').toSet();
@@ -1744,7 +1761,10 @@ class _CountryCityPickerSheetState
         : <CityStats>[];
 
     // 过滤只显示有用户收藏城市的国家
-    final countriesWithUserCities = countries.where((country) => country.cities.any((c) => userCities.contains(c.name))).toList();
+    final countriesWithUserCities = countries
+        .where(
+            (country) => country.cities.any((c) => userCities.contains(c.name)))
+        .toList();
 
     return Row(
       children: [
@@ -1770,7 +1790,9 @@ class _CountryCityPickerSheetState
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 14,),
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
                     color: isSelected
                         ? AppTheme.primaryYellow.withOpacity(0.2)
                         : Colors.transparent,
@@ -1788,8 +1810,11 @@ class _CountryCityPickerSheetState
                           ),
                         ),
                         if (isSelected)
-                          const Icon(Icons.chevron_right,
-                              size: 18, color: AppTheme.mediumGray,),
+                          const Icon(
+                            Icons.chevron_right,
+                            size: 18,
+                            color: AppTheme.mediumGray,
+                          ),
                       ],
                     ),
                   ),
@@ -1829,8 +1854,11 @@ class _CountryCityPickerSheetState
                         ),
                       ),
                       if (isSelected)
-                        const Icon(Icons.check,
-                            size: 18, color: AppTheme.primaryYellow,),
+                        const Icon(
+                          Icons.check,
+                          size: 18,
+                          color: AppTheme.primaryYellow,
+                        ),
                     ],
                   ),
                 ),

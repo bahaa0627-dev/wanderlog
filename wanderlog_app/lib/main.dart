@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -15,15 +16,27 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Load environment variables (ignore if file doesn't exist)
+
+  // Load environment variables based on build mode
+  // Release mode uses .env.production, Debug mode uses .env
+  final envFileName = kReleaseMode ? '.env.production' : '.env';
   try {
-    await dotenv.load(fileName: '.env');
+    await dotenv.load(fileName: envFileName);
+    print('✅ Loaded environment file: $envFileName');
   } catch (e) {
-    // .env file doesn't exist, use defaults from AppConstants
-    print('Warning: .env file not found, using default values');
+    // Fallback to .env if .env.production doesn't exist
+    if (kReleaseMode) {
+      try {
+        await dotenv.load(fileName: '.env');
+        print('⚠️ Warning: .env.production not found, falling back to .env');
+      } catch (_) {
+        print('Warning: No .env file found, using default values');
+      }
+    } else {
+      print('Warning: .env file not found, using default values');
+    }
   }
-  
+
   // Init Supabase (non-blocking - app can continue if Supabase fails)
   try {
     await SupabaseConfig.initialize();
@@ -35,11 +48,11 @@ void main() async {
   } catch (e) {
     print('⚠️ Warning: Supabase initialization error: $e');
   }
-  
+
   // Init services
   await StorageService.instance.init();
   DioClient.instance.init();
-  
+
   runApp(
     const ProviderScope(
       child: WanderlogApp(),
@@ -73,7 +86,7 @@ class _WanderlogAppState extends ConsumerState<WanderlogApp> {
       debugPrint('⚠️ Supabase not initialized, skipping auth listener');
       return;
     }
-    
+
     _authSub = SupabaseConfig.auth.onAuthStateChange.listen((data) {
       if (!mounted) return;
       if (data.event == AuthChangeEvent.passwordRecovery) {
@@ -97,11 +110,14 @@ class _WanderlogAppState extends ConsumerState<WanderlogApp> {
     }
 
     // 监听后续的深度链接
-    _appLinks.uriLinkStream.listen((uri) {
-      _handleDeepLink(uri);
-    }, onError: (Object e) {
-      debugPrint('Error handling deep link: $e');
-    },);
+    _appLinks.uriLinkStream.listen(
+      (uri) {
+        _handleDeepLink(uri);
+      },
+      onError: (Object e) {
+        debugPrint('Error handling deep link: $e');
+      },
+    );
   }
 
   void _handleDeepLink(Uri uri) {
@@ -120,10 +136,9 @@ class _WanderlogAppState extends ConsumerState<WanderlogApp> {
 
   @override
   Widget build(BuildContext context) => MaterialApp.router(
-      title: 'VAGO',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.themeData,
-      routerConfig: _router,
-    );
+        title: 'VAGO',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.themeData,
+        routerConfig: _router,
+      );
 }
-

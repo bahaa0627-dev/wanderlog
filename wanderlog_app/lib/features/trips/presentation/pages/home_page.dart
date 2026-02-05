@@ -1188,24 +1188,26 @@ class _TripCardState extends State<_TripCard> {
                   _buildCoverImage(),
 
                 // 底部渐变蒙层 - 只在图片加载成功后显示
+                // 渐变覆盖卡片约60%高度（从底部文字区域延伸到封面图一半）
                 if (_imageLoaded)
                   Positioned(
                     left: 0,
                     right: 0,
                     bottom: 0,
                     child: Container(
-                      height: 125, // 卡片高度 250 的一半
+                      height: 140, // 卡片高度 224 的约 60%
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
                             Colors.transparent,
-                            _dominantColor.withOpacity(0.3),
-                            _dominantColor.withOpacity(0.6),
-                            _dominantColor.withOpacity(0.85),
+                            _dominantColor.withOpacity(0.15),
+                            _dominantColor.withOpacity(0.4),
+                            _dominantColor.withOpacity(0.7),
+                            _dominantColor.withOpacity(0.9),
                           ],
-                          stops: const [0.0, 0.3, 0.6, 1.0],
+                          stops: const [0.0, 0.2, 0.45, 0.7, 1.0],
                         ),
                       ),
                     ),

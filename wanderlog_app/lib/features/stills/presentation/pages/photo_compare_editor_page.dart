@@ -149,7 +149,7 @@ class _PhotoCompareEditorPageState extends State<PhotoCompareEditorPage> {
                         child: Text(
                           'VAGO',
                           style: TextStyle(
-                            fontFamily: 'Poppins',
+                            fontFamily: 'Reem Kufi',
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: Colors.white.withOpacity(0.6),

@@ -843,6 +843,7 @@ class _CollectionSpotsMapPageState
           return false;
         },
         child: Scaffold(
+          resizeToAvoidBottomInset: false,
           body: Stack(
             children: [
               // 显示加载状态
@@ -891,6 +892,7 @@ class _CollectionSpotsMapPageState
         return false;
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         body: Stack(
           children: [
             // 全屏地图 - 只有在确定了初始中心后才显示

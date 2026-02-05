@@ -941,6 +941,7 @@ class _FullscreenRecommendationMapState
         return false;
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.white,
         body: Stack(
           clipBehavior: Clip.none,

@@ -1,0 +1,249 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (2CNqejC1b3ENbELn7)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: No
+
+📥 Fetching data from Apify Dataset: 2CNqejC1b3ENbELn7
+✅ Database connection established
+   Fetched 90 items...
+✅ Total items fetched: 90
+
+🚀 Starting import of 90 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (90 items)
+   📍 Using existing city for Rinkeby: Stockholm
+   🌍 Using existing country for Rinkeby: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Rinkeby
+   📍 Using existing city for Duvbo: Sundbyberg
+   🌍 Using existing country for Duvbo: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Duvbo
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Solna strand
+   📍 Using existing city for Thorildsplan: Stockholm
+   🌍 Using existing country for Thorildsplan: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Thorildsplan
+   📍 Using existing city for Rådhuset: Stockholm
+   🌍 Using existing country for Rådhuset: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Rådhuset
+   📍 Using existing city for Skarpnäck: Stockholm
+   🌍 Using existing country for Skarpnäck: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Skarpnäck
+   📍 Using existing city for Tekniska högskolan: Stockholm
+   🌍 Using existing country for Tekniska högskolan: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Tekniska högskolan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Metro Stadion
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Universitetet
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mörby Centrum
+   📍 Using existing city for Östermalmstorg: Stockholm
+   🌍 Using existing country for Östermalmstorg: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Östermalmstorg
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gamla stan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Tekniska högskolan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Skogskapellet
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Nya krematoriet
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Odenplan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Chapel of the Resurrection
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Brunkeberg Tunnel
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Günters
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Drop Coffee Roasters
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Stockholm City Hall
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: XXL Sport
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Swedish handicraft
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Klara Tyg & Garn
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Slöjd-Detaljer
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Adlibris
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: MYO Living room
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Makeri 14
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Litet nystan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Garnadiset
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: ICA
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: The Royal Palace
+   🖼️  Set Google image as coverImage: The Royal Palace
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: T-Centralen
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hemköp
+   📍 Using existing city for Stadshagen: Stockholm
+   🌍 Using existing country for Stadshagen: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Stadshagen
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: ARKET Store
+   📍 Using existing city for Fridhemsplan: Stockholm
+   🌍 Using existing country for Fridhemsplan: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fridhemsplan
+   📍 Using existing city for Solna centrum: Solna
+   🌍 Using existing country for Solna centrum: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Solna centrum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Grekiska Ortodoxa Kyrkan (St.Giorgios kyrka)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: ANNA BOHMAN GALLERY
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bröd & Salt
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Engelbrekts columbarium
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Tambur
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Baggio
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Uppåt Väggarna Second Hand
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: University of Helsinki
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Finlandia Hall
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: An Ideal for Living Stockholm AB
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Skogskyrkogården
+   🖼️  Set Google image as coverImage: Skogskyrkogården
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ivar Lo's park
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Årsta church
+   📍 Using existing city for Märsta: Sigtuna
+   🌍 Using existing country for Märsta: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Märsta
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Stora bageriet
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Carl Eldhs Ateljémuseum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Vete-Katten Kungsgatan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Max Burgers
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Vällingby Församling
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ritorno Bageri & Butik
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fabrique
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Socker Sucker
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Moderna Museet
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Café Pascal
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bröd & Salt
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Markuskyrkan
+   📍 Using existing city for SoFo: Stockholm
+   🌍 Using existing country for SoFo: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: SoFo
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Engelbrektskyrkan
+   📍 Using existing city for Skeppsholmen: Stockholm
+   🌍 Using existing country for Skeppsholmen: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Skeppsholmen
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Meatballs for the People
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Restaurang Nytorget 6
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Café Pom & Flora Södermalm
+   📍 Using existing city for Fjällgatan: Stockholm
+   🌍 Using existing country for Fjällgatan: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fjällgatan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Stora bageriet Vasastan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pom & Flora
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Skansen
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Runner's Store i Sverige AB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Igor Sports
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Löplabbet
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Stadium Drottninggatan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bacchus Antik
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Panduro
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Generator Stockholm
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Kreatima
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mörka Kroken
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Röda Huset
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Systrarna Andersson
+   📍 Using existing city for Kungsträdgården: Stockholm
+   🌍 Using existing country for Kungsträdgården: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Kungsträdgården
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Parkaden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Näckrosen metro station
+   📍 Using existing city for Akalla: Stockholm
+   🌍 Using existing country for Akalla: Sweden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Akalla
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Tensta
+
+✅ Import complete!
+   Total: 90
+   Inserted: 0
+   Updated: 90
+   Skipped: 0
+   Failed: 0
+   Cities: 13
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 63.3%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

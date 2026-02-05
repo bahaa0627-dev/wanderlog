@@ -263,58 +263,6 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
             }
           }
         }
-        // 从所有地点中收集标签，优先使用 tags，如果没有则使用 aiTags
-        final List<dynamic> tagsList = [];
-        for (final spot in spots) {
-          // 兼容 place 和 spot 两种字段名
-          final spotData = spot['spot'] as Map<String, dynamic>? ??
-              spot['place'] as Map<String, dynamic>?;
-          if (spotData == null) continue;
-
-          // 尝试获取 tags
-          final dynamic tagsValue = spotData['tags'];
-          final List<dynamic> currentSpotTags = [];
-          if (tagsValue != null) {
-            if (tagsValue is List) {
-              currentSpotTags.addAll(tagsValue);
-            } else if (tagsValue is String) {
-              try {
-                final decoded = jsonDecode(tagsValue) as List<dynamic>?;
-                if (decoded != null) currentSpotTags.addAll(decoded);
-              } catch (e) {
-                // 忽略解析错误
-              }
-            }
-          }
-
-          // 如果这个 spot 没有 tags，尝试使用 aiTags
-          if (currentSpotTags.isEmpty) {
-            final dynamic aiTagsValue = spotData['aiTags'];
-            if (aiTagsValue != null) {
-              if (aiTagsValue is List) {
-                currentSpotTags.addAll(aiTagsValue);
-              } else if (aiTagsValue is String) {
-                try {
-                  final decoded = jsonDecode(aiTagsValue) as List<dynamic>?;
-                  if (decoded != null) currentSpotTags.addAll(decoded);
-                } catch (e) {
-                  // 忽略解析错误
-                }
-              }
-            }
-          }
-
-          // 添加到总列表
-          tagsList.addAll(currentSpotTags);
-
-          // 如果已经收集到足够的标签，可以提前退出
-          if (tagsList.length >= 3) break;
-        }
-
-        // 去重并取前3个
-        final uniqueTags = tagsList.toSet().toList();
-        final tags = uniqueTags.take(3).map((e) => '#$e').toList();
-
         // 获取第一个地点用于封面图（如果合集没有设置封面图的话）
         final firstSpot = spots.isNotEmpty
             ? (spots.first['spot'] as Map<String, dynamic>? ??
@@ -329,7 +277,6 @@ class _CollectionsTabState extends ConsumerState<CollectionsTab> {
           city: city,
           spotsCount: count,
           image: cover,
-          tags: tags,
           onTap: () async {
             final result = await Navigator.of(context).push<dynamic>(
               MaterialPageRoute<dynamic>(
@@ -615,7 +562,6 @@ class _CollectionCard extends StatefulWidget {
     required this.city,
     required this.spotsCount,
     required this.image,
-    required this.tags,
     required this.onTap,
   });
 
@@ -623,7 +569,6 @@ class _CollectionCard extends StatefulWidget {
   final String city;
   final int spotsCount;
   final String image;
-  final List<String> tags;
   final VoidCallback onTap;
 
   @override
@@ -822,7 +767,7 @@ class _CollectionCardState extends State<_CollectionCard> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           if (showSpots) ...[
-                            // 地点数量
+                            // 地点数量 - Neo Brutalism 风格，64%白色背景
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -831,6 +776,10 @@ class _CollectionCardState extends State<_CollectionCard> {
                               decoration: BoxDecoration(
                                 color: AppTheme.white.withOpacity(0.64),
                                 borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: AppTheme.black,
+                                  width: 1,
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -855,7 +804,7 @@ class _CollectionCardState extends State<_CollectionCard> {
                             ),
                             const SizedBox(width: spacing),
                           ],
-                          // 城市名称
+                          // 城市名称 - Neo Brutalism 风格
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -864,6 +813,16 @@ class _CollectionCardState extends State<_CollectionCard> {
                             decoration: BoxDecoration(
                               color: AppTheme.white,
                               borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: AppTheme.black,
+                                width: 1,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: AppTheme.black,
+                                  offset: Offset(1, 1),
+                                ),
+                              ],
                             ),
                             child: Text(
                               widget.city,
@@ -879,54 +838,27 @@ class _CollectionCardState extends State<_CollectionCard> {
                     },
                   ),
                 ),
-                // 底部标题和标签层 - 始终显示，确保用户能看到文字内容
+                // 底部标题层 - 始终显示，确保用户能看到文字内容
                 Positioned(
                   left: 12,
                   right: 12,
                   bottom: 12,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.name,
-                        style: AppTheme.headlineMedium(context).copyWith(
-                          fontSize: 16,
-                          color: _imageLoaded ? AppTheme.white : AppTheme.black,
-                          shadows: _imageLoaded
-                              ? [
-                                  const Shadow(
-                                    color: Colors.black,
-                                    blurRadius: 4,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (widget.tags.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: widget.tags
-                              .take(2)
-                              .map(
-                                (tag) => Text(
-                                  tag,
-                                  style: AppTheme.labelSmall(context).copyWith(
-                                    fontSize: 12,
-                                    color: _imageLoaded
-                                        ? AppTheme.white.withOpacity(0.9)
-                                        : AppTheme.textSecondary,
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    widget.name,
+                    style: AppTheme.headlineMedium(context).copyWith(
+                      fontSize: 16,
+                      color: _imageLoaded ? AppTheme.white : AppTheme.black,
+                      shadows: _imageLoaded
+                          ? [
+                              const Shadow(
+                                color: Colors.black,
+                                blurRadius: 4,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

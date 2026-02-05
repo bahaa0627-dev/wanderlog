@@ -1,0 +1,563 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (735ey8PhmnmLU39JK)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: No
+
+📥 Fetching data from Apify Dataset: 735ey8PhmnmLU39JK
+✅ Database connection established
+   Fetched 100 items...
+   Fetched 200 items...
+   Fetched 209 items...
+✅ Total items fetched: 209
+
+🚀 Starting import of 209 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/3 (100 items)
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Park Güell
+   🖼️  Set Google image as coverImage: Park Güell
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Basílica de la Sagrada Família
+   🖼️  Set Google image as coverImage: Basílica de la Sagrada Família
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: MUHBA Turó de la Rovira
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Mercat de la Boqueria
+   🖼️  Set Google image as coverImage: Mercat de la Boqueria
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Museu Nacional d'Art de Catalunya
+   🖼️  Set Google image as coverImage: Museu Nacional d'Art de Catalunya
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Picasso Museum Barcelona
+   🖼️  Set Google image as coverImage: Picasso Museum Barcelona
+   📍 Using existing city for Nice: Nice
+   🌍 Using existing country for Nice: France
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Nice
+   📍 Using existing city for Blanes: Blanes
+   🌍 Using existing country for Blanes: Spain
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Blanes
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Livraria Bertrand - Chiado
+   🖼️  Set Google image as coverImage: Livraria Bertrand - Chiado
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Montjuïc
+   🖼️  Set Google image as coverImage: Montjuïc
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Nomad Coffee Bar (ex Coffee Lab)
+   🖼️  Set Google image as coverImage: Nomad Coffee Bar (ex Coffee Lab)
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: LADY BABKA
+   🖼️  Set Google image as coverImage: LADY BABKA
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Pompeu Fabra University
+   🖼️  Set Google image as coverImage: Pompeu Fabra University
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Right Side Coffee Bar
+   🖼️  Set Google image as coverImage: Right Side Coffee Bar
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Ciutadella Park
+   🖼️  Set Google image as coverImage: Ciutadella Park
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: JD Sports
+   🖼️  Set Google image as coverImage: JD Sports
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Merceria Santa Anna
+   🖼️  Set Google image as coverImage: Merceria Santa Anna
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Independente Principe Real
+   🖼️  Set Google image as coverImage: Independente Principe Real
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: EDP Sede II
+   🖼️  Set Google image as coverImage: EDP Sede II
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: EDP Headquarters
+   🖼️  Set Google image as coverImage: EDP Headquarters
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Museu Nacional do Azulejo
+   🖼️  Set Google image as coverImage: Museu Nacional do Azulejo
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: XVIII - Azulejo & Faiança | Loja Alfama
+   🖼️  Set Google image as coverImage: XVIII - Azulejo & Faiança | Loja Alfama
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Miradouro da Graça
+   🖼️  Set Google image as coverImage: Miradouro da Graça
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Hippotrip
+   🖼️  Set Google image as coverImage: Hippotrip
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Boca do Inferno - Devil’s Mouth
+   🖼️  Set Google image as coverImage: Boca do Inferno - Devil’s Mouth
+   🖼️  Moved old coverImage to images array: ZDB 8 Marvila
+   🖼️  Set Google image as coverImage: ZDB 8 Marvila
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: LX Factory
+   🖼️  Set Google image as coverImage: LX Factory
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: 8 Marvila
+   🖼️  Set Google image as coverImage: 8 Marvila
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Castelo de São Jorge
+   🖼️  Set Google image as coverImage: Castelo de São Jorge
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: COMOBÅ
+   🖼️  Set Google image as coverImage: COMOBÅ
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Hello, Kristof
+   🖼️  Set Google image as coverImage: Hello, Kristof
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Dear Breakfast
+   🖼️  Set Google image as coverImage: Dear Breakfast
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Cape Roca
+   🖼️  Set Google image as coverImage: Cape Roca
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: the mill
+   🖼️  Set Google image as coverImage: the mill
+   📍 Using existing city for Tossa de Mar: Tossa de Mar
+   🌍 Using existing country for Tossa de Mar: Spain
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Tossa de Mar
+   🖼️  Set Google image as coverImage: Tossa de Mar
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Dalí Theatre-Museum
+   🖼️  Set Google image as coverImage: Dalí Theatre-Museum
+   📍 Using existing city for Sitges: Sitges
+   🌍 Using existing country for Sitges: Spain
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Sitges
+   🖼️  Set Google image as coverImage: Sitges
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Cafetaria Landeau Chocolate
+   🖼️  Set Google image as coverImage: Cafetaria Landeau Chocolate
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Santa Justa Lift
+   🖼️  Set Google image as coverImage: Santa Justa Lift
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Centro Cultural de Belém
+   🖼️  Set Google image as coverImage: Centro Cultural de Belém
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Oceanário de Lisboa
+   🖼️  Set Google image as coverImage: Oceanário de Lisboa
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Oriente
+   🖼️  Set Google image as coverImage: Oriente
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Calouste Gulbenkian Museum
+   🖼️  Set Google image as coverImage: Calouste Gulbenkian Museum
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Retrosaria Rosa Pomar
+   🖼️  Set Google image as coverImage: Retrosaria Rosa Pomar
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Mercat de Santa Caterina
+   🖼️  Set Google image as coverImage: Mercat de Santa Caterina
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Bicicletas Gira Estação 414
+   🖼️  Set Google image as coverImage: Bicicletas Gira Estação 414
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Recinte Modernista de Sant Pau
+   🖼️  Set Google image as coverImage: Recinte Modernista de Sant Pau
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Tibidabo
+   🖼️  Set Google image as coverImage: Tibidabo
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Bunkers del Carmel
+   🖼️  Set Google image as coverImage: Bunkers del Carmel
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Pont del Bisbe
+   🖼️  Set Google image as coverImage: Pont del Bisbe
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: The World Comes To Life With Each Kiss
+   🖼️  Set Google image as coverImage: The World Comes To Life With Each Kiss
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Barcelona Maritime Museum
+   🖼️  Set Google image as coverImage: Barcelona Maritime Museum
+   🖼️  Moved old coverImage to images array: GIRA Bicycle docking station 152
+   🖼️  Set Google image as coverImage: GIRA Bicycle docking station 152
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: L'Estel ferit
+   🖼️  Set Google image as coverImage: L'Estel ferit
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Casa Pàdua
+   🖼️  Set Google image as coverImage: Casa Pàdua
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Church of Saint Ildefonso
+   🖼️  Set Google image as coverImage: Church of Saint Ildefonso
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Walden 7
+   🖼️  Set Google image as coverImage: Walden 7
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Igreja do Carmo
+   🖼️  Set Google image as coverImage: Igreja do Carmo
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Chapel of Souls
+   🖼️  Set Google image as coverImage: Chapel of Souls
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Sol Soler
+   🖼️  Set Google image as coverImage: Sol Soler
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Orxateria La Valenciana
+   🖼️  Set Google image as coverImage: Orxateria La Valenciana
+   📍 Using existing city for Ribeira: Porto
+   🌍 Using existing country for Ribeira: Portugal
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Ribeira
+   🖼️  Set Google image as coverImage: Ribeira
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Estação de São Bento
+   🖼️  Set Google image as coverImage: Estação de São Bento
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Morreig
+   🖼️  Set Google image as coverImage: Morreig
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Porto Cathedral
+   🖼️  Set Google image as coverImage: Porto Cathedral
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Bonsai Matcha & Coffee
+   🖼️  Set Google image as coverImage: Bonsai Matcha & Coffee
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Mercat Gòtic
+   🖼️  Set Google image as coverImage: Mercat Gòtic
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Origo Bakery
+   🖼️  Set Google image as coverImage: Origo Bakery
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Kakigori | Barcelona
+   🖼️  Set Google image as coverImage: Kakigori | Barcelona
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Breakfast Lovers Misericórdia
+   🖼️  Set Google image as coverImage: Breakfast Lovers Misericórdia
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Granja Armengol
+   🖼️  Set Google image as coverImage: Granja Armengol
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Plaça de Catalunya
+   🖼️  Set Google image as coverImage: Plaça de Catalunya
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Parc Montjuïc
+   🖼️  Set Google image as coverImage: Parc Montjuïc
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Bar-restaurant del Museu Marítim de Barcelona
+   🖼️  Set Google image as coverImage: Bar-restaurant del Museu Marítim de Barcelona
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Lato - Born
+   🖼️  Set Google image as coverImage: Lato - Born
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Gusti Toscani | Gótico
+   🖼️  Set Google image as coverImage: Gusti Toscani | Gótico
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: VisitEscape Barcelona - Ruta por el Barrio Gótico con un Misterio y Escape Room al Aire Libre
+   🖼️  Set Google image as coverImage: VisitEscape Barcelona - Ruta por el Barrio Gótico con un Misterio y Escape Room al Aire Libre
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Cuylás - Tienda de Deportes en Barcelona (Running, Montaña, Fitness, Yoga y Natación)
+   🖼️  Set Google image as coverImage: Cuylás - Tienda de Deportes en Barcelona (Running, Montaña, Fitness, Yoga y Natación)
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Outdoor Barcelona
+   🖼️  Set Google image as coverImage: Outdoor Barcelona
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Salts - Terrassa Bar Montjuïc
+   🖼️  Set Google image as coverImage: Salts - Terrassa Bar Montjuïc
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Barrabes Skiing and Mountain
+   🖼️  Set Google image as coverImage: Barrabes Skiing and Mountain
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: ONIS COFFEE
+   🖼️  Set Google image as coverImage: ONIS COFFEE
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lato
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ovelha Negra
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Igreja de Santo António dos Congregados
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Deltrilã - Madalena Madeira Martinho
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lopo Xavier & C Lda
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Torre dos Clérigos
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: O Mundo Fantástico das Sardinhas Portuguesas
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mosteiro Santo Agostinho da Serra do Pilar
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Jardins do Palácio de Cristal
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Serralves Museum of Contemporary Art
+   🖼️  Set Google image as coverImage: Serralves Museum of Contemporary Art
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Vodafone
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Laundry Self Service - Cheir'a Lisbon
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Centro Vasco da Gama
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: IperStation - Orio
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Chalet Lago Antorno
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: L'Artigiano dei Sapori - GELATO & COFFEE by Giordano Lombardi
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Parkplatz Bergerplatz
+   🖼️  Set Google image as coverImage: LAYER8
+
+📦 Processing batch 2/3 (100 items)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Parkplatz Filler
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Domino's Pizza Descobertas (Expo Sul)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Parkplatz Putzen
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St. Magdalena
+   📍 Using existing city for Cadini group: Auronzo
+   🌍 Using existing country for Cadini group: Italy
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Cadini group
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Faculdade de Letras da Universidade do Porto
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Good Company Café
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Parkplatz
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fable Bookshop + Coffee
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Jardim do Torel
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Santo Estêvão Belvedere
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Darwin's Café
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Clinical Center Champalimaud
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Praça do Comércio
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: A Certain café
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Combi Coffee Roasters
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: CATAPLANA ( Uma Marisqueira)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mercado do Bolhão
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Uma Marisqueira
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Loja da Burel
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Casa Guedes Tradicional
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hakko
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: CA Downtown - Brunch • Specialty Coffee • Matcha
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Parque de Serralves
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: SO Coffee Roasters
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Brasão Aliados
+   📍 Using existing city for Fontaínhas: Vila Nova de Gaia
+   🌍 Using existing country for Fontaínhas: Portugal
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fontaínhas
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Jardim do Morro
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: A Pérola do Bolhão
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pátio 44 Restaurante
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Época
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Tricots Brancal
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gazela Entreparedes
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: McDonald's - Imperial
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Miradouro das Portas do Sol
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: A Vida Portuguesa
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Jerónimos Monastery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: New BoBo Lisboa
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Versailles
+   📍 Using existing city for Glória - S. Pedro Alcântara: Lisbon
+   🌍 Using existing country for Glória - S. Pedro Alcântara: Portugal
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Glória - S. Pedro Alcântara
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Castro - Atelier de Pastéis de Nata
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Miradouro da Senhora do Monte
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pastéis de Belém
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fábrica da Nata
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fábrica da Nata - Pastéis de Nata
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Casa das Histórias Paula Rego
+   🖼️  Set Google image as coverImage: Casa das Histórias Paula Rego
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: MAAT - Museum of Art, Architecture and Technology
+   📍 Using existing city for Av. da Liberdade: Lisbon
+   🌍 Using existing country for Av. da Liberdade: Portugal
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Av. da Liberdade
+   📍 Using existing city for Cais do Sodré: Lisbon
+   🌍 Using existing country for Cais do Sodré: Portugal
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Cais do Sodré
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Carmo Archaeological Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ponte 25 de Abril
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Museum of Contemporary Art – MAC/CCB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Jardim da Estrela
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Claus Porto
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Mirador de l'Alcalde
+   🖼️  Set Google image as coverImage: Mirador de l'Alcalde
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pavilhão de Portugal - Exposições
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: AMISTAT City Hostel Barcelona
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Champalimaud Foundation
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Torre Diagonal Zero Zero
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fundació Joan Miró
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Can Framis Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Museu Tàpies
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: El Peix d'Or Frank Gehry
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Teatre Grec Garden
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Magic Fountain of Montjuïc
+   🖼️  Set Google image as coverImage: Magic Fountain of Montjuïc
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hotel Porta Fira
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Parc Natural de la Serra de Collserola
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Casa de les Punxes
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Palau del Baró de Quadras
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sant Pere, Santa Caterina i la Ribera
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Monument a Narcís Monturiol
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Miss Kits
+   🖼️  Set Google image as coverImage: Miss Kits
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Allo | Alcântara Lisbon Offices
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Oyambre
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: all you knit is love
+   🖼️  Set Google image as coverImage: all you knit is love
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mercería NORIKI lanas y más
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Carrer de Mühlberg
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lalanalú
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Montana Shop & Gallery Barcelona
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lluís Companys Olympic Stadium
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: La font del gat restaurant
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Provença
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: PIM PAM Café - Specialty Coffee, Ceremonial Matcha, Sandwiches, and Pastries
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Basar
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Esquina da Fé
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Milbby
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Miradouro de São Pedro de Alcântara
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Granja Armengol
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Solar da Madalena
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Comur… a Conserveira de Portugal
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Santini
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Santini Gelados Artesanais - Rua do Carmo
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Zubir Churrasqueira
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: ZeroZero Príncipe Real
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gelato Davvero Time Out Market
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Tricots Brancal
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Retrosaria Bijou
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Josep Tarradellas Barcelona-El Prat Airport
+   📍 Using existing city for Praça do Rossio: Lisbon
+   🌍 Using existing country for Praça do Rossio: Portugal
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Praça do Rossio
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Centro de Arte Moderna Gulbenkian (CAM)
+
+📦 Processing batch 3/3 (9 items)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Auri Retrosaria
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gelato Davvero Mouraria
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Monument to the Overseas Combatants
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Arco da Rua Augusta
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Manteigaria
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Miradouro de Santa Luzia
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Garrafeira Nacional
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Retrosaria Adriano Coelho
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Convento do Beato Event Center
+
+✅ Import complete!
+   Total: 209
+   Inserted: 0
+   Updated: 209
+   Skipped: 0
+   Failed: 0
+   Cities: 21
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 76.1%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

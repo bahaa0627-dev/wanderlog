@@ -98,3 +98,197 @@
    🔄 Using proxy for Google image
    🖼️  Moved old coverImage to images array: Bagni Regina Giovanna
    🖼️  Set Google image as coverImage: Bagni Regina Giovanna
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Bus Stop (to Capri town and Grand Marina)
+   🖼️  Set Google image as coverImage: Bus Stop (to Capri town and Grand Marina)
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: O'Parrucchiano La Favorita
+   🖼️  Set Google image as coverImage: O'Parrucchiano La Favorita
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Royal Palace of Naples
+   🖼️  Set Google image as coverImage: Royal Palace of Naples
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Ovo Castle
+   🖼️  Set Google image as coverImage: Ovo Castle
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Castel Nuovo
+   🖼️  Set Google image as coverImage: Castel Nuovo
+   📍 Using existing city for Via Marina Grande: Sorrento
+   🌍 Using existing country for Via Marina Grande: Italy
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Via Marina Grande
+   🖼️  Set Google image as coverImage: Via Marina Grande
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Inlaid Wood Work
+   📍 Using existing city for Villa San Michele: Anacapri
+   🌍 Using existing country for Villa San Michele: Italy
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Villa San Michele
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Cathedral of St Andrew Apostle
+   🖼️  Set Google image as coverImage: Cathedral of St Andrew Apostle
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Castel Sant'Elmo
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Church of Saint Catherine
+   📍 Using existing city for Ravello: Ravello
+   🌍 Using existing country for Ravello: Italy
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ravello
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Piazza del Plebiscito
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: montepertuso il buco
+   📍 Using existing city for Blue Grotto: Anacapri
+   🌍 Using existing country for Blue Grotto: Italy
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Blue Grotto
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gardens of Augustus
+   📍 Using existing city for Dante: Naples
+   🌍 Using existing country for Dante: Italy
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Dante
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Porte des Lions
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: L'Antica Pizzeria da Michele
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Forno Conti & Co.
+   🖼️  Set Google image as coverImage: Forno Conti & Co.
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pescheria Azzurra
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Toledo
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Tazza d'Oro
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Antico Caffè Greco
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Re Lazzarone
+   📍 Using existing city for Santo Spirito: Florence
+   🌍 Using existing country for Santo Spirito: Italy
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Santo Spirito
+   🖼️  Set Google image as coverImage: Santo Spirito
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ditta Artigianale
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Buonocore
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Vivoli
+   📍 Using existing city for Sant'Eustachio: Rome
+   🌍 Using existing country for Sant'Eustachio: Italy
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Sant'Eustachio
+   🖼️  Set Google image as coverImage: Sant'Eustachio
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Paris Follie's
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pierre Hermé
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bistrot Victoires
+   🖼️  Set Google image as coverImage: 18 Av. Rapp
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sully Morland
+   🖼️  Set Google image as coverImage: 228 Rue de l'Université
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pont de Bir-Hakeim
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: S.forno
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Rue Buenos-Ayres
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Place des Vosges
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Napoli Centrale
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: All'Antico Vinaio
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Av. de Camoens
+   📍 Using existing city for Pienza: Pienza
+   🌍 Using existing country for Pienza: Italy
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pienza
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: All’Antico Vinaio
+   📍 Using existing city for Orciano Pisano: Orciano Pisano
+   🌍 Using existing country for Orciano Pisano: Italy
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Orciano Pisano
+   📍 Using existing city for Siena: Siena
+   🌍 Using existing country for Siena: Italy
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Siena
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Casa Vicens Gaudí
+   🖼️  Set Google image as coverImage: Casa Vicens Gaudí
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Campolmi Filati | Dettaglio
+   📍 Using existing city for San Gimignano: San Gimignano
+   🌍 Using existing country for San Gimignano: Italy
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: San Gimignano
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: La Pedrera - Casa Milà
+   🖼️  Set Google image as coverImage: La Pedrera - Casa Milà
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Giardino degli Aranci
+   🖼️  Set Google image as coverImage: Giardino degli Aranci
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Village Camping Campogaio Santafortunata
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Tuileries Garden
+   🖼️  Set Google image as coverImage: Tuileries Garden
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Louvre Museum
+   🖼️  Set Google image as coverImage: Louvre Museum
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Musée d'Orsay
+   🖼️  Set Google image as coverImage: Musée d'Orsay
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Pont des Arts
+   🖼️  Set Google image as coverImage: Pont des Arts
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mirko Filati
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: The Centre Pompidou
+   🖼️  Set Google image as coverImage: The Centre Pompidou
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Musée de l'Orangerie
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Notre-Dame Cathedral of Paris
+   🖼️  Set Google image as coverImage: Notre-Dame Cathedral of Paris
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Casa Batlló
+   🖼️  Set Google image as coverImage: Casa Batlló
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Café de Flore
+   🖼️  Set Google image as coverImage: Café de Flore
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Shakespeare and Company
+   🖼️  Set Google image as coverImage: Shakespeare and Company
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Au Vieux Campeur
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Jardin du Luxembourg
+   🖼️  Set Google image as coverImage: Jardin du Luxembourg
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: La Favorite Saint-Paul
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Paris Charles de Gaulle Airport
+
+✅ Import complete!
+   Total: 92
+   Inserted: 0
+   Updated: 92
+   Skipped: 0
+   Failed: 0
+   Cities: 19
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 53.3%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

@@ -1,0 +1,128 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (eKCbNW1taP1tDmqe9)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: No
+
+📥 Fetching data from Apify Dataset: eKCbNW1taP1tDmqe9
+✅ Database connection established
+   Fetched 47 items...
+✅ Total items fetched: 47
+
+🚀 Starting import of 47 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (47 items)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Marimekko Outlet Herttoniemi
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Helsinki Wellness Center Tammisto
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Allas Sea Pool
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Kulttuurisauna Public Sauna
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Alvar Aalto House
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Studio Aalto | Alvar Aalto's Office Vallikallio
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Arabian museo | Arabia Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Amos Rex
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Helsinki Central Library Oodi
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Cable factory
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Temppeliaukio Church
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Helsinki Cathedral
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Artek Helsinki
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: El Fant - Cafe & Bar
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Supear sushi sandwich
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ravintola Kamome
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: CheapSleep Hostel Helsinki
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Layers Bakery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Kanniston Leipomo
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Helsinki Central Park
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Kanniston Leipomo
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St. George Bakery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Meli Cafe & Bakery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Marimekko Kamppi
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Marimekko Esplanadi
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Marimekko Aleksinkulma
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Marimekko Forum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Café Marocco
+   🖼️  Set Google image as coverImage: Korkeavuorenkatu 5
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Onigiri Musubi
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Partioaitta
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Erottajan Apteekki
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Euphoria
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Askartelutarvike Askarelli
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hobby Point
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Uspenski Cathedral
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Yliopiston Apteekki
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Academic Bookstore
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bakery-Eatery Levain Ullanlinna
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Architecture & Design Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Moomin Shop Lasipalatsi
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Moomin Shop Esplanadi
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Museum of Contemporary Art Kiasma
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Kamppi Chapel
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Andante Coffee
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lankakauppa Snurre
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Helsinki secondhand oy
+
+✅ Import complete!
+   Total: 47
+   Inserted: 40
+   Updated: 7
+   Skipped: 0
+   Failed: 0
+   Cities: 2
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 93.6%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

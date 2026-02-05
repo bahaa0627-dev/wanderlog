@@ -55,6 +55,31 @@ class _RecommendationDetailPageState
     }
   }
 
+  /// 从标签对象或字符串中提取标签名称
+  /// 标签可能是字符串或对象 {en: "xxx", zh: "xxx", kind: "facet", ...}
+  String _extractTagName(dynamic tag) {
+    if (tag == null) return '';
+    if (tag is String) return tag.trim();
+    if (tag is Map) {
+      // 优先使用 en 字段
+      final en = tag['en'];
+      if (en != null && en is String && en.trim().isNotEmpty) {
+        return en.trim();
+      }
+      // 回退到 zh 字段
+      final zh = tag['zh'];
+      if (zh != null && zh is String && zh.trim().isNotEmpty) {
+        return zh.trim();
+      }
+      // 尝试 id 字段
+      final id = tag['id'];
+      if (id != null && id is String && id.trim().isNotEmpty) {
+        return id.trim();
+      }
+    }
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppTheme.background,
@@ -155,7 +180,15 @@ class _RecommendationDetailPageState
 
         // 去重并取前3个
         final uniqueTags = tagsList.toSet().toList();
-        final tags = uniqueTags.take(3).map((e) => '#$e').toList();
+        final tags = uniqueTags
+            .take(3)
+            .map((e) {
+              // 从标签对象或字符串中提取名称
+              final tagName = _extractTagName(e);
+              return tagName.isNotEmpty ? '#$tagName' : '';
+            })
+            .where((t) => t.isNotEmpty)
+            .toList();
 
         final collectionName = collection['name'] as String? ?? 'Collection';
 
@@ -399,7 +432,7 @@ class _TripCardState extends State<_TripCard> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             if (showCount) ...[
-                              // 地点数量
+                              // 地点数量 - Neo Brutalism 风格，白色带透明度背景
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
@@ -408,6 +441,10 @@ class _TripCardState extends State<_TripCard> {
                                 decoration: BoxDecoration(
                                   color: AppTheme.white.withOpacity(0.64),
                                   borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: AppTheme.black,
+                                    width: 1,
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -432,7 +469,7 @@ class _TripCardState extends State<_TripCard> {
                               ),
                               const SizedBox(width: spacing),
                             ],
-                            // 城市名称
+                            // 城市名称 - Neo Brutalism 风格
                             Flexible(
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -442,6 +479,16 @@ class _TripCardState extends State<_TripCard> {
                                 decoration: BoxDecoration(
                                   color: AppTheme.white,
                                   borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: AppTheme.black,
+                                    width: 1,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: AppTheme.black,
+                                      offset: Offset(1, 1),
+                                    ),
+                                  ],
                                 ),
                                 child: Text(
                                   widget.city,
@@ -494,12 +541,27 @@ class _TripCardState extends State<_TripCard> {
                             children: widget.tags
                                 .take(2)
                                 .map(
-                                  (tag) => Text(
-                                    tag,
-                                    style:
-                                        AppTheme.labelSmall(context).copyWith(
-                                      fontSize: 12,
+                                  (tag) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
                                       color: AppTheme.white.withOpacity(0.9),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppTheme.black,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      tag,
+                                      style:
+                                          AppTheme.labelSmall(context).copyWith(
+                                        fontSize: 10,
+                                        color: AppTheme.black,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 )

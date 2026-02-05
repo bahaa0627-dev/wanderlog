@@ -1,0 +1,52 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (735ey8PhmnmLU39JK)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: Yes
+
+📥 Fetching data from Apify Dataset: 735ey8PhmnmLU39JK
+✅ Database connection established
+   Fetched 100 items...
+   Fetched 200 items...
+   Fetched 209 items...
+✅ Total items fetched: 209
+
+🚀 Starting import of 209 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/3 (100 items)
+   🌍 Reverse geocoded Nice: Nice, FR
+   🌍 Reverse geocoded Blanes: Blanes, ES
+   🌍 Reverse geocoded Tossa de Mar: Tossa de Mar, ES
+   🌍 Reverse geocoded Sitges: Sitges, ES
+   🌍 Reverse geocoded Ribeira: Porto, PT
+
+📦 Processing batch 2/3 (100 items)
+   🌍 Reverse geocoded Cadini group: Auronzo, IT
+   🌍 Reverse geocoded Fontaínhas: Vila Nova de Gaia, PT
+   🌍 Reverse geocoded Glória - S. Pedro Alcântara: Lisbon, PT
+   🌍 Reverse geocoded Av. da Liberdade: Lisbon, PT
+   🌍 Reverse geocoded Cais do Sodré: Lisbon, PT
+   🌍 Reverse geocoded Praça do Rossio: Lisbon, PT
+
+📦 Processing batch 3/3 (9 items)
+
+✅ Import complete!
+   Total: 209
+   Inserted: 162
+   Updated: 47
+   Skipped: 0
+   Failed: 0
+   Cities: 21
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 76.1%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

@@ -111,18 +111,26 @@ class _WanderlogAppState extends ConsumerState<WanderlogApp> {
           // Refresh auth state and navigate to home
           ref.read(authProvider.notifier).refreshAuthState();
           _router.go('/home');
-          // Show success toast
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Registration successful! Welcome to VAGO'),
-                  backgroundColor: Color(0xFF4CAF50),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            }
-          });
+          
+          // Check if this is a new registration (user created within last 5 minutes)
+          final createdAt = DateTime.tryParse(user.createdAt);
+          final isNewUser = createdAt != null &&
+              DateTime.now().difference(createdAt).inMinutes < 5;
+          
+          if (isNewUser) {
+            // Show success toast for new registrations
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Registration successful! Welcome to VAGO'),
+                    backgroundColor: Color(0xFF4CAF50),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            });
+          }
         }
       }
     });

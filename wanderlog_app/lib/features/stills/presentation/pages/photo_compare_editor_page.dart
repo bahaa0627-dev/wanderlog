@@ -303,6 +303,7 @@ class _PhotoCompareEditorPageState extends State<PhotoCompareEditorPage> {
                 color: AppTheme.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppTheme.black, width: 2),
+                boxShadow: AppTheme.cardShadow,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,

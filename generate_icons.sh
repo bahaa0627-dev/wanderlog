@@ -1,0 +1,30 @@
+#!/bin/bash
+
+SOURCE="/Users/bahaa/Desktop/bahaa-dev-repo/wanderlog/wanderlog_app/assets/logo.png"
+DEST="/Users/bahaa/Desktop/bahaa-dev-repo/wanderlog/wanderlog_app/ios/Runner/Assets.xcassets/AppIcon.appiconset"
+
+echo "从 $SOURCE 生成 iOS 图标..."
+
+sips -z 1024 1024 "$SOURCE" --out "$DEST/Icon-App-1024x1024@1x.png"
+sips -z 20 20 "$SOURCE" --out "$DEST/Icon-App-20x20@1x.png"
+sips -z 40 40 "$SOURCE" --out "$DEST/Icon-App-20x20@2x.png"
+sips -z 60 60 "$SOURCE" --out "$DEST/Icon-App-20x20@3x.png"
+sips -z 29 29 "$SOURCE" --out "$DEST/Icon-App-29x29@1x.png"
+sips -z 58 58 "$SOURCE" --out "$DEST/Icon-App-29x29@2x.png"
+sips -z 87 87 "$SOURCE" --out "$DEST/Icon-App-29x29@3x.png"
+sips -z 40 40 "$SOURCE" --out "$DEST/Icon-App-40x40@1x.png"
+sips -z 80 80 "$SOURCE" --out "$DEST/Icon-App-40x40@2x.png"
+sips -z 120 120 "$SOURCE" --out "$DEST/Icon-App-40x40@3x.png"
+sips -z 50 50 "$SOURCE" --out "$DEST/Icon-App-50x50@1x.png"
+sips -z 100 100 "$SOURCE" --out "$DEST/Icon-App-50x50@2x.png"
+sips -z 57 57 "$SOURCE" --out "$DEST/Icon-App-57x57@1x.png"
+sips -z 114 114 "$SOURCE" --out "$DEST/Icon-App-57x57@2x.png"
+sips -z 120 120 "$SOURCE" --out "$DEST/Icon-App-60x60@2x.png"
+sips -z 180 180 "$SOURCE" --out "$DEST/Icon-App-60x60@3x.png"
+sips -z 72 72 "$SOURCE" --out "$DEST/Icon-App-72x72@1x.png"
+sips -z 144 144 "$SOURCE" --out "$DEST/Icon-App-72x72@2x.png"
+sips -z 76 76 "$SOURCE" --out "$DEST/Icon-App-76x76@1x.png"
+sips -z 152 152 "$SOURCE" --out "$DEST/Icon-App-76x76@2x.png"
+sips -z 167 167 "$SOURCE" --out "$DEST/Icon-App-83.5x83.5@2x.png"
+
+echo "✅ 所有 iOS 图标已生成完成"

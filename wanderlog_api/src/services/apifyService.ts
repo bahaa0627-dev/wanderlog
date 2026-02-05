@@ -1,5 +1,5 @@
 import axios from 'axios';
-import publicPlaceService from './publicPlaceService';
+import { ApifyImportService } from './apifyImportService';
 
 interface ApifyConfig {
   apiToken: string;
@@ -261,6 +261,7 @@ class ApifyService {
 
   /**
    * 从 Google Maps 链接导入地点到公共地点库
+   * 直接使用 Apify 返回的完整数据，不再调用 Google Maps API
    */
   async importFromGoogleMapsLink(googleMapsUrl: string): Promise<{
     success: number;
@@ -268,21 +269,27 @@ class ApifyService {
     errors: string[];
   }> {
     try {
-      // 步骤1：从链接提取 place_id
-      const placeIds = await this.extractPlacesFromLink(googleMapsUrl);
+      // 步骤1：使用 Apify 爬取完整地点数据
+      const apifyItems = await this.scrapeFullPlaceData(googleMapsUrl);
 
-      if (placeIds.length === 0) {
+      if (apifyItems.length === 0) {
         return { success: 0, failed: 0, errors: ['No places found in the link'] };
       }
 
-      // 步骤2：批量添加到公共地点库
-      const result = await publicPlaceService.batchAddByPlaceIds(
-        placeIds,
-        'google_maps_link',
-        { originalUrl: googleMapsUrl, timestamp: new Date() }
-      );
+      console.log(`📦 Received ${apifyItems.length} places from Apify, importing directly...`);
 
-      return result;
+      // 步骤2：使用 ApifyImportService 直接导入完整数据
+      const importService = new ApifyImportService();
+      const result = await importService.importItems(apifyItems, {
+        skipImages: false,  // 确保下载图片并上传到 R2
+        dryRun: false,
+      });
+
+      return {
+        success: result.inserted + result.updated,
+        failed: result.failed,
+        errors: result.errors.map(e => `${e.placeId || e.name}: ${e.error}`),
+      };
     } catch (error: any) {
       console.error('Error importing from Google Maps link:', error);
       return {
@@ -290,6 +297,77 @@ class ApifyService {
         failed: 0,
         errors: [error.message],
       };
+    }
+  }
+
+  /**
+   * 从 Google Maps 链接爬取完整的地点数据
+   */
+  async scrapeFullPlaceData(googleMapsUrl: string): Promise<any[]> {
+    try {
+      console.log('🕷️ Starting full place scrape for URL:', googleMapsUrl);
+      
+      // Step 1: 展开短链接
+      let expandedUrl = googleMapsUrl;
+      if (googleMapsUrl.includes('goo.gl') || googleMapsUrl.includes('maps.app.goo.gl')) {
+        expandedUrl = await this.expandShortUrl(googleMapsUrl);
+      }
+
+      console.log('🕷️ Using Apify scraper for URL:', expandedUrl);
+      console.log('🔑 Apify API Token:', this.config.apiToken ? `${this.config.apiToken.substring(0, 20)}...` : 'NOT SET');
+
+      if (!this.config.apiToken || this.config.apiToken === 'your_apify_api_token') {
+        throw new Error('Apify API token is not configured. Please set APIFY_API_TOKEN in .env file');
+      }
+
+      // 配置 scraper 输入
+      const input = {
+        startUrls: [{ url: expandedUrl }],
+        maxCrawledPlaces: 200,
+        maxCrawledPlacesPerSearch: 200,
+        maxImages: 5,
+        maxReviews: 5,
+        language: 'en',
+        deeperCityScrape: false,
+        scrapeDirectories: false,
+        scrapeReviewsPersonalData: false,
+        scrapePhotosFromBusinessPage: true,
+        scrapeReviewerPhotos: false,
+        scrapeQuestions: false,
+        includeWebResults: false,
+        exportPlaceUrls: true,
+        includeBusinessStatus: true,
+        proxyConfiguration: {
+          useApifyProxy: true,
+        },
+      };
+      
+      const encodedActorId = encodeURIComponent(this.config.actorId);
+      
+      // 启动 Apify Actor
+      const runResponse = await axios.post(
+        `${this.baseUrl}/acts/${encodedActorId}/runs?token=${this.config.apiToken}`,
+        input,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const runId = runResponse.data.data.id;
+      console.log('✅ Apify run started, ID:', runId);
+      console.log('⏳ Waiting for scraper to complete...');
+      
+      // 等待任务完成并返回完整数据
+      const results = await this.waitForRunCompletion(runId);
+
+      console.log(`📦 Received ${results.length} items from Apify`);
+      
+      return results;
+    } catch (error: any) {
+      console.error('❌ Error in Apify scrape:', error.response?.data || error.message);
+      throw new Error(`Failed to scrape places from Google Maps link: ${error.message}`);
     }
   }
 

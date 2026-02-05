@@ -810,10 +810,10 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
         onTap: _showCityPicker,
         child: Container(
           height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(color: AppTheme.black, width: 1),
             boxShadow: AppTheme.searchBoxShadow,
           ),
@@ -953,14 +953,13 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                           height: 44,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusMedium),
+                            borderRadius: BorderRadius.circular(22),
                             border: Border.all(color: AppTheme.black, width: 1),
                             boxShadow: AppTheme.searchBoxShadow,
                           ),
                           child: Row(
                             children: [
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 14),
                               const Icon(Icons.search,
                                   size: 18, color: AppTheme.mediumGray),
                               const SizedBox(width: 8),
@@ -982,6 +981,16 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                                   onSubmitted: (_) => _performSearch(),
                                 ),
                               ),
+                              // Clear button - before ask AI
+                              if (_searchController.text.isNotEmpty)
+                                GestureDetector(
+                                  onTap: _clearSearch,
+                                  child: const Padding(
+                                    padding: EdgeInsets.only(left: 4, right: 4),
+                                    child: Icon(Icons.close,
+                                        size: 18, color: AppTheme.mediumGray),
+                                  ),
+                                ),
                               // Ask AI entry
                               GestureDetector(
                                 onTap: () {
@@ -994,56 +1003,32 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                                 },
                                 child: Padding(
                                   padding:
-                                      const EdgeInsets.symmetric(horizontal: 8),
+                                      const EdgeInsets.only(left: 4, right: 10),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const Icon(
                                         Icons.auto_awesome,
-                                        size: 14,
+                                        size: 16,
                                         color: AppTheme.primaryYellow,
                                       ),
                                       const SizedBox(width: 4),
-                                      RichText(
-                                        text: TextSpan(
-                                          style: AppTheme.bodySmall(context)
-                                              .copyWith(
-                                            color: AppTheme.black,
-                                            fontSize: 12,
-                                          ),
-                                          children: [
-                                            const TextSpan(text: 'ask '),
-                                            TextSpan(
-                                              text: 'AI',
-                                              style: AppTheme.bodySmall(context)
-                                                  .copyWith(
-                                                color: AppTheme.black,
-                                                fontSize: 12,
-                                                decoration:
-                                                    TextDecoration.underline,
-                                                decorationColor:
-                                                    AppTheme.primaryYellow,
-                                                decorationThickness: 2,
-                                              ),
-                                            ),
-                                          ],
+                                      Text(
+                                        'ask AI',
+                                        style: AppTheme.bodyMedium(context)
+                                            .copyWith(
+                                          color: AppTheme.black,
+                                          fontSize: 14,
+                                          decoration: TextDecoration.underline,
+                                          decorationColor:
+                                              AppTheme.primaryYellow,
+                                          decorationThickness: 2,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
-                              if (_searchController.text.isNotEmpty)
-                                GestureDetector(
-                                  onTap: _clearSearch,
-                                  child: const Padding(
-                                    padding: EdgeInsets.only(left: 4, right: 8),
-                                    child: Icon(Icons.close,
-                                        size: 18, color: AppTheme.mediumGray),
-                                  ),
-                                )
-                              else
-                                const SizedBox(width: 4),
                             ],
                           ),
                         ),
@@ -1082,31 +1067,33 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
                           boxShadow: const [
                             BoxShadow(
                               color: Colors.black12,
-                              blurRadius: 8,
+                              blurRadius: 6,
                               offset: Offset(0, 2),
                             ),
                           ],
                         ),
                         child: const SizedBox(
-                          width: 24,
-                          height: 24,
+                          width: 18,
+                          height: 18,
                           child: CircularProgressIndicator(
-                            strokeWidth: 3,
+                            strokeWidth: 2,
                             color: AppTheme.primaryYellow,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Text(
                         'Finding spots for you...',
-                        style: AppTheme.bodyLarge(context),
+                        style: AppTheme.bodySmall(context).copyWith(
+                          color: AppTheme.mediumGray,
+                        ),
                       ),
                     ],
                   ),
@@ -1270,7 +1257,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                   const SizedBox(width: 4),
                   Text(
                     displayName,
-                    style: AppTheme.bodySmall(context).copyWith(
+                    style: AppTheme.labelSmall(context).copyWith(
                       color: AppTheme.black,
                     ),
                   ),

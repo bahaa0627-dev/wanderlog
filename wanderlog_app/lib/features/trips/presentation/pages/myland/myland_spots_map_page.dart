@@ -928,10 +928,10 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
             onTap: widget.allCities.isNotEmpty ? _showCityPicker : null,
             child: Container(
               height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(color: AppTheme.black, width: 1),
                 boxShadow: AppTheme.searchBoxShadow,
               ),
@@ -945,7 +945,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
                     ),
                   ),
                   if (widget.allCities.isNotEmpty) ...[
-                    const SizedBox(width: 2),
+                    const SizedBox(width: 4),
                     const Icon(Icons.keyboard_arrow_down, size: 16),
                   ],
                 ],
@@ -972,13 +972,13 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
         height: 44,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: AppTheme.black, width: 1),
           boxShadow: AppTheme.searchBoxShadow,
         ),
         child: Row(
           children: [
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             if (_isSearching)
               const SizedBox(
                 width: 18,

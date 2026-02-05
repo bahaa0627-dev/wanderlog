@@ -1110,13 +1110,13 @@ class _MapPageState extends ConsumerState<MapPage> {
         height: 44,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: AppTheme.black, width: 1),
           boxShadow: AppTheme.searchBoxShadow,
         ),
         child: Row(
           children: [
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             if (_isSearching)
               const SizedBox(
                 width: 18,
@@ -1153,66 +1153,49 @@ class _MapPageState extends ConsumerState<MapPage> {
                 ),
               ),
             ),
-            // Ask AI entry - 只在搜索框为空时显示
-            if (_searchController.text.isEmpty)
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push<void>(
-                    MaterialPageRoute<void>(
-                      builder: (context) => const AIAssistantPage(),
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.auto_awesome,
-                        size: 14,
-                        color: AppTheme.primaryYellow,
-                      ),
-                      const SizedBox(width: 4),
-                      RichText(
-                        text: TextSpan(
-                          style: AppTheme.bodySmall(context).copyWith(
-                            color: AppTheme.black,
-                            fontSize: 12,
-                          ),
-                          children: [
-                            const TextSpan(text: 'ask '),
-                            TextSpan(
-                              text: 'AI',
-                              style: AppTheme.bodySmall(context).copyWith(
-                                color: AppTheme.black,
-                                fontSize: 12,
-                                decoration: TextDecoration.underline,
-                                decorationColor: AppTheme.primaryYellow,
-                                decorationThickness: 2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            // Clear button - before ask AI
             if (_searchController.text.isNotEmpty)
               GestureDetector(
                 onTap: _clearSearch,
                 child: const Padding(
-                  padding: EdgeInsets.only(left: 4, right: 8),
-                  child: Icon(
-                    Icons.close,
-                    size: 16,
-                    color: AppTheme.mediumGray,
-                  ),
+                  padding: EdgeInsets.only(left: 4, right: 4),
+                  child: Icon(Icons.close, size: 18, color: AppTheme.mediumGray),
                 ),
-              )
-            else
-              const SizedBox(width: 4),
+              ),
+            // Ask AI entry
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const AIAssistantPage(),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4, right: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome,
+                      size: 16,
+                      color: AppTheme.primaryYellow,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'ask AI',
+                      style: AppTheme.bodyMedium(context).copyWith(
+                        color: AppTheme.black,
+                        fontSize: 14,
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppTheme.primaryYellow,
+                        decorationThickness: 2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       );
@@ -2618,10 +2601,10 @@ class _CitySelectorState extends ConsumerState<_CitySelector> {
         onTap: () => _showCityPicker(context),
         child: Container(
           height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(color: AppTheme.black, width: 1),
             boxShadow: AppTheme.searchBoxShadow,
           ),
@@ -2634,7 +2617,7 @@ class _CitySelectorState extends ConsumerState<_CitySelector> {
                   color: AppTheme.black,
                 ),
               ),
-              const SizedBox(width: 2),
+              const SizedBox(width: 4),
               const Icon(Icons.keyboard_arrow_down, size: 16),
             ],
           ),

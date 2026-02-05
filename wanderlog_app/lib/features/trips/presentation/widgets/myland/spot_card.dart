@@ -189,15 +189,19 @@ class SpotCard extends StatelessWidget {
     return stars;
   }
 
-  /// 构建营业时间文本，支持 "Closed," 红色显示
+  /// 构建营业时间文本，支持 "Closed" 红色显示
   Widget _buildOpeningHoursText(
       BuildContext context, String openingText, OpeningHoursEvaluation? eval) {
     final bool isClosingSoon = eval?.isClosingSoon ?? false;
     final bool isClosed = eval != null && !eval.isOpen;
 
-    // 如果是关门状态，"Closed," 显示红色
-    if (isClosed && openingText.startsWith('Closed,')) {
-      final restText = openingText.substring(7); // 去掉 "Closed,"
+    // 如果是关门状态，"Closed" 或 "Closed," 显示红色
+    if (isClosed && openingText.startsWith('Closed')) {
+      // Check if there's more text after "Closed"
+      final hasComma = openingText.startsWith('Closed,');
+      final redPart = hasComma ? 'Closed,' : 'Closed';
+      final restText = openingText.substring(redPart.length);
+      
       return RichText(
         text: TextSpan(
           style: AppTheme.labelSmall(context).copyWith(
@@ -205,14 +209,15 @@ class SpotCard extends StatelessWidget {
           ),
           children: [
             const TextSpan(text: '🕒 '),
-            const TextSpan(
-              text: 'Closed,',
-              style: TextStyle(color: Color(0xFFE53E3E)),
-            ),
             TextSpan(
-              text: restText,
-              style: const TextStyle(color: AppTheme.black),
+              text: redPart,
+              style: const TextStyle(color: Color(0xFFE53E3E)),
             ),
+            if (restText.isNotEmpty)
+              TextSpan(
+                text: restText,
+                style: const TextStyle(color: AppTheme.black),
+              ),
           ],
         ),
       );

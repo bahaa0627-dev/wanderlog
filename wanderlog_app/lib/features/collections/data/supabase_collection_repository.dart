@@ -774,24 +774,38 @@ class SupabaseCollectionRepository {
   /// 收藏合集
   Future<void> favoriteCollection(String id) async {
     final userId = SupabaseConfig.currentUser?.id;
+    print('📌 favoriteCollection called - userId: $userId, collectionId: $id');
     if (userId == null) throw Exception('用户未登录');
 
-    await _client.from('user_collection_favorites').insert({
-      'user_id': userId,
-      'collection_id': id,
-    });
+    try {
+      await _client.from('user_collection_favorites').insert({
+        'user_id': userId,
+        'collection_id': id,
+      });
+      print('✅ favoriteCollection success');
+    } catch (e) {
+      print('❌ favoriteCollection error: $e');
+      rethrow;
+    }
   }
 
   /// 取消收藏合集
   Future<void> unfavoriteCollection(String id) async {
     final userId = SupabaseConfig.currentUser?.id;
+    print('📌 unfavoriteCollection called - userId: $userId, collectionId: $id');
     if (userId == null) throw Exception('用户未登录');
 
-    await _client
-        .from('user_collection_favorites')
-        .delete()
-        .eq('user_id', userId)
-        .eq('collection_id', id);
+    try {
+      await _client
+          .from('user_collection_favorites')
+          .delete()
+          .eq('user_id', userId)
+          .eq('collection_id', id);
+      print('✅ unfavoriteCollection success');
+    } catch (e) {
+      print('❌ unfavoriteCollection error: $e');
+      rethrow;
+    }
   }
 
   /// 获取地点关联的合集列表（只返回已发布的合集）

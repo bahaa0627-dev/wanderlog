@@ -79,6 +79,14 @@ class SpotsTabController {
   Map<String, String> get savedExtraCitySlugs =>
       Map.unmodifiable(_savedExtraCitySlugs);
   String? get savedSelectedCitySlug => _savedSelectedCitySlug;
+
+  /// Clear all cached state - should be called when user logs out or changes
+  void clear() {
+    _savedCityHistory.clear();
+    _savedExtraCitySlugs.clear();
+    _savedSelectedCitySlug = null;
+    _state?._clearLocalState();
+  }
 }
 
 /// Spots Tab - 以地图为主的收藏概览，支持列表回退
@@ -1294,6 +1302,23 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       extraSlugs: _extraCitySlugs,
       selectedSlug: _selectedCitySlug,
     );
+  }
+
+  /// Clear all local state - called by controller when user changes
+  void _clearLocalState() {
+    if (!mounted) return;
+    setState(() {
+      _entries.clear();
+      _userCityHistory.clear();
+      _extraCitySlugs.clear();
+      _activeTags.clear();
+      _selectedCitySlug = _allCitySlug;
+      _hasCompletedInitialLoad = false;
+      _isLoadingDestinations = true;
+      _hasLoadError = false;
+      _loadErrorMessage = null;
+    });
+    _notifyCityOptionsChanged();
   }
 
   String _normalizeCityName(String city) => city.trim();
@@ -4311,19 +4336,105 @@ class _VisitedSpotCard extends StatelessWidget {
     final dartWeekday = now.weekday;
     final googleIndex = dartWeekday == 7 ? 6 : dartWeekday - 1;
     if (googleIndex < weekdayText.length) {
-      final todayText = weekdayText[googleIndex]?.toString() ?? '';
+      final item = weekdayText[googleIndex];
+      
+      // Handle Map format: {day: Friday, hours: Closed}
+      if (item is Map) {
+        final hours = (item['hours'] ?? '').toString().trim();
+        final hoursLower = hours.toLowerCase();
+        if (hoursLower.contains('open 24') || hours == '7x24') {
+          return 'Open 24 hours';
+        }
+        if (hoursLower == 'closed') {
+          // Find next opening day
+          final nextOpen = _findNextOpeningDay(weekdayText, googleIndex);
+          if (nextOpen != null) {
+            return 'Closed, $nextOpen';
+          }
+          return 'Closed';
+        }
+        // Replace "to" with "–" for consistency
+        return hours.replaceAll(' to ', ' – ');
+      }
+      
+      // Handle String format
+      final todayText = item?.toString() ?? '';
+      
+      // Check for "{day: ..., hours: ...}" string format
+      if (todayText.startsWith('{') && todayText.contains('hours:')) {
+        final hoursMatch = RegExp(r'hours:\s*(.+?)(?:\}|$)', caseSensitive: false)
+            .firstMatch(todayText);
+        if (hoursMatch != null) {
+          var hours = hoursMatch.group(1)!.trim();
+          if (hours.endsWith('}')) {
+            hours = hours.substring(0, hours.length - 1).trim();
+          }
+          final hoursLower = hours.toLowerCase();
+          if (hoursLower.contains('open 24') || hours == '7x24') {
+            return 'Open 24 hours';
+          }
+          if (hoursLower == 'closed') {
+            final nextOpen = _findNextOpeningDay(weekdayText, googleIndex);
+            if (nextOpen != null) {
+              return 'Closed, $nextOpen';
+            }
+            return 'Closed';
+          }
+          return hours.replaceAll(' to ', ' – ');
+        }
+      }
+      
+      // Standard "Day: Hours" format
       final colonIndex = todayText.indexOf(':');
       if (colonIndex != -1 && colonIndex < todayText.length - 1) {
         final hours = todayText.substring(colonIndex + 1).trim();
         if (hours.toLowerCase().contains('open 24') || hours == '7x24') {
           return 'Open 24 hours';
         }
-        if (hours.toLowerCase() == 'closed') return 'Closed today';
+        if (hours.toLowerCase() == 'closed') {
+          final nextOpen = _findNextOpeningDay(weekdayText, googleIndex);
+          if (nextOpen != null) {
+            return 'Closed, $nextOpen';
+          }
+          return 'Closed';
+        }
         return hours;
       }
       if (todayText.toLowerCase().contains('open 24')) return 'Open 24 hours';
     }
     return 'Hours unavailable';
+  }
+
+  /// Find the next opening day from weekday_text
+  String? _findNextOpeningDay(List<dynamic> weekdayText, int currentIndex) {
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    for (int offset = 1; offset <= 7; offset++) {
+      final idx = (currentIndex + offset) % 7;
+      if (idx >= weekdayText.length) continue;
+      final item = weekdayText[idx];
+      String? hours;
+      if (item is Map) {
+        hours = (item['hours'] ?? '').toString().trim();
+      } else {
+        final text = item?.toString() ?? '';
+        if (text.startsWith('{') && text.contains('hours:')) {
+          final match = RegExp(r'hours:\s*(.+?)(?:\}|$)').firstMatch(text);
+          hours = match?.group(1)?.trim();
+          if (hours != null && hours.endsWith('}')) {
+            hours = hours.substring(0, hours.length - 1).trim();
+          }
+        } else {
+          final colonIdx = text.indexOf(':');
+          if (colonIdx != -1) {
+            hours = text.substring(colonIdx + 1).trim();
+          }
+        }
+      }
+      if (hours != null && hours.toLowerCase() != 'closed') {
+        return 'Opens ${dayNames[idx]}';
+      }
+    }
+    return null;
   }
 
   int? _normalizeGoogleDay(dynamic value) {

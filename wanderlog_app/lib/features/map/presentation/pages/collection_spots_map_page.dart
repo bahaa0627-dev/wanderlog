@@ -1340,8 +1340,9 @@ class _CollectionSpotsMapPageState
           CustomToast.showSuccess(context, l10n.collectionSaved);
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('❌ Favorite collection error: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
       if (mounted) {
         CustomToast.showError(context, l10n.operationFailed);
       }

@@ -6,9 +6,10 @@ import 'package:wanderlog/features/trips/presentation/pages/myland/spots_tab.dar
 import 'package:wanderlog/features/trips/presentation/pages/myland/collections_tab.dart';
 import 'package:wanderlog/features/trips/presentation/widgets/trips_bottom_nav.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
+import 'package:wanderlog/features/trips/providers/spots_cache_provider.dart';
 
 /// MyLand 主页面 - 包含 Spots 和 Collections 两个 tab
-class MyLandScreen extends StatefulWidget {
+class MyLandScreen extends ConsumerStatefulWidget {
   const MyLandScreen({
     super.key,
     this.initialTabIndex = 0,
@@ -21,10 +22,10 @@ class MyLandScreen extends StatefulWidget {
   final String? initialCity;
 
   @override
-  State<MyLandScreen> createState() => _MyLandScreenState();
+  ConsumerState<MyLandScreen> createState() => _MyLandScreenState();
 }
 
-class _MyLandScreenState extends State<MyLandScreen> {
+class _MyLandScreenState extends ConsumerState<MyLandScreen> {
   static final SpotsTabController _sharedSpotsTabController =
       SpotsTabController();
   final SpotsTabController _spotsTabController = _sharedSpotsTabController;
@@ -43,6 +44,18 @@ class _MyLandScreenState extends State<MyLandScreen> {
     if (widget.initialCity != null && widget.initialCity!.isNotEmpty) {
       _preferredCity = widget.initialCity;
     }
+    // Listen for auth changes to clear cache when user changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.listenManual(authProvider, (previous, next) {
+        final previousUserId = previous?.user?.id;
+        final currentUserId = next.user?.id;
+
+        // User changed (logged out or switched accounts)
+        if (previousUserId != currentUserId) {
+          _onUserChanged();
+        }
+      });
+    });
   }
 
   @override
@@ -54,6 +67,24 @@ class _MyLandScreenState extends State<MyLandScreen> {
         _selectedTabIndex = widget.initialTabIndex.clamp(0, 1);
       });
     }
+  }
+
+  /// Called when user changes (logout or switch accounts)
+  /// Clears all cached data to prevent data leakage between users
+  void _onUserChanged() {
+    print('🔄 [MyLandScreen] User changed, clearing cached data');
+    // Clear the static controller's saved state
+    _spotsTabController.clear();
+    // Clear the global cache provider
+    ref.read(spotsCacheProvider.notifier).clear();
+    // Clear local state
+    setState(() {
+      _currentTripCity = '';
+      _cityOptions = const [];
+      _cityToCountry = const {};
+      _preferredCity = null;
+      _hasAppliedInitialCity = false;
+    });
   }
 
   void _handleBottomNavTap(int index) {
@@ -85,8 +116,10 @@ class _MyLandScreenState extends State<MyLandScreen> {
     setState(() => _currentTripCity = city);
   }
 
-  void _handleCityOptionsChanged(List<String> cities,
-      [Map<String, String>? cityToCountry,]) {
+  void _handleCityOptionsChanged(
+    List<String> cities, [
+    Map<String, String>? cityToCountry,
+  ]) {
     setState(() {
       _cityOptions = cities;
       if (cityToCountry != null) {
@@ -376,118 +409,160 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
 
   @override
   Widget build(BuildContext context) => DraggableScrollableSheet(
-      initialChildSize: 0.45,
-      minChildSize: 0.3,
-      maxChildSize: 0.7,
-      expand: false,
-      builder: (context, scrollController) => Container(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Text('Select City', style: AppTheme.headlineMedium(context)),
-                const Spacer(),
-                // All 选项
-                GestureDetector(
-                  onTap: () => widget.onCitySelected('All'),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: widget.selectedCity.isEmpty ||
-                              widget.selectedCity == 'All'
-                          ? AppTheme.primaryYellow.withOpacity(0.3)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.border),
-                    ),
-                    child: Text(
-                      'All',
-                      style: AppTheme.bodyMedium(context).copyWith(
-                        fontWeight: widget.selectedCity.isEmpty ||
+        initialChildSize: 0.45,
+        minChildSize: 0.3,
+        maxChildSize: 0.7,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Text('Select City', style: AppTheme.headlineMedium(context)),
+                  const Spacer(),
+                  // All 选项
+                  GestureDetector(
+                    onTap: () => widget.onCitySelected('All'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: widget.selectedCity.isEmpty ||
                                 widget.selectedCity == 'All'
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                            ? AppTheme.primaryYellow.withOpacity(0.3)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      child: Text(
+                        'All',
+                        style: AppTheme.bodyMedium(context).copyWith(
+                          fontWeight: widget.selectedCity.isEmpty ||
+                                  widget.selectedCity == 'All'
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: _countries.isEmpty
-                  ? Center(
-                      child: Text(
-                        widget.cities
-                                .any((c) => c.trim().isNotEmpty && c != 'All')
-                            ? 'Loading cities...'
-                            : 'No cities yet',
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _countries.isEmpty
+                    ? Center(
+                        child: Text(
+                          widget.cities
+                                  .any((c) => c.trim().isNotEmpty && c != 'All')
+                              ? 'Loading cities...'
+                              : 'No cities yet',
+                          style: AppTheme.bodyMedium(context).copyWith(
+                            color: AppTheme.mediumGray,
+                          ),
+                        ),
+                      )
+                    : _buildCountryCityColumns(scrollController),
+              ),
+              const SizedBox(height: 12),
+              // + destination 入口
+              GestureDetector(
+                onTap: widget.onAddCity,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.border),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.add, size: 20, color: AppTheme.black),
+                      const SizedBox(width: 8),
+                      Text(
+                        'destination',
                         style: AppTheme.bodyMedium(context).copyWith(
-                          color: AppTheme.mediumGray,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    )
-                  : _buildCountryCityColumns(scrollController),
-            ),
-            const SizedBox(height: 12),
-            // + destination 入口
-            GestureDetector(
-              onTap: widget.onAddCity,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.border),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.add, size: 20, color: AppTheme.black),
-                    const SizedBox(width: 8),
-                    Text(
-                      'destination',
-                      style: AppTheme.bodyMedium(context).copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
 
   Widget _buildCountryCityColumns(ScrollController scrollController) => Row(
-      children: [
-        // 左侧国家列表
-        Expanded(
-          flex: 2,
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border(
-                right: BorderSide(color: AppTheme.border, width: 1),
+        children: [
+          // 左侧国家列表
+          Expanded(
+            flex: 2,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  right: BorderSide(color: AppTheme.border, width: 1),
+                ),
+              ),
+              child: ListView.builder(
+                itemCount: _countries.length,
+                itemBuilder: (context, index) {
+                  final country = _countries[index];
+                  final isSelected = country == _selectedCountry;
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      setState(() {
+                        _selectedCountry = country;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 14),
+                      color: isSelected
+                          ? AppTheme.primaryYellow.withOpacity(0.2)
+                          : Colors.transparent,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              country,
+                              style: AppTheme.bodyMedium(context).copyWith(
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.chevron_right,
+                                size: 18, color: AppTheme.mediumGray),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
+          ),
+          // 右侧城市列表
+          Expanded(
+            flex: 3,
             child: ListView.builder(
-              itemCount: _countries.length,
+              controller: scrollController,
+              itemCount: _citiesForSelectedCountry.length,
               itemBuilder: (context, index) {
-                final country = _countries[index];
-                final isSelected = country == _selectedCountry;
+                final cityName = _citiesForSelectedCountry[index];
+                final isSelected = cityName == widget.selectedCity;
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    setState(() {
-                      _selectedCountry = country;
-                    });
-                  },
+                  onTap: () => widget.onCitySelected(cityName),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 14),
@@ -498,7 +573,7 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
                       children: [
                         Expanded(
                           child: Text(
-                            country,
+                            cityName,
                             style: AppTheme.bodyMedium(context).copyWith(
                               fontWeight: isSelected
                                   ? FontWeight.bold
@@ -508,8 +583,8 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
                           ),
                         ),
                         if (isSelected)
-                          const Icon(Icons.chevron_right,
-                              size: 18, color: AppTheme.mediumGray),
+                          const Icon(Icons.check,
+                              size: 18, color: AppTheme.primaryYellow),
                       ],
                     ),
                   ),
@@ -517,48 +592,6 @@ class _CountryCityPickerSheetState extends State<_CountryCityPickerSheet> {
               },
             ),
           ),
-        ),
-        // 右侧城市列表
-        Expanded(
-          flex: 3,
-          child: ListView.builder(
-            controller: scrollController,
-            itemCount: _citiesForSelectedCountry.length,
-            itemBuilder: (context, index) {
-              final cityName = _citiesForSelectedCountry[index];
-              final isSelected = cityName == widget.selectedCity;
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => widget.onCitySelected(cityName),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                  color: isSelected
-                      ? AppTheme.primaryYellow.withOpacity(0.2)
-                      : Colors.transparent,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          cityName,
-                          style: AppTheme.bodyMedium(context).copyWith(
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (isSelected)
-                        const Icon(Icons.check,
-                            size: 18, color: AppTheme.primaryYellow),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
+        ],
+      );
 }

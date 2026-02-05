@@ -46,6 +46,7 @@ ALTER TABLE public.collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collection_spots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collection_recommendations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collection_recommendation_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_collection_favorites ENABLE ROW LEVEL SECURITY;
 
 -- 6. 删除旧策略并创建新策略
 -- Places: 所有人可读

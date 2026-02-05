@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logger/logger.dart';
 import 'package:wanderlog/core/constants/app_constants.dart';
 import 'package:wanderlog/core/storage/storage_service.dart';
+import 'package:wanderlog/core/supabase/supabase_config.dart';
 import 'package:wanderlog/core/utils/platform_info.dart';
 import 'package:wanderlog/core/network/retry_interceptor.dart';
 
@@ -76,9 +77,25 @@ final dioProvider = Provider<Dio>((ref) {
         final token = await StorageService.instance.getSecure('auth_token');
         if (token != null && token.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $token';
-          logger.d('Auth attached');
+          // 打印 token 前20个字符用于调试
+          final tokenPreview =
+              token.length > 20 ? '${token.substring(0, 20)}...' : token;
+          logger.d('Auth attached: $tokenPreview (length: ${token.length})');
         } else {
-          logger.w('Auth token missing');
+          logger.w('Auth token missing - checking Supabase session...');
+          // 尝试从 Supabase 获取 token
+          if (SupabaseConfig.isInitialized) {
+            final session = SupabaseConfig.auth.currentSession;
+            if (session != null && session.accessToken.isNotEmpty) {
+              final accessToken = session.accessToken;
+              await StorageService.instance
+                  .setSecure('auth_token', accessToken);
+              options.headers['Authorization'] = 'Bearer $accessToken';
+              logger.i('Auth recovered from Supabase session');
+            } else {
+              logger.e('No Supabase session available');
+            }
+          }
         }
 
         return handler.next(options);
@@ -97,9 +114,45 @@ final dioProvider = Provider<Dio>((ref) {
         final statusCode = dioError.response?.statusCode;
         final statusMessage = dioError.response?.statusMessage;
 
-        // 处理 401 未授权错误：清除无效的 token
+        // 处理 401 未授权错误：尝试刷新 token 并重试
         if (statusCode == 401) {
-          logger.w('401 Unauthorized - clearing invalid auth token');
+          logger.w('401 Unauthorized - attempting to refresh token...');
+
+          // 检查是否已经是重试请求，避免无限循环
+          if (dioError.requestOptions.extra['isRetry'] == true) {
+            logger.e('401 after retry - clearing auth token');
+            await StorageService.instance.deleteSecure('auth_token');
+            return handler.next(error);
+          }
+
+          try {
+            // 尝试刷新 Supabase session
+            if (SupabaseConfig.isInitialized) {
+              final refreshResponse =
+                  await SupabaseConfig.auth.refreshSession();
+              final newSession = refreshResponse.session;
+
+              if (newSession != null && newSession.accessToken.isNotEmpty) {
+                // 保存新 token
+                await StorageService.instance
+                    .setSecure('auth_token', newSession.accessToken);
+                logger.i('✅ Token refreshed successfully, retrying request...');
+
+                // 用新 token 重试请求
+                final opts = dioError.requestOptions;
+                opts.headers['Authorization'] =
+                    'Bearer ${newSession.accessToken}';
+                opts.extra['isRetry'] = true;
+
+                final retryResponse = await dio.fetch<dynamic>(opts);
+                return handler.resolve(retryResponse);
+              }
+            }
+          } catch (refreshError) {
+            logger.e('Failed to refresh token: $refreshError');
+          }
+
+          // 刷新失败，清除无效的 token
           await StorageService.instance.deleteSecure('auth_token');
         }
 

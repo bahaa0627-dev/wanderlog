@@ -37,6 +37,32 @@ class MinePage extends ConsumerStatefulWidget {
 class _MinePageState extends ConsumerState<MinePage> {
   final ScrollController _scrollController = ScrollController();
 
+  @override
+  void initState() {
+    super.initState();
+    // 进入页面时静默刷新 visited 数据
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _silentRefreshVisitedData();
+    });
+  }
+
+  /// 静默刷新 visited 数据（不显示 loading 状态）
+  /// 在页面进入时调用，后台刷新数据
+  Future<void> _silentRefreshVisitedData() async {
+    // 检查当前是否已有数据
+    final currentState = ref.read(minePageDataProvider);
+
+    // 如果已有数据，在后台静默刷新
+    if (currentState.hasValue && currentState.value != MinePageData.empty) {
+      print('🔄 [MinePage] 静默刷新 visited 数据...');
+      // 使用 invalidate 触发重新加载，但由于 keepAlive，
+      // 如果加载失败会保留旧数据
+      ref.invalidate(minePageDataProvider);
+    } else {
+      print('📭 [MinePage] 无缓存数据，等待正常加载');
+    }
+  }
+
   /// 下拉刷新处理
   Future<void> _handleRefresh() async {
     ref.invalidate(minePageDataProvider);

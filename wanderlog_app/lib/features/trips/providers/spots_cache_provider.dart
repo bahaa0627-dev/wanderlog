@@ -85,6 +85,8 @@ class SpotCacheEntry {
     required this.isVisited,
     this.destinationId,
     required this.addedAt,
+    this.mustGoCheckedAt,
+    this.todaysPlanCheckedAt,
     this.visitDate,
     this.userRating,
     this.userNotes,
@@ -100,6 +102,8 @@ class SpotCacheEntry {
   final bool isVisited;
   final String? destinationId;
   final DateTime addedAt;
+  final DateTime? mustGoCheckedAt;
+  final DateTime? todaysPlanCheckedAt;
   final DateTime? visitDate;
   final int? userRating;
   final String? userNotes;
@@ -115,6 +119,8 @@ class SpotCacheEntry {
     bool? isVisited,
     String? destinationId,
     DateTime? addedAt,
+    DateTime? mustGoCheckedAt,
+    DateTime? todaysPlanCheckedAt,
     DateTime? visitDate,
     int? userRating,
     String? userNotes,
@@ -130,6 +136,8 @@ class SpotCacheEntry {
       isVisited: isVisited ?? this.isVisited,
       destinationId: destinationId ?? this.destinationId,
       addedAt: addedAt ?? this.addedAt,
+      mustGoCheckedAt: mustGoCheckedAt ?? this.mustGoCheckedAt,
+      todaysPlanCheckedAt: todaysPlanCheckedAt ?? this.todaysPlanCheckedAt,
       visitDate: visitDate ?? this.visitDate,
       userRating: userRating ?? this.userRating,
       userNotes: userNotes ?? this.userNotes,
@@ -172,6 +180,8 @@ class SpotsCacheNotifier extends StateNotifier<SpotsCacheState> {
                   isVisited: e.isVisited,
                   destinationId: e.destinationId,
                   addedAt: e.addedAt,
+                  mustGoCheckedAt: e.mustGoCheckedAt,
+                  todaysPlanCheckedAt: e.todaysPlanCheckedAt,
                   visitDate: e.visitDate,
                   userRating: e.userRating,
                   userNotes: e.userNotes,
@@ -256,6 +266,7 @@ class SpotsCacheNotifier extends StateNotifier<SpotsCacheState> {
 
       // 加载详情
       final entries = <SpotCacheEntry>[];
+      final seenSpotIds = <String>{}; // 去重
       final limitedDests = destinations.take(_maxCachedItems).toList();
       final detailFutures =
           limitedDests.where((d) => d.city?.trim().isNotEmpty ?? false).map(
@@ -273,6 +284,13 @@ class SpotsCacheNotifier extends StateNotifier<SpotsCacheState> {
           if (s == null) continue;
           if (!ts.isSaved && !ts.isVisited) continue;
 
+          // 去重：跳过已添加的 spot
+          if (seenSpotIds.contains(s.id)) {
+            print('⚠️ [SpotsCacheProvider] Skipping duplicate spot: ${s.name}');
+            continue;
+          }
+          seenSpotIds.add(s.id);
+
           final cityName =
               (s.city ?? 'Unknown').trim().isEmpty ? 'Unknown' : s.city!.trim();
           final spotSlug = _slugify(cityName);
@@ -287,6 +305,8 @@ class SpotsCacheNotifier extends StateNotifier<SpotsCacheState> {
             isVisited: ts.isVisited,
             destinationId: detail.id,
             addedAt: ts.createdAt ?? DateTime.now(),
+            mustGoCheckedAt: ts.isMustGo ? ts.updatedAt : null,
+            todaysPlanCheckedAt: ts.isTodaysPlan ? ts.updatedAt : null,
             visitDate: ts.visitDate,
             userRating: ts.userRating,
             userNotes: ts.userNotes,
@@ -338,6 +358,8 @@ class SpotsCacheNotifier extends StateNotifier<SpotsCacheState> {
                 isVisited: e.isVisited,
                 destinationId: e.destinationId,
                 addedAt: e.addedAt,
+                mustGoCheckedAt: e.mustGoCheckedAt,
+                todaysPlanCheckedAt: e.todaysPlanCheckedAt,
                 visitDate: e.visitDate,
                 userRating: e.userRating,
                 userNotes: e.userNotes,

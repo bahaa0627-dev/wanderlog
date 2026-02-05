@@ -15,12 +15,32 @@ class StorageService {
 
   // Secure Storage (for sensitive data like tokens)
   Future<void> setSecure(String key, String value) async {
-    // 先删除旧值，避免 keychain 冲突
-    await _secureStorage.delete(key: key);
-    await _secureStorage.write(key: key, value: value);
+    try {
+      // 先删除旧值，避免 keychain 冲突
+      await _secureStorage.delete(key: key);
+      await _secureStorage.write(key: key, value: value);
+    } catch (e) {
+      // 如果删除后写入仍然失败（-25299 = errSecDuplicateItem），
+      // 尝试用 options 强制覆盖
+      if (e.toString().contains('-25299') ||
+          e.toString().contains('already exists')) {
+        try {
+          // 删除所有该 key 的条目再重试
+          await _secureStorage.deleteAll();
+          await _secureStorage.write(key: key, value: value);
+        } catch (retryError) {
+          // 忽略重试错误，token 可能仍然可用
+          print(
+              '⚠️ [StorageService] Failed to write secure key $key: $retryError');
+        }
+      } else {
+        print('⚠️ [StorageService] Failed to write secure key $key: $e');
+      }
+    }
   }
 
-  Future<String?> getSecure(String key) async => await _secureStorage.read(key: key);
+  Future<String?> getSecure(String key) async =>
+      await _secureStorage.read(key: key);
 
   Future<void> deleteSecure(String key) async {
     await _secureStorage.delete(key: key);
@@ -57,10 +77,3 @@ class StorageService {
     await _prefs?.clear();
   }
 }
-
-
-
-
-
-
-

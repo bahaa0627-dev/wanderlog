@@ -157,6 +157,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   String? _lastClickedSpotId;
   DateTime? _lastClickTime;
 
+  // 记录最后一次本地更新时间，用于防止服务器数据覆盖乐观更新
+  DateTime? _lastLocalUpdateTime;
+
   late int _selectedSubTab;
   late bool _isMapView;
   late String _selectedCitySlug;
@@ -334,16 +337,43 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     });
 
     // 监听全局缓存 provider 变化，自动更新本地数据
+    // 包括 entries 变化和 hasCompletedInitialLoad 变化
+    // 但如果刚刚有本地更新，跳过同步以避免闪烁
     ref.listenManual(spotsCacheProvider, (previous, next) {
-      if (mounted && previous?.entries != next.entries) {
+      // 检查是否刚刚有本地更新
+      if (_lastLocalUpdateTime != null) {
+        final elapsed = DateTime.now().difference(_lastLocalUpdateTime!);
+        if (elapsed.inSeconds < 3) {
+          print(
+              '⏳ [SpotsTab] Skipping cache sync - local update was ${elapsed.inMilliseconds}ms ago');
+          return;
+        }
+      }
+
+      if (mounted &&
+          (previous?.entries != next.entries ||
+              previous?.hasCompletedInitialLoad !=
+                  next.hasCompletedInitialLoad ||
+              previous?.isLoading != next.isLoading)) {
         _syncFromGlobalCache(next);
       }
     });
 
     // 监听 tripsProvider 变化，实时刷新数据
+    // 但如果刚刚有本地更新（3秒内），则跳过以避免覆盖乐观更新
     ref.listenManual(tripsProvider, (previous, next) {
-      print('🔄 [SpotsTab] tripsProvider changed, refreshing...');
+      print(
+          '🔄 [SpotsTab] tripsProvider changed, checking if should refresh...');
       if (mounted && !_isLoadingDestinations) {
+        // 检查是否刚刚有本地更新
+        if (_lastLocalUpdateTime != null) {
+          final elapsed = DateTime.now().difference(_lastLocalUpdateTime!);
+          if (elapsed.inSeconds < 3) {
+            print(
+                '⏳ [SpotsTab] Skipping server refresh - local update was ${elapsed.inMilliseconds}ms ago');
+            return;
+          }
+        }
         unawaited(_loadDestinationsFromServer());
       }
     });
@@ -381,8 +411,22 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     if (globalCache.hasData) {
       print(
           '🚀 [SpotsTab] Restoring ${globalCache.entries.length} entries from global cache');
+      // 打印 Today's Plan 状态
+      final todaysPlanCount =
+          globalCache.entries.where((e) => e.isTodaysPlan).length;
+      print(
+          '🚀 [SpotsTab] Global cache has $todaysPlanCount entries with isTodaysPlan=true');
+
       _entries.clear();
+      final seenSpotIds = <String>{}; // 去重
       for (final cachedEntry in globalCache.entries) {
+        // 去重：跳过已添加的 spot
+        if (seenSpotIds.contains(cachedEntry.spot.id)) {
+          print(
+              '⚠️ [SpotsTab] Skipping duplicate spot in cache: ${cachedEntry.spot.name}');
+          continue;
+        }
+        seenSpotIds.add(cachedEntry.spot.id);
         _entries.add(_SpotEntry(
           city: cachedEntry.city,
           citySlug: cachedEntry.citySlug,
@@ -393,6 +437,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           isTodaysPlan: cachedEntry.isTodaysPlan,
           isVisited: cachedEntry.isVisited,
           destinationId: cachedEntry.destinationId,
+          mustGoCheckedAt: cachedEntry.mustGoCheckedAt,
+          todaysPlanCheckedAt: cachedEntry.todaysPlanCheckedAt,
           visitDate: cachedEntry.visitDate,
           userRating: cachedEntry.userRating,
           userNotes: cachedEntry.userNotes,
@@ -417,13 +463,21 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
   /// 从全局缓存同步数据（异步更新时调用）
   void _syncFromGlobalCache(SpotsCacheState globalCache) {
-    if (!globalCache.hasData) return;
-
+    // 即使没有数据，也需要同步 loading 状态等
+    // 否则新用户（没有任何 destination）会卡在 loading 状态
+    final todaysPlanCount =
+        globalCache.entries.where((e) => e.isTodaysPlan).length;
     print(
-        '🔄 [SpotsTab] Syncing ${globalCache.entries.length} entries from global cache');
+        '🔄 [SpotsTab] Syncing ${globalCache.entries.length} entries from global cache (hasCompletedInitialLoad: ${globalCache.hasCompletedInitialLoad}, todaysPlanCount: $todaysPlanCount)');
     setState(() {
       _entries.clear();
+      final seenSpotIds = <String>{}; // 去重
       for (final cachedEntry in globalCache.entries) {
+        // 去重：跳过已添加的 spot
+        if (seenSpotIds.contains(cachedEntry.spot.id)) {
+          continue;
+        }
+        seenSpotIds.add(cachedEntry.spot.id);
         _entries.add(_SpotEntry(
           city: cachedEntry.city,
           citySlug: cachedEntry.citySlug,
@@ -434,6 +488,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
           isTodaysPlan: cachedEntry.isTodaysPlan,
           isVisited: cachedEntry.isVisited,
           destinationId: cachedEntry.destinationId,
+          mustGoCheckedAt: cachedEntry.mustGoCheckedAt,
+          todaysPlanCheckedAt: cachedEntry.todaysPlanCheckedAt,
           visitDate: cachedEntry.visitDate,
           userRating: cachedEntry.userRating,
           userNotes: cachedEntry.userNotes,
@@ -446,13 +502,13 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       _hasLoadError = globalCache.hasError;
       _loadErrorMessage = globalCache.errorMessage;
 
-      if (globalCache.userCityHistory.isNotEmpty) {
-        _userCityHistory.clear();
-        _userCityHistory.addAll(globalCache.userCityHistory);
-      }
-      if (globalCache.extraCitySlugs.isNotEmpty) {
-        _extraCitySlugs.addAll(globalCache.extraCitySlugs);
-      }
+      // 始终同步城市历史（即使为空也要清除旧数据）
+      _userCityHistory.clear();
+      _userCityHistory.addAll(globalCache.userCityHistory);
+
+      // 同步额外城市 slugs
+      _extraCitySlugs.clear();
+      _extraCitySlugs.addAll(globalCache.extraCitySlugs);
     });
     _notifyCityOptionsChanged();
   }
@@ -470,12 +526,19 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
               isVisited: e.isVisited,
               destinationId: e.destinationId,
               addedAt: e.addedAt,
+              mustGoCheckedAt: e.mustGoCheckedAt,
+              todaysPlanCheckedAt: e.todaysPlanCheckedAt,
               visitDate: e.visitDate,
               userRating: e.userRating,
               userNotes: e.userNotes,
               userPhotos: e.userPhotos,
             ))
         .toList();
+
+    // 打印 Today's Plan 状态
+    final todaysPlanCount = globalEntries.where((e) => e.isTodaysPlan).length;
+    print(
+        '💾 [SpotsTab] _updateGlobalCache: updating with ${globalEntries.length} entries, todaysPlanCount=$todaysPlanCount');
 
     // 使用 notifier 的公开方法更新状态
     ref.read(spotsCacheProvider.notifier).updateState(SpotsCacheState(
@@ -788,30 +851,55 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     List<String>? userPhotos,
     String? destinationId,
   }) {
+    print(
+        '📝 [SpotsTab] _handleStatusChanged called: spotId=$spotId, isTodaysPlan=$isTodaysPlan, isMustGo=$isMustGo');
+
     final index = _indexForSpot(spotId);
-    if (index == -1) return;
+    if (index == -1) {
+      print('⚠️ [SpotsTab] Spot not found in _entries: $spotId');
+      return;
+    }
 
     if (isRemoved ?? false) {
       // Remove from list when unsaved
       setState(() {
         _entries.removeAt(index);
       });
+      // 同步更新全局缓存
+      _updateGlobalCache(_entries);
       return;
     }
 
     final entry = _entries[index];
+    print(
+        '📝 [SpotsTab] Before update: entry.isTodaysPlan=${entry.isTodaysPlan}, todaysPlanCheckedAt=${entry.todaysPlanCheckedAt}');
+
+    final updatedEntry = entry.copyWith(
+      isMustGo: isMustGo,
+      isTodaysPlan: isTodaysPlan,
+      isVisited: isVisited,
+      visitDate: visitDate,
+      userRating: userRating,
+      userNotes: userNotes,
+      userPhotos: userPhotos,
+      destinationId: destinationId,
+    );
+
+    print(
+        '📝 [SpotsTab] After update: updatedEntry.isTodaysPlan=${updatedEntry.isTodaysPlan}, todaysPlanCheckedAt=${updatedEntry.todaysPlanCheckedAt}');
+
     setState(() {
-      _entries[index] = entry.copyWith(
-        isMustGo: isMustGo,
-        isTodaysPlan: isTodaysPlan,
-        isVisited: isVisited,
-        visitDate: visitDate,
-        userRating: userRating,
-        userNotes: userNotes,
-        userPhotos: userPhotos,
-        destinationId: destinationId,
-      );
+      _entries[index] = updatedEntry;
     });
+
+    // 同步更新全局缓存，确保切换页面后状态保持一致
+    print(
+        '📝 [SpotsTab] Updating global cache with ${_entries.length} entries');
+    _updateGlobalCache(_entries);
+
+    // 标记最近有本地更新，暂时跳过服务器刷新以避免覆盖乐观更新
+    _lastLocalUpdateTime = DateTime.now();
+    print('📝 [SpotsTab] Set _lastLocalUpdateTime to $_lastLocalUpdateTime');
   }
 
   Future<void> _handleToggleMustGo(Spot spot) async {
@@ -1284,6 +1372,16 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   }) async {
     print('🚀 [SpotsTab] Starting optimized load...');
 
+    // 检查是否刚刚有本地更新，避免覆盖乐观更新
+    if (_lastLocalUpdateTime != null && !forceRefresh) {
+      final elapsed = DateTime.now().difference(_lastLocalUpdateTime!);
+      if (elapsed.inSeconds < 3) {
+        print(
+            '⏳ [SpotsTab] Skipping _loadDestinationsFromServer - local update was ${elapsed.inMilliseconds}ms ago');
+        return;
+      }
+    }
+
     if (!forceRefresh) {
       // Step 1: 立即尝试从缓存加载（0秒可见）
       // 即使缓存过期，也先显示缓存数据，同时后台静默刷新
@@ -1301,9 +1399,15 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             // 如果缓存过期，标记后台刷新中
             _isBackgroundRefreshing = isExpired;
 
-            // 从缓存恢复完整的 Entry 数据
+            // 从缓存恢复完整的 Entry 数据（带去重）
             _entries.clear();
+            final seenSpotIds = <String>{};
             for (final cachedEntry in cachedData.entries) {
+              // 去重：跳过已添加的 spot
+              if (seenSpotIds.contains(cachedEntry.spot.id)) {
+                continue;
+              }
+              seenSpotIds.add(cachedEntry.spot.id);
               final entry = _SpotEntry(
                 city: cachedEntry.city,
                 citySlug: cachedEntry.citySlug,
@@ -1358,6 +1462,16 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
   /// 后台静默拉取最新数据
   Future<void> _loadFreshDataInBackground({bool loadAllCities = false}) async {
+    // 检查是否刚刚有本地更新，避免覆盖乐观更新
+    if (_lastLocalUpdateTime != null) {
+      final elapsed = DateTime.now().difference(_lastLocalUpdateTime!);
+      if (elapsed.inSeconds < 3) {
+        print(
+            '⏳ [SpotsTab] Skipping _loadFreshDataInBackground - local update was ${elapsed.inMilliseconds}ms ago');
+        return;
+      }
+    }
+
     try {
       // 确保认证状态是最新的
       final authState = ref.read(authProvider);
@@ -1421,6 +1535,7 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
       // Step 2.2: 智能分步加载 - 只加载当前选中城市的数据
       final entries = <_SpotEntry>[];
+      final seenSpotIds = <String>{}; // 用于去重
       final tabCounts = <String, int>{
         'all': 0,
         'mustGo': 0,
@@ -1460,6 +1575,13 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
           // 只显示已收藏或已访问的地点
           if (!ts.isSaved && !ts.isVisited) continue;
+
+          // 去重：如果已经添加过该地点，跳过
+          if (seenSpotIds.contains(s.id)) {
+            print('⚠️ [SpotsTab] Skipping duplicate spot: ${s.name} (${s.id})');
+            continue;
+          }
+          seenSpotIds.add(s.id);
 
           // 打印状态标记用于调试
           if (ts.isMustGo || ts.isTodaysPlan || ts.isVisited) {
@@ -1865,6 +1987,10 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
   List<String> _cityOptionsWithAll() {
     final cities = _citiesInCreationOrder(newestFirst: true);
+    // 如果没有任何城市或没有任何 spots，不显示 All 选项
+    if (cities.isEmpty || _entries.isEmpty) {
+      return cities;
+    }
     if (cities.contains(_allCityLabel)) return cities;
     return [_allCityLabel, ...cities];
   }

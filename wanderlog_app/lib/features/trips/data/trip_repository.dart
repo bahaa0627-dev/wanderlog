@@ -13,7 +13,8 @@ class TripRepository {
 
       final response = await _dio.get<List<dynamic>>('/destinations');
       print(
-          '🚀 [TripRepository] Response status: ${response.statusCode}, type: ${response.data.runtimeType}',);
+        '🚀 [TripRepository] Response status: ${response.statusCode}, type: ${response.data.runtimeType}',
+      );
       final apiDuration =
           DateTime.now().difference(apiStartTime).inMilliseconds;
       print('🚀 [TripRepository] API request completed in ${apiDuration}ms');
@@ -36,7 +37,8 @@ class TripRepository {
           DateTime.now().difference(parseStartTime).inMilliseconds;
 
       print(
-          '🚀 [TripRepository] Parsed ${trips.length} trips in ${parseDuration}ms',);
+        '🚀 [TripRepository] Parsed ${trips.length} trips in ${parseDuration}ms',
+      );
       print('🚀 [TripRepository] Total time: ${apiDuration + parseDuration}ms');
 
       return trips;
@@ -126,13 +128,22 @@ class TripRepository {
       if (userPhotos != null) data['userPhotos'] = userPhotos;
       if (spotPayload != null) data['spot'] = spotPayload;
 
+      print('🌐 [TripRepository] PUT /destinations/$tripId/spots');
+      print('🌐 [TripRepository] Request data: $data');
+
       final response = await _dio.put<Map<String, dynamic>>(
         '/destinations/$tripId/spots',
         data: data,
       );
+
+      print('🌐 [TripRepository] Response status: ${response.statusCode}');
+      print('🌐 [TripRepository] Response data: ${response.data}');
+
       if (remove) return null;
       return TripSpot.fromJson(response.data!);
     } on DioException catch (e) {
+      print('❌ [TripRepository] DioException: ${e.message}');
+      print('❌ [TripRepository] Response: ${e.response?.data}');
       throw _handleError(e);
     }
   }

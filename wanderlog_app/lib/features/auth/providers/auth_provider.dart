@@ -50,15 +50,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
 
   Future<void> _handleSupabaseAuthChange(dynamic session) async {
+    print('🔐 [AuthProvider] Auth state changed, session: ${session != null}');
     if (session != null) {
       // 保存 Supabase token 到 StorageService，供 Dio 使用
       final accessToken = session.accessToken as String?;
       if (accessToken != null && accessToken.isNotEmpty) {
         await StorageService.instance.setSecure('auth_token', accessToken);
+        print('🔐 [AuthProvider] Token updated from auth state change');
       }
       await _checkAuthStatus();
     } else {
       // 用户登出
+      print('🔐 [AuthProvider] Session is null, clearing auth token');
       await StorageService.instance.deleteSecure('auth_token');
       state = AuthState();
     }
@@ -67,13 +70,36 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _checkAuthStatus() async {
     // 优先检查 Supabase Auth 状态
     final supabaseUser = SupabaseConfig.currentUser;
-    final session = SupabaseConfig.auth.currentSession;
+    var session = SupabaseConfig.auth.currentSession;
 
     if (supabaseUser != null && session != null) {
+      // 检查 token 是否即将过期（提前5分钟刷新）
+      final expiresAt = session.expiresAt;
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final isExpiringSoon = expiresAt != null && (expiresAt - now) < 300;
+
+      if (isExpiringSoon) {
+        print('🔄 [AuthProvider] Token expiring soon, refreshing session...');
+        try {
+          final refreshResponse = await SupabaseConfig.auth.refreshSession();
+          session = refreshResponse.session;
+          print('✅ [AuthProvider] Session refreshed successfully');
+        } catch (e) {
+          print('❌ [AuthProvider] Failed to refresh session: $e');
+          // 刷新失败，清除状态
+          await StorageService.instance.deleteSecure('auth_token');
+          state = AuthState();
+          return;
+        }
+      }
+
       // 保存 Supabase token 到 StorageService，供 Dio 使用
-      final accessToken = session.accessToken;
+      final accessToken = session?.accessToken ?? '';
       if (accessToken.isNotEmpty) {
         await StorageService.instance.setSecure('auth_token', accessToken);
+        print('🔐 [AuthProvider] Token saved to StorageService');
+      } else {
+        print('⚠️ [AuthProvider] Access token is empty!');
       }
 
       // 从 Supabase 用户创建 User 对象

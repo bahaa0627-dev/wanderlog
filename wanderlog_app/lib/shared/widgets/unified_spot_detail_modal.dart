@@ -2334,29 +2334,39 @@ class _UnifiedSpotDetailModalState
           print('✅ [_handleRemoveWishlist] API success (complete removal)');
           _destinationId = null;
         }
-        ref.invalidate(tripsProvider);
-        ref.invalidate(wishlistStatusProvider);
-        ref.invalidate(minePageDataProvider);
-        print('✅ [_handleRemoveWishlist] Providers invalidated');
 
-        // 4. API完成后更新缓存（确保与服务器状态一致）
-        if (_isVisited) {
+        // API 成功后，后续操作用单独的 try-catch
+        try {
+          if (mounted) {
+            ref.invalidate(tripsProvider);
+            ref.invalidate(wishlistStatusProvider);
+            ref.invalidate(minePageDataProvider);
+            print('✅ [_handleRemoveWishlist] Providers invalidated');
+          }
+
+          // 4. API完成后更新缓存（确保与服务器状态一致）
+          if (_isVisited) {
+            print(
+              '🗑️ [_handleRemoveWishlist] Updating cache: isSaved=false, keeping visited',
+            );
+            _updateWishlistCache(
+              destinationId: _destinationId,
+              isSaved: false,
+              isMustGo: false,
+              isTodaysPlan: false,
+              isVisited: true,
+            );
+          } else {
+            print('🗑️ [_handleRemoveWishlist] Removing from cache completely');
+            _updateWishlistCache(remove: true);
+          }
+        } catch (e) {
+          // 后续操作失败（如 widget disposed），但 API 已成功，不回滚
           print(
-            '🗑️ [_handleRemoveWishlist] Updating cache: isSaved=false, keeping visited',
-          );
-          _updateWishlistCache(
-            destinationId: _destinationId,
-            isSaved: false,
-            isMustGo: false,
-            isTodaysPlan: false,
-            isVisited: true,
-          );
-        } else {
-          print('🗑️ [_handleRemoveWishlist] Removing from cache completely');
-          _updateWishlistCache(remove: true);
+              '⚠️ [_handleRemoveWishlist] Post-API operations error (API succeeded): $e');
         }
       } catch (e, stackTrace) {
-        // 失败时回滚
+        // 只有 API 调用本身失败才回滚
         print('❌ [_handleRemoveWishlist] API FAILED: $e');
         print('❌ [_handleRemoveWishlist] Stack trace: $stackTrace');
 
@@ -2422,37 +2432,46 @@ class _UnifiedSpotDetailModalState
             isMustGo: isChecked,
             spotPayload: _spotPayload(),
           );
-      // 立即更新同步缓存，避免下次打开时闪烁
-      _updateWishlistCache(
-        destinationId: _destinationId,
-        isSaved: true, // toggle mustGo时必然已保存
-        isMustGo: isChecked,
-        isTodaysPlan: _isTodaysPlan,
-        isVisited: _isVisited,
-        visitDate: _visitDate,
-        userRating: _userRating,
-        userNotes: _userNotes,
-        userPhotos: _userPhotos,
-      );
 
-      // 立即刷新 providers 以确保 VAGO 列表快速更新
-      ref.invalidate(tripsProvider);
-      ref.invalidate(wishlistStatusProvider);
+      // API 调用成功后，后续操作失败不应该回滚状态
       try {
-        await ref.refresh(tripsProvider.future).timeout(
-              const Duration(seconds: 2),
-              onTimeout: () => [],
-            );
+        // 立即更新同步缓存，避免下次打开时闪烁
+        _updateWishlistCache(
+          destinationId: _destinationId,
+          isSaved: true, // toggle mustGo时必然已保存
+          isMustGo: isChecked,
+          isTodaysPlan: _isTodaysPlan,
+          isVisited: _isVisited,
+          visitDate: _visitDate,
+          userRating: _userRating,
+          userNotes: _userNotes,
+          userPhotos: _userPhotos,
+        );
+
+        // 检查 mounted 再调用 ref，避免 widget disposed 后调用
+        if (mounted) {
+          // 立即刷新 providers 以确保 VAGO 列表快速更新
+          ref.invalidate(tripsProvider);
+          ref.invalidate(wishlistStatusProvider);
+          try {
+            await ref.refresh(tripsProvider.future).timeout(
+                  const Duration(seconds: 2),
+                  onTimeout: () => [],
+                );
+          } catch (e) {
+            print('⚠️ [toggleMustGo] Provider refresh error: $e');
+          }
+          setState(() => _hasStatusChanged = true);
+        }
       } catch (e) {
-        print('⚠️ [toggleMustGo] Provider refresh error: $e');
+        // 后续操作失败（如 widget disposed），但 API 已成功，不回滚
+        print(
+            '⚠️ [toggleMustGo] Post-API operations error (API succeeded): $e');
       }
 
-      if (mounted) {
-        setState(() => _hasStatusChanged = true);
-      }
       return true;
     } catch (e) {
-      // Revert on error
+      // 只有 API 调用本身失败才回滚
       if (mounted) setState(() => _isMustGo = wasChecked);
       widget.onStatusChanged?.call(_spotId, isMustGo: wasChecked);
       _showError('Error: $e');
@@ -2482,44 +2501,61 @@ class _UnifiedSpotDetailModalState
     widget.onStatusChanged?.call(_spotId, isTodaysPlan: isChecked);
 
     try {
+      print(
+          '📤 [toggleTodaysPlan] Calling API: tripId=$_destinationId, spotId=$_spotId, isTodaysPlan=$isChecked');
+
       // 使用新的布尔字段
-      await ref.read(tripRepositoryProvider).manageTripSpot(
+      final result = await ref.read(tripRepositoryProvider).manageTripSpot(
             tripId: _destinationId!,
             spotId: _spotId,
             isTodaysPlan: isChecked,
             spotPayload: _spotPayload(),
           );
-      // 立即更新同步缓存，避免下次打开时闪烁
-      _updateWishlistCache(
-        destinationId: _destinationId,
-        isSaved: true, // toggle today's plan时必然已保存
-        isMustGo: _isMustGo,
-        isTodaysPlan: isChecked,
-        isVisited: _isVisited,
-        visitDate: _visitDate,
-        userRating: _userRating,
-        userNotes: _userNotes,
-        userPhotos: _userPhotos,
-      );
 
-      // 立即刷新 providers 以确保 VAGO 列表快速更新
-      ref.invalidate(tripsProvider);
-      ref.invalidate(wishlistStatusProvider);
+      print(
+          '✅ [toggleTodaysPlan] API success! Result: ${result?.isTodaysPlan}');
+
+      // API 调用成功后，后续操作失败不应该回滚状态
+      // 使用单独的 try-catch 处理后续操作
       try {
-        await ref.refresh(tripsProvider.future).timeout(
-              const Duration(seconds: 2),
-              onTimeout: () => [],
-            );
+        // 立即更新同步缓存，避免下次打开时闪烁
+        _updateWishlistCache(
+          destinationId: _destinationId,
+          isSaved: true, // toggle today's plan时必然已保存
+          isMustGo: _isMustGo,
+          isTodaysPlan: isChecked,
+          isVisited: _isVisited,
+          visitDate: _visitDate,
+          userRating: _userRating,
+          userNotes: _userNotes,
+          userPhotos: _userPhotos,
+        );
+
+        // 检查 mounted 再调用 ref，避免 widget disposed 后调用
+        if (mounted) {
+          // 立即刷新 providers 以确保 VAGO 列表快速更新
+          ref.invalidate(tripsProvider);
+          ref.invalidate(wishlistStatusProvider);
+          try {
+            await ref.refresh(tripsProvider.future).timeout(
+                  const Duration(seconds: 2),
+                  onTimeout: () => [],
+                );
+          } catch (e) {
+            print('⚠️ [toggleTodaysPlan] Provider refresh error: $e');
+          }
+          setState(() => _hasStatusChanged = true);
+        }
       } catch (e) {
-        print('⚠️ [toggleTodaysPlan] Provider refresh error: $e');
+        // 后续操作失败（如 widget disposed），但 API 已成功，不回滚
+        print(
+            '⚠️ [toggleTodaysPlan] Post-API operations error (API succeeded): $e');
       }
 
-      if (mounted) {
-        setState(() => _hasStatusChanged = true);
-      }
       return true;
     } catch (e) {
-      // Revert on error
+      // 只有 API 调用本身失败才回滚
+      print('❌ [toggleTodaysPlan] API failed: $e');
       if (mounted) setState(() => _isTodaysPlan = wasChecked);
       widget.onStatusChanged?.call(_spotId, isTodaysPlan: wasChecked);
       _showError('Error: $e');

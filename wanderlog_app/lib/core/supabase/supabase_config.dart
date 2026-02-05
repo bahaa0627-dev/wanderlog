@@ -14,7 +14,7 @@ class SupabaseConfig {
       dotenv.env['IMAGES_BASE_URL'] ?? 'https://images.wanderlog.app';
 
   /// 深度链接 scheme
-  static const String deepLinkScheme = 'io.supabase.wanderlog';
+  static const String deepLinkScheme = 'io.supabase.vago';
   static const String deepLinkHost = 'login-callback';
   static String get redirectUrl => '$deepLinkScheme://$deepLinkHost';
 

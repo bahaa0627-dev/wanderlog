@@ -1,0 +1,232 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (KUdfriN2ySUEZGbaz)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: No
+
+📥 Fetching data from Apify Dataset: KUdfriN2ySUEZGbaz
+✅ Database connection established
+   Fetched 94 items...
+✅ Total items fetched: 94
+
+🚀 Starting import of 94 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (94 items)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Karnak
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Colossi of Memnon
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ramesseum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Luxor Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hot Air Balloon Location
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Tombs of the Nobles
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Deir el-Medina
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Sphinx Avenue
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Abu Haggag Mosque
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hypostyle Hall
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Temple d'Amon (Médinet Habou)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Restaurant El-Kababgy Luxor
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Luxor Temple Ticket Office
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: McDonald's Luxor
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Aswan Botanical Garden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Nile Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Nubian Museum
+   🌍 Reverse geocoded Elephantine: Aswan, EG
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Elephantine
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sofitel Legend Old Cataract Aswan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Grand Bazaar
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Basilica Cistern
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Dolmabahçe Palace
+   🖼️  Set Google image as coverImage: Dolmabahçe Palace
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Galata Bridge
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Istanbul Sapphire Observation Deck
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Topkapi Palace Museum
+   🖼️  Set Google image as coverImage: Topkapi Palace Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Giza Necropolis
+   🌍 Reverse geocoded Aswan: Aswan, EG
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Aswan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Egyptian Museum in Cairo
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Abu Simbel Temples
+   🌍 Reverse geocoded Luxor: Luxor, EG
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Luxor
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Khan el-Khalili
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Valley of the Kings
+   🖼️  Set Google image as coverImage: Valley of the Kings
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mosque of Muhammad Ali
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Valley of the Queens
+   🖼️  Set Google image as coverImage: Valley of the Queens
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mortuary Temple of Hatshepsut
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Kom Ombo Temple
+   🌍 Reverse geocoded Karnak: Luxor, EG
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Karnak
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Aswan International Airport
+   🖼️  Set Google image as coverImage: Basma Hotel Aswan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sabiha Gökçen International Airport
+   🌍 Reverse geocoded Başkurt Sk.: Istanbul, TR
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Başkurt Sk.
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: El Otel
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Istanbul Airport
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: İstanbul Cevahir Shopping Mall
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Eyüp Sultan Mosque
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Luxor Temple
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Miniaturk
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Blue Mosque
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Rahmi M. Koç Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Serpent Column
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hagia Sophia History and Experience Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sultan Ahmet Tomb
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: German Fountain
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Column of the Goths
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sultan Ahmet Park
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sultanahmet Square
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Eminonu Square
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sarayburnu Aile Çay bahçesi
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Turkey İş Bank Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Süleymaniye Hamamı
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Umbrella Street
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Obelisk of Theodosius
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Çiçek Pasajı
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Arter
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Dolmabahçe Clock Tower
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Saint Joseph latin Church
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Galata Mevlevihanesi Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Galata Tower
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Al-Kakhia Mosque
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hanging Church
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Eminönü İskele Meydanı
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fortress of Babylon
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Cave Church
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Cairo Tower
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ortaköy Square
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gayer-Anderson Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Saladin Citadel
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Museum Of Modern Egyptian Art
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Prince Mohamed Ali Palace (Manial Palace) and Egyptian Museum of Musical Instruments
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Wikala of Al Ghouri
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Great Pyramid of Giza
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Orman Garden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Giza Pyramids Ticket office
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pharaonic Village
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The National Museum of Egyptian Civilization
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lavender Restaurant & Lounge
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Abd El Wahab Restaurant - Zamalek
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Porta D'oro
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Old Cairo Restaurant & Cafe
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Padellaccio Cafe&Restaurant
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Picasso Museum Barcelona
+   🖼️  Set Google image as coverImage: Picasso Museum Barcelona
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hamed El Iskandarany
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Abo Amr City Drink
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Darb 1718
+
+✅ Import complete!
+   Total: 94
+   Inserted: 83
+   Updated: 11
+   Skipped: 0
+   Failed: 0
+   Cities: 31
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 76.6%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

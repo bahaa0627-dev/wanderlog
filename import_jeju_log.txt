@@ -1,0 +1,37 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (2HMXH1Kj8dtVCDUey)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: Yes
+
+📥 Fetching data from Apify Dataset: 2HMXH1Kj8dtVCDUey
+✅ Database connection established
+   Fetched 32 items...
+✅ Total items fetched: 32
+
+🚀 Starting import of 32 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (32 items)
+   🌍 Reverse geocoded 11 Tapdong-ro: Jeju City, KR
+   🌍 Reverse geocoded Hamdeok Beach: Jeju City, KR
+
+✅ Import complete!
+   Total: 32
+   Inserted: 29
+   Updated: 3
+   Skipped: 0
+   Failed: 0
+   Cities: 3
+   Cover Image Rate: 96.9%
+   Opening Hours Rate: 81.3%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

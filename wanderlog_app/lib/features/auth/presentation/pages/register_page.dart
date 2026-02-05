@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:wanderlog/core/supabase/supabase_config.dart';
 import 'package:wanderlog/core/providers/locale_provider.dart';
-import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
@@ -97,7 +96,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isLoading = true);
       try {
-        // 直接使用 Supabase Auth 注册
+        // 使用 Supabase Auth 注册，trigger 会自动同步到 public.users
         debugPrint(
           'Registering with emailRedirectTo: ${SupabaseConfig.redirectUrl}',
         );
@@ -111,9 +110,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         );
         debugPrint('SignUp response: ${response.user?.email}');
         debugPrint('SignUp identities: ${response.user?.identities}');
-        debugPrint(
-          'SignUp identities length: ${response.user?.identities?.length}',
-        );
 
         if (response.user != null) {
           // 检查用户是否已经存在（identities 为空表示用户已存在）
@@ -178,7 +174,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.go('/login'),
+            onPressed: () => context.pop(),
           ),
           title: const Text('Create Account'),
         ),
@@ -433,7 +429,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                             ),
                             const SizedBox(height: 12),
                             TextButton(
-                              onPressed: () => context.go('/login'),
+                              onPressed: () => context.pop(),
                               child: const Text(
                                 'Already have an account? Sign in',
                                 style: TextStyle(

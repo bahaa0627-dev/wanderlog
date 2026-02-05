@@ -1,0 +1,269 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (cHi39hU6xFn2HpyUq)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: No
+
+📥 Fetching data from Apify Dataset: cHi39hU6xFn2HpyUq
+✅ Database connection established
+   Fetched 100 items...
+   Fetched 108 items...
+✅ Total items fetched: 108
+
+🚀 Starting import of 108 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/2 (100 items)
+   🌍 Reverse geocoded St Wolfgang im Salzkammergut: Sankt Wolfgang im Salzkammergut, AT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St Wolfgang im Salzkammergut
+   🌍 Reverse geocoded Salzburg: Salzburg, AT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Salzburg
+   🔗 Found matching place: "Marketplace Hallstatt" (score: 0.45)
+   📍 Using existing city for Hallstatt: Hallstatt
+   🌍 Using existing country for Hallstatt: Austria
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Hallstatt
+   🖼️  Set Google image as coverImage: Hallstatt
+   🌍 Reverse geocoded Bad Ischl: Bad Ischl, AT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bad Ischl
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Prater
+   🌍 Reverse geocoded Gosau: Gosau, AT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gosau
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Central Cemetery
+   🖼️  Set Google image as coverImage: Central Cemetery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Prague Castle
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Charles Bridge
+   🖼️  Set Google image as coverImage: Charles Bridge
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mucha Foundation Art Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Franz Kafka - Rotating Head by David Cerny
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Vyšehrad
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Dancing House
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Prague Astronomical Clock
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lennon Wall
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Strahov Monastery
+   🖼️  Set Google image as coverImage: Strahov Monastery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Old Town Bridge Tower
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Letna Park
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St. Vitus Cathedral
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Powder Tower
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Riegrovy Sady
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Klementinum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Franz Kafka Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: National Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Vojanovy sady
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Old Town Square
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hallstätter Wasserfall
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Salzwelten Shop & Infocontainer Hallstatt
+   🌍 Reverse geocoded Wolfgangsee Schiffahrt: Sankt Wolfgang im Salzkammergut, AT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Wolfgangsee Schiffahrt
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Panoramic Viewpoint - Hallstatt
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mirabell Gardens
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fortress Hohensalzburg
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Welterbe-Wirtshaus Steegwirt
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mozart Residence
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: DomQuartier Salzburg
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St. Peter's Abbey
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Red Bull Hangar-7
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Stiegl-Brauwelt
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mozartplatz
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Museum der Moderne Salzburg
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Volksgarten Salzburg
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Salzburg Cathedral
+   🖼️  Set Google image as coverImage: Salzburg Cathedral
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Salzburger Weihnachtsmuseum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Museum der Moderne
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Residenzplatz
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Richterhöhe
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Zwettler's Wirtshaus
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: FestungsBahn
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: IMLAUER Sky - Bar & Restaurant in Salzburg
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Heart of Joy
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: D'ouro Soulfood Bistro
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bärenwirt
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Wirtshaus zum Zirkelwirt | Salzburg Altstadt
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fuxn
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Braurestaurant IMLAUER
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: L'Osteria Salzburg
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Haus der Natur
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Chocolate Museum Vienna "Bo-Yo"
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Imperial Treasury
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sigmund Freud Museum
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Hundertwasser House
+   🖼️  Set Google image as coverImage: Hundertwasser House
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Museum of Natural History Vienna
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Madame Tussauds Vienna
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Schmetterlinghaus
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Weltmuseum Wien
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Rathauspark
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Heldenplatz
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Museum of Military History
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Haus des Meeres (House of the Sea)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lainzer Tiergarten
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Wien Museum Karlsplatz
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mozart Monument
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Desert House
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Türkenschanzpark
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Donaupark
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: First Escape
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: House of Austrian History
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Vienna International Centre (VIC)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Column of Pest
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Austrian Parliament
+   🖼️  Set Google image as coverImage: Austrian Parliament
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Restaurant Vienne/OnurChefs
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: SIXTA
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Schnitzel One
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Apapika Bowls
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Schachtelwirt
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Restaurant Makka
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pane è Cafe
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bio Cafe Blütezeit
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Carl Ludwig Cafe
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Café Savoy
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gulasch & Soehne Vienna
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Café Fokus
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Café Goldegg
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Moment Cafe and Restaurant
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Café Hawelka
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Centimeter beim Rathaus
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Café Sperl
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fenster Café
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Drechsler Wienzeile
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Joseph Brot • Wien Bio Bäckerei
+
+📦 Processing batch 2/2 (8 items)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ribs of Vienna
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Melangerie - Caffeterie & Bistro
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Cargo Gallery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Öfferl - Wollzeile 31
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Joseph Brot • Wien Bio Bäckerei
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Café Kafka
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Rangoli Smíchov - Indian restaurant
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Crust&Crumb Breadbaking School
+
+✅ Import complete!
+   Total: 108
+   Inserted: 82
+   Updated: 26
+   Skipped: 0
+   Failed: 0
+   Cities: 18
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 89.8%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

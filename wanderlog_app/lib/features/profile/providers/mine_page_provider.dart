@@ -18,7 +18,9 @@ class CheckInPhoto {
     required this.city,
     required this.country,
     required this.visitDate,
-    required this.category, required this.tags, this.userNotes,
+    required this.category,
+    required this.tags,
+    this.userNotes,
   });
 
   final String photoUrl;
@@ -106,11 +108,13 @@ final minePageDataProvider = FutureProvider<MinePageData>((ref) async {
     // 检查认证状态
     final authState = ref.watch(authProvider);
     print(
-        '🏠 [MinePageProvider] Auth state: isAuthenticated=${authState.isAuthenticated}',);
+      '🏠 [MinePageProvider] Auth state: isAuthenticated=${authState.isAuthenticated}',
+    );
 
     if (!authState.isAuthenticated) {
       print(
-          '⚠️ [MinePageProvider] User not authenticated, returning empty data',);
+        '⚠️ [MinePageProvider] User not authenticated, returning empty data',
+      );
       return MinePageData.empty;
     }
 
@@ -125,7 +129,8 @@ final minePageDataProvider = FutureProvider<MinePageData>((ref) async {
     print('🏠 [MinePageProvider] API request completed in ${apiDuration}ms');
     print('🏠 [MinePageProvider] Response status: ${response.statusCode}');
     print(
-        '🏠 [MinePageProvider] Response data type: ${response.data.runtimeType}',);
+      '🏠 [MinePageProvider] Response data type: ${response.data.runtimeType}',
+    );
 
     if (response.data == null) {
       print('❌ [MinePageProvider] Response data is null!');
@@ -137,7 +142,8 @@ final minePageDataProvider = FutureProvider<MinePageData>((ref) async {
       data = response.data as List<dynamic>;
     } else {
       print(
-          '❌ [MinePageProvider] Expected List but got ${response.data.runtimeType}',);
+        '❌ [MinePageProvider] Expected List but got ${response.data.runtimeType}',
+      );
       print('🔍 Response data: ${response.data}');
       return MinePageData.empty;
     }
@@ -155,7 +161,8 @@ final minePageDataProvider = FutureProvider<MinePageData>((ref) async {
 
     print('🏠 [MinePageProvider] Processed in ${processTime}ms:');
     print(
-        '🏠   - ${result.countriesCount} countries, ${result.citiesCount} cities',);
+      '🏠   - ${result.countriesCount} countries, ${result.citiesCount} cities',
+    );
     print('🏠   - ${result.mapMarkers.length} markers');
     print('🏠   - ${result.photos.length} photos');
     print('🏠   - ${result.visitedSpots.length} visited spots');
@@ -174,6 +181,13 @@ final minePageDataProvider = FutureProvider<MinePageData>((ref) async {
       print('   Dio error type: ${e.type}');
       print('   Dio response: ${e.response?.data}');
       print('   Dio status code: ${e.response?.statusCode}');
+
+      // 如果是 401 未授权错误，返回空数据而不是抛出错误
+      // 这样用户可以看到空状态界面，而不是错误页面
+      if (e.response?.statusCode == 401) {
+        print('⚠️ [MinePageProvider] 401 Unauthorized - returning empty data');
+        return MinePageData.empty;
+      }
     }
     print('   Stack trace: $stack');
     rethrow;
@@ -323,16 +337,18 @@ MinePageData _processMineRawData(List<dynamic> rawData) {
 
       // Create marker with visit date
       final markerDate = visitDate ?? updatedAt ?? DateTime.now();
-      markers.add(VisitedSpotMarker(
-        id: spot.id,
-        name: spot.name,
-        latitude: spot.latitude,
-        longitude: spot.longitude,
-        city: spot.city ?? '',
-        country: spot.country ?? '',
-        category: spot.category ?? 'other',
-        visitDate: markerDate,
-      ),);
+      markers.add(
+        VisitedSpotMarker(
+          id: spot.id,
+          name: spot.name,
+          latitude: spot.latitude,
+          longitude: spot.longitude,
+          city: spot.city ?? '',
+          country: spot.country ?? '',
+          category: spot.category ?? 'other',
+          visitDate: markerDate,
+        ),
+      );
 
       final categoryEn = placeMap['categoryEn'] as String? ??
           placeMap['category_en'] as String? ??
@@ -350,17 +366,19 @@ MinePageData _processMineRawData(List<dynamic> rawData) {
       final photoDate = visitDate ?? updatedAt ?? DateTime.now();
       for (final photoUrl in userPhotos) {
         if (photoUrl.isNotEmpty) {
-          photos.add(CheckInPhoto(
-            photoUrl: photoUrl,
-            spotId: spot.id,
-            spotName: spot.name,
-            city: spot.city ?? '',
-            country: spot.country ?? '',
-            visitDate: photoDate,
-            userNotes: tripSpot.userNotes,
-            category: spot.category ?? 'other',
-            tags: spot.tags,
-          ),);
+          photos.add(
+            CheckInPhoto(
+              photoUrl: photoUrl,
+              spotId: spot.id,
+              spotName: spot.name,
+              city: spot.city ?? '',
+              country: spot.country ?? '',
+              visitDate: photoDate,
+              userNotes: tripSpot.userNotes,
+              category: spot.category ?? 'other',
+              tags: spot.tags,
+            ),
+          );
         }
       }
     } catch (e) {
@@ -376,11 +394,14 @@ MinePageData _processMineRawData(List<dynamic> rawData) {
   final sortedCategories = categoryCounts.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
 
-  final topCategories = sortedCategories.take(4).map((entry) => CategoryCount(
-      category: entry.key,
-      count: entry.value,
-      emoji: getCategoryEmoji(entry.key),
-    )).toList();
+  final topCategories = sortedCategories
+      .take(4)
+      .map((entry) => CategoryCount(
+            category: entry.key,
+            count: entry.value,
+            emoji: getCategoryEmoji(entry.key),
+          ))
+      .toList();
 
   return MinePageData(
     countriesCount: countries.length,

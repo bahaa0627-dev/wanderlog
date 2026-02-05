@@ -533,41 +533,7 @@ class _TripCardState extends State<_TripCard> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (widget.tags.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: widget.tags
-                                .take(2)
-                                .map(
-                                  (tag) => Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.white.withOpacity(0.9),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: AppTheme.black,
-                                        width: 1.0,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      tag,
-                                      style:
-                                          AppTheme.labelSmall(context).copyWith(
-                                        fontSize: 10,
-                                        color: AppTheme.black,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ],
+                        // 不再显示标签 - 用户要求合集卡片不显示任何标签
                       ],
                     ),
                   ),

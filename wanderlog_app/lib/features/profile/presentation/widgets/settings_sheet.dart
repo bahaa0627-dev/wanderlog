@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -482,20 +483,16 @@ class _FeedbackDialogState extends ConsumerState<_FeedbackDialog> {
                             ),
                           )
                         : _remoteQrCodeUrl != null
-                            ? Image.network(
-                                _remoteQrCodeUrl!,
+                            ? CachedNetworkImage(
+                                imageUrl: _remoteQrCodeUrl!,
                                 fit: BoxFit.contain,
-                                loadingBuilder:
-                                    (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return const Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: AppTheme.primaryYellow,
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) =>
+                                placeholder: (context, url) => const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.primaryYellow,
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) =>
                                     Image.asset(
                                   AppConfig.feedbackQrCodeAsset,
                                   fit: BoxFit.contain,

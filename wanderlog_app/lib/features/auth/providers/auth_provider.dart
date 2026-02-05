@@ -120,8 +120,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> register(String email, String password, String? name,
-      {String? language,}) async {
+  Future<void> register(
+    String email,
+    String password,
+    String? name, {
+    String? language,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final result =
@@ -220,7 +224,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Backward-compatible wrapper (legacy code-based reset).
   /// Supabase recovery flow doesn't require `email`/`code`.
   Future<void> resetPassword(
-      String email, String code, String newPassword,) async {
+    String email,
+    String code,
+    String newPassword,
+  ) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       await updatePassword(newPassword);

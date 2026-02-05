@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:wanderlog/core/theme/app_theme.dart';
 import 'package:wanderlog/shared/models/spot_model.dart';
@@ -147,14 +148,16 @@ class SpotCard extends StatelessWidget {
                         if (openingText != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: _buildOpeningHoursText(context, openingText, openingEval),
+                            child: _buildOpeningHoursText(
+                                context, openingText, openingEval),
                           ),
                       ],
                     ),
                     // Bottom section: Tags (no scroll, show what fits)
                     if (tagsLine != null && tagsLine.isNotEmpty)
                       LayoutBuilder(
-                        builder: (context, constraints) => _buildFittingTags(context, tagsLine, constraints.maxWidth),
+                        builder: (context, constraints) => _buildFittingTags(
+                            context, tagsLine, constraints.maxWidth),
                       ),
                   ],
                 ),
@@ -170,24 +173,28 @@ class SpotCard extends StatelessWidget {
     final List<Widget> stars = [];
     final int fullStars = rating.floor();
     final bool hasHalfStar = (rating - fullStars) >= 0.5;
-    
+
     for (int i = 0; i < 5; i++) {
       if (i < fullStars) {
-        stars.add(const Icon(Icons.star, size: 14, color: AppTheme.primaryYellow));
+        stars.add(
+            const Icon(Icons.star, size: 14, color: AppTheme.primaryYellow));
       } else if (i == fullStars && hasHalfStar) {
-        stars.add(const Icon(Icons.star_half, size: 14, color: AppTheme.primaryYellow));
+        stars.add(const Icon(Icons.star_half,
+            size: 14, color: AppTheme.primaryYellow));
       } else {
-        stars.add(Icon(Icons.star_outline, size: 14, color: AppTheme.primaryYellow.withOpacity(0.5)));
+        stars.add(Icon(Icons.star_outline,
+            size: 14, color: AppTheme.primaryYellow.withOpacity(0.5)));
       }
     }
     return stars;
   }
 
   /// 构建营业时间文本，支持 "Closed," 红色显示
-  Widget _buildOpeningHoursText(BuildContext context, String openingText, OpeningHoursEvaluation? eval) {
+  Widget _buildOpeningHoursText(
+      BuildContext context, String openingText, OpeningHoursEvaluation? eval) {
     final bool isClosingSoon = eval?.isClosingSoon ?? false;
     final bool isClosed = eval != null && !eval.isOpen;
-    
+
     // 如果是关门状态，"Closed," 显示红色
     if (isClosed && openingText.startsWith('Closed,')) {
       final restText = openingText.substring(7); // 去掉 "Closed,"
@@ -210,7 +217,7 @@ class SpotCard extends StatelessWidget {
         ),
       );
     }
-    
+
     // 其他情况：即将关门显示红色，否则黑色
     return Text(
       '🕒 $openingText',
@@ -222,19 +229,19 @@ class SpotCard extends StatelessWidget {
   }
 
   Widget _buildCoverImage() => SizedBox(
-      width: 110,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.horizontal(
-          left: Radius.circular(AppTheme.radiusMedium - 2),
+        width: 110,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.horizontal(
+            left: Radius.circular(AppTheme.radiusMedium - 2),
+          ),
+          child: AspectRatio(
+            aspectRatio: 4 / 5,
+            child: spot.primaryImage != null
+                ? _buildImageWidget(spot.primaryImage!)
+                : _buildPlaceholder(),
+          ),
         ),
-        child: AspectRatio(
-          aspectRatio: 4 / 5,
-          child: spot.primaryImage != null
-              ? _buildImageWidget(spot.primaryImage!)
-              : _buildPlaceholder(),
-        ),
-      ),
-    );
+      );
 
   /// Build image widget that handles both data URIs and network URLs
   Widget _buildImageWidget(String imageSource) {
@@ -252,23 +259,12 @@ class SpotCard extends StatelessWidget {
         return _buildPlaceholder();
       }
     }
-    // Handle regular network URLs
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // 占位图层 - 始终显示在底层
-        _buildPlaceholder(),
-        // 图片层 - 加载完成后覆盖占位图
-        Image.network(
-          imageSource,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return const SizedBox.shrink(); // 加载中显示底层占位图
-          },
-          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-        ),
-      ],
+    // Handle regular network URLs with caching
+    return CachedNetworkImage(
+      imageUrl: imageSource,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => _buildPlaceholder(),
+      errorWidget: (context, url, error) => _buildPlaceholder(),
     );
   }
 
@@ -279,9 +275,7 @@ class SpotCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: isMustGo
-                ? AppTheme.primaryYellow
-                : AppTheme.white,
+            color: isMustGo ? AppTheme.primaryYellow : AppTheme.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: AppTheme.black,
@@ -316,8 +310,8 @@ class SpotCard extends StatelessWidget {
     // First check for 24/7 indicators in the entire list
     for (final item in weekdayText) {
       final text = item?.toString().toLowerCase() ?? '';
-      if (text == '7x24' || 
-          text == '24/7' || 
+      if (text == '7x24' ||
+          text == '24/7' ||
           text.contains('open 24 hours') ||
           text.contains('always open')) {
         return 'Open 24 hours';
@@ -327,11 +321,12 @@ class SpotCard extends StatelessWidget {
     // Get the local time at the place (not device local time!)
     final utcOffsetMinutes = _extractUtcOffset(raw);
     final now = _nowInPlace(utcOffsetMinutes);
-    
+
     // weekday_text is ordered: Monday=0, Tuesday=1, ..., Sunday=6
     // DateTime.weekday is: Monday=1, ..., Sunday=7
     final dartWeekday = now.weekday; // 1=Mon, 7=Sun
-    final googleIndex = dartWeekday == 7 ? 6 : dartWeekday - 1; // Convert to 0-6
+    final googleIndex =
+        dartWeekday == 7 ? 6 : dartWeekday - 1; // Convert to 0-6
 
     if (googleIndex < weekdayText.length) {
       final todayText = weekdayText[googleIndex]?.toString() ?? '';
@@ -344,43 +339,55 @@ class SpotCard extends StatelessWidget {
         }
         if (hours.toLowerCase() == 'closed') {
           // Check if we can find next opening time from weekday_text
-          final nextOpenText = _findNextOpeningFromWeekdayText(weekdayText, googleIndex);
+          final nextOpenText =
+              _findNextOpeningFromWeekdayText(weekdayText, googleIndex);
           if (nextOpenText != null) {
             return 'Closed, Open $nextOpenText';
           }
           return 'Closed';
         }
         // Extract opening and closing times from hours string (e.g., "9:00 AM – 5:00 PM")
-        final hoursMatch = RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)\s*–\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false).firstMatch(hours);
+        final hoursMatch = RegExp(
+                r'(\d{1,2}):?(\d{2})?\s*(AM|PM)\s*–\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)',
+                caseSensitive: false)
+            .firstMatch(hours);
         if (hoursMatch != null) {
-          final openTime = '${hoursMatch.group(1)!}${hoursMatch.group(2) != null ? ':${hoursMatch.group(2)}' : ''} ${hoursMatch.group(3)!}';
-          final closeTime = '${hoursMatch.group(4)!}${hoursMatch.group(5) != null ? ':${hoursMatch.group(5)}' : ''} ${hoursMatch.group(6)!}';
-          
+          final openTime =
+              '${hoursMatch.group(1)!}${hoursMatch.group(2) != null ? ':${hoursMatch.group(2)}' : ''} ${hoursMatch.group(3)!}';
+          final closeTime =
+              '${hoursMatch.group(4)!}${hoursMatch.group(5) != null ? ':${hoursMatch.group(5)}' : ''} ${hoursMatch.group(6)!}';
+
           // Check if currently open
           if (_isCurrentlyOpenFromHours(hours, now)) {
             // Format closing time
-            final closingMatch = RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false).firstMatch(closeTime);
+            final closingMatch =
+                RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false)
+                    .firstMatch(closeTime);
             if (closingMatch != null) {
               return 'Open, Closes ${_formatTimeFromMatch(closingMatch)}';
             }
             return 'Open';
           } else {
             // Closed now, show next opening time
-            final openingMatch = RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false).firstMatch(openTime);
+            final openingMatch =
+                RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false)
+                    .firstMatch(openTime);
             if (openingMatch != null) {
               // Check if opening is later today or tomorrow
               final openHour = int.parse(openingMatch.group(1)!);
-              final openMinute = int.tryParse(openingMatch.group(2) ?? '0') ?? 0;
+              final openMinute =
+                  int.tryParse(openingMatch.group(2) ?? '0') ?? 0;
               final isPm = openingMatch.group(3)!.toUpperCase() == 'PM';
               final openMinutes = _parse12HourTime(openHour, openMinute, isPm);
               final currentMinutes = now.hour * 60 + now.minute;
-              
+
               if (openMinutes > currentMinutes) {
                 // Opens later today
                 return 'Closed, Open ${_formatTimeFromMatch(openingMatch)}';
               } else {
                 // Check next day
-                final nextOpenText = _findNextOpeningFromWeekdayText(weekdayText, googleIndex);
+                final nextOpenText =
+                    _findNextOpeningFromWeekdayText(weekdayText, googleIndex);
                 if (nextOpenText != null) {
                   return 'Closed, Open $nextOpenText';
                 }
@@ -411,10 +418,12 @@ class SpotCard extends StatelessWidget {
       final colonIndex = dayText.indexOf(':');
       if (colonIndex != -1 && colonIndex < dayText.length - 1) {
         final hours = dayText.substring(colonIndex + 1).trim();
-        if (hours.toLowerCase() != 'closed' && 
+        if (hours.toLowerCase() != 'closed' &&
             !hours.toLowerCase().contains('open 24')) {
           // Extract opening time
-          final openingMatch = RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false).firstMatch(hours);
+          final openingMatch =
+              RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false)
+                  .firstMatch(hours);
           if (openingMatch != null) {
             if (offset == 0) {
               // Today
@@ -434,9 +443,12 @@ class SpotCard extends StatelessWidget {
 
   /// Check if currently open based on hours string like "9:00 AM – 5:00 PM"
   bool _isCurrentlyOpenFromHours(String hours, DateTime now) {
-    final match = RegExp(r'(\d{1,2}):?(\d{2})?\s*(AM|PM)\s*–\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)', caseSensitive: false).firstMatch(hours);
+    final match = RegExp(
+            r'(\d{1,2}):?(\d{2})?\s*(AM|PM)\s*–\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)',
+            caseSensitive: false)
+        .firstMatch(hours);
     if (match == null) return false;
-    
+
     try {
       final openHour = int.parse(match.group(1)!);
       final openMinute = int.tryParse(match.group(2) ?? '0') ?? 0;
@@ -445,13 +457,16 @@ class SpotCard extends StatelessWidget {
       final closeMinute = int.tryParse(match.group(5) ?? '0') ?? 0;
       final closePeriod = match.group(6)!.toUpperCase();
 
-      final openTime = _parse12HourTime(openHour, openMinute, openPeriod == 'PM');
-      final closeTime = _parse12HourTime(closeHour, closeMinute, closePeriod == 'PM');
-      
+      final openTime =
+          _parse12HourTime(openHour, openMinute, openPeriod == 'PM');
+      final closeTime =
+          _parse12HourTime(closeHour, closeMinute, closePeriod == 'PM');
+
       final currentTime = now.hour * 60 + now.minute;
       final openMinutes = openTime;
-      final closeMinutes = closeTime < openMinutes ? closeTime + 24 * 60 : closeTime;
-      
+      final closeMinutes =
+          closeTime < openMinutes ? closeTime + 24 * 60 : closeTime;
+
       return currentTime >= openMinutes && currentTime < closeMinutes;
     } catch (e) {
       return false;
@@ -471,11 +486,12 @@ class SpotCard extends StatelessWidget {
     final hour = int.parse(match.group(1)!);
     final minute = int.tryParse(match.group(2) ?? '0') ?? 0;
     final period = match.group(3)!.toUpperCase();
-    
+
     final hourValue = hour % 12 == 0 ? 12 : hour % 12;
-    final minuteText = minute == 0 ? '' : ':${minute.toString().padLeft(2, '0')}';
+    final minuteText =
+        minute == 0 ? '' : ':${minute.toString().padLeft(2, '0')}';
     final periodText = period == 'PM' ? 'p.m' : 'a.m';
-    
+
     return '$hourValue$minuteText$periodText';
   }
 
@@ -483,21 +499,22 @@ class SpotCard extends StatelessWidget {
   /// Google's format for 24/7: single period with open at day 0, time "0000", and no close
   bool _is24HoursPeriods(List<Map<String, dynamic>> periods) {
     if (periods.length != 1) return false;
-    
+
     final period = periods.first;
     final openInfo = period['open'];
     if (openInfo is! Map<String, dynamic>) return false;
-    
+
     // Check if open is at Sunday 0000 and there's no close field
     final day = openInfo['day'];
     final time = openInfo['time']?.toString() ?? '';
     final hasClose = period['close'] != null;
-    
+
     // day == 0 is Sunday, time "0000" is midnight, no close means never closes
     return day == 0 && time == '0000' && !hasClose;
   }
 
-  DateTime? _resolveClosingTime(List<Map<String, dynamic>> periods, DateTime now) {
+  DateTime? _resolveClosingTime(
+      List<Map<String, dynamic>> periods, DateTime now) {
     for (final rawPeriod in periods) {
       final open = rawPeriod['open'];
       if (open is! Map<String, dynamic>) {
@@ -525,7 +542,8 @@ class SpotCard extends StatelessWidget {
     return null;
   }
 
-  DateTime? _resolveNextOpeningTime(List<Map<String, dynamic>> periods, DateTime now) {
+  DateTime? _resolveNextOpeningTime(
+      List<Map<String, dynamic>> periods, DateTime now) {
     DateTime? candidate;
     for (final rawPeriod in periods) {
       final open = rawPeriod['open'];
@@ -568,7 +586,8 @@ class SpotCard extends StatelessWidget {
       return null;
     }
     // Create start of day in local time (not UTC) since we're working with place-local time
-    final DateTime startOfDay = DateTime(reference.year, reference.month, reference.day);
+    final DateTime startOfDay =
+        DateTime(reference.year, reference.month, reference.day);
     // Convert Dart weekday (1=Mon, 7=Sun) to Google day (0=Sun, 1=Mon, ..., 6=Sat)
     // Dart: Monday=1, Tuesday=2, ..., Sunday=7
     // Google: Sunday=0, Monday=1, ..., Saturday=6
@@ -654,9 +673,8 @@ class SpotCard extends StatelessWidget {
   String _formatTime(DateTime date) {
     final hourValue = date.hour % 12 == 0 ? 12 : date.hour % 12;
     final minuteValue = date.minute;
-    final minuteText = minuteValue == 0
-        ? ''
-        : ':${minuteValue.toString().padLeft(2, '0')}';
+    final minuteText =
+        minuteValue == 0 ? '' : ':${minuteValue.toString().padLeft(2, '0')}';
     final period = date.hour >= 12 ? 'p.m' : 'a.m';
     return '$hourValue$minuteText$period';
   }
@@ -712,32 +730,37 @@ class SpotCard extends StatelessWidget {
   }
 
   Widget _buildTagChips(BuildContext context, List<String> tags) => Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      children: tags.map((tag) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF2F2F2),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
-        ),
-        child: Text(
-          tag,
-          style: AppTheme.labelSmall(context).copyWith(
-            color: AppTheme.black.withOpacity(0.48),
-          ),
-        ),
-      )).toList(),
-    );
+        spacing: 6,
+        runSpacing: 4,
+        children: tags
+            .map((tag) => Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2F2F2),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: AppTheme.black.withOpacity(0.2), width: 1),
+                  ),
+                  child: Text(
+                    tag,
+                    style: AppTheme.labelSmall(context).copyWith(
+                      color: AppTheme.black.withOpacity(0.48),
+                    ),
+                  ),
+                ))
+            .toList(),
+      );
 
   /// Build tags that fit within available width, max 2 tags
-  Widget _buildFittingTags(BuildContext context, List<String> tags, double maxWidth) {
+  Widget _buildFittingTags(
+      BuildContext context, List<String> tags, double maxWidth) {
     final List<Widget> fittingTags = [];
     double usedWidth = 0;
     const double spacing = 6;
     const double horizontalPadding = 8 * 2; // padding inside each tag
     const double borderWidth = 2; // border on both sides
-    
+
     // Measure and add tags that fit (max 2)
     for (int i = 0; i < tags.length && fittingTags.length < 2; i++) {
       final tag = tags[i];
@@ -752,10 +775,11 @@ class SpotCard extends StatelessWidget {
         maxLines: 1,
         textDirection: TextDirection.ltr,
       )..layout();
-      
+
       final tagWidth = textPainter.width + horizontalPadding + borderWidth;
-      final neededWidth = usedWidth + tagWidth + (fittingTags.isNotEmpty ? spacing : 0);
-      
+      final neededWidth =
+          usedWidth + tagWidth + (fittingTags.isNotEmpty ? spacing : 0);
+
       if (neededWidth <= maxWidth) {
         fittingTags.add(
           Container(
@@ -763,7 +787,8 @@ class SpotCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFFF2F2F2),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
+              border:
+                  Border.all(color: AppTheme.black.withOpacity(0.2), width: 1),
             ),
             child: Text(
               tag,
@@ -776,14 +801,19 @@ class SpotCard extends StatelessWidget {
         usedWidth = neededWidth;
       }
     }
-    
+
     if (fittingTags.isEmpty) return const SizedBox.shrink();
-    
+
     return Row(
-      children: fittingTags.map((widget) => Padding(
-        padding: EdgeInsets.only(right: widget == fittingTags.last ? 0 : spacing),
-        child: widget,
-      ),).toList(),
+      children: fittingTags
+          .map(
+            (widget) => Padding(
+              padding: EdgeInsets.only(
+                  right: widget == fittingTags.last ? 0 : spacing),
+              child: widget,
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -791,7 +821,7 @@ class SpotCard extends StatelessWidget {
   List<String>? _tagsList() {
     final List<String> allTags = [];
     final Set<String> seen = {};
-    
+
     // 优先使用 displayTagsEn
     final displayTags = spot.displayTagsEn;
     if (displayTags != null && displayTags.isNotEmpty) {
@@ -808,14 +838,14 @@ class SpotCard extends StatelessWidget {
         return allTags;
       }
     }
-    
+
     // 回退：使用 category + tags
     final category = spot.category?.trim() ?? '';
     if (category.isNotEmpty && !_isInvalidTag(category)) {
       allTags.add(category);
       seen.add(category.toLowerCase());
     }
-    
+
     // Add regular tags (which may include AI tags from backend)
     for (final rawTag in spot.tags) {
       final tag = rawTag.trim();
@@ -825,11 +855,11 @@ class SpotCard extends StatelessWidget {
         allTags.add(tag);
       }
     }
-    
+
     if (allTags.isEmpty) {
       return null;
     }
-    
+
     return allTags.take(2).toList();
   }
 }

@@ -1,0 +1,42 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (pcfk44296wK2oWNlY)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: Yes
+
+📥 Fetching data from Apify Dataset: pcfk44296wK2oWNlY
+✅ Database connection established
+   Fetched 71 items...
+✅ Total items fetched: 71
+
+🚀 Starting import of 71 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (71 items)
+   🌍 Reverse geocoded Segla: Finnsnes, NO
+   🌍 Reverse geocoded Reine: Moskenes, NO
+   🌍 Reverse geocoded Myrland: Hadsel, NO
+   🌍 Reverse geocoded Å: Moskenes, NO
+   🌍 Reverse geocoded Sakrisøya: Moskenes, NO
+   🌍 Reverse geocoded Senja: Finnsnes, NO
+   🌍 Reverse geocoded Husøy: Finnsnes, NO
+
+✅ Import complete!
+   Total: 71
+   Inserted: 60
+   Updated: 11
+   Skipped: 0
+   Failed: 0
+   Cities: 23
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 66.2%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

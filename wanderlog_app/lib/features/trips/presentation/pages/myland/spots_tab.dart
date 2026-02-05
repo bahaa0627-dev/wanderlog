@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -33,6 +34,7 @@ import 'package:wanderlog/shared/utils/number_format_utils.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/features/trips/services/spot_cache_service.dart';
 import 'package:wanderlog/features/search/providers/countries_cities_stats_provider.dart';
+import 'package:wanderlog/features/trips/providers/spots_cache_provider.dart';
 
 class SpotsTabController {
   _SpotsTabState? _state;
@@ -147,6 +149,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   bool _hasLoadError = false; // 加载错误状态
   String? _loadErrorMessage; // 错误消息
   bool _hasMoreData = true; // 是否还有更多数据
+  bool _hasCompletedInitialLoad = false; // 是否已完成首次加载（避免显示中间状态）
+  bool _isBackgroundRefreshing = false; // 是否正在后台刷新（有缓存数据时的静默刷新）
   static const int _maxCachedItems = 100; // 最大缓存数量
 
   // 防抖字段
@@ -316,6 +320,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       }
     }
 
+    // ✅ 立即从全局 provider 恢复缓存数据（同步，0秒可见）
+    _restoreFromGlobalCache();
+
     // 预加载国家/城市统计，用于国家归类
     ref.read(countriesCitiesStatsProvider.notifier).load();
 
@@ -323,6 +330,13 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
     ref.listenManual(countriesCitiesStatsProvider, (previous, next) {
       if (mounted && previous?.countries != next.countries) {
         _notifyCityOptionsChanged();
+      }
+    });
+
+    // 监听全局缓存 provider 变化，自动更新本地数据
+    ref.listenManual(spotsCacheProvider, (previous, next) {
+      if (mounted && previous?.entries != next.entries) {
+        _syncFromGlobalCache(next);
       }
     });
 
@@ -343,12 +357,138 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       }
     });
 
-    // 立即开始加载数据（不等待）
-    unawaited(_loadDestinationsFromServer());
+    // ✅ 每次进入页面都静默拉取最新数据
+    // 如果有缓存数据，先展示缓存，后台静默刷新
+    // 如果没有缓存，显示 loading 并加载
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final authState = ref.read(authProvider);
+        if (authState.isAuthenticated && !authState.isLoading) {
+          unawaited(_loadDestinationsFromServer());
+        }
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _notifyCityChanged();
       _notifyCityOptionsChanged();
     });
+  }
+
+  /// 从全局缓存恢复数据（同步调用，立即生效）
+  void _restoreFromGlobalCache() {
+    final globalCache = ref.read(spotsCacheProvider);
+    if (globalCache.hasData) {
+      print(
+          '🚀 [SpotsTab] Restoring ${globalCache.entries.length} entries from global cache');
+      _entries.clear();
+      for (final cachedEntry in globalCache.entries) {
+        _entries.add(_SpotEntry(
+          city: cachedEntry.city,
+          citySlug: cachedEntry.citySlug,
+          spot: cachedEntry.spot,
+          addedAt: cachedEntry.addedAt,
+          isSaved: cachedEntry.isSaved,
+          isMustGo: cachedEntry.isMustGo,
+          isTodaysPlan: cachedEntry.isTodaysPlan,
+          isVisited: cachedEntry.isVisited,
+          destinationId: cachedEntry.destinationId,
+          visitDate: cachedEntry.visitDate,
+          userRating: cachedEntry.userRating,
+          userNotes: cachedEntry.userNotes,
+          userPhotos: cachedEntry.userPhotos,
+        ));
+      }
+      _isLoadingDestinations = false;
+      _hasCompletedInitialLoad = true;
+      _isBackgroundRefreshing = globalCache.isBackgroundRefreshing;
+      _hasLoadError = false;
+
+      // 恢复城市历史
+      if (globalCache.userCityHistory.isNotEmpty) {
+        _userCityHistory.clear();
+        _userCityHistory.addAll(globalCache.userCityHistory);
+      }
+      if (globalCache.extraCitySlugs.isNotEmpty) {
+        _extraCitySlugs.addAll(globalCache.extraCitySlugs);
+      }
+    }
+  }
+
+  /// 从全局缓存同步数据（异步更新时调用）
+  void _syncFromGlobalCache(SpotsCacheState globalCache) {
+    if (!globalCache.hasData) return;
+
+    print(
+        '🔄 [SpotsTab] Syncing ${globalCache.entries.length} entries from global cache');
+    setState(() {
+      _entries.clear();
+      for (final cachedEntry in globalCache.entries) {
+        _entries.add(_SpotEntry(
+          city: cachedEntry.city,
+          citySlug: cachedEntry.citySlug,
+          spot: cachedEntry.spot,
+          addedAt: cachedEntry.addedAt,
+          isSaved: cachedEntry.isSaved,
+          isMustGo: cachedEntry.isMustGo,
+          isTodaysPlan: cachedEntry.isTodaysPlan,
+          isVisited: cachedEntry.isVisited,
+          destinationId: cachedEntry.destinationId,
+          visitDate: cachedEntry.visitDate,
+          userRating: cachedEntry.userRating,
+          userNotes: cachedEntry.userNotes,
+          userPhotos: cachedEntry.userPhotos,
+        ));
+      }
+      _isLoadingDestinations = globalCache.isLoading;
+      _hasCompletedInitialLoad = globalCache.hasCompletedInitialLoad;
+      _isBackgroundRefreshing = globalCache.isBackgroundRefreshing;
+      _hasLoadError = globalCache.hasError;
+      _loadErrorMessage = globalCache.errorMessage;
+
+      if (globalCache.userCityHistory.isNotEmpty) {
+        _userCityHistory.clear();
+        _userCityHistory.addAll(globalCache.userCityHistory);
+      }
+      if (globalCache.extraCitySlugs.isNotEmpty) {
+        _extraCitySlugs.addAll(globalCache.extraCitySlugs);
+      }
+    });
+    _notifyCityOptionsChanged();
+  }
+
+  /// 更新全局缓存 provider（从本地加载成功后调用）
+  void _updateGlobalCache(List<_SpotEntry> entries) {
+    final globalEntries = entries
+        .map((e) => SpotCacheEntry(
+              spot: e.spot,
+              city: e.city,
+              citySlug: e.citySlug,
+              isSaved: e.isSaved,
+              isMustGo: e.isMustGo,
+              isTodaysPlan: e.isTodaysPlan,
+              isVisited: e.isVisited,
+              destinationId: e.destinationId,
+              addedAt: e.addedAt,
+              visitDate: e.visitDate,
+              userRating: e.userRating,
+              userNotes: e.userNotes,
+              userPhotos: e.userPhotos,
+            ))
+        .toList();
+
+    // 使用 notifier 的公开方法更新状态
+    ref.read(spotsCacheProvider.notifier).updateState(SpotsCacheState(
+          entries: globalEntries,
+          isLoading: false,
+          hasError: false,
+          hasCompletedInitialLoad: true,
+          isBackgroundRefreshing: false,
+          lastLoadedAt: DateTime.now(),
+          selectedCitySlug: _selectedCitySlug,
+          userCityHistory: List.from(_userCityHistory),
+          extraCitySlugs: Map.from(_extraCitySlugs),
+        ));
   }
 
   @override
@@ -1146,15 +1286,20 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
     if (!forceRefresh) {
       // Step 1: 立即尝试从缓存加载（0秒可见）
+      // 即使缓存过期，也先显示缓存数据，同时后台静默刷新
       final cachedData = await _cacheService.getCitySpots(_selectedCitySlug);
-      if (cachedData != null && !cachedData.isExpired) {
+      if (cachedData != null && cachedData.entries.isNotEmpty) {
+        final isExpired = cachedData.isExpired;
         print(
-          '💾 [SpotCache] Restoring ${cachedData.entries.length} entries from cache',
+          '💾 [SpotCache] Restoring ${cachedData.entries.length} entries from cache (expired: $isExpired)',
         );
         if (mounted) {
           setState(() {
             _isLoadingDestinations = false;
             _hasLoadError = false;
+            _hasCompletedInitialLoad = true; // 从缓存恢复也标记首次加载完成
+            // 如果缓存过期，标记后台刷新中
+            _isBackgroundRefreshing = isExpired;
 
             // 从缓存恢复完整的 Entry 数据
             _entries.clear();
@@ -1193,9 +1338,14 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         }
       }
     } else {
+      // 强制刷新时，如果已有数据，则静默后台刷新；否则显示 loading
       if (mounted) {
         setState(() {
-          _isLoadingDestinations = true;
+          if (_entries.isNotEmpty) {
+            _isBackgroundRefreshing = true;
+          } else {
+            _isLoadingDestinations = true;
+          }
           _hasLoadError = false;
           _loadErrorMessage = null;
         });
@@ -1219,6 +1369,8 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         if (mounted) {
           setState(() {
             _isLoadingDestinations = false;
+            _isBackgroundRefreshing = false;
+            _hasCompletedInitialLoad = true; // 未登录也标记首次加载完成
           });
         }
         return;
@@ -1384,7 +1536,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
             ..clear()
             ..addAll(entries);
           _isLoadingDestinations = false;
+          _isBackgroundRefreshing = false; // 后台刷新完成
           _hasLoadError = false;
+          _hasCompletedInitialLoad = true; // 标记首次加载完成
           _hasMoreData = entries.length >= _maxCachedItems;
 
           if (_pendingSelectedSlug != null &&
@@ -1454,6 +1608,9 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
         ),
       );
 
+      // ✅ 同步更新全局缓存 provider（供其他页面使用）
+      _updateGlobalCache(entries);
+
       _notifyCityChanged();
       _notifyCityOptionsChanged();
       _persistCityState();
@@ -1473,8 +1630,14 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
 
       if (mounted) {
         setState(() {
-          _hasLoadError = true;
+          // 只有在没有现有数据时才显示错误状态
+          // 如果已有缓存数据，静默失败，保持现有数据显示
+          if (_entries.isEmpty) {
+            _hasLoadError = true;
+          }
           _isLoadingDestinations = false;
+          _isBackgroundRefreshing = false; // 后台刷新完成（即使失败）
+          _hasCompletedInitialLoad = true; // 即使出错也标记首次加载完成
         });
       }
     }
@@ -1707,15 +1870,11 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
-    // 1️⃣ 先检查 loading 状态
-    if (_isLoadingDestinations) {
-      return const _LoadingState();
-    }
-
-    // 2️⃣ 再检查认证状态
+    // 1️⃣ 先检查认证状态
     final authState = ref.watch(authProvider);
+
+    // 如果未登录，显示未认证页面
     if (!authState.isAuthenticated) {
       return _UnauthenticatedState(
         onExplore: () => context.go('/home?homeTab=map'),
@@ -1727,7 +1886,15 @@ class _SpotsTabState extends ConsumerState<SpotsTab> {
       );
     }
 
-    // 3️⃣ 最后检查错误状态
+    // 2️⃣ 已登录，检查 loading 状态
+    // 只有在正在首次加载且没有任何缓存数据时才显示 loading
+    // 如果已有数据（即使在后台刷新），也正常显示数据
+    if ((_isLoadingDestinations || !_hasCompletedInitialLoad) &&
+        _entries.isEmpty) {
+      return const _LoadingState();
+    }
+
+    // 3️⃣ 检查错误状态
     if (_hasLoadError && _entries.isEmpty) {
       return _ErrorState(
         onRetry: _loadDestinationsFromServer,
@@ -3396,24 +3563,21 @@ class _SpotCarouselCard extends StatelessWidget {
         return placeholder;
       }
     }
-    // Handle regular network URLs
-    return Image.network(
-      imageSource,
+    // Handle regular network URLs with caching
+    return CachedNetworkImage(
+      imageUrl: imageSource,
       fit: BoxFit.cover,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return ColoredBox(
-          color: AppTheme.lightGray,
-          child: const Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+      placeholder: (context, url) => ColoredBox(
+        color: AppTheme.lightGray,
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
-        );
-      },
-      errorBuilder: (_, __, ___) => placeholder,
+        ),
+      ),
+      errorWidget: (context, url, error) => placeholder,
     );
   }
 

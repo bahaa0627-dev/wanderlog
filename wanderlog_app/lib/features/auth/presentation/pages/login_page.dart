@@ -214,275 +214,283 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             : null,
         automaticallyImplyLeading: false,
         title: const Text('Login'),
+        backgroundColor: const Color(0xFFF7F7F7),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
       backgroundColor: const Color(0xFFF7F7F7),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 16),
-                const Text(
-                  'VAGO',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'ReemKufi',
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Your own personalized flâneur story',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'ReemKufi',
-                    fontSize: 15,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.black, width: 2.5),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black,
-                        offset: Offset(4, 4),
-                        blurRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 24,
+      resizeToAvoidBottomInset: true,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 16),
+                  const Text(
+                    'VAGO',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'ReemKufi',
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
                     ),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            cursorColor: const Color(0xFFD4A017),
-                            style: const TextStyle(fontFamily: 'ReemKufi'),
-                            // 禁用 iOS 输入框上方的附件栏
-                            enableSuggestions: false,
-                            autocorrect: false,
-                            decoration: InputDecoration(
-                              labelText: 'Email',
-                              labelStyle:
-                                  const TextStyle(fontFamily: 'ReemKufi'),
-                              floatingLabelStyle: const TextStyle(
-                                fontFamily: 'ReemKufi',
-                                color: Color(0xFFD4A017),
-                              ),
-                              prefixIcon: const Icon(Icons.email_outlined),
-                              enabledBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade300,
-                                  width: 1,
-                                ),
-                              ),
-                              focusedBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Color(0xFFB8860B),
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Email is required';
-                              }
-                              if (!value.contains('@')) {
-                                return 'Please enter a valid email';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: true,
-                            cursorColor: const Color(0xFFD4A017),
-                            style: const TextStyle(fontFamily: 'ReemKufi'),
-                            // 禁用 iOS 输入框上方的附件栏
-                            enableSuggestions: false,
-                            autocorrect: false,
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              labelStyle:
-                                  const TextStyle(fontFamily: 'ReemKufi'),
-                              floatingLabelStyle: const TextStyle(
-                                fontFamily: 'ReemKufi',
-                                color: Color(0xFFD4A017),
-                              ),
-                              prefixIcon: const Icon(Icons.lock_outline),
-                              enabledBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade300,
-                                  width: 1,
-                                ),
-                              ),
-                              focusedBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Your own personalized flâneur story',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'ReemKufi',
+                      fontSize: 15,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.black, width: 2.5),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black,
+                          offset: Offset(4, 4),
+                          blurRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 24,
+                      ),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            TextFormField(
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              cursorColor: const Color(0xFFD4A017),
+                              style: const TextStyle(fontFamily: 'ReemKufi'),
+                              // 禁用 iOS 输入框上方的附件栏
+                              enableSuggestions: false,
+                              autocorrect: false,
+                              decoration: InputDecoration(
+                                labelText: 'Email',
+                                labelStyle:
+                                    const TextStyle(fontFamily: 'ReemKufi'),
+                                floatingLabelStyle: const TextStyle(
+                                  fontFamily: 'ReemKufi',
                                   color: Color(0xFFD4A017),
-                                  width: 2,
+                                ),
+                                prefixIcon: const Icon(Icons.email_outlined),
+                                enabledBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade300,
+                                    width: 1,
+                                  ),
+                                ),
+                                focusedBorder: const UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Color(0xFFB8860B),
+                                    width: 2,
+                                  ),
                                 ),
                               ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Email is required';
+                                }
+                                if (!value.contains('@')) {
+                                  return 'Please enter a valid email';
+                                }
+                                return null;
+                              },
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Password is required';
-                              }
-                              if (value.length < 6) {
-                                return 'At least 6 characters';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 48,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _onLogin,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFFFE500),
-                                foregroundColor: Colors.black,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: true,
+                              cursorColor: const Color(0xFFD4A017),
+                              style: const TextStyle(fontFamily: 'ReemKufi'),
+                              // 禁用 iOS 输入框上方的附件栏
+                              enableSuggestions: false,
+                              autocorrect: false,
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                labelStyle:
+                                    const TextStyle(fontFamily: 'ReemKufi'),
+                                floatingLabelStyle: const TextStyle(
+                                  fontFamily: 'ReemKufi',
+                                  color: Color(0xFFD4A017),
+                                ),
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                enabledBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade300,
+                                    width: 1,
+                                  ),
+                                ),
+                                focusedBorder: const UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Color(0xFFD4A017),
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Password is required';
+                                }
+                                if (value.length < 6) {
+                                  return 'At least 6 characters';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _onLogin,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFFE500),
+                                  foregroundColor: Colors.black,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: const BorderSide(
+                                      color: Colors.black,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  shadowColor: Colors.transparent,
+                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.black,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Login',
+                                        style: TextStyle(
+                                          fontFamily: 'ReemKufi',
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                TextButton(
+                                  onPressed: () => context.push('/register'),
+                                  child: const Text(
+                                    'Create account',
+                                    style: TextStyle(
+                                      fontFamily: 'ReemKufi',
+                                      color: Color(0xFFD4A017),
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      context.push('/forgot-password'),
+                                  child: const Text(
+                                    'Forgot password?',
+                                    style: TextStyle(
+                                      fontFamily: 'ReemKufi',
+                                      color: Color(0xFFD4A017),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Row(
+                                children: [
+                                  const Expanded(
+                                    child: Divider(color: Color(0xFFE0E0E0)),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
+                                    child: Text(
+                                      'or',
+                                      style: TextStyle(
+                                        fontFamily: 'ReemKufi',
+                                        color: Colors.grey.shade600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                  const Expanded(
+                                    child: Divider(color: Color(0xFFE0E0E0)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: OutlinedButton.icon(
+                                icon: _isGoogleLoading
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.black,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.account_circle_outlined,
+                                        color: Colors.black,
+                                      ),
+                                onPressed:
+                                    _isGoogleLoading ? null : _onGoogleLogin,
+                                style: OutlinedButton.styleFrom(
                                   side: const BorderSide(
                                     color: Colors.black,
                                     width: 2,
                                   ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
-                                shadowColor: Colors.transparent,
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.black,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Login',
-                                      style: TextStyle(
-                                        fontFamily: 'ReemKufi',
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              TextButton(
-                                onPressed: () => context.go('/register'),
-                                child: const Text(
-                                  'Create account',
-                                  style: TextStyle(
+                                label: Text(
+                                  _isGoogleLoading
+                                      ? 'Signing in...'
+                                      : 'Continue with Google',
+                                  style: const TextStyle(
                                     fontFamily: 'ReemKufi',
-                                    color: Color(0xFFD4A017),
+                                    color: Colors.black,
                                   ),
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () => context.go('/forgot-password'),
-                                child: const Text(
-                                  'Forgot password?',
-                                  style: TextStyle(
-                                    fontFamily: 'ReemKufi',
-                                    color: Color(0xFFD4A017),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: Row(
-                              children: [
-                                const Expanded(
-                                  child: Divider(color: Color(0xFFE0E0E0)),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  child: Text(
-                                    'or',
-                                    style: TextStyle(
-                                      fontFamily: 'ReemKufi',
-                                      color: Colors.grey.shade600,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                                const Expanded(
-                                  child: Divider(color: Color(0xFFE0E0E0)),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 48,
-                            child: OutlinedButton.icon(
-                              icon: _isGoogleLoading
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.black,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.account_circle_outlined,
-                                      color: Colors.black,
-                                    ),
-                              onPressed:
-                                  _isGoogleLoading ? null : _onGoogleLogin,
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                  color: Colors.black,
-                                  width: 2,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              label: Text(
-                                _isGoogleLoading
-                                    ? 'Signing in...'
-                                    : 'Continue with Google',
-                                style: const TextStyle(
-                                  fontFamily: 'ReemKufi',
-                                  color: Colors.black,
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

@@ -179,7 +179,7 @@ function getAuthCallbackHTML(url: URL): string {
   </div>
 
   <script>
-    const APP_SCHEME = 'io.supabase.wanderlog';
+    const APP_SCHEME = 'io.supabase.vago';
     const error = ${JSON.stringify(error)};
     const errorDescription = ${JSON.stringify(errorDescription)};
     const hash = ${JSON.stringify(hash)};

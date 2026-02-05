@@ -12,6 +12,9 @@ import 'package:wanderlog/core/utils/app_router.dart';
 import 'package:wanderlog/core/network/dio_client.dart';
 import 'package:wanderlog/core/storage/storage_service.dart';
 import 'package:wanderlog/core/supabase/supabase_config.dart';
+import 'package:wanderlog/features/auth/providers/auth_provider.dart'
+    show authProvider;
+import 'package:wanderlog/features/trips/providers/spots_cache_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
@@ -78,6 +81,10 @@ class _WanderlogAppState extends ConsumerState<WanderlogApp> {
     _router = AppRouter.createRouter(ref);
     _initDeepLinks();
     _listenSupabaseAuth();
+
+    // ✅ 预热 Spots 缓存，从本地存储恢复数据
+    // 这样当用户切换到 VAGO 页面时可以立即显示缓存数据
+    ref.read(spotsCacheProvider);
   }
 
   void _listenSupabaseAuth() {
@@ -89,9 +96,34 @@ class _WanderlogAppState extends ConsumerState<WanderlogApp> {
 
     _authSub = SupabaseConfig.auth.onAuthStateChange.listen((data) {
       if (!mounted) return;
+      debugPrint(
+          '🔐 Auth event: ${data.event}, session: ${data.session != null}');
+
       if (data.event == AuthChangeEvent.passwordRecovery) {
         // User opened the Supabase recovery link.
         _router.go('/reset-password');
+      } else if (data.event == AuthChangeEvent.signedIn) {
+        // User signed in successfully (including email verification via link)
+        final user = data.session?.user;
+        if (user != null && user.emailConfirmedAt != null) {
+          // Email is verified, navigate to home
+          debugPrint('✅ Email verified, navigating to home');
+          // Refresh auth state and navigate to home
+          ref.read(authProvider.notifier).refreshAuthState();
+          _router.go('/home');
+          // Show success toast
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Registration successful! Welcome to VAGO'),
+                  backgroundColor: Color(0xFF4CAF50),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          });
+        }
       }
     });
   }

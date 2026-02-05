@@ -1,0 +1,62 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (D72vIdBwfhgNzeNJd)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: Yes
+
+📥 Fetching data from Apify Dataset: D72vIdBwfhgNzeNJd
+✅ Database connection established
+   Fetched 79 items...
+✅ Total items fetched: 79
+
+🚀 Starting import of 79 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (79 items)
+prisma:error Error in PostgreSQL connection: Error { kind: Closed, cause: None }
+prisma:error 
+Invalid `prisma.place.findUnique()` invocation in
+/Users/bahaa/Desktop/bahaa-dev-repo/wanderlog/wanderlog_api/src/services/placeMergeService.ts:75:44
+
+  72 async findExisting(item: ApifyPlaceItem): Promise<Place | null> {
+  73   // Priority 1: Search by googlePlaceId (placeId)
+  74   if (item.placeId) {
+→ 75     const byPlaceId = await prisma.place.findUnique(
+Server has closed the connection.
+   ❌ Error importing studio x kitchen: 
+Invalid `prisma.place.findUnique()` invocation in
+/Users/bahaa/Desktop/bahaa-dev-repo/wanderlog/wanderlog_api/src/services/placeMergeService.ts:75:44
+
+  72 async findExisting(item: ApifyPlaceItem): Promise<Place | null> {
+  73   // Priority 1: Search by googlePlaceId (placeId)
+  74   if (item.placeId) {
+→ 75     const byPlaceId = await prisma.place.findUnique(
+Server has closed the connection.
+   🔗 Found matching place: "Nyhavn" (score: 0.69)
+   📍 Using existing city for Nyhavn: Copenhagen
+   🌍 Using existing country for Nyhavn: Denmark
+   📍 Using existing city for Kalvebod Fælled: Copenhagen
+   🔗 Found matching place: "Freetown Christiania" (score: 0.80)
+   📍 Using existing city for Freetown Christiania: Copenhagen
+   🌍 Using existing country for Freetown Christiania: Denmark
+
+✅ Import complete!
+   Total: 79
+   Inserted: 46
+   Updated: 32
+   Skipped: 0
+   Failed: 1
+   Cities: 15
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 86.1%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+⚠️  Import completed with 1 failures.

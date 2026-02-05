@@ -1,0 +1,109 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (Rn499sBAo4BTAg6ug)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: No
+
+📥 Fetching data from Apify Dataset: Rn499sBAo4BTAg6ug
+✅ Database connection established
+   Fetched 37 items...
+✅ Total items fetched: 37
+
+🚀 Starting import of 37 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (37 items)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: La Pistoche swimming pool and bar
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Wat Manorom
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: AB Bakery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Longlai coffee
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Khopfa Mekong Cruise
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sunset viewpoint
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Blue Lagoon
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Vang Vieng Railway Station
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Wat Sensoukharam
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Her Works Luang Prabang
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Naga Creations Art Jewelry
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Saffron Coffee
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Luang Prabang morning market
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: luang vilay handicraft
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: LuLaLao Coffee
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Blue Lagoon 3
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Namfonh Restaurant
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Vela Cafe and Restaurant
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Happy Mango Thai Restaurants
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: ​ Cafe
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Green Restaurant
+   🖼️  Set Google image as coverImage: Sandwich Street
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Vangvieng Rock Backpacker Rooftop Hostel
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Luang Prabang Stadium
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: DaDa Cafe (roasters, bar, restaurant)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Wat Xiengthong
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Phousi Hill
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: THE JAM hostel Luang Prabang
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Champa Night Market
+   🌍 Reverse geocoded Kuang Si Waterfall: Luang Prabang, LA
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Kuang Si Waterfall
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Atsalin Restaurant
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Popolo Restaurant
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pa Lai Restaurant
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Le Khaoji Café & Hangout
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Le Banneton Café & French Bakery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Luang Prabang Railway Station
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Le Petit Prince Cafe
+
+✅ Import complete!
+   Total: 37
+   Inserted: 26
+   Updated: 11
+   Skipped: 0
+   Failed: 0
+   Cities: 4
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 75.7%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

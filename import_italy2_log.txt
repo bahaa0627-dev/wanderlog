@@ -1,0 +1,165 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (Grl3UB1iIGFJ05wLU)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: No
+
+📥 Fetching data from Apify Dataset: Grl3UB1iIGFJ05wLU
+✅ Database connection established
+   Fetched 67 items...
+✅ Total items fetched: 67
+
+🚀 Starting import of 67 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (67 items)
+   🔄 Using proxy for Google image
+   🔄 Using proxy for Google image
+   🔄 Using proxy for Google image
+   🔄 Using proxy for Google image
+   🔄 Using proxy for Google image
+   🔄 Using proxy for Google image
+   🔄 Using proxy for Google image
+   🔄 Using proxy for Google image
+   🔄 Using proxy for Google image
+   🌍 Reverse geocoded Gruppo delle Odle: Santa Cristina Valgardena, IT
+   🔄 Using proxy for Google image
+   🔄 Using proxy for Google image
+   🔄 Using proxy for Google image
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Church of Saint Maximilian Kolbe
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Mudec
+   🖼️  Set Google image as coverImage: Mudec
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gallaratese II Housing
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Church of Saint Nicholas of Flüe
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Decathlon Milano Cairoli
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Expo College
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Zucchero Filato
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: TheTris
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Piazzale Michelangelo
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Piazza della Repubblica
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Cathedral of Santa Maria del Fiore
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Museo di Palazzo Davanzati
+   🌍 Reverse geocoded S. Cristina, Municipio: Santa Cristina Valgardena, IT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: S. Cristina, Municipio
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bressanone/Brixen
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Castelvecchio Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Youth Hostel Brixen
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Santuario Madonna della Corona
+   🌍 Reverse geocoded Sirmione: Sirmione, IT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sirmione
+   🌍 Reverse geocoded Malcesine: Malcesine, IT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Malcesine
+   🌍 Reverse geocoded Riva del Garda: Riva del Garda, IT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Riva del Garda
+   🌍 Reverse geocoded Limone Sul Garda: Limone sul Garda, IT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Limone Sul Garda
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Castelvecchio Bridge
+   🖼️  Set Google image as coverImage: Piazza Nogara, 2
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Museum Gipsoteca Antonio Canova
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Scaliger Tombs
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Tomba Brion (Arch. Carlo Scarpa)
+   🖼️  Set Google image as coverImage: Tomba Brion (Arch. Carlo Scarpa)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Castel San Pietro
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Il Caravaggio International Airport
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Castello Scaligero di Sirmione
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bastione di Riva
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Museo Ostello
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: MMM Corones
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ostello Bello
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St. Magdalena
+   🌍 Reverse geocoded Langkofel: Selva, IT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Langkofel
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fillerhof
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pavé
+   🖼️  Set Google image as coverImage: Fallerhof
+   ⚠️  Skipping null: Missing required field: placeId, Missing required field: city, Missing required field: countryCode, Missing required field: location
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Parkhotel Post
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Panca's
+   🌍 Reverse geocoded Seiser Alm: Castelrotto, IT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Seiser Alm
+   🌍 Reverse geocoded St. Magdalena: Funes/Villnoß, IT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St. Magdalena
+   ⚠️  Skipping null: Missing required field: placeId, Missing required field: city, Missing required field: countryCode, Missing required field: location
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Tre Cime di Lavaredo - partenza del sentiero
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Punto Panoramico Dolomiti
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Seceda Cable Car
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Seilbahnen St.Ulrich - Seiser Alm
+   🌍 Reverse geocoded Santa Cristina Valgardena: Santa Cristina Valgardena, IT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Santa Cristina Valgardena
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Villnöß
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lake Braies
+   🖼️  Set Google image as coverImage: Rifugio Auronzo
+   🌍 Reverse geocoded St. Ulrich, Antoniusplatz: Castelrotto, IT
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St. Ulrich, Antoniusplatz
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Baptistery of St. John
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Seceda
+
+✅ Import complete!
+   Total: 67
+   Inserted: 49
+   Updated: 16
+   Skipped: 2
+   Failed: 0
+   Cities: 26
+   Cover Image Rate: 97.0%
+   Opening Hours Rate: 52.2%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

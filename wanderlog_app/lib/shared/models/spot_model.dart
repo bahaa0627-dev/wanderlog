@@ -54,9 +54,11 @@ class Spot {
   final double longitude;
   final String? address;
   final String? category;
+  @JsonKey(fromJson: _tagsFromJson)
   final List<String> tags;
   @JsonKey(fromJson: _openingHoursFromJson, toJson: _openingHoursToJson)
   final Map<String, dynamic>? openingHours;
+  @JsonKey(fromJson: _imagesFromJson)
   final List<String> images;
   final String? coverImage;
   final double? rating;
@@ -233,4 +235,68 @@ PlaceCustomFields? _customFieldsFromJson(dynamic value) {
 Map<String, dynamic>? _customFieldsToJson(PlaceCustomFields? value) {
   // 不需要序列化回 JSON，返回 null
   return null;
+}
+
+/// 解析 tags 字段 - 后端可能返回对象(Map)或数组(List)
+List<String> _tagsFromJson(dynamic value) {
+  if (value == null) return const [];
+  
+  // 如果是 List，正常解析
+  if (value is List) {
+    return value.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+  }
+  
+  // 如果是 Map（后端返回结构化 tags 对象），返回空数组
+  // 结构化 tags 应该通过 displayTagsEn 或 aiTags 展示
+  if (value is Map) {
+    return const [];
+  }
+  
+  // 如果是字符串，尝试解析
+  if (value is String && value.trim().isNotEmpty) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is List) {
+        return decoded.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+      }
+      if (decoded is Map) {
+        return const [];
+      }
+    } catch (_) {
+      // 解析失败，返回空数组
+      return const [];
+    }
+  }
+  
+  return const [];
+}
+
+/// 解析 images 字段 - 后端可能返回数组(List)或其他类型
+List<String> _imagesFromJson(dynamic value) {
+  if (value == null) return const [];
+  
+  // 如果是 List，正常解析
+  if (value is List) {
+    return value.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+  }
+  
+  // 如果是 Map，返回空数组
+  if (value is Map) {
+    return const [];
+  }
+  
+  // 如果是字符串，尝试解析 JSON
+  if (value is String && value.trim().isNotEmpty) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is List) {
+        return decoded.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+      }
+    } catch (_) {
+      // 解析失败，返回空数组
+      return const [];
+    }
+  }
+  
+  return const [];
 }

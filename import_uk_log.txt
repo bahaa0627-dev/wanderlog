@@ -1,0 +1,277 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (GwfYoQBwefOlTCuBX)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: No
+
+📥 Fetching data from Apify Dataset: GwfYoQBwefOlTCuBX
+✅ Database connection established
+   Fetched 100 items...
+   Fetched 106 items...
+✅ Total items fetched: 106
+
+🚀 Starting import of 106 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/2 (100 items)
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Parliament Hill Viewpoint
+   🖼️  Set Google image as coverImage: Parliament Hill Viewpoint
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Richmond Park
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Ham House and Garden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Dr Thomas Chalmers statue
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: New College, The University of Edinburgh
+   🌍 Reverse geocoded Victoria St: Edinburgh, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Victoria St
+   🌍 Reverse geocoded Cockburn St: Edinburgh, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Cockburn St
+   🔗 Found matching place: "Calton Hill" (score: 0.80)
+   📍 Using existing city for Calton Hill: Edinburgh
+   🌍 Using existing country for Calton Hill: United Kingdom
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Calton Hill
+   🖼️  Set Google image as coverImage: Calton Hill
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Royal Mile
+   🌍 Reverse geocoded Arthur's Seat: Edinburgh, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Arthur's Seat
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Vennel Viewpoint Edinburgh Castle
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Howies Victoria Street
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Greenwoods Edinburgh
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Mussel Inn Seafood Restaurant
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: National Galleries of Scotland: National
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Princes Street Gardens
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Noto
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Eltham Palace
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Scottish Parliament Building
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Starbucks Coffee
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: St Giles' Cathedral
+   🖼️  Set Google image as coverImage: St Giles' Cathedral
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Cafe OTO
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Charleston in Lewes
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pharmacie Coffee Roasters
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Alexandra & Ainsworth Estate
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Taith Coffee
+   🌍 Reverse geocoded Hastings: Hastings, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hastings
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Butler's Emporium
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Warp & Weft
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: West Hill
+   🌍 Reverse geocoded Bibury: Bibury, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bibury
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: A G Hendy & Co
+   🌍 Reverse geocoded Rye: Bexhill-on-Sea, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Rye
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St Margaret's Beach
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Scottish Seabird Centre
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Advocate's Close
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Edinburgh Castle
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Edinburgh Airport
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Beach House
+   🌍 Reverse geocoded Waverley Bridge: Edinburgh, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Waverley Bridge
+   🌍 Reverse geocoded Princes St.: Edinburgh, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Princes St.
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Scott Monument
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St Paul’s, Bow Common
+   🌍 Reverse geocoded St Andrew Sq: Edinburgh, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St Andrew Sq
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: National Museum of Scotland
+   🌍 Reverse geocoded Bourton-on-the-Water: Bourton on the Water, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Bourton-on-the-Water
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Layla Bakery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: WatchHouse Covent Garden
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: BRAT Restaurant
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hatchards
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Don't Tell Dad
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Arôme Bakery - Mercer Street
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Toklas Bakery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Primrose Hill Books
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Aux Merveilleux de Fred
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Borough Market
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Buns From Home
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Kiss the Hippo Coffee
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Special Guests Coffee
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St. JOHN Bakery Neal's Yard
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Calico Coffee
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Liv & Dom
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pitt Rivers Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: BLAS
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: University of Oxford
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Christ Church
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Ashmolean Museum
+   🖼️  Set Google image as coverImage: Ashmolean Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lloyd's building
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Farleys House & Gallery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: King's Cross
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Blackwell's Bookshop
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: The National Gallery
+   🖼️  Set Google image as coverImage: The National Gallery
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Victoria and Albert Museum
+   🖼️  Set Google image as coverImage: Victoria and Albert Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Prufrock Coffee
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: V&A East Storehouse
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Oxford University Museum of Natural History
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Merchant & Mills
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Glenfinnan Viaduct
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: National Theatre
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Tate Modern
+   🖼️  Set Google image as coverImage: Tate Modern
+   🌍 Reverse geocoded Lincoln: Lincoln, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lincoln
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Natural History Museum
+   🖼️  Set Google image as coverImage: Natural History Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Daunt Books Marylebone
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Serpentine North Gallery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Daunt Books
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Brunswick Centre
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Standard, London
+   🔄 Using proxy for Google image
+   🖼️  Moved old coverImage to images array: Barbican Centre
+   🖼️  Set Google image as coverImage: Barbican Centre
+   🌍 Reverse geocoded Cambridge: Cambridge, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Cambridge
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: National Trust - Monk's House
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Sir John Soane's Museum
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Dusty Knuckle - Highbury Van
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: St Giles London - A St Giles Hotel
+   🌍 Reverse geocoded White Cliffs of Dover: Dover, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: White Cliffs of Dover
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pophams
+   🌍 Reverse geocoded Stamford: Stamford, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Stamford
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: London
+   🌍 Reverse geocoded Oxford: Oxford, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Oxford
+   🌍 Reverse geocoded Edinburgh: Edinburgh, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Edinburgh
+
+📦 Processing batch 2/2 (6 items)
+   🌍 Reverse geocoded The Cotswolds: Coln St. Aldwyns, GB
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: The Cotswolds
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fortitude Bakehouse
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Battersea Power Station
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Charleston
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Vinoteca Farringdon
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Queen Elizabeth Hall
+
+✅ Import complete!
+   Total: 106
+   Inserted: 81
+   Updated: 25
+   Skipped: 0
+   Failed: 0
+   Cities: 17
+   Cover Image Rate: 99.1%
+   Opening Hours Rate: 68.9%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

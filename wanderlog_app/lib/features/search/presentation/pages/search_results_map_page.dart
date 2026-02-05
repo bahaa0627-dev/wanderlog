@@ -325,6 +325,18 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
               _getCityDefaultCenter(_currentCity, _currentCountry);
         }
       });
+
+      // 搜索完成后，自动移动地图到第一个结果位置
+      if (_spots.isNotEmpty && _selectedSpot != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _animateCamera(
+              Position(_selectedSpot!.longitude, _selectedSpot!.latitude),
+              zoom: 13.0,
+            );
+          }
+        });
+      }
     } catch (e) {
       print('❌ Search error: $e');
       setState(() {

@@ -1,0 +1,41 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (D72vIdBwfhgNzeNJd)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: Yes
+
+📥 Fetching data from Apify Dataset: D72vIdBwfhgNzeNJd
+✅ Database connection established
+   Fetched 79 items...
+✅ Total items fetched: 79
+
+🚀 Starting import of 79 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (79 items)
+   📍 Using existing city for Nyhavn: Copenhagen
+   🌍 Using existing country for Nyhavn: Denmark
+   📍 Using existing city for Kalvebod Fælled: Copenhagen
+   🔗 Found matching place: "Freetown Christiania" (score: 0.80)
+   📍 Using existing city for Freetown Christiania: Copenhagen
+   🌍 Using existing country for Freetown Christiania: Denmark
+
+✅ Import complete!
+   Total: 79
+   Inserted: 3
+   Updated: 76
+   Skipped: 0
+   Failed: 0
+   Cities: 15
+   Cover Image Rate: 100.0%
+   Opening Hours Rate: 86.1%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

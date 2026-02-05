@@ -87,29 +87,36 @@ final dioProvider = Provider<Dio>((ref) {
         logger.d('Response: ${response.statusCode}');
         return handler.next(response);
       },
-      onError: (error, handler) {
+      onError: (error, handler) async {
         // Extract detailed error information
         String errorDetails = 'Unknown error';
-        
+
         final dioError = error;
         final requestPath = dioError.requestOptions.path;
         final requestMethod = dioError.requestOptions.method;
         final statusCode = dioError.response?.statusCode;
         final statusMessage = dioError.response?.statusMessage;
-        
+
+        // 处理 401 未授权错误：清除无效的 token
+        if (statusCode == 401) {
+          logger.w('401 Unauthorized - clearing invalid auth token');
+          await StorageService.instance.deleteSecure('auth_token');
+        }
+
         // Build detailed error message
         final buffer = StringBuffer();
         buffer.writeln('DioException: ${dioError.type}');
         buffer.writeln('Request: $requestMethod $requestPath');
-        
+
         if (statusCode != null) {
           buffer.writeln('Status: $statusCode $statusMessage');
         }
-        
+
         // Handle specific error types
         switch (dioError.type) {
           case DioExceptionType.connectionTimeout:
-            buffer.writeln('Connection timeout - server may be down or unreachable');
+            buffer.writeln(
+                'Connection timeout - server may be down or unreachable');
             break;
           case DioExceptionType.sendTimeout:
             buffer.writeln('Send timeout - network may be slow');
@@ -126,12 +133,14 @@ final dioProvider = Provider<Dio>((ref) {
           case DioExceptionType.connectionError:
             final errorMessage = dioError.message ?? 'Unknown connection error';
             buffer.writeln('Connection error: $errorMessage');
-            if (errorMessage.contains('Failed host lookup') || 
+            if (errorMessage.contains('Failed host lookup') ||
                 errorMessage.contains('nodename nor servname provided')) {
-              buffer.writeln('⚠️ DNS resolution failed - check internet connection');
+              buffer.writeln(
+                  '⚠️ DNS resolution failed - check internet connection');
             } else if (errorMessage.contains('Connection refused') ||
-                       errorMessage.contains('Connection closed')) {
-              buffer.writeln('⚠️ Server unreachable - ensure backend is running');
+                errorMessage.contains('Connection closed')) {
+              buffer
+                  .writeln('⚠️ Server unreachable - ensure backend is running');
             }
             break;
           case DioExceptionType.badCertificate:
@@ -145,9 +154,9 @@ final dioProvider = Provider<Dio>((ref) {
             }
             break;
         }
-        
+
         errorDetails = buffer.toString();
-              
+
         logger.e(errorDetails);
         return handler.next(error);
       },

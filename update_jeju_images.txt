@@ -1,0 +1,100 @@
+✅ DATABASE_URL is configured
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     APIFY PLACES IMPORT                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 Configuration:
+   Source:      Dataset (2HMXH1Kj8dtVCDUey)
+   Mode:        LIVE
+   Batch Size:  100
+   Skip Images: No
+
+📥 Fetching data from Apify Dataset: 2HMXH1Kj8dtVCDUey
+✅ Database connection established
+   Fetched 32 items...
+✅ Total items fetched: 32
+
+🚀 Starting import of 32 items (batch size: 100, dry-run: false)
+
+📦 Processing batch 1/1 (32 items)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Team Blow
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gamttanam (orange picking)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: 중문대포 주상절리
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: MAEUM EON
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Chilseonglo
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hyeopjae Beach
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: 동문재래시장
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Coffee Nap Roasters Jeju
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Pardar
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Muroi
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gueom Stone Salt Flats
+   📍 Using existing city for 11 Tapdong-ro: Jeju City
+   🌍 Using existing country for 11 Tapdong-ro: South Korea
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Gluttony Coffee
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: SLOWBOAT Atelier
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Danish Bakery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Audrant Bakery
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: 제주상공회의소
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Jeju Olle Trail - Route 07-1 (Seogwipo Terminal - Jeju Olle Tourist Center)
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Lee Jung Seop Street
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Byronic Espresso Bar Jeju Branch
+   🖼️  Set Google image as coverImage: Mir Guesthouse
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: CU 제주용두암점
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Cafe Gyulkkot Darak
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Yumin Art Nouveau Collection
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Fritz Coffee Company Jeju Seongsan
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Jeju World Cup Stadium
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Seopjikoji
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: 소금빵까페 키친오즈 Kitchen OZ
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Seogwipo Forest of Healing
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: 해녀의집
+   📍 Using existing city for Hamdeok Beach: Jeju City
+   🌍 Using existing country for Hamdeok Beach: South Korea
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: Hamdeok Beach
+   🔄 Using proxy for Google image
+   🖼️  Set Google image as coverImage: NOMUARE
+
+✅ Import complete!
+   Total: 32
+   Inserted: 0
+   Updated: 32
+   Skipped: 0
+   Failed: 0
+   Cities: 3
+   Cover Image Rate: 96.9%
+   Opening Hours Rate: 81.3%
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           IMPORT COMPLETE                                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+

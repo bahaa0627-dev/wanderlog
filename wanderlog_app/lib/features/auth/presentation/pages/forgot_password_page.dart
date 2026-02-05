@@ -20,14 +20,14 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   bool _isLoading = false;
-  
+
   // Task 3.1: Email sent state
   bool _emailSent = false;
-  
+
   // Task 3.2: Resend countdown state
   int _resendCountdown = 0;
   Timer? _countdownTimer;
-  
+
   // Countdown duration in seconds
   static const int _countdownDuration = 60;
 
@@ -43,7 +43,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
     setState(() {
       _resendCountdown = _countdownDuration;
     });
-    
+
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_resendCountdown > 0) {
@@ -59,7 +59,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   // Task 3.2: Resend email method
   Future<void> _resendEmail() async {
     if (_resendCountdown > 0) return;
-    
+
     setState(() => _isLoading = true);
 
     try {
@@ -139,7 +139,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
           _emailSent = true;
         });
         _startResendCountdown();
-        
+
         CustomToast.showSuccess(
           context,
           'Password reset link sent to your email',
@@ -168,7 +168,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.go('/login'),
+            onPressed: () => context.pop(),
           ),
           title: const Text('Forgot Password'),
         ),
@@ -214,7 +214,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   Future<void> _openEmailProvider() async {
     final email = _emailController.text.trim();
     final url = _getEmailProviderUrl(email);
-    
+
     if (url != null) {
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
@@ -302,7 +302,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   Widget _buildOpenEmailButton() {
     final email = _emailController.text.trim();
     final hasProvider = _getEmailProviderUrl(email) != null;
-    
+
     return SizedBox(
       height: 48,
       child: ElevatedButton(
@@ -330,7 +330,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   // Task 3.2: Resend button with countdown UI - Yellow text button
   Widget _buildResendButton() {
     final bool canResend = _resendCountdown == 0 && !_isLoading;
-    
+
     return TextButton(
       onPressed: canResend ? _resendEmail : null,
       child: _isLoading
@@ -348,9 +348,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                   : 'Resend the Email',
               style: TextStyle(
                 fontFamily: 'ReemKufi',
-                color: canResend 
-                    ? const Color(0xFFD4A017)
-                    : Colors.grey,
+                color: canResend ? const Color(0xFFD4A017) : Colors.grey,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -418,7 +416,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                   hintText: 'your@email.com',
                   prefixIcon: const Icon(Icons.email_outlined),
                   enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+                    borderSide:
+                        BorderSide(color: Colors.grey.shade300, width: 1),
                   ),
                   focusedBorder: const UnderlineInputBorder(
                     borderSide: BorderSide(color: Color(0xFFB8860B), width: 2),

@@ -206,10 +206,10 @@ class _MinePageState extends ConsumerState<MinePage> {
     print('  - visitedSpots: ${data.visitedSpots.length}');
 
     const pinnedHeaderHeight = 72.0;
-    const pinnedStatsHeight = 68.0;
-    const mapHeight = 220.0;
-    const mapPadding = EdgeInsets.fromLTRB(16, 12, 16, 12);
-    const mapSectionMaxExtent = mapHeight + 12 + 12;
+    const pinnedStatsHeight = 58.0;
+    const mapHeight = 180.0;
+    const mapPadding = EdgeInsets.fromLTRB(16, 6, 16, 6);
+    const mapSectionMaxExtent = mapHeight + 6 + 6;
 
     final mapSection = SizedBox(
       height: mapSectionMaxExtent,
@@ -250,7 +250,7 @@ class _MinePageState extends ConsumerState<MinePage> {
                 height: pinnedStatsHeight,
                 child: Container(
                   color: AppTheme.background,
-                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
                   child: _buildCategorySummaryCard(context, data),
                 ),
               ),
@@ -267,6 +267,9 @@ class _MinePageState extends ConsumerState<MinePage> {
               maxExtentHeight: mapSectionMaxExtent,
             ),
           ),
+
+          // Spacing between map and photo wall (same as spacing above map)
+          const SliverToBoxAdapter(child: SizedBox(height: 6)),
 
           // Photo wall section
           SliverToBoxAdapter(
@@ -323,7 +326,7 @@ class _MinePageState extends ConsumerState<MinePage> {
 
   Widget _buildCategorySummaryCard(BuildContext context, MinePageData data) =>
       SizedBox(
-        height: 52,
+        height: 48,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: AppTheme.lightYellow,

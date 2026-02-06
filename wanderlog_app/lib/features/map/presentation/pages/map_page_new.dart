@@ -396,6 +396,7 @@ class _MapPageState extends ConsumerState<MapPage> {
   bool _isLoadingTaggedSpots = false; // 标签筛选加载状态
   bool _isSearching = false; // 搜索加载状态
   final FocusNode _searchFocusNode = FocusNode(); // 搜索框焦点
+  bool _isMarkerTapScroll = false; // marker 点击触发的卡片滚动，不移动相机
 
   Map<String, List<Spot>> _spotsByCity = const <String, List<Spot>>{};
   List<String> _availableCities = const <String>[];
@@ -529,6 +530,10 @@ class _MapPageState extends ConsumerState<MapPage> {
 
     // 如果已经全屏，更新选中的spot
     final newCarousel = _computeNearbySpots(spot);
+    
+    // 设置 marker 点击标志，避免 onPageChanged 移动相机
+    _isMarkerTapScroll = true;
+    
     setState(() {
       _selectedSpot = spot;
       _carouselSpots = newCarousel;
@@ -536,31 +541,8 @@ class _MapPageState extends ConsumerState<MapPage> {
     });
     _jumpToPage(0);
 
-    final target = Position(spot.longitude, spot.latitude);
-    final mapState = _mapKey.currentState;
-    if (mapState == null) {
-      _animateCamera(target, zoom: math.max(_currentZoom, 14.0));
-      return;
-    }
-
-    final mq = MediaQuery.of(context);
-    final double topPaddingPx =
-        mq.padding.top + 160.0; // matches top gradient height
-    final double bottomPaddingPx =
-        _carouselSpots.isNotEmpty ? (32.0 + 240.0) : 0.0; // carousel overlay
-
-    mapState
-        .isPositionWithinVerticalSafeArea(
-      target,
-      topPaddingPx: topPaddingPx,
-      bottomPaddingPx: bottomPaddingPx,
-    )
-        .then((isSafe) {
-      if (!isSafe) {
-        _animateCamera(target, zoom: math.max(_currentZoom, 14.0));
-      }
-    });
-
+    // 点击 marker 时不移动相机
+    // 用户能点击到 marker 说明已经能看到，不需要调整位置
     // 共享组件会自动通过 didUpdateWidget 更新标记
   }
 
@@ -1013,10 +995,25 @@ class _MapPageState extends ConsumerState<MapPage> {
                       return;
                     }
                     final spot = carouselSpots[index];
+                    
+                    // 只有真正变化时才更新状态
+                    final spotChanged = _selectedSpot?.id != spot.id;
+                    if (!spotChanged && _currentCardIndex == index) {
+                      return;
+                    }
+                    
                     setState(() {
                       _currentCardIndex = index;
                       _selectedSpot = spot;
                     });
+                    
+                    // 如果是 marker 点击触发的卡片滚动，不移动相机
+                    if (_isMarkerTapScroll) {
+                      _isMarkerTapScroll = false;
+                      return;
+                    }
+                    
+                    // 用户手动滑动卡片时才移动相机
                     _animateCamera(
                       Position(spot.longitude, spot.latitude),
                     );

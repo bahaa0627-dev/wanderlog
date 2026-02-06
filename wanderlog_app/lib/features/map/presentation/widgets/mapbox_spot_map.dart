@@ -76,6 +76,7 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
   bool _isMapReady = false; // 地图是否已准备好
   bool _isRefreshingMarker = false; // 是否正在刷新标记
   String? _pendingSelectedId; // 待处理的选中 ID
+  bool _markerClickLocked = false; // marker 点击锁定，忽略 widget 更新
 
   Position? get currentCenter => _currentCenter;
   double get currentZoom => _currentZoom;
@@ -110,6 +111,17 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       print('📍 [共享地图] spots 列表变化，重建所有标记');
       _addNativeMarkers();
     } else if (selectionChanged) {
+      // 如果 marker 点击锁定中，检查是否可以解锁
+      if (_markerClickLocked) {
+        // 当 widget.selectedSpot 与 _lastSelectedSpotId 一致时解锁
+        if (widget.selectedSpot?.id == _lastSelectedSpotId) {
+          print('📍 [共享地图] marker 锁定解除: ${widget.selectedSpot?.id}');
+          _markerClickLocked = false;
+        } else {
+          print('📍 [共享地图] marker 锁定中，忽略 widget 更新');
+        }
+        return;
+      }
       print(
           '📍 [共享地图] 选中变化: ${oldWidget.selectedSpot?.id} -> ${widget.selectedSpot?.id}',);
       _refreshSelectedMarker();
@@ -241,6 +253,13 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
             onMarkerTap: widget.onSpotTap,
             annotationSpotResolver: (annotationId) =>
                 _spotByAnnotationId[annotationId],
+            // 点击 marker 时立即刷新状态，避免等待卡片滚动
+            onImmediateSelect: (spotId) {
+              // 开启锁定，忽略后续的 widget 更新
+              _markerClickLocked = true;
+              // 立即刷新 marker 状态
+              _refreshSelectedMarkerById(spotId);
+            },
           ),
         );
         _markerClickListenerAttached = true;
@@ -369,45 +388,15 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
     try {
       final oldSelectedId = _lastSelectedSpotId;
 
+      // 如果选中的是同一个，直接返回
+      if (oldSelectedId == newSelectedId) {
+        return;
+      }
+
       // 先更新状态，防止重复处理
       _lastSelectedSpotId = newSelectedId;
 
-      // 还原旧的选中标记（删除并重建为普通样式）
-      if (oldSelectedId != null &&
-          oldSelectedId != newSelectedId &&
-          _annotationsBySpotId.containsKey(oldSelectedId)) {
-        // 只有当旧的 spot 还在当前列表中时才还原
-        final previousSpotIndex =
-            widget.spots.indexWhere((s) => s.id == oldSelectedId);
-        if (previousSpotIndex != -1) {
-          final previousSpot = widget.spots[previousSpotIndex];
-          final oldAnnotation = _annotationsBySpotId[oldSelectedId];
-
-          if (oldAnnotation != null) {
-            print('📍 [共享地图] 还原旧标记: ${previousSpot.name}');
-
-            // 删除旧标记并重建为普通样式
-            await manager.delete(oldAnnotation);
-            _spotByAnnotationId.remove(oldAnnotation.id);
-
-            final restored =
-                await _createAnnotation(previousSpot, isSelected: false);
-            _annotationsBySpotId[oldSelectedId] = restored;
-            _spotByAnnotationId[restored.id] = previousSpot;
-          }
-        } else {
-          // 旧的 spot 不在当前列表中，只需删除其标记
-          final oldAnnotation = _annotationsBySpotId[oldSelectedId];
-          if (oldAnnotation != null) {
-            print('📍 [共享地图] 删除不在列表中的旧标记: $oldSelectedId');
-            await manager.delete(oldAnnotation);
-            _spotByAnnotationId.remove(oldAnnotation.id);
-            _annotationsBySpotId.remove(oldSelectedId);
-          }
-        }
-      }
-
-      // 更新新选中标记的样式并提升到最上层
+      // 1. 首先创建新选中标记的样式（优先，让用户立即看到反馈）
       final newSpotIndex =
           widget.spots.indexWhere((s) => s.id == newSelectedId);
       if (newSpotIndex == -1) {
@@ -416,22 +405,49 @@ class MapboxSpotMapState extends State<MapboxSpotMap> {
       }
 
       final newSpot = widget.spots[newSpotIndex];
-      final existing = _annotationsBySpotId[newSelectedId];
+      final existingNew = _annotationsBySpotId[newSelectedId];
 
       print('📍 [共享地图] 选中新标记: ${newSpot.name}');
 
-      if (existing != null) {
-        // 删除并重新创建以确保在最上层
-        await manager.delete(existing);
-        _spotByAnnotationId.remove(existing.id);
-      }
-
+      // 先创建新的选中标记
       final selectedAnnotation =
           await _createAnnotation(newSpot, isSelected: true);
       _annotationsBySpotId[newSelectedId] = selectedAnnotation;
       _spotByAnnotationId[selectedAnnotation.id] = newSpot;
 
+      // 然后删除旧的未选中版本（这样不会出现闪动）
+      if (existingNew != null) {
+        await manager.delete(existingNew);
+        _spotByAnnotationId.remove(existingNew.id);
+      }
+
       print('✅ [共享地图] 选中标记刷新完成: $newSelectedId');
+
+      // 2. 立即还原旧的选中标记为未选中状态
+      if (oldSelectedId != null &&
+          oldSelectedId != newSelectedId &&
+          _annotationsBySpotId.containsKey(oldSelectedId)) {
+        final previousSpotIndex =
+            widget.spots.indexWhere((s) => s.id == oldSelectedId);
+        if (previousSpotIndex != -1) {
+          final previousSpot = widget.spots[previousSpotIndex];
+          final oldAnnotation = _annotationsBySpotId[oldSelectedId];
+
+          if (oldAnnotation != null) {
+            print('📍 [共享地图] 还原旧标记为未选中: ${previousSpot.name}');
+
+            // 先创建新的未选中版本
+            final restored =
+                await _createAnnotation(previousSpot, isSelected: false);
+            _annotationsBySpotId[oldSelectedId] = restored;
+            _spotByAnnotationId[restored.id] = previousSpot;
+
+            // 然后删除旧的选中版本
+            await manager.delete(oldAnnotation);
+            _spotByAnnotationId.remove(oldAnnotation.id);
+          }
+        }
+      }
     } catch (e) {
       print('⚠️ [共享地图] 刷新选中标记失败: $e');
     }
@@ -1171,14 +1187,19 @@ class _MarkerClickListener extends OnPointAnnotationClickListener {
   _MarkerClickListener({
     required this.onMarkerTap,
     required this.annotationSpotResolver,
+    this.onImmediateSelect,
   });
   final void Function(Spot) onMarkerTap;
   final Spot? Function(String annotationId) annotationSpotResolver;
+  /// 点击时立即选中 marker（在触发 onMarkerTap 之前）
+  final void Function(String spotId)? onImmediateSelect;
 
   @override
   void onPointAnnotationClick(PointAnnotation annotation) {
     final spot = annotationSpotResolver(annotation.id);
     if (spot != null) {
+      // 先立即刷新 marker 状态，再触发外部回调
+      onImmediateSelect?.call(spot.id);
       onMarkerTap(spot);
     }
   }

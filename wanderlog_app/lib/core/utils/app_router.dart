@@ -17,10 +17,10 @@ import 'package:wanderlog/features/map/presentation/pages/map_view_page.dart';
 class AppRouter {
   AppRouter._();
 
-  static final _rootNavigatorKey = GlobalKey<NavigatorState>();
+  static final rootNavigatorKey = GlobalKey<NavigatorState>();
 
   static GoRouter createRouter(WidgetRef ref) => GoRouter(
-        navigatorKey: _rootNavigatorKey,
+        navigatorKey: rootNavigatorKey,
         initialLocation: '/home',
         // 移除认证重定向，允许访问所有页面
         redirect: (context, state) {

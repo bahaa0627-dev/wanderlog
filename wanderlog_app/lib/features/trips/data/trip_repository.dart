@@ -96,6 +96,8 @@ class TripRepository {
     List<String>? userPhotos,
     Map<String, dynamic>? spotPayload,
     bool remove = false,
+    // 清除 check-in 数据（保留收藏、mustGo、todaysPlan）
+    bool clearCheckIn = false,
     // 旧字段（兼容，将被废弃）
     @Deprecated('Use isSaved/isVisited/isTodaysPlan instead')
     TripSpotStatus? status,
@@ -108,6 +110,10 @@ class TripRepository {
 
       if (remove) {
         data['remove'] = true;
+      }
+
+      if (clearCheckIn) {
+        data['clearCheckIn'] = true;
       }
 
       // 新的布尔字段

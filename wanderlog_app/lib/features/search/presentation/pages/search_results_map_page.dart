@@ -75,6 +75,7 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
 
   List<Spot> _spots = [];
   List<Spot> _cachedFilteredSpots = []; // 缓存过滤后的 spots
+  List<Spot> _carouselSpots = []; // 卡片列表（按距离排序）
   Spot? _selectedSpot;
   int _currentCardIndex = 0;
   bool _isLoading = true;
@@ -411,38 +412,55 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
 
   // 标记是否由 marker 点击触发的卡片滚动，避免触发相机移动
   bool _isMarkerTapScroll = false;
-  // 记录 marker 点击滚动的目标 index，用于在动画过程中持续判断
-  int? _markerTapTargetIndex;
 
   void _handleSpotTap(Spot spot) {
-    final filteredSpots = _filteredSpots;
-    final index = filteredSpots.indexOf(spot);
-    if (index >= 0) {
-      // 标记这是 marker 点击触发的滚动，记录目标 index
-      _isMarkerTapScroll = true;
-      _markerTapTargetIndex = index;
+    // 重新计算卡片列表，让被点击的地点在第一位
+    final newCarousel = _computeNearbySpots(spot);
+    
+    _isMarkerTapScroll = true;
+    
+    setState(() {
+      _selectedSpot = spot;
+      _carouselSpots = newCarousel;
+      _currentCardIndex = 0;
+    });
+    
+    // 直接跳转到第一个位置
+    _jumpToPage(0);
+  }
 
-      setState(() {
-        _selectedSpot = spot;
-        _currentCardIndex = index;
-      });
+  /// 计算按距离排序的地点列表，被点击的地点在第一位
+  List<Spot> _computeNearbySpots(Spot anchor) {
+    final spots = _filteredSpots;
+    if (spots.isEmpty) return const [];
+    
+    final sorted = List<Spot>.from(spots)
+      ..sort((a, b) => _distanceBetween(
+        a.latitude, a.longitude, anchor.latitude, anchor.longitude,
+      ).compareTo(_distanceBetween(
+        b.latitude, b.longitude, anchor.latitude, anchor.longitude,
+      )));
+    
+    return sorted;
+  }
 
-      // 直接调用地图的方法更新 marker 样式，不触发重建
-      _mapKey.currentState?.updateSelectedSpot(spot);
+  double _distanceBetween(double lat1, double lng1, double lat2, double lng2) {
+    const radius = 6371000.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) *
+        math.sin(dLng / 2) * math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return radius * c;
+  }
 
-      // 只滚动卡片
-      _cardPageController
-          .animateToPage(
-        index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      )
-          .then((_) {
-        // 动画完成后重置标记
-        _isMarkerTapScroll = false;
-        _markerTapTargetIndex = null;
-      });
-    }
+  void _jumpToPage(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_cardPageController.hasClients) {
+        _cardPageController.jumpToPage(index);
+      }
+    });
   }
 
   void _animateCamera(Position target, {double? zoom}) {
@@ -745,14 +763,6 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     _jumpToPage(0);
   }
 
-  void _jumpToPage(int index) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_cardPageController.hasClients) {
-        _cardPageController.jumpToPage(index);
-      }
-    });
-  }
-
   String _tagEmoji(String tag) {
     switch (tag.toLowerCase()) {
       case 'architecture':
@@ -906,6 +916,8 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
     final mediaQuery = MediaQuery.of(context);
     final topPadding = mediaQuery.padding.top;
     final filteredSpots = _filteredSpots;
+    // 使用 _carouselSpots 如果已设置，否则使用 filteredSpots
+    final carouselSpots = _carouselSpots.isNotEmpty ? _carouselSpots : filteredSpots;
 
     return WillPopScope(
       onWillPop: () async {
@@ -1166,20 +1178,12 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                   controller: _cardPageController,
                   clipBehavior: Clip.none,
                   onPageChanged: (index) {
-                    if (index >= filteredSpots.length) return;
-                    final spot = filteredSpots[index];
+                    if (index >= carouselSpots.length) return;
+                    final spot = carouselSpots[index];
 
-                    // marker 点击触发的滚动，不移动相机，不重建地图
+                    // marker 点击触发的滚动，不移动相机
                     if (_isMarkerTapScroll) {
-                      setState(() {
-                        _currentCardIndex = index;
-                        _selectedSpot = spot;
-                      });
-                      // 到达目标 index 后才重置标记
-                      if (index == _markerTapTargetIndex) {
-                        _isMarkerTapScroll = false;
-                        _markerTapTargetIndex = null;
-                      }
+                      _isMarkerTapScroll = false;
                       return;
                     }
 
@@ -1195,9 +1199,9 @@ class _SearchResultsMapPageState extends ConsumerState<SearchResultsMapPage> {
                     // 移动相机到选中的地点
                     _animateCamera(Position(spot.longitude, spot.latitude));
                   },
-                  itemCount: filteredSpots.length,
+                  itemCount: carouselSpots.length,
                   itemBuilder: (context, index) {
-                    final spot = filteredSpots[index];
+                    final spot = carouselSpots[index];
                     final isCenter = index == _currentCardIndex;
                     return AnimatedScale(
                       scale: isCenter ? 1.0 : 0.92,

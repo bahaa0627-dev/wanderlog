@@ -69,6 +69,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
   final FocusNode _searchFocusNode = FocusNode();
   int _currentCardIndex = 0;
   List<map_page.Spot> _mapSpots = [];
+  List<map_page.Spot> _carouselSpots = []; // 卡片列表（按距离排序）
   List<map_page.Spot> _searchResultSpots = []; // 搜索结果
   map_page.Spot? _selectedSpot;
   bool _skipNextRecenter = false;
@@ -346,7 +347,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     if (!_cardPageController.hasClients) return;
 
     final page = _cardPageController.page?.round();
-    final spots = _filteredSpots;
+    final spots = _carouselSpots.isNotEmpty ? _carouselSpots : _filteredSpots;
     if (page != null && page != _currentCardIndex && page < spots.length) {
       final spot = spots[page];
       setState(() {
@@ -386,38 +387,53 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
   }
 
   void _handleSpotTap(map_page.Spot spot) {
-    final spots = _filteredSpots;
-    final spotIndex = spots.indexOf(spot);
-    if (spotIndex == -1) return;
-
-    setState(() => _selectedSpot = spot);
+    // 重新计算卡片列表，让被点击的地点在第一位
+    final newCarousel = _computeNearbySpots(spot);
+    
     _skipNextRecenter = true;
+    
+    setState(() {
+      _selectedSpot = spot;
+      _carouselSpots = newCarousel;
+      _currentCardIndex = 0;
+    });
+    
+    // 直接跳转到第一个位置
+    _jumpToPage(0);
+  }
 
-    // Only recenter if the marker is likely obscured by the top chrome or
-    // bottom cards. If it's in the safe band, selecting should not move camera.
-    final mapState = _mapKey.currentState;
-    if (mapState != null) {
-      final target = Position(spot.longitude, spot.latitude);
-      mapState
-          .isPositionWithinVerticalSafeArea(
-        target,
-        topPaddingPx: 200,
-        bottomPaddingPx: 320,
-      )
-          .then((isSafe) {
-        if (!isSafe) {
-          mapState.animateCamera(target);
-        }
-      });
-    }
+  /// 计算按距离排序的地点列表，被点击的地点在第一位
+  List<map_page.Spot> _computeNearbySpots(map_page.Spot anchor) {
+    final spots = _filteredSpots;
+    if (spots.isEmpty) return const [];
+    
+    final sorted = List<map_page.Spot>.from(spots)
+      ..sort((a, b) => _distanceBetween(
+        a.latitude, a.longitude, anchor.latitude, anchor.longitude,
+      ).compareTo(_distanceBetween(
+        b.latitude, b.longitude, anchor.latitude, anchor.longitude,
+      )));
+    
+    return sorted;
+  }
 
-    if (spotIndex != _currentCardIndex) {
-      _cardPageController.animateToPage(
-        spotIndex,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
+  double _distanceBetween(double lat1, double lng1, double lat2, double lng2) {
+    const radius = 6371000.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) *
+        math.sin(dLng / 2) * math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return radius * c;
+  }
+
+  void _jumpToPage(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_cardPageController.hasClients) {
+        _cardPageController.jumpToPage(index);
+      }
+    });
   }
 
   void _showSpotDetail(map_page.Spot spot) async {
@@ -759,6 +775,8 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
     final cityCenter = _getCenter();
     final allTags = _getAllUniqueTags();
     final spots = _filteredSpots;
+    // 使用 _carouselSpots 如果已设置，否则使用 spots
+    final carouselSpots = _carouselSpots.isNotEmpty ? _carouselSpots : spots;
 
     return WillPopScope(
       onWillPop: () async {
@@ -832,7 +850,7 @@ class _MyLandSpotsMapPageState extends ConsumerState<MyLandSpotsMapPage> {
                 bottom: 32, // 与 map_page_new.dart 保持一致
                 left: 0,
                 right: 0,
-                child: _buildBottomCards(spots),
+                child: _buildBottomCards(carouselSpots),
               ),
 
             // 空状态

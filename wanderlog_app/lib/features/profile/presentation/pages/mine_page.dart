@@ -832,11 +832,15 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
 
   map_page.Spot? _selectedSpot;
   List<map_page.Spot> _filteredSpots = [];
+
+  /// 卡片列表 - 按距离排序，被点击的 spot 在第一位
+  List<map_page.Spot> _carouselSpots = [];
   String? _selectedCity;
   String? _selectedCountry;
   final Set<String> _selectedTags = {};
   int _currentCardIndex = 0;
   bool _isExiting = false; // 标记是否正在退出
+  bool _skipNextRecenter = false; // marker点选后，不移动相机
 
   // 防抖字段
   String? _lastClickedSpotId;
@@ -872,7 +876,8 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
     _carouselController = PageController(viewportFraction: 0.55);
     // widget.spots is already sorted by visitDate (newest first) from the provider
     _filteredSpots = List.from(widget.spots);
-    _selectedSpot = _filteredSpots.isNotEmpty ? _filteredSpots.first : null;
+    _carouselSpots = List.from(_filteredSpots);
+    _selectedSpot = _carouselSpots.isNotEmpty ? _carouselSpots.first : null;
     _currentCardIndex = 0;
     _searchController.addListener(_onSearchChanged);
 
@@ -936,14 +941,13 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
         return true;
       }).toList();
 
-      _selectedSpot = _filteredSpots.isNotEmpty ? _filteredSpots.first : null;
+      _carouselSpots = List.from(_filteredSpots);
+      _selectedSpot = _carouselSpots.isNotEmpty ? _carouselSpots.first : null;
       _currentCardIndex = 0;
     });
 
     // Jump to first card
-    if (_carouselController.hasClients) {
-      _carouselController.jumpToPage(0);
-    }
+    _jumpToPage(0);
   }
 
   void _toggleTag(String tag) {
@@ -998,7 +1002,7 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
 
   @override
   Widget build(BuildContext context) {
-    final carouselSpots = _filteredSpots;
+    final carouselSpots = _carouselSpots;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -1008,11 +1012,11 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
           Positioned.fill(
             child: MapboxSpotMap(
               key: _mapKey,
-              spots: carouselSpots,
+              spots: _filteredSpots,
               initialCenter: widget.initialCenter,
               initialZoom: widget.initialZoom,
               selectedSpot: _selectedSpot,
-              onSpotTap: _onSpotTap,
+              onSpotTap: _handleMarkerTap,
               onMapCreated: () {},
             ),
           ),
@@ -1075,6 +1079,11 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
                     _currentCardIndex = index;
                     _selectedSpot = spot;
                   });
+                  // 如果是 marker 点击触发的，不移动相机
+                  if (_skipNextRecenter) {
+                    _skipNextRecenter = false;
+                    return;
+                  }
                   _mapKey.currentState?.jumpToPosition(
                     Position(spot.longitude, spot.latitude),
                   );
@@ -1092,7 +1101,7 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
                         height: 280,
                         child: _VerticalSpotCard(
                           spot: spot,
-                          onTap: () => _onSpotTap(spot),
+                          onTap: () => _showSpotDetail(spot),
                         ),
                       ),
                     ),
@@ -1270,7 +1279,66 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
     );
   }
 
-  void _onSpotTap(map_page.Spot spot) async {
+  /// 处理 marker 点击 - 重新排序卡片列表，被点击的 spot 在第一位
+  void _handleMarkerTap(map_page.Spot spot) {
+    // 重新计算卡片列表，让被点击的地点在第一位
+    final newCarousel = _computeNearbySpots(spot);
+
+    _skipNextRecenter = true; // marker点选后，不移动相机
+
+    setState(() {
+      _selectedSpot = spot;
+      _carouselSpots = newCarousel;
+      _currentCardIndex = 0;
+    });
+
+    // 直接跳转到第一个位置
+    _jumpToPage(0);
+  }
+
+  /// 计算按距离排序的地点列表，被点击的地点在第一位
+  List<map_page.Spot> _computeNearbySpots(map_page.Spot anchor) {
+    if (_filteredSpots.isEmpty) return const [];
+
+    final sorted = List<map_page.Spot>.from(_filteredSpots)
+      ..sort((a, b) => _distanceBetween(
+            a.latitude,
+            a.longitude,
+            anchor.latitude,
+            anchor.longitude,
+          ).compareTo(_distanceBetween(
+            b.latitude,
+            b.longitude,
+            anchor.latitude,
+            anchor.longitude,
+          )));
+
+    return sorted;
+  }
+
+  double _distanceBetween(double lat1, double lng1, double lat2, double lng2) {
+    const radius = 6371000.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return radius * c;
+  }
+
+  void _jumpToPage(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_carouselController.hasClients) {
+        _carouselController.jumpToPage(index);
+      }
+    });
+  }
+
+  /// 显示地点详情页（卡片点击时调用）
+  void _showSpotDetail(map_page.Spot spot) async {
     final now = DateTime.now();
 
     // 防抖：如果是同一个地点且点击间隔小于1秒，则忽略

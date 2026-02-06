@@ -72,6 +72,7 @@ class _CollectionSpotsMapPageState
   final PageController _cardPageController = PageController(viewportFraction: 0.55);
   int _currentCardIndex = 0;
   List<map_page.Spot> _citySpots = [];
+  List<map_page.Spot> _carouselSpots = []; // 卡片列表（按距离排序）
   map_page.Spot? _selectedSpot;
   bool _isFavorite = false;
   bool _isFavLoading = false;
@@ -280,8 +281,9 @@ class _CollectionSpotsMapPageState
     if (!_cardPageController.hasClients || _isExiting) return;
 
     final page = _cardPageController.page?.round();
-    if (page != null && page != _currentCardIndex && page < _citySpots.length) {
-      final spot = _citySpots[page];
+    final spots = _carouselSpots.isNotEmpty ? _carouselSpots : _citySpots;
+    if (page != null && page != _currentCardIndex && page < spots.length) {
+      final spot = spots[page];
       setState(() {
         _currentCardIndex = page;
         _selectedSpot = spot;
@@ -391,6 +393,7 @@ class _CollectionSpotsMapPageState
 
         setState(() {
           _citySpots = spots;
+          _carouselSpots = List.from(spots); // 初始化卡片列表
           _selectedSpot = spots[0];
         });
         print('✅ 预加载数据设置完成，共 ${spots.length} 个地点');
@@ -530,6 +533,7 @@ class _CollectionSpotsMapPageState
 
           setState(() {
             _citySpots = spots;
+            _carouselSpots = List.from(spots); // 初始化卡片列表
             if (spots.isNotEmpty) {
               _selectedSpot = spots[0];
               print('✅ 设置选中地点: ${_selectedSpot?.name}');
@@ -578,6 +582,7 @@ class _CollectionSpotsMapPageState
     }
 
     if (_citySpots.isNotEmpty) {
+      _carouselSpots = List.from(_citySpots); // 初始化卡片列表
       _selectedSpot = _citySpots[0];
       // 如果还没有初始中心，使用第一个地点的坐标
       if (_initialCenter == null) {
@@ -947,19 +952,52 @@ class _CollectionSpotsMapPageState
   }
 
   void _handleSpotTap(map_page.Spot spot) {
-    final spotIndex = _citySpots.indexOf(spot);
-    if (spotIndex == -1) return;
+    // 重新计算卡片列表，让被点击的地点在第一位
+    final newCarousel = _computeNearbySpots(spot);
+    
+    _skipNextRecenter = true; // marker点选后，不移动相机
+    
+    setState(() {
+      _selectedSpot = spot;
+      _carouselSpots = newCarousel;
+      _currentCardIndex = 0;
+    });
+    
+    // 直接跳转到第一个位置
+    _jumpToPage(0);
+  }
 
-    setState(() => _selectedSpot = spot);
-    _skipNextRecenter = true; // marker点选后，联动卡片但不移动相机
+  /// 计算按距离排序的地点列表，被点击的地点在第一位
+  List<map_page.Spot> _computeNearbySpots(map_page.Spot anchor) {
+    if (_citySpots.isEmpty) return const [];
+    
+    final sorted = List<map_page.Spot>.from(_citySpots)
+      ..sort((a, b) => _distanceBetween(
+        a.latitude, a.longitude, anchor.latitude, anchor.longitude,
+      ).compareTo(_distanceBetween(
+        b.latitude, b.longitude, anchor.latitude, anchor.longitude,
+      )));
+    
+    return sorted;
+  }
 
-    if (spotIndex != _currentCardIndex) {
-      _cardPageController.animateToPage(
-        spotIndex,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
+  double _distanceBetween(double lat1, double lng1, double lat2, double lng2) {
+    const radius = 6371000.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) *
+        math.sin(dLng / 2) * math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return radius * c;
+  }
+
+  void _jumpToPage(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_cardPageController.hasClients) {
+        _cardPageController.jumpToPage(index);
+      }
+    });
   }
 
   void _showSpotDetail(map_page.Spot spot) async {
@@ -1248,6 +1286,7 @@ class _CollectionSpotsMapPageState
   Widget _buildBottomCards() {
     const double cardWidth = 210;
     const double cardHeight = 280; // 宽:高 = 3:4
+    final spots = _carouselSpots.isNotEmpty ? _carouselSpots : _citySpots;
 
     return SizedBox(
       height: cardHeight + 8, // 固定高度 + 阴影空间
@@ -1255,9 +1294,9 @@ class _CollectionSpotsMapPageState
         controller: _cardPageController,
         padEnds: true,
         clipBehavior: Clip.none,
-        itemCount: _citySpots.length,
+        itemCount: spots.length,
         itemBuilder: (context, index) {
-          final spot = _citySpots[index];
+          final spot = spots[index];
           final isCenter = index == _currentCardIndex;
 
           return AnimatedScale(

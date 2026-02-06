@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -561,9 +562,12 @@ class _FullscreenRecommendationMapState
   final PageController _cardPageController =
       PageController(viewportFraction: 0.55);
   bool _isExiting = false;
+  bool _skipNextRecenter = false; // marker 点击后跳过相机移动
 
   /// 排序后的地点列表（数据库地点在前，AI 地点在后）
   late List<PlaceResult> _sortedPlaces;
+  /// 卡片列表（按距离排序）
+  List<PlaceResult> _carouselPlaces = [];
 
   @override
   void initState() {
@@ -873,32 +877,69 @@ class _FullscreenRecommendationMapState
   }
 
   void _handleMarkerTap(PlaceResult place) {
-    final index = _sortedPlaces
-        .indexWhere((p) => (p.id ?? p.name) == (place.id ?? place.name));
-    if (index >= 0) {
-      setState(() {
-        _selectedPlace = place;
-      });
-      // 滚动到对应的卡片
+    // 重新计算卡片列表，让被点击的地点在第一位
+    final newCarousel = _computeNearbyPlaces(place);
+    
+    _skipNextRecenter = true;
+    
+    setState(() {
+      _selectedPlace = place;
+      _carouselPlaces = newCarousel;
+    });
+    
+    // 直接跳转到第一个位置
+    _jumpToPage(0);
+  }
+
+  /// 计算按距离排序的地点列表，被点击的地点在第一位
+  List<PlaceResult> _computeNearbyPlaces(PlaceResult anchor) {
+    if (_sortedPlaces.isEmpty) return const [];
+    
+    final sorted = List<PlaceResult>.from(_sortedPlaces)
+      ..sort((a, b) => _distanceBetween(
+        a.latitude, a.longitude, anchor.latitude, anchor.longitude,
+      ).compareTo(_distanceBetween(
+        b.latitude, b.longitude, anchor.latitude, anchor.longitude,
+      )));
+    
+    return sorted;
+  }
+
+  double _distanceBetween(double lat1, double lng1, double lat2, double lng2) {
+    const radius = 6371000.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) *
+        math.sin(dLng / 2) * math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return radius * c;
+  }
+
+  void _jumpToPage(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_cardPageController.hasClients) {
-        _cardPageController.animateToPage(
-          index,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        _cardPageController.jumpToPage(index);
       }
-      final target = Position(place.longitude, place.latitude);
-      _mapKey.currentState?.jumpToPosition(target, zoom: 14.0);
-    }
+    });
   }
 
   /// 卡片滑动时更新选中状态
   void _onCardPageChanged(int index) {
-    if (index >= 0 && index < _sortedPlaces.length) {
-      final place = _sortedPlaces[index];
+    final places = _carouselPlaces.isNotEmpty ? _carouselPlaces : _sortedPlaces;
+    if (index >= 0 && index < places.length) {
+      final place = places[index];
       setState(() {
         _selectedPlace = place;
       });
+      
+      // 如果是 marker 点击触发的卡片滚动，跳过相机移动
+      if (_skipNextRecenter) {
+        _skipNextRecenter = false;
+        return;
+      }
+      
+      // 用户手动滑动卡片时，移动相机
       _mapKey.currentState?.jumpToPosition(
         Position(place.longitude, place.latitude),
         zoom: 14.0,
@@ -1028,37 +1069,44 @@ class _FullscreenRecommendationMapState
                   top: false,
                   left: false,
                   right: false,
-                  child: PageView.builder(
-                    controller: _cardPageController,
-                    clipBehavior: Clip.none,
-                    onPageChanged: _onCardPageChanged,
-                    itemCount: _sortedPlaces.length,
-                    itemBuilder: (context, index) {
-                      final place = _sortedPlaces[index];
-                      final isSelected = (place.id ?? place.name) ==
-                          (_selectedPlace?.id ?? _selectedPlace?.name);
-                      // 无封面图时使用紧凑卡片高度
-                      final thisCardHeight =
-                          (allWithoutCoverImage || !place.hasValidCoverImage)
-                              ? aiCardHeight
-                              : maxCardHeight;
-                      return AnimatedScale(
-                        scale: isSelected ? 1.0 : 0.92,
-                        duration: const Duration(milliseconds: 250),
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: SizedBox(
-                            width: cardWidth,
-                            height: thisCardHeight,
-                            child: _BottomPlaceCard(
-                              place: place,
-                              onTap: () => widget.onPlaceTap?.call(place),
-                              index: index,
-                              isCompact: allWithoutCoverImage ||
-                                  !place.hasValidCoverImage,
+                  child: Builder(
+                    builder: (context) {
+                      final carouselPlaces = _carouselPlaces.isNotEmpty 
+                          ? _carouselPlaces 
+                          : _sortedPlaces;
+                      return PageView.builder(
+                        controller: _cardPageController,
+                        clipBehavior: Clip.none,
+                        onPageChanged: _onCardPageChanged,
+                        itemCount: carouselPlaces.length,
+                        itemBuilder: (context, index) {
+                          final place = carouselPlaces[index];
+                          final isSelected = (place.id ?? place.name) ==
+                              (_selectedPlace?.id ?? _selectedPlace?.name);
+                          // 无封面图时使用紧凑卡片高度
+                          final thisCardHeight =
+                              (allWithoutCoverImage || !place.hasValidCoverImage)
+                                  ? aiCardHeight
+                                  : maxCardHeight;
+                          return AnimatedScale(
+                            scale: isSelected ? 1.0 : 0.92,
+                            duration: const Duration(milliseconds: 250),
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: SizedBox(
+                                width: cardWidth,
+                                height: thisCardHeight,
+                                child: _BottomPlaceCard(
+                                  place: place,
+                                  onTap: () => widget.onPlaceTap?.call(place),
+                                  index: index,
+                                  isCompact: allWithoutCoverImage ||
+                                      !place.hasValidCoverImage,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       );
                     },
                   ),

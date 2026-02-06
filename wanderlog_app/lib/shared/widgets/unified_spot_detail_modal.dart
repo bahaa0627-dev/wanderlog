@@ -225,6 +225,13 @@ class _UnifiedSpotDetailModalState
     return rating != null && rating > 0 && count > 0;
   }
 
+  /// 是否有推荐内容（推荐语或描述）
+  bool get _hasRecommendationContent {
+    return _isAIOnlySpot ||
+        _spotRecommendationPhrase != null ||
+        (_spotDescription != null && _spotDescription!.isNotEmpty);
+  }
+
   String? get _spotRecommendationPhrase {
     try {
       return (widget.spot as dynamic).recommendationPhrase as String?;
@@ -1486,10 +1493,106 @@ class _UnifiedSpotDetailModalState
     CustomToast.showSuccess(context, l10n.copySuccess);
   }
 
+  /// 构建标签行（包含 Check-in 按钮）- 用于没有评分的情况
+  /// 标签在左侧，Check-in 按钮固定在右侧，中间最少 8px 间距
+  /// 如果空间不足，放不下的标签完全隐藏（不显示一半）
+  Widget _buildTagsRowWithCheckIn() {
+    final tags = _effectiveTags().take(4).toList();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tagStyle = AppTheme.labelSmall(context).copyWith(
+          color: AppTheme.black.withOpacity(0.48),
+          height: 1.0,
+        );
+
+        // 计算 Check-in 按钮宽度
+        final checkInButtonStyle = AppTheme.labelSmall(context).copyWith(
+          color: AppTheme.black,
+          fontWeight: FontWeight.w500,
+        );
+        final checkInText = _isVisited ? 'Checked in' : 'Check in';
+        final checkInPainter = TextPainter(
+          text: TextSpan(text: checkInText, style: checkInButtonStyle),
+          maxLines: 1,
+          textDirection: TextDirection.ltr,
+        )..layout();
+        // 按钮宽度 = 文字 + padding(14*2) + border(2*2) + 对勾(如果已check in) + 大安全余量
+        final checkMarkWidth = _isVisited ? 24.0 : 0.0;
+        final checkInButtonWidth =
+            checkInPainter.width + 28 + 4 + checkMarkWidth + 16;
+
+        // 可用于标签的宽度
+        const tagSpacing = 8.0;
+        final availableTagWidth =
+            constraints.maxWidth - checkInButtonWidth - tagSpacing;
+
+        // 计算能完整显示的标签
+        List<String> visibleTags = [];
+        double usedWidth = 0;
+        const tagPadding = 20.0; // 左右 padding 各 10
+        const tagBorder = 2.0; // 边框宽度 1 * 2
+        const tagGap = 8.0;
+        const tagSafetyMargin = 6.0; // 每个标签的安全余量
+
+        for (int i = 0; i < tags.length; i++) {
+          final tag = tags[i];
+          final painter = TextPainter(
+            text: TextSpan(text: tag, style: tagStyle),
+            maxLines: 1,
+            textDirection: TextDirection.ltr,
+          )..layout();
+
+          final tagWidth =
+              painter.width + tagPadding + tagBorder + tagSafetyMargin;
+          final widthNeeded =
+              usedWidth + tagWidth + (visibleTags.isNotEmpty ? tagGap : 0);
+
+          if (widthNeeded <= availableTagWidth) {
+            visibleTags.add(tag);
+            usedWidth = widthNeeded;
+          } else {
+            break;
+          }
+        }
+
+        return Row(
+          children: [
+            // 标签区域
+            for (int i = 0; i < visibleTags.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Container(
+                height: 28,
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF2F2F2),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: AppTheme.black.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Text(visibleTags[i], style: tagStyle),
+              ),
+            ],
+            // 中间填充
+            const Spacer(),
+            // 8px 间距
+            const SizedBox(width: 8),
+            // Check-in 按钮
+            _buildCheckInButton(),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildCheckInButton() => GestureDetector(
         onTap: _isVisited ? null : _handleCheckIn,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          height: 32, // 固定高度确保一致
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: AppTheme.white,
             borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
@@ -1498,11 +1601,15 @@ class _UnifiedSpotDetailModalState
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (_isVisited) ...[
-                const Text(
+                Text(
                   '✓',
-                  style: TextStyle(fontSize: 14, color: AppTheme.black),
+                  style: AppTheme.labelSmall(context).copyWith(
+                    color: AppTheme.black,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(width: 4),
               ],
@@ -1882,13 +1989,38 @@ class _UnifiedSpotDetailModalState
 
     if (confirmed ?? false) {
       try {
-        await ref.read(tripRepositoryProvider).manageTripSpot(
-              tripId: _destinationId!,
-              spotId: _spotId,
-              remove: true,
-            );
-        // 立即更新同步缓存，避免下次打开时闪烁
-        _updateWishlistCache(remove: true);
+        // 判断是否有其他状态需要保留（收藏、mustGo、todaysPlan）
+        final hasOtherStatus = _isWishlist || _isMustGo || _isTodaysPlan;
+
+        if (hasOtherStatus) {
+          // 有其他状态：只清除 check-in 数据，保留收藏、mustGo、todaysPlan
+          await ref.read(tripRepositoryProvider).manageTripSpot(
+                tripId: _destinationId!,
+                spotId: _spotId,
+                clearCheckIn: true,
+              );
+          // 更新缓存：保留收藏、mustGo、todaysPlan，只清除 check-in 数据
+          _updateWishlistCache(
+            isSaved: _isWishlist,
+            isMustGo: _isMustGo,
+            isTodaysPlan: _isTodaysPlan,
+            isVisited: false,
+            visitDate: null,
+            userRating: null,
+            userNotes: null,
+            userPhotos: const [],
+          );
+        } else {
+          // 没有其他状态：完全删除这个地点
+          await ref.read(tripRepositoryProvider).manageTripSpot(
+                tripId: _destinationId!,
+                spotId: _spotId,
+                remove: true,
+              );
+          // 立即更新同步缓存，避免下次打开时闪烁
+          _updateWishlistCache(remove: true);
+        }
+
         ref.invalidate(tripsProvider);
         ref.invalidate(wishlistStatusProvider);
         ref.invalidate(minePageDataProvider);
@@ -1899,13 +2031,16 @@ class _UnifiedSpotDetailModalState
             _userRating = null;
             _userNotes = null;
             _userPhotos = [];
-            _isWishlist = false;
+            // 只有在没有其他状态时才清除 wishlist
+            if (!hasOtherStatus) {
+              _isWishlist = false;
+            }
           });
           CustomToast.showSuccess(context, 'Check-in deleted');
           widget.onStatusChanged?.call(
             _spotId,
             isVisited: false,
-            isRemoved: true,
+            isRemoved: !hasOtherStatus, // 只有完全删除时才标记为 removed
             needsReload: true,
             visitDate: null,
             userRating: null,
@@ -3138,40 +3273,88 @@ class _UnifiedSpotDetailModalState
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 12),
-                      // 3. Tags - max 4 tags, horizontal scroll
-                      if (_effectiveTags().isNotEmpty) ...[
-                        SizedBox(
-                          height: 28,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _effectiveTags().take(4).length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 8),
-                            itemBuilder: (context, index) {
-                              final tag = _effectiveTags()[index];
-                              return Container(
-                                alignment: Alignment.center,
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 10),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF2F2F2),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: AppTheme.black.withOpacity(0.2),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  tag,
-                                  style: AppTheme.labelSmall(context).copyWith(
-                                    color: AppTheme.black.withOpacity(0.48),
-                                    height: 1.0,
-                                  ),
-                                ),
+                      // 3. Tags row - 只有无评分也无推荐语时，Check-in 按钮才放在标签行右侧
+                      if (_hasValidRating || _hasRecommendationContent) ...[
+                        // 有评分或有推荐内容时：标签独占一行，放不下的完全隐藏
+                        if (_effectiveTags().isNotEmpty) ...[
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final tags = _effectiveTags().take(4).toList();
+                              final tagStyle =
+                                  AppTheme.labelSmall(context).copyWith(
+                                color: AppTheme.black.withOpacity(0.48),
+                                height: 1.0,
+                              );
+
+                              // 计算能完整显示的标签
+                              List<String> visibleTags = [];
+                              double usedWidth = 0;
+                              const tagPadding = 20.0;
+                              const tagBorder = 2.0;
+                              const tagGap = 8.0;
+                              const tagSafetyMargin = 6.0;
+
+                              for (final tag in tags) {
+                                final painter = TextPainter(
+                                  text: TextSpan(text: tag, style: tagStyle),
+                                  maxLines: 1,
+                                  textDirection: TextDirection.ltr,
+                                )..layout();
+
+                                final tagWidth = painter.width +
+                                    tagPadding +
+                                    tagBorder +
+                                    tagSafetyMargin;
+                                final widthNeeded = usedWidth +
+                                    tagWidth +
+                                    (visibleTags.isNotEmpty ? tagGap : 0);
+
+                                if (widthNeeded <= constraints.maxWidth) {
+                                  visibleTags.add(tag);
+                                  usedWidth = widthNeeded;
+                                } else {
+                                  break;
+                                }
+                              }
+
+                              if (visibleTags.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (int i = 0;
+                                      i < visibleTags.length;
+                                      i++) ...[
+                                    if (i > 0) const SizedBox(width: 8),
+                                    Container(
+                                      height: 28,
+                                      alignment: Alignment.center,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF2F2F2),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color:
+                                              AppTheme.black.withOpacity(0.2),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child:
+                                          Text(visibleTags[i], style: tagStyle),
+                                    ),
+                                  ],
+                                ],
                               );
                             },
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                        ],
+                      ] else ...[
+                        // 没有评分也没有推荐语时：标签和 Check-in 按钮在同一行
+                        _buildTagsRowWithCheckIn(),
                         const SizedBox(height: 16),
                       ],
                       // 4. Description - max 3 lines with ellipsis
@@ -3226,7 +3409,7 @@ class _UnifiedSpotDetailModalState
                           _spotRecommendationPhrase != null ||
                           (_spotDescription != null &&
                               _spotDescription!.isNotEmpty)) ...[
-                        // 没有评分但有推荐短语或描述时：显示推荐短语
+                        // 没有评分但有推荐短语或描述时：推荐短语和 Check-in 按钮在同一行
                         Row(
                           children: [
                             const Icon(
@@ -3246,18 +3429,13 @@ class _UnifiedSpotDetailModalState
                                 ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             _buildCheckInButton(),
                           ],
                         ),
                         const SizedBox(height: 16),
-                      ] else ...[
-                        // 没有评分也没有推荐语：只显示 Check-in 按钮
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [_buildCheckInButton()],
-                        ),
-                        const SizedBox(height: 16),
                       ],
+                      // 没有评分也没有推荐语时：Check-in 按钮已在标签行，此处不再单独显示
                       // 6. Other info: opening hours, address, phone, website
                       // Opening hours with expand/collapse
                       _buildOpeningHoursSection(),

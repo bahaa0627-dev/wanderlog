@@ -53,7 +53,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
         _checkTimer?.cancel();
         await ref.read(authProvider.notifier).refreshAuthState();
         if (mounted) {
-          CustomToast.showSuccess(context, 'Email verified!');
+          CustomToast.showSuccess(context, '注册成功，欢迎使用 VAGO！');
           context.go('/home');
         }
       }

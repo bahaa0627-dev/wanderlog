@@ -15,6 +15,7 @@ import 'package:wanderlog/core/supabase/supabase_config.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart'
     show authProvider;
 import 'package:wanderlog/features/trips/providers/spots_cache_provider.dart';
+import 'package:wanderlog/shared/widgets/custom_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
@@ -119,16 +120,15 @@ class _WanderlogAppState extends ConsumerState<WanderlogApp> {
           
           if (isNewUser) {
             // Show success toast for new registrations
+            // 使用 addPostFrameCallback 确保导航完成后再显示 toast
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Registration successful! Welcome to VAGO'),
-                    backgroundColor: Color(0xFF4CAF50),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
+              // 延迟一小段时间确保页面完全加载
+              Future.delayed(const Duration(milliseconds: 500), () {
+                final navContext = AppRouter.rootNavigatorKey.currentContext;
+                if (navContext != null) {
+                  CustomToast.showSuccess(navContext, '注册成功，欢迎使用 VAGO！');
+                }
+              });
             });
           }
         }

@@ -378,7 +378,9 @@ export const manageTripSpot = async (req: Request, res: Response) => {
       isSaved, isVisited, isMustGo, isTodaysPlan,
       // 旧字段（兼容）
       status, priority, 
-      visitDate, userRating, userNotes, userPhotos, spot, remove 
+      visitDate, userRating, userNotes, userPhotos, spot, remove,
+      // 清除 check-in 数据（保留收藏、mustGo、todaysPlan）
+      clearCheckIn
     } = req.body;
     const userId = req.user.id;
     let targetPlaceId: string | undefined = placeId || spotId;
@@ -410,6 +412,38 @@ export const manageTripSpot = async (req: Request, res: Response) => {
         `;
       }
       return res.json({ success: true, removed: true, spotId: targetPlaceId });
+    }
+
+    // 清除 check-in 数据（保留收藏、mustGo、todaysPlan 等状态）
+    if (clearCheckIn === true && isUUID) {
+      const result = await prismaAny.$queryRaw`
+        UPDATE trip_spots SET 
+          is_visited = false,
+          status = CASE WHEN is_todays_plan = true THEN 'TODAYS_PLAN' ELSE 'WISHLIST' END,
+          visit_date = NULL,
+          user_rating = NULL,
+          user_notes = NULL,
+          user_photos = NULL,
+          updated_at = NOW()
+        WHERE trip_id = ${id}::uuid AND place_id = ${targetPlaceId}::uuid
+        RETURNING *
+      `;
+      if (result && result.length > 0) {
+        const tripSpot = result[0];
+        // Load place for response
+        const dbPlaces = await prismaAny.$queryRaw`
+          SELECT * FROM places WHERE id = ${targetPlaceId}::uuid LIMIT 1
+        `;
+        const normalizedPlace = dbPlaces && dbPlaces.length > 0 ? normalizePlace(dbPlaces[0]) : null;
+        const tripSpotData = tripSpotToCamelCase(tripSpot);
+        logger.info(`[manageTripSpot] clearCheckIn success: is_saved=${tripSpot.is_saved}, is_must_go=${tripSpot.is_must_go}, is_todays_plan=${tripSpot.is_todays_plan}`);
+        return res.json({
+          ...tripSpotData,
+          place: normalizedPlace,
+          spot: normalizedPlace,
+        });
+      }
+      return res.json({ success: true, cleared: true, spotId: targetPlaceId });
     }
 
     // 查找已有的 place - 用户只能对已有的 place 进行操作

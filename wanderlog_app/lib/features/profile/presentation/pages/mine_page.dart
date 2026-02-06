@@ -1075,6 +1075,7 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
                 onPageChanged: (index) {
                   if (index >= carouselSpots.length) return;
                   final spot = carouselSpots[index];
+                  final prevSpot = _selectedSpot;
                   setState(() {
                     _currentCardIndex = index;
                     _selectedSpot = spot;
@@ -1084,9 +1085,29 @@ class _FullscreenVisitedMapState extends ConsumerState<_FullscreenVisitedMap> {
                     _skipNextRecenter = false;
                     return;
                   }
-                  _mapKey.currentState?.jumpToPosition(
-                    Position(spot.longitude, spot.latitude),
-                  );
+                  // 横滑卡片时：短距离平滑过渡，长距离直接跳转
+                  if (prevSpot != null) {
+                    final distance = _distanceBetween(
+                      prevSpot.latitude,
+                      prevSpot.longitude,
+                      spot.latitude,
+                      spot.longitude,
+                    );
+                    const threshold = 100000.0; // 100km
+                    if (distance < threshold) {
+                      _mapKey.currentState?.animateCamera(
+                        Position(spot.longitude, spot.latitude),
+                      );
+                    } else {
+                      _mapKey.currentState?.jumpToPosition(
+                        Position(spot.longitude, spot.latitude),
+                      );
+                    }
+                  } else {
+                    _mapKey.currentState?.jumpToPosition(
+                      Position(spot.longitude, spot.latitude),
+                    );
+                  }
                 },
                 itemCount: carouselSpots.length,
                 itemBuilder: (context, index) {

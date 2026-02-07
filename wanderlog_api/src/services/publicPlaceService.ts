@@ -2502,6 +2502,80 @@ class PublicPlaceService {
 
     return matchedPlaces.slice(0, limit);
   }
-}
 
-export default new PublicPlaceService();
+  /**
+   * 获取所有不同的标签值，按类型分组（用于标签自动完成）
+   * 返回每种类型下按字母顺序排序的唯一标签值
+   */
+  async getDistinctTagsByType(): Promise<{
+    type: string[];
+    style: string[];
+    architect: string[];
+    award: string[];
+    theme: string[];
+    meal: string[];
+    cuisine: string[];
+    others: string[];
+    aiTags: string[];
+  }> {
+    // 获取所有地点的 tags 和 aiTags 字段
+    const placesWithTags = await prisma.place.findMany({
+      select: {
+        tags: true,
+        aiTags: true,
+      },
+    });
+
+    // 使用 Set 来确保唯一性
+    const tagsByType: Record<string, Set<string>> = {
+      type: new Set(),
+      style: new Set(),
+      architect: new Set(),
+      award: new Set(),
+      theme: new Set(),
+      meal: new Set(),
+      cuisine: new Set(),
+      others: new Set(),
+      aiTags: new Set(),
+    };
+
+    for (const place of placesWithTags) {
+      // 处理结构化 tags
+      if (place.tags && typeof place.tags === 'object') {
+        const tagsObj = place.tags as Record<string, unknown>;
+        for (const [tagType, values] of Object.entries(tagsObj)) {
+          const targetSet = tagsByType[tagType] || tagsByType.others;
+          if (Array.isArray(values)) {
+            for (const value of values) {
+              if (typeof value === 'string' && value.trim()) {
+                targetSet.add(value.trim());
+              }
+            }
+          }
+        }
+      }
+
+      // 处理 aiTags
+      if (place.aiTags && Array.isArray(place.aiTags)) {
+        for (const tag of place.aiTags as any[]) {
+          const tagEn = typeof tag === 'object' && tag.en ? tag.en : (typeof tag === 'string' ? tag : null);
+          if (tagEn && typeof tagEn === 'string' && tagEn.trim()) {
+            tagsByType.aiTags.add(tagEn.trim());
+          }
+        }
+      }
+    }
+
+    // 转换为排序后的数组
+    return {
+      type: Array.from(tagsByType.type).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+      style: Array.from(tagsByType.style).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+      architect: Array.from(tagsByType.architect).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+      award: Array.from(tagsByType.award).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+      theme: Array.from(tagsByType.theme).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+      meal: Array.from(tagsByType.meal).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+      cuisine: Array.from(tagsByType.cuisine).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+      others: Array.from(tagsByType.others).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+      aiTags: Array.from(tagsByType.aiTags).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+    };
+  }

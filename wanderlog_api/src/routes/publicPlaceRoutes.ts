@@ -30,6 +30,9 @@ router.get('/filter-options', publicPlaceController.getFilterOptions.bind(public
 // 获取标签类型列表（按类型分组的标签）
 router.get('/tag-types', publicPlaceController.getTagTypes.bind(publicPlaceController));
 
+// 获取所有不同的标签值（用于自动完成）
+router.get('/distinct-tags', publicPlaceController.getDistinctTags.bind(publicPlaceController));
+
 // 获取城市列表（用于添加 trip）
 router.get('/cities', publicPlaceController.getCities.bind(publicPlaceController));
 

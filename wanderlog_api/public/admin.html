@@ -1088,6 +1088,53 @@
             font-size: 48px;
             margin-bottom: 16px;
         }
+        
+        /* 标签自动完成样式 */
+        .tag-input-wrapper {
+            position: relative;
+        }
+        .tag-autocomplete {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: none;
+        }
+        .tag-autocomplete.show {
+            display: block;
+        }
+        .tag-autocomplete-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.15s;
+        }
+        .tag-autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        .tag-autocomplete-item:hover,
+        .tag-autocomplete-item.selected {
+            background: #f0f4ff;
+        }
+        .tag-autocomplete-item .match {
+            font-weight: 600;
+            color: #667eea;
+        }
+        .tag-autocomplete-empty {
+            padding: 8px 12px;
+            color: #999;
+            font-size: 12px;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -1570,14 +1617,14 @@
                         <label style="color:#0c5460;">type <small style="color:#999;">类型标签</small></label>
                         <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #d1ecf1;border-radius:6px;cursor:text;" onclick="document.getElementById('typeTagInput').focus()">
                             <div id="typeTagsChips" style="display:contents;"></div>
-                            <input type="text" id="typeTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'type')">
+                            <input type="text" id="typeTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'type')" oninput="handleTypedTagInput(event, 'type')" autocomplete="off">
                         </div>
                     </div>
                     <div class="form-group" style="margin:0;">
                         <label style="color:#856404;">style <small style="color:#999;">风格标签</small></label>
                         <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #fff3cd;border-radius:6px;cursor:text;" onclick="document.getElementById('styleTagInput').focus()">
                             <div id="styleTagsChips" style="display:contents;"></div>
-                            <input type="text" id="styleTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'style')">
+                            <input type="text" id="styleTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'style')" oninput="handleTypedTagInput(event, 'style')" autocomplete="off">
                         </div>
                     </div>
                 </div>
@@ -1588,14 +1635,14 @@
                         <label style="color:#155724;">architect <small style="color:#999;">建筑师</small></label>
                         <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #d4edda;border-radius:6px;cursor:text;" onclick="document.getElementById('architectTagInput').focus()">
                             <div id="architectTagsChips" style="display:contents;"></div>
-                            <input type="text" id="architectTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'architect')">
+                            <input type="text" id="architectTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'architect')" oninput="handleTypedTagInput(event, 'architect')" autocomplete="off">
                         </div>
                     </div>
                     <div class="form-group" style="margin:0;">
                         <label style="color:#e65100;">award <small style="color:#999;">奖项</small></label>
                         <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #fff3e0;border-radius:6px;cursor:text;" onclick="document.getElementById('awardTagInput').focus()">
                             <div id="awardTagsChips" style="display:contents;"></div>
-                            <input type="text" id="awardTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'award')">
+                            <input type="text" id="awardTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'award')" oninput="handleTypedTagInput(event, 'award')" autocomplete="off">
                         </div>
                     </div>
                 </div>
@@ -1606,14 +1653,14 @@
                         <label style="color:#2e7d32;">theme <small style="color:#999;">主题</small></label>
                         <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #e8f5e9;border-radius:6px;cursor:text;" onclick="document.getElementById('themeTagInput').focus()">
                             <div id="themeTagsChips" style="display:contents;"></div>
-                            <input type="text" id="themeTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'theme')">
+                            <input type="text" id="themeTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'theme')" oninput="handleTypedTagInput(event, 'theme')" autocomplete="off">
                         </div>
                     </div>
                     <div class="form-group" style="margin:0;">
                         <label style="color:#1565c0;">meal <small style="color:#999;">餐饮</small></label>
                         <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #e3f2fd;border-radius:6px;cursor:text;" onclick="document.getElementById('mealTagInput').focus()">
                             <div id="mealTagsChips" style="display:contents;"></div>
-                            <input type="text" id="mealTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'meal')">
+                            <input type="text" id="mealTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'meal')" oninput="handleTypedTagInput(event, 'meal')" autocomplete="off">
                         </div>
                     </div>
                 </div>
@@ -1624,14 +1671,14 @@
                         <label style="color:#c2185b;">cuisine <small style="color:#999;">菜系</small></label>
                         <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #fce4ec;border-radius:6px;cursor:text;" onclick="document.getElementById('cuisineTagInput').focus()">
                             <div id="cuisineTagsChips" style="display:contents;"></div>
-                            <input type="text" id="cuisineTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'cuisine')">
+                            <input type="text" id="cuisineTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'cuisine')" oninput="handleTypedTagInput(event, 'cuisine')" autocomplete="off">
                         </div>
                     </div>
                     <div class="form-group" style="margin:0;">
                         <label style="color:#666;">others <small style="color:#999;">其他</small></label>
                         <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #ddd;border-radius:6px;cursor:text;" onclick="document.getElementById('tagInput').focus()">
                             <div id="placeTagsChips" style="display:contents;"></div>
-                            <input type="text" id="tagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'others')">
+                            <input type="text" id="tagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleTypedTagInputKeydown(event, 'others')" oninput="handleTypedTagInput(event, 'others')" autocomplete="off">
                         </div>
                     </div>
                 </div>
@@ -1642,7 +1689,7 @@
                     <label>AI 展示标签 (aiTags)</label>
                     <div class="tag-input-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:38px;background:#fff;border:1px solid #ddd;border-radius:6px;cursor:text;" onclick="document.getElementById('aiTagInput').focus()">
                         <div id="placeAiTagsChips" style="display:contents;"></div>
-                        <input type="text" id="aiTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleAiTagInputKeydown(event)">
+                        <input type="text" id="aiTagInput" style="border:none;outline:none;flex:1;min-width:80px;padding:4px;" onkeydown="handleAiTagInputKeydown(event)" oninput="handleAiTagInput(event)" autocomplete="off">
                     </div>
                     <input type="hidden" id="placeAiTagsJson">
                 </div>
@@ -1758,6 +1805,23 @@
         let peopleListData = [];
         let worksListData = [];
         
+        // 标签自动完成数据
+        let distinctTagsData = {
+            type: [],
+            style: [],
+            architect: [],
+            award: [],
+            theme: [],
+            meal: [],
+            cuisine: [],
+            others: [],
+            aiTags: []
+        };
+        
+        // 当前激活的自动完成下拉框
+        let activeAutocomplete = null;
+        let autocompleteSelectedIndex = -1;
+        
         // Toast 提示函数
         function showToast(message, type = 'info', duration = 2500) {
             const container = document.getElementById('toastContainer');
@@ -1770,6 +1834,32 @@
                 toast.classList.add('fadeOut');
                 setTimeout(() => toast.remove(), 300);
             }, duration);
+        }
+        
+        // 获取所有不同的标签值（用于自动完成）
+        async function fetchDistinctTags() {
+            try {
+                const response = await fetch(`${API_BASE}/distinct-tags`);
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && result.data) {
+                        distinctTagsData = result.data;
+                        console.log('📋 已加载标签自动完成数据:', {
+                            type: distinctTagsData.type.length,
+                            style: distinctTagsData.style.length,
+                            architect: distinctTagsData.architect.length,
+                            award: distinctTagsData.award.length,
+                            theme: distinctTagsData.theme.length,
+                            meal: distinctTagsData.meal.length,
+                            cuisine: distinctTagsData.cuisine.length,
+                            others: distinctTagsData.others.length,
+                            aiTags: distinctTagsData.aiTags.length
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('获取标签自动完成数据失败:', error);
+            }
         }
         
         // 用于跟踪原始数据，检测是否有修改
@@ -2007,6 +2097,11 @@
             // 并行加载筛选选项
             loadFilterOptions().catch(err => {
                 console.error('加载筛选器数据失败:', err);
+            });
+            
+            // 加载标签自动完成数据
+            fetchDistinctTags().catch(err => {
+                console.error('加载标签自动完成数据失败:', err);
             });
             
             // 加载地点列表
@@ -3655,10 +3750,7 @@
                 alert('合集不存在，请刷新列表');
                 return;
             }
-            if (col.isPublished) {
-                alert('已上线合集不可编辑，请先下线');
-                return;
-            }
+            // 允许编辑已上线和未上线的合集
             
             editingCollectionId = id;
             
@@ -4539,15 +4631,59 @@
         
         // 处理 AI 标签输入回车
         function handleAiTagInputKeydown(event) {
+            const input = document.getElementById('aiTagInput');
+            const dropdown = document.getElementById('autocomplete-aiTags');
+            
+            // 处理键盘导航
+            if (activeAutocomplete && activeAutocomplete.suggestions.length > 0) {
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    autocompleteSelectedIndex = Math.min(autocompleteSelectedIndex + 1, activeAutocomplete.suggestions.length - 1);
+                    updateAutocompleteSelection();
+                    return;
+                }
+                if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    autocompleteSelectedIndex = Math.max(autocompleteSelectedIndex - 1, -1);
+                    updateAutocompleteSelection();
+                    return;
+                }
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    hideAutocomplete(dropdown);
+                    return;
+                }
+            }
+            
             if (event.key === 'Enter') {
                 event.preventDefault();
-                const input = document.getElementById('aiTagInput');
+                
+                // 如果有选中的自动完成项，使用它
+                if (activeAutocomplete && autocompleteSelectedIndex >= 0 && autocompleteSelectedIndex < activeAutocomplete.suggestions.length) {
+                    const value = activeAutocomplete.suggestions[autocompleteSelectedIndex];
+                    addAiTagToStore(value);
+                    input.value = '';
+                    hideAutocomplete(dropdown);
+                    return;
+                }
+                
                 const value = input.value.trim();
                 if (value) {
                     addAiTagToStore(value);
                     input.value = '';
+                    hideAutocomplete(dropdown);
                 }
             }
+        }
+        
+        // 处理 AI 标签输入变化（显示自动完成）
+        function handleAiTagInput(event) {
+            const input = event.target;
+            const query = input.value.trim();
+            
+            autocompleteSelectedIndex = -1;
+            const suggestions = getAutocompleteSuggestions('aiTags', query);
+            showAutocomplete(input, 'aiTags', suggestions, query);
         }
         
         // 添加标签到存储
@@ -4665,18 +4801,168 @@
             }
         }
         
+        // 获取自动完成建议列表
+        function getAutocompleteSuggestions(tagType, query) {
+            const sourceData = distinctTagsData[tagType] || [];
+            if (!query) return [];
+            
+            const lowerQuery = query.toLowerCase();
+            
+            // 过滤匹配的标签，按字母顺序排列
+            return sourceData
+                .filter(tag => tag.toLowerCase().includes(lowerQuery))
+                .slice(0, 10); // 最多显示10个建议
+        }
+        
+        // 高亮匹配部分
+        function highlightMatch(text, query) {
+            if (!query) return text;
+            const lowerText = text.toLowerCase();
+            const lowerQuery = query.toLowerCase();
+            const index = lowerText.indexOf(lowerQuery);
+            if (index === -1) return text;
+            
+            return text.substring(0, index) + 
+                   '<span class="match">' + text.substring(index, index + query.length) + '</span>' + 
+                   text.substring(index + query.length);
+        }
+        
+        // 创建或更新自动完成下拉框
+        function showAutocomplete(input, tagType, suggestions, query) {
+            const containerId = `autocomplete-${tagType}`;
+            let dropdown = document.getElementById(containerId);
+            
+            // 创建下拉框（如果不存在）
+            if (!dropdown) {
+                dropdown = document.createElement('div');
+                dropdown.id = containerId;
+                dropdown.className = 'tag-autocomplete';
+                input.parentElement.style.position = 'relative';
+                input.parentElement.appendChild(dropdown);
+            }
+            
+            // 如果没有建议，隐藏下拉框
+            if (suggestions.length === 0) {
+                if (query.trim()) {
+                    dropdown.innerHTML = '<div class="tag-autocomplete-empty">无匹配项，按 Enter 添加新标签</div>';
+                    dropdown.classList.add('show');
+                } else {
+                    dropdown.classList.remove('show');
+                }
+                activeAutocomplete = null;
+                autocompleteSelectedIndex = -1;
+                return;
+            }
+            
+            // 渲染建议列表
+            dropdown.innerHTML = suggestions.map((suggestion, index) => 
+                `<div class="tag-autocomplete-item${index === autocompleteSelectedIndex ? ' selected' : ''}" 
+                     data-value="${suggestion}" 
+                     data-index="${index}">${highlightMatch(suggestion, query)}</div>`
+            ).join('');
+            
+            dropdown.classList.add('show');
+            activeAutocomplete = { dropdown, tagType, input, suggestions };
+            
+            // 添加点击事件
+            dropdown.querySelectorAll('.tag-autocomplete-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const value = item.getAttribute('data-value');
+                    addTagToStore(tagType, value);
+                    input.value = '';
+                    hideAutocomplete(dropdown);
+                });
+            });
+        }
+        
+        // 隐藏自动完成下拉框
+        function hideAutocomplete(dropdown) {
+            if (dropdown) {
+                dropdown.classList.remove('show');
+            }
+            activeAutocomplete = null;
+            autocompleteSelectedIndex = -1;
+        }
+        
         // 处理分类标签输入（所有类型）
         function handleTypedTagInputKeydown(event, tagType) {
+            const input = event.target;
+            const dropdown = document.getElementById(`autocomplete-${tagType}`);
+            
+            // 处理键盘导航
+            if (activeAutocomplete && activeAutocomplete.suggestions.length > 0) {
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    autocompleteSelectedIndex = Math.min(autocompleteSelectedIndex + 1, activeAutocomplete.suggestions.length - 1);
+                    updateAutocompleteSelection();
+                    return;
+                }
+                if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    autocompleteSelectedIndex = Math.max(autocompleteSelectedIndex - 1, -1);
+                    updateAutocompleteSelection();
+                    return;
+                }
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    hideAutocomplete(dropdown);
+                    return;
+                }
+            }
+            
             if (event.key === 'Enter') {
                 event.preventDefault();
-                const input = event.target;
+                
+                // 如果有选中的自动完成项，使用它
+                if (activeAutocomplete && autocompleteSelectedIndex >= 0 && autocompleteSelectedIndex < activeAutocomplete.suggestions.length) {
+                    const value = activeAutocomplete.suggestions[autocompleteSelectedIndex];
+                    addTagToStore(tagType, value);
+                    input.value = '';
+                    hideAutocomplete(dropdown);
+                    return;
+                }
+                
+                // 否则使用输入的值
                 const value = input.value.trim();
                 if (value) {
                     addTagToStore(tagType, value);
                     input.value = '';
+                    hideAutocomplete(dropdown);
                 }
             }
         }
+        
+        // 处理标签输入变化（显示自动完成）
+        function handleTypedTagInput(event, tagType) {
+            const input = event.target;
+            const query = input.value.trim();
+            
+            autocompleteSelectedIndex = -1;
+            const suggestions = getAutocompleteSuggestions(tagType, query);
+            showAutocomplete(input, tagType, suggestions, query);
+        }
+        
+        // 更新自动完成选中状态
+        function updateAutocompleteSelection() {
+            if (!activeAutocomplete) return;
+            
+            const items = activeAutocomplete.dropdown.querySelectorAll('.tag-autocomplete-item');
+            items.forEach((item, index) => {
+                item.classList.toggle('selected', index === autocompleteSelectedIndex);
+            });
+            
+            // 滚动到选中项
+            if (autocompleteSelectedIndex >= 0 && items[autocompleteSelectedIndex]) {
+                items[autocompleteSelectedIndex].scrollIntoView({ block: 'nearest' });
+            }
+        }
+        
+        // 全局点击事件：点击其他地方时隐藏自动完成
+        document.addEventListener('click', function(event) {
+            if (activeAutocomplete && !activeAutocomplete.input.contains(event.target) && !activeAutocomplete.dropdown.contains(event.target)) {
+                hideAutocomplete(activeAutocomplete.dropdown);
+            }
+        });
         
         // 渲染 AI 标签为 chips（在输入框内）
         function renderPlaceAiTags(aiTags) {
@@ -5283,11 +5569,21 @@
                         ? `🎬 ${group.movieNameCn}${group.movieNameEn ? ' / ' + group.movieNameEn : ''}${group.year ? ' (' + group.year + ')' : ''}`
                         : (group.movieNameEn || '未知电影');
                     
+                    // 检查该电影的所有剧照是否都被隐藏
+                    const allHidden = group.stills.every(s => s.isHidden);
+                    const someHidden = group.stills.some(s => s.isHidden);
+                    const eyeIcon = allHidden ? '👁️‍🗨️' : '👁️';
+                    const eyeColor = allHidden ? '#ff6b6b' : (someHidden ? '#ffa500' : '#51cf66');
+                    const eyeTitle = allHidden ? '点击显示该电影所有剧照' : '点击隐藏该电影所有剧照';
+                    
                     html += `
                         <div style="width:100%;margin-bottom:16px;">
-                            <div style="font-weight:600;color:#667eea;margin-bottom:8px;font-size:14px;border-bottom:1px solid #eee;padding-bottom:4px;">
-                                ${movieTitle}
-                                <span style="color:#999;font-weight:normal;font-size:12px;margin-left:8px;">${group.stills.length} 张剧照</span>
+                            <div style="font-weight:600;color:#667eea;margin-bottom:8px;font-size:14px;border-bottom:1px solid #eee;padding-bottom:4px;display:flex;align-items:center;gap:8px;">
+                                <span>${movieTitle}</span>
+                                <span style="color:#999;font-weight:normal;font-size:12px;">${group.stills.length} 张剧照</span>
+                                <button onclick="toggleMovieStillsHidden('${movieId}')" style="font-size:12px;padding:2px 6px;cursor:pointer;background:${eyeColor};color:white;border:none;border-radius:3px;margin-left:auto;" title="${eyeTitle}">
+                                    ${eyeIcon} ${allHidden ? '已隐藏' : '显示中'}
+                                </button>
                             </div>
                             <div style="display:flex;flex-wrap:wrap;gap:8px;">
                                 ${group.stills.map(s => {
@@ -5376,6 +5672,31 @@
                     renderPlaceStills(); // 重新渲染以更新UI
                 }
             }
+        }
+        
+        // 切换整个电影的剧照隐藏/显示状态
+        function toggleMovieStillsHidden(movieId) {
+            if (!placeStills || placeStills.length === 0) return;
+            
+            // 找到该电影的所有剧照
+            const movieStills = placeStills.filter(s => typeof s === 'object' && s.movieId === movieId);
+            if (movieStills.length === 0) return;
+            
+            // 检查是否全部隐藏
+            const allHidden = movieStills.every(s => s.isHidden);
+            
+            // 切换状态：如果全部隐藏则全部显示，否则全部隐藏
+            const newHiddenState = !allHidden;
+            
+            placeStills.forEach(s => {
+                if (typeof s === 'object' && s.movieId === movieId) {
+                    s.isHidden = newHiddenState;
+                }
+            });
+            
+            console.log(`电影 ${movieId} 剧照${newHiddenState ? '已隐藏' : '已显示'}: ${movieStills.length} 张`);
+            renderPlaceStills();
+            showToast(`${newHiddenState ? '已隐藏' : '已显示'}该电影 ${movieStills.length} 张剧照`, newHiddenState ? 'info' : 'success');
         }
         
         // 将剧照设置为合集封面图

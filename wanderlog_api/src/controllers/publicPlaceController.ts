@@ -1464,6 +1464,27 @@ class PublicPlaceController {
       });
     }
   }
+
+  /**
+   * 获取所有不同的标签值，按类型分组（用于自动完成）
+   * GET /api/public-places/distinct-tags
+   */
+  async getDistinctTags(req: Request, res: Response): Promise<void> {
+    try {
+      const data = await publicPlaceService.getDistinctTagsByType();
+
+      res.json({
+        success: true,
+        data,
+      });
+    } catch (error: any) {
+      console.error('❌ Error getting distinct tags:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
 }
 
 export default new PublicPlaceController();

@@ -485,9 +485,7 @@ class CollectionController {
         return res.status(404).json({ success: false, message: 'Collection not found' });
       }
 
-      if (collection.isPublished) {
-        return res.status(400).json({ success: false, message: 'Collection is published and cannot be edited. Please unpublish first.' });
-      }
+      // 允许编辑已上线和未上线的合集
 
       const inputPlaceIds: string[] = Array.isArray(spotIds) ? spotIds.filter(Boolean) : [];
       if (inputPlaceIds.length === 0) {

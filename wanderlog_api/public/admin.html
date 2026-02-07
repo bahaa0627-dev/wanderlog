@@ -1685,7 +1685,7 @@
                 </div>
                 
                 <div class="form-group" style="margin-top:12px;">
-                    <label style="font-size:12px;">剧照列表 <small style="color:#999;">（影视相关）</small></label>
+                    <label style="font-size:12px;">剧照列表 <small style="color:#999;">（点击剧照设为合集封面）</small></label>
                     <div id="placeStillsList" class="chip-list" style="margin-top:6px;"></div>
                 </div>
             </div>
@@ -3419,9 +3419,7 @@
                             ${col.isPublished 
                                 ? `<button class="btn btn-secondary" onclick="unpublishCollection('${col.id}')">下线</button>`
                                 : `<button class="btn btn-primary" onclick="publishCollection('${col.id}')">上线</button>`}
-                            ${col.isPublished 
-                                ? `<button class="btn btn-secondary" disabled>已上线不可编辑</button>`
-                                : `<button class="btn btn-secondary" onclick="startEditCollection('${col.id}')">编辑</button>`}
+                            <button class="btn btn-secondary" onclick="startEditCollection('${col.id}')">编辑</button>
                             ${!col.isPublished 
                                 ? `<button class="btn btn-danger" onclick="deleteCollection('${col.id}', '${col.name.replace(/'/g, "\\'")}')">删除</button>`
                                 : ''}
@@ -5250,6 +5248,9 @@
             // 检查是否是新格式（带电影信息的对象数组）
             const hasMovieInfo = placeStills.some(s => typeof s === 'object' && s.movieId);
             
+            // 获取当前合集封面图用于对比
+            const currentCollectionCover = document.getElementById('placeCollectionCoverImage').value || '';
+            
             if (hasMovieInfo) {
                 // 按电影分组
                 const movieGroups = {};
@@ -5289,16 +5290,22 @@
                                 <span style="color:#999;font-weight:normal;font-size:12px;margin-left:8px;">${group.stills.length} 张剧照</span>
                             </div>
                             <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                                ${group.stills.map(s => `
-                                    <div class="chip draggable-image" style="padding:4px;cursor:move;position:relative;${s.isHidden ? 'opacity:0.4;' : ''}"
+                                ${group.stills.map(s => {
+                                    const isCollectionCover = s.url === currentCollectionCover;
+                                    const coverBadge = isCollectionCover ? '<span style="position:absolute;top:2px;left:2px;font-size:8px;color:#fff;background:#0c5460;padding:1px 4px;border-radius:3px;">合集封面</span>' : '';
+                                    const coverBorderStyle = isCollectionCover ? 'border:2px solid #0c5460;' : '';
+                                    const escapedUrl = s.url.replace(/'/g, "\\'");
+                                    return `
+                                    <div class="chip draggable-image" style="padding:4px;cursor:move;position:relative;${s.isHidden ? 'opacity:0.4;' : ''}${coverBorderStyle}"
                                          draggable="true"
                                          ondragstart="handleImageDragStart(event, ${s.idx}, 'stills')"
                                          ondragend="handleImageDragEnd(event)"
                                          ondragover="handleImageDragOver(event)"
                                          ondrop="handleImageDrop(event, ${s.idx}, 'stills')">
+                                        ${coverBadge}
                                         <span style="font-size:10px;color:#999;margin-right:4px;">${s.idx + 1}</span>
-                                        <img src="${s.url}" style="width:100px;height:75px;object-fit:cover;border-radius:4px;" 
-                                             title="长按拖拽调整顺序"
+                                        <img src="${s.url}" style="width:100px;height:75px;object-fit:cover;border-radius:4px;cursor:pointer;" 
+                                             onclick="showStillCoverMenu(event, '${escapedUrl}')" title="点击设为封面"
                                              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2275%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>🎬</text></svg>'">
                                         <button onclick="removePlaceStill(${s.idx})" style="margin-left:4px;">×</button>
                                         <div style="display:flex;gap:4px;margin-top:2px;">
@@ -5311,7 +5318,7 @@
                                             </button>
                                         </div>
                                     </div>
-                                `).join('')}
+                                `}).join('')}
                             </div>
                         </div>
                     `;
@@ -5321,16 +5328,21 @@
                 // 旧格式：简单的图片URL数组 - 支持拖拽排序
                 container.innerHTML = placeStills.map((img, idx) => {
                     const imgUrl = getStillImageUrl(img);
+                    const isCollectionCover = imgUrl === currentCollectionCover;
+                    const coverBadge = isCollectionCover ? '<span style="position:absolute;top:2px;left:2px;font-size:8px;color:#fff;background:#0c5460;padding:1px 4px;border-radius:3px;">合集封面</span>' : '';
+                    const coverBorderStyle = isCollectionCover ? 'border:2px solid #0c5460;' : '';
+                    const escapedUrl = imgUrl.replace(/'/g, "\\'");
                     return `
-                        <div class="chip draggable-image" style="padding:4px;cursor:move;"
+                        <div class="chip draggable-image" style="padding:4px;cursor:move;position:relative;${coverBorderStyle}"
                              draggable="true"
                              ondragstart="handleImageDragStart(event, ${idx}, 'stills')"
                              ondragend="handleImageDragEnd(event)"
                              ondragover="handleImageDragOver(event)"
                              ondrop="handleImageDrop(event, ${idx}, 'stills')">
+                            ${coverBadge}
                             <span style="font-size:10px;color:#999;margin-right:4px;">${idx + 1}</span>
-                            <img src="${imgUrl}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;" 
-                                 title="长按拖拽调整顺序"
+                            <img src="${imgUrl}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;cursor:pointer;" 
+                                 onclick="showStillCoverMenu(event, '${escapedUrl}')" title="点击设为封面"
                                  onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2260%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>🎬</text></svg>'">
                             <button onclick="removePlaceStill(${idx})" style="margin-left:4px;">×</button>
                         </div>
@@ -5364,6 +5376,72 @@
                     renderPlaceStills(); // 重新渲染以更新UI
                 }
             }
+        }
+        
+        // 将剧照设置为合集封面图
+        function setStillAsCollectionCover(url) {
+            if (!url) return;
+            document.getElementById('placeCollectionCoverImage').value = url;
+            updateCollectionCoverImagePreview();
+            renderPlaceStills(); // 重新渲染以更新封面标识
+            showToast('已设置为合集封面图', 'success');
+        }
+        
+        // 显示剧照封面选择菜单
+        function showStillCoverMenu(event, url) {
+            event.stopPropagation();
+            // 移除已有的菜单
+            const existingMenu = document.getElementById('stillCoverMenu');
+            if (existingMenu) existingMenu.remove();
+            
+            const menu = document.createElement('div');
+            menu.id = 'stillCoverMenu';
+            menu.style.cssText = 'position:fixed;background:#fff;border:1px solid #ddd;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.15);z-index:10000;padding:4px 0;';
+            menu.innerHTML = `
+                <div onclick="setStillAsRegularCover('${url.replace(/'/g, "\\'")}')" style="padding:8px 16px;cursor:pointer;font-size:13px;white-space:nowrap;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📍 设为普通封面</div>
+                <div onclick="setStillAsCollectionCover('${url.replace(/'/g, "\\'")}'); document.getElementById('stillCoverMenu').remove();" style="padding:8px 16px;cursor:pointer;font-size:13px;white-space:nowrap;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📚 设为合集封面</div>
+                <div onclick="setStillAsBothCover('${url.replace(/'/g, "\\'")}')" style="padding:8px 16px;cursor:pointer;font-size:13px;white-space:nowrap;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🔗 设为两种封面</div>
+            `;
+            document.body.appendChild(menu);
+            
+            // 定位菜单
+            const rect = event.target.getBoundingClientRect();
+            menu.style.left = `${rect.left}px`;
+            menu.style.top = `${rect.bottom + 4}px`;
+            
+            // 点击其他地方关闭菜单
+            setTimeout(() => {
+                document.addEventListener('click', function closeStillMenu() {
+                    const m = document.getElementById('stillCoverMenu');
+                    if (m) m.remove();
+                    document.removeEventListener('click', closeStillMenu);
+                });
+            }, 0);
+        }
+        
+        // 将剧照设置为普通封面图
+        function setStillAsRegularCover(url) {
+            if (!url) return;
+            const menu = document.getElementById('stillCoverMenu');
+            if (menu) menu.remove();
+            document.getElementById('placeCoverImage').value = url;
+            renderPlaceImages();
+            updateCoverImagePreview();
+            showToast('已设置为普通封面图', 'success');
+        }
+        
+        // 将剧照设置为两种封面图
+        function setStillAsBothCover(url) {
+            if (!url) return;
+            const menu = document.getElementById('stillCoverMenu');
+            if (menu) menu.remove();
+            document.getElementById('placeCoverImage').value = url;
+            document.getElementById('placeCollectionCoverImage').value = url;
+            renderPlaceImages();
+            updateCoverImagePreview();
+            updateCollectionCoverImagePreview();
+            renderPlaceStills();
+            showToast('已设置为两种封面图', 'success');
         }
         
         // 保存地点数据

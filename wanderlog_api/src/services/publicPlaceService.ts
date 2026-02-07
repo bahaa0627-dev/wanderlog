@@ -2579,3 +2579,6 @@ class PublicPlaceService {
       aiTags: Array.from(tagsByType.aiTags).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
     };
   }
+}
+
+export default new PublicPlaceService();

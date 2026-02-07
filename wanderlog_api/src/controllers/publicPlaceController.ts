@@ -1469,7 +1469,7 @@ class PublicPlaceController {
    * 获取所有不同的标签值，按类型分组（用于自动完成）
    * GET /api/public-places/distinct-tags
    */
-  async getDistinctTags(req: Request, res: Response): Promise<void> {
+  async getDistinctTags(_req: Request, res: Response): Promise<void> {
     try {
       const data = await publicPlaceService.getDistinctTagsByType();
 

@@ -763,10 +763,40 @@ const normalizePlace = (dbPlace: any) => {
     phoneNumber: dbPlace.phoneNumber || dbPlace.phone_number,
     googlePlaceId: dbPlace.googlePlaceId || dbPlace.google_place_id,
     source: dbPlace.source,
-    custom_fields: filterHiddenStillsFromCustomFields(dbPlace.custom_fields || dbPlace.customFields),
+    custom_fields: filterHiddenStillsFromCustomFields(upgradeStillUrls(dbPlace.custom_fields || dbPlace.customFields)),
     createdAt: dbPlace.created_at ? new Date(dbPlace.created_at).toISOString() : null,
     updatedAt: dbPlace.updated_at ? new Date(dbPlace.updated_at).toISOString() : null,
   };
+};
+
+/**
+ * 将剧照中的 http:// URL 升级为 https://
+ * 避免 HTTPS 页面加载 HTTP 图片时被浏览器阻止（混合内容）
+ */
+const upgradeStillUrls = (customFields: any): any => {
+  if (!customFields) return customFields;
+
+  let parsed: any;
+  try {
+    parsed = typeof customFields === 'string' ? JSON.parse(customFields) : customFields;
+  } catch {
+    return customFields;
+  }
+
+  if (!parsed || typeof parsed !== 'object') return parsed;
+  if (!parsed.stills || !Array.isArray(parsed.stills)) return parsed;
+
+  const upgraded = parsed.stills.map((still: any) => {
+    if (typeof still === 'string' && still.startsWith('http://')) {
+      return still.replace('http://', 'https://');
+    }
+    if (typeof still === 'object' && still.url && still.url.startsWith('http://')) {
+      return { ...still, url: still.url.replace('http://', 'https://') };
+    }
+    return still;
+  });
+
+  return { ...parsed, stills: upgraded };
 };
 
 /**

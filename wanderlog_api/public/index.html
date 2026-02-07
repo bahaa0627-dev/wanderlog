@@ -5224,6 +5224,17 @@
             }
         }
         
+        // 兼容不同剧照字段（url / imageUrl / image）
+        function getStillImageUrl(still) {
+            if (!still) return '';
+            let url = typeof still === 'string' ? still : (still.url || still.imageUrl || still.image || '');
+            // 修复混合内容：将 http:// 升级为 https://（避免 HTTPS 页面加载 HTTP 图片被浏览器阻止）
+            if (url.startsWith('http://')) {
+                url = url.replace('http://', 'https://');
+            }
+            return url;
+        }
+        
         // 渲染剧照列表 - 支持按电影分组显示和拖拽排序
         function renderPlaceStills() {
             const container = document.getElementById('placeStillsList');
@@ -5251,14 +5262,14 @@
                                 stills: []
                             };
                         }
-                        movieGroups[key].stills.push({ url: still.url, idx, canCompare: still.canCompare || false, isHidden: still.isHidden || false });
+                        movieGroups[key].stills.push({ url: getStillImageUrl(still), idx, canCompare: still.canCompare || false, isHidden: still.isHidden || false });
                     } else {
                         // 兼容旧格式（纯字符串URL）
                         const key = '_unknown_';
                         if (!movieGroups[key]) {
                             movieGroups[key] = { movieNameCn: '未知电影', movieNameEn: '', year: '', stills: [] };
                         }
-                        movieGroups[key].stills.push({ url: typeof still === 'string' ? still : still.url, idx, canCompare: false, isHidden: false });
+                        movieGroups[key].stills.push({ url: getStillImageUrl(still), idx, canCompare: false, isHidden: false });
                     }
                 });
                 
@@ -5307,7 +5318,7 @@
             } else {
                 // 旧格式：简单的图片URL数组 - 支持拖拽排序
                 container.innerHTML = placeStills.map((img, idx) => {
-                    const imgUrl = typeof img === 'string' ? img : (img.url || img);
+                    const imgUrl = getStillImageUrl(img);
                     return `
                         <div class="chip draggable-image" style="padding:4px;cursor:move;"
                              draggable="true"

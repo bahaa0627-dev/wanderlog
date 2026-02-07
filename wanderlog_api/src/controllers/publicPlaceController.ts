@@ -156,6 +156,36 @@ function computeDisplayTagsWithUnion(
 }
 
 /**
+ * 将剧照中的 http:// URL 升级为 https://
+ * 避免 HTTPS 页面加载 HTTP 图片时被浏览器阻止（混合内容）
+ */
+function upgradeStillUrls(customFields: any): any {
+  if (!customFields) return customFields;
+
+  let parsed: any;
+  try {
+    parsed = typeof customFields === 'string' ? JSON.parse(customFields) : customFields;
+  } catch {
+    return customFields;
+  }
+
+  if (!parsed || typeof parsed !== 'object') return parsed;
+  if (!parsed.stills || !Array.isArray(parsed.stills)) return parsed;
+
+  const upgraded = parsed.stills.map((still: any) => {
+    if (typeof still === 'string' && still.startsWith('http://')) {
+      return still.replace('http://', 'https://');
+    }
+    if (typeof still === 'object' && still.url && still.url.startsWith('http://')) {
+      return { ...still, url: still.url.replace('http://', 'https://') };
+    }
+    return still;
+  });
+
+  return { ...parsed, stills: upgraded };
+}
+
+/**
  * 过滤隐藏的剧照
  * 仅返回 isHidden !== true 的剧照
  */
@@ -274,7 +304,7 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
       display_tags_en,
       display_tags_zh,
       tags: parsedTags,
-      customFields: place.customFields || null,
+      customFields: upgradeStillUrls(place.customFields) || null,
     };
   } else {
     // C 端：移除内部 tags 字段 (Requirements: 8.4)
@@ -294,7 +324,7 @@ function transformPlace(place: any, includeInternalTags: boolean = false): any {
       aiTags,
       display_tags_en,
       display_tags_zh,
-      customFields: filterHiddenStills(place.customFields),
+      customFields: filterHiddenStills(upgradeStillUrls(place.customFields)),
     };
   }
   

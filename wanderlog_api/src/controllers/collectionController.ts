@@ -116,8 +116,8 @@ const normalizePlace = (place: any) => {
   // 删除原始的 snake_case 字段，避免混淆
   const { display_tags_en, display_tags_zh, ...restPlace } = place;
   
-  // 过滤隐藏的剧照
-  const customFields = filterHiddenStillsFromCustomFields(place.customFields || place.custom_fields);
+  // 过滤隐藏的剧照（先升级 URL，再过滤）
+  const customFields = filterHiddenStillsFromCustomFields(upgradeStillUrls(place.customFields || place.custom_fields));
   
   return {
     ...restPlace,
@@ -127,6 +127,36 @@ const normalizePlace = (place: any) => {
     displayTagsEn,
     customFields,
   };
+};
+
+/**
+ * 将剧照中的 http:// URL 升级为 https://
+ * 避免 HTTPS 页面加载 HTTP 图片时被浏览器阻止（混合内容）
+ */
+const upgradeStillUrls = (customFields: any): any => {
+  if (!customFields) return customFields;
+
+  let parsed: any;
+  try {
+    parsed = typeof customFields === 'string' ? JSON.parse(customFields) : customFields;
+  } catch {
+    return customFields;
+  }
+
+  if (!parsed || typeof parsed !== 'object') return parsed;
+  if (!parsed.stills || !Array.isArray(parsed.stills)) return parsed;
+
+  const upgraded = parsed.stills.map((still: any) => {
+    if (typeof still === 'string' && still.startsWith('http://')) {
+      return still.replace('http://', 'https://');
+    }
+    if (typeof still === 'object' && still.url && still.url.startsWith('http://')) {
+      return { ...still, url: still.url.replace('http://', 'https://') };
+    }
+    return still;
+  });
+
+  return { ...parsed, stills: upgraded };
 };
 
 /**

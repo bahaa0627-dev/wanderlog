@@ -749,7 +749,9 @@
             padding: 10px 12px;
             border-bottom: 1px solid #f0f0f0;
             background: #fff;
-            transition: background 0.15s;
+            transition: background 0.15s, opacity 0.2s, transform 0.2s;
+            cursor: move;
+            user-select: none;
         }
 
         .spots-list-item:last-child {
@@ -758,6 +760,15 @@
 
         .spots-list-item:hover {
             background: #f8f9fa;
+        }
+
+        .spots-list-item.dragging {
+            opacity: 0.5;
+            background: #e3f2fd;
+        }
+
+        .spots-list-item.drag-over {
+            border-top: 2px solid #667eea;
         }
 
         .spots-list-item-info {
@@ -4054,17 +4065,73 @@
             }
             
             container.innerHTML = selectedSpots.map((s, index) => `
-                <div class="spots-list-item">
+                <div class="spots-list-item" draggable="true" data-index="${index}"
+                     ondragstart="handleSpotDragStart(event, ${index})"
+                     ondragend="handleSpotDragEnd(event)"
+                     ondragover="handleSpotDragOver(event)"
+                     ondragleave="handleSpotDragLeave(event)"
+                     ondrop="handleSpotDrop(event, ${index})">
                     <div class="spots-list-item-info" onclick="openEditPlaceModal('${s.id}')" title="点击查看/编辑地点详情">
-                        <div class="spots-list-item-name">${index + 1}. ${s.name || ''}</div>
+                        <div class="spots-list-item-name"><span style="color:#999;margin-right:4px;">☰</span> ${index + 1}. ${s.name || ''}</div>
                         <div class="spots-list-item-city">${s.city || ''}${s.address ? ' · ' + s.address : ''}</div>
                     </div>
                     <div class="spots-list-item-actions">
-                        <button class="btn btn-secondary" style="padding:4px 8px;font-size:12px;" onclick="openEditPlaceModal('${s.id}')" title="编辑地点">✏️</button>
-                        <button class="btn btn-secondary" style="padding:4px 8px;font-size:12px;color:#dc3545;" onclick="removeSpot('${s.id}')" title="移除地点">×</button>
+                        <button class="btn btn-secondary" style="padding:4px 8px;font-size:12px;" onclick="event.stopPropagation(); openEditPlaceModal('${s.id}')" title="编辑地点">✏️</button>
+                        <button class="btn btn-secondary" style="padding:4px 8px;font-size:12px;color:#dc3545;" onclick="event.stopPropagation(); removeSpot('${s.id}')" title="移除地点">×</button>
                     </div>
                 </div>
             `).join('');
+        }
+
+        // 地点拖拽排序相关变量和函数
+        let draggedSpotIndex = null;
+
+        function handleSpotDragStart(e, index) {
+            draggedSpotIndex = index;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', index);
+        }
+
+        function handleSpotDragEnd(e) {
+            e.target.classList.remove('dragging');
+            // 移除所有 drag-over 样式
+            document.querySelectorAll('.spots-list-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+            draggedSpotIndex = null;
+        }
+
+        function handleSpotDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const item = e.target.closest('.spots-list-item');
+            if (item && !item.classList.contains('dragging')) {
+                item.classList.add('drag-over');
+            }
+        }
+
+        function handleSpotDragLeave(e) {
+            const item = e.target.closest('.spots-list-item');
+            if (item) {
+                item.classList.remove('drag-over');
+            }
+        }
+
+        function handleSpotDrop(e, dropIndex) {
+            e.preventDefault();
+            const item = e.target.closest('.spots-list-item');
+            if (item) {
+                item.classList.remove('drag-over');
+            }
+            
+            if (draggedSpotIndex === null || draggedSpotIndex === dropIndex) return;
+            
+            // 重新排序数组
+            const draggedItem = selectedSpots[draggedSpotIndex];
+            selectedSpots.splice(draggedSpotIndex, 1);
+            selectedSpots.splice(dropIndex, 0, draggedItem);
+            
+            draggedSpotIndex = null;
+            renderSelectedSpots();
         }
 
         // 人物与作品
@@ -5905,7 +5972,7 @@
                     website: website || undefined,
                     phoneNumber: document.getElementById('placePhone').value.trim() || undefined,
                     openingHours: openingHours ? JSON.stringify(openingHours) : undefined,
-                    tags: tags ? JSON.stringify(tags) : undefined,
+                    tags: JSON.stringify(tags || {}),  // 始终发送 tags，空对象表示清空所有标签
                     aiTags: JSON.stringify(aiTags),  // 始终发送 aiTags，即使是空数组
                     coverImage: coverImage || undefined,
                     collectionCoverImage: collectionCoverImage || undefined,

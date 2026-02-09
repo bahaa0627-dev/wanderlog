@@ -3060,27 +3060,61 @@
                 let openingHoursHtml = '-';
                 if (place.openingHours) {
                     try {
-                        const hours = typeof place.openingHours === 'string' ? JSON.parse(place.openingHours) : place.openingHours;
-                        if (hours && hours.weekday_text && Array.isArray(hours.weekday_text)) {
-                            // Google Maps 格式的营业时间
-                            openingHoursHtml = '<ul class="opening-hours-list">' + 
-                                hours.weekday_text.slice(0, 7).map(t => `<li>${t}</li>`).join('') + 
-                                '</ul>';
-                        } else if (Array.isArray(hours)) {
+                        // 先尝试直接作为字符串处理（手动输入的格式如 "Monday: 10AM-6PM, Tuesday: ..."）
+                        if (typeof place.openingHours === 'string') {
+                            // 尝试 JSON 解析，如果失败则当作普通字符串
+                            try {
+                                const hours = JSON.parse(place.openingHours);
+                                if (hours && hours.weekday_text && Array.isArray(hours.weekday_text)) {
+                                    // Google Maps 格式的营业时间
+                                    openingHoursHtml = '<ul class="opening-hours-list">' + 
+                                        hours.weekday_text.slice(0, 7).map(t => `<li>${t}</li>`).join('') + 
+                                        '</ul>';
+                                } else if (Array.isArray(hours)) {
+                                    // 数组格式 [{day, hours}, ...]
+                                    openingHoursHtml = '<ul class="opening-hours-list">' + 
+                                        hours.slice(0, 7).map(t => {
+                                            if (typeof t === 'object' && t.day && t.hours) {
+                                                return `<li>${t.day}: ${t.hours}</li>`;
+                                            }
+                                            return `<li>${typeof t === 'string' ? t : ''}</li>`;
+                                        }).join('') + 
+                                        '</ul>';
+                                } else if (typeof hours === 'object') {
+                                    if (hours.periods && Array.isArray(hours.periods)) {
+                                        openingHoursHtml = '<span style="font-size:11px;">有营业时间数据</span>';
+                                    } else {
+                                        openingHoursHtml = '<span style="font-size:11px;">有营业时间</span>';
+                                    }
+                                }
+                            } catch {
+                                // JSON 解析失败，当作普通字符串显示
+                                // 如果包含逗号分隔的多天，分行显示
+                                const parts = place.openingHours.split(', ');
+                                if (parts.length > 1) {
+                                    openingHoursHtml = '<ul class="opening-hours-list">' + 
+                                        parts.map(p => `<li>${p}</li>`).join('') + 
+                                        '</ul>';
+                                } else {
+                                    openingHoursHtml = `<span style="font-size:11px;">${place.openingHours}</span>`;
+                                }
+                            }
+                        } else if (Array.isArray(place.openingHours)) {
                             // 数组格式 [{day, hours}, ...]
                             openingHoursHtml = '<ul class="opening-hours-list">' + 
-                                hours.slice(0, 7).map(t => {
+                                place.openingHours.slice(0, 7).map(t => {
                                     if (typeof t === 'object' && t.day && t.hours) {
                                         return `<li>${t.day}: ${t.hours}</li>`;
                                     }
                                     return `<li>${typeof t === 'string' ? t : ''}</li>`;
                                 }).join('') + 
                                 '</ul>';
-                        } else if (typeof hours === 'string') {
-                            openingHoursHtml = `<span style="font-size:11px;">${hours}</span>`;
-                        } else if (typeof hours === 'object') {
-                            // 尝试提取 periods 或其他格式
-                            if (hours.periods && Array.isArray(hours.periods)) {
+                        } else if (typeof place.openingHours === 'object') {
+                            if (place.openingHours.weekday_text && Array.isArray(place.openingHours.weekday_text)) {
+                                openingHoursHtml = '<ul class="opening-hours-list">' + 
+                                    place.openingHours.weekday_text.slice(0, 7).map(t => `<li>${t}</li>`).join('') + 
+                                    '</ul>';
+                            } else if (place.openingHours.periods && Array.isArray(place.openingHours.periods)) {
                                 openingHoursHtml = '<span style="font-size:11px;">有营业时间数据</span>';
                             } else {
                                 openingHoursHtml = '<span style="font-size:11px;">有营业时间</span>';
@@ -4546,18 +4580,35 @@
                 let openingHoursText = '';
                 if (place.openingHours) {
                     try {
-                        const hours = typeof place.openingHours === 'string' ? JSON.parse(place.openingHours) : place.openingHours;
-                        if (hours && hours.weekday_text && Array.isArray(hours.weekday_text)) {
-                            // Format: { weekday_text: ["Monday: 9:00 AM – 5:00 PM", ...] }
-                            openingHoursText = hours.weekday_text.join('\n');
-                        } else if (Array.isArray(hours)) {
-                            // Check if it's Apify format: [{ day: "Monday", hours: "9:00 AM – 5:00 PM" }, ...]
-                            if (hours.length > 0 && typeof hours[0] === 'object' && hours[0].day && hours[0].hours) {
-                                openingHoursText = hours.map(h => `${h.day}: ${h.hours}`).join('\n');
-                            } else {
-                                // Simple array of strings: ["Monday: 9:00 AM – 5:00 PM", ...]
-                                openingHoursText = hours.join('\n');
+                        // 先判断是否是普通字符串（非 JSON）
+                        if (typeof place.openingHours === 'string') {
+                            try {
+                                const hours = JSON.parse(place.openingHours);
+                                if (hours && hours.weekday_text && Array.isArray(hours.weekday_text)) {
+                                    // Format: { weekday_text: ["Monday: 9:00 AM – 5:00 PM", ...] }
+                                    openingHoursText = hours.weekday_text.join('\n');
+                                } else if (Array.isArray(hours)) {
+                                    // Check if it's Apify format: [{ day: "Monday", hours: "9:00 AM – 5:00 PM" }, ...]
+                                    if (hours.length > 0 && typeof hours[0] === 'object' && hours[0].day && hours[0].hours) {
+                                        openingHoursText = hours.map(h => `${h.day}: ${h.hours}`).join('\n');
+                                    } else {
+                                        // Simple array of strings: ["Monday: 9:00 AM – 5:00 PM", ...]
+                                        openingHoursText = hours.join('\n');
+                                    }
+                                }
+                            } catch {
+                                // JSON 解析失败，当作普通字符串处理
+                                // 如果是逗号分隔格式，转换成换行
+                                openingHoursText = place.openingHours.split(', ').join('\n');
                             }
+                        } else if (Array.isArray(place.openingHours)) {
+                            if (place.openingHours.length > 0 && typeof place.openingHours[0] === 'object' && place.openingHours[0].day && place.openingHours[0].hours) {
+                                openingHoursText = place.openingHours.map(h => `${h.day}: ${h.hours}`).join('\n');
+                            } else {
+                                openingHoursText = place.openingHours.join('\n');
+                            }
+                        } else if (typeof place.openingHours === 'object' && place.openingHours.weekday_text) {
+                            openingHoursText = place.openingHours.weekday_text.join('\n');
                         }
                     } catch {}
                 }

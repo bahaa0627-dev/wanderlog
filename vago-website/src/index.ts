@@ -6,9 +6,6 @@
 // API 基础地址
 const API_BASE_URL = 'https://wanderlog-production.up.railway.app/api';
 
-// Pages 地址
-const PAGES_URL = 'https://vago-nel-mondo.pages.dev';
-
 export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -28,10 +25,10 @@ export default {
       return await handleCollectionPage(collectionId);
     }
 
-    // 首页和静态资源 - 代理到 Cloudflare Pages
-    if (path === '/' || path === '' || path.startsWith('/assets/') || path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.js') || path.endsWith('.css')) {
-      return fetch(`${PAGES_URL}${path}`, {
-        headers: request.headers,
+    // 首页
+    if (path === '/' || path === '') {
+      return new Response(getHomepageHTML(), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
     }
 
@@ -253,42 +250,74 @@ function getHomepageHTML(): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VAGO - Your Personalized Flaneur Guide</title>
+  <title>VAGO nel mondo</title>
+  <meta name="description" content="Your flâneur, your story.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            vago: {
+              yellow: '#FFE500',
+              black: '#000000',
+            }
+          },
+          fontFamily: {
+            reem: ['"Reem Kufi"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #FFF8E1 0%, #FFFDE7 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      font-family: 'Reem Kufi', sans-serif;
+      background-color: #FFE500;
+      color: #000000;
     }
-    .container {
-      text-align: center;
-      max-width: 600px;
-    }
-    .logo { font-size: 64px; font-weight: 800; color: #1a1a1a; margin-bottom: 16px; }
-    .tagline { font-size: 24px; color: #666; margin-bottom: 48px; }
-    .coming-soon {
-      background: white;
-      padding: 24px 48px;
-      border-radius: 16px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-      display: inline-block;
-    }
-    .coming-soon p { font-size: 18px; color: #333; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="logo">VAGO</div>
-    <p class="tagline">Your own personalized flaneur guide</p>
-    <div class="coming-soon">
-      <p>🚀 Coming Soon</p>
+  <main class="relative w-full h-[100dvh] flex flex-col items-center justify-between bg-vago-yellow text-vago-black overflow-hidden selection:bg-black selection:text-vago-yellow">
+    <!-- Header -->
+    <header class="w-full flex justify-between items-center p-6 md:p-8 z-20 shrink-0">
+      <div class="text-2xl md:text-3xl font-bold tracking-tighter uppercase">VAGO</div>
+      <a href="mailto:blcubahaa0627@gmail.com" class="group flex items-center gap-2 text-sm font-bold tracking-widest uppercase hover:opacity-60 transition-opacity">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+        <span>Contact Us</span>
+      </a>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex-1 w-full max-w-7xl mx-auto flex flex-col items-center justify-center px-4 min-h-0">
+      <!-- Image Container -->
+      <div class="flex-1 w-full flex items-center justify-center min-h-0 relative">
+        <div class="relative w-full h-full max-w-[105vh] max-h-[90vh] flex items-center justify-center">
+          <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100%] h-[100%] bg-white/20 blur-3xl rounded-full -z-10 pointer-events-none"></div>
+          <img src="https://raw.githubusercontent.com/bahaa0627-dev/wanderlog/main/vago-nel-mondo/front_photo_small.jpg" alt="VAGO" class="w-full h-full object-contain drop-shadow-xl" />
+        </div>
+      </div>
+
+      <!-- Text Section -->
+      <div class="shrink-0 text-center z-10 pt-4 pb-6 md:pb-10 flex flex-col items-center">
+        <h1 class="text-[6vw] md:text-6xl lg:text-7xl xl:text-8xl font-bold leading-none tracking-tight uppercase whitespace-nowrap">
+          VAGO <span class="font-normal lowercase tracking-normal">nel mondo</span>
+        </h1>
+        <p class="text-lg md:text-2xl lg:text-3xl font-medium mt-3 opacity-90 font-reem">
+          Your flâneur, your story.
+        </p>
+      </div>
     </div>
-  </div>
+
+    <!-- Footer -->
+    <footer class="w-full p-6 md:p-8 flex justify-end items-end text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-40 shrink-0 z-20">
+      <div>© ${new Date().getFullYear()} VAGO</div>
+    </footer>
+  </main>
 </body>
 </html>`;
 }

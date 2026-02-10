@@ -298,7 +298,7 @@ function getHomepageHTML(): string {
       <div class="flex-1 w-full flex items-center justify-center min-h-0 relative">
         <div class="relative w-full h-full max-w-[105vh] max-h-[90vh] flex items-center justify-center">
           <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100%] h-[100%] bg-white/20 blur-3xl rounded-full -z-10 pointer-events-none"></div>
-          <img src="https://raw.githubusercontent.com/bahaa0627-dev/wanderlog/main/vago-nel-mondo/front_photo_small.jpg" alt="VAGO" class="w-full h-full object-contain drop-shadow-xl" />
+          <img src="https://raw.githubusercontent.com/bahaa0627-dev/wanderlog/main/vago-nel-mondo/front_photo_small.png" alt="VAGO" class="w-full h-full object-contain drop-shadow-xl" />
         </div>
       </div>
 

@@ -74,36 +74,6 @@ class SettingsPage extends ConsumerWidget {
                   ),
                   const _Divider(),
 
-                  // Membership
-                  _SettingsItem(
-                    title: l10n.membershipTitle,
-                    trailing: Text(
-                      l10n.membershipComingSoon,
-                      style: AppTheme.bodySmall(context),
-                    ),
-                    customContent: Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryYellow,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppTheme.black, width: 1.5),
-                        ),
-                        child: Text(
-                          l10n.membershipFree,
-                          style: AppTheme.labelSmall(context).copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const _Divider(),
-
                   // Recommend Place (replaces Language)
                   _SettingsItem(
                     title: l10n.recommendPlaceTitle,

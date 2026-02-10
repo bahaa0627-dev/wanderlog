@@ -6,6 +6,9 @@
 // API 基础地址
 const API_BASE_URL = 'https://wanderlog-production.up.railway.app/api';
 
+// Pages 地址
+const PAGES_URL = 'https://vago-nel-mondo.pages.dev';
+
 export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -25,10 +28,10 @@ export default {
       return await handleCollectionPage(collectionId);
     }
 
-    // 首页 - 简单的占位页面
-    if (path === '/' || path === '') {
-      return new Response(getHomepageHTML(), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    // 首页和静态资源 - 代理到 Cloudflare Pages
+    if (path === '/' || path === '' || path.startsWith('/assets/') || path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.js') || path.endsWith('.css')) {
+      return fetch(`${PAGES_URL}${path}`, {
+        headers: request.headers,
       });
     }
 

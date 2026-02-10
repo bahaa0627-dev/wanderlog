@@ -123,6 +123,23 @@ class SettingsPage extends ConsumerWidget {
                 ],
               ),
             ),
+
+            // Delete Account - only show when logged in, fixed at bottom
+            if (isLoggedIn)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () => _showDeleteAccountDialog(context, ref, l10n),
+                    child: Text(
+                      l10n.deleteAccountTitle,
+                      style: AppTheme.bodySmall(context).copyWith(
+                        color: AppTheme.mediumGray,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -185,6 +202,87 @@ class SettingsPage extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (context) => _RecommendPlaceDialog(l10n: l10n, ref: ref),
+    );
+  }
+
+  void _showDeleteAccountDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          side: const BorderSide(color: AppTheme.black, width: 2),
+        ),
+        title: Text(
+          l10n.deleteAccountConfirmTitle,
+          style: AppTheme.headlineMedium(dialogContext),
+        ),
+        content: Text(
+          l10n.deleteAccountConfirmMessage,
+          style: AppTheme.bodyMedium(dialogContext),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              l10n.cancel,
+              style: const TextStyle(color: AppTheme.mediumGray),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              // Show loading indicator
+              showDialog<void>(
+                context: context,
+                barrierDismissible: false,
+                builder: (loadingContext) => AlertDialog(
+                  backgroundColor: AppTheme.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    side: const BorderSide(color: AppTheme.black, width: 2),
+                  ),
+                  content: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(
+                        color: AppTheme.black,
+                        strokeWidth: 2,
+                      ),
+                      const SizedBox(width: 16),
+                      Text(l10n.deleting,
+                          style: AppTheme.bodyMedium(loadingContext)),
+                    ],
+                  ),
+                ),
+              );
+
+              try {
+                await ref.read(authProvider.notifier).deleteAccount();
+                if (context.mounted) {
+                  Navigator.of(context).pop(); // Close loading dialog
+                  Navigator.of(context).pop(); // Close settings page
+                  CustomToast.showSuccess(context, l10n.deleteAccountSuccess);
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop(); // Close loading dialog
+                  CustomToast.showError(context, l10n.deleteAccountFailed);
+                }
+              }
+            },
+            child: Text(
+              l10n.confirm,
+              style: const TextStyle(color: AppTheme.error),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

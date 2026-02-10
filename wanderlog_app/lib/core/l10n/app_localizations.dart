@@ -119,4 +119,17 @@ class AppLocalizations {
 
   // Toast messages - Opening link
   String opening(String url) => isEnglish ? 'Opening: $url' : '打开: $url';
+
+  // Delete Account
+  String get deleteAccountTitle => isEnglish ? 'Delete Account' : '注销账号';
+  String get deleteAccountConfirmTitle =>
+      isEnglish ? 'Delete Account?' : '确认注销？';
+  String get deleteAccountConfirmMessage => isEnglish
+      ? 'All your account data will be permanently deleted. This action cannot be undone.'
+      : '注销后将删除所有相关账号数据，此操作不可恢复。';
+  String get deleteAccountSuccess =>
+      isEnglish ? 'Account deleted successfully' : '账号已注销';
+  String get deleteAccountFailed =>
+      isEnglish ? 'Failed to delete account' : '注销失败';
+  String get deleting => isEnglish ? 'Deleting...' : '注销中...';
 }

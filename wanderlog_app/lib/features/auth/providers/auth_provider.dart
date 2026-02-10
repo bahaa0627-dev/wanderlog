@@ -276,6 +276,62 @@ class AuthNotifier extends StateNotifier<AuthState> {
       rethrow;
     }
   }
+
+  /// 删除账号
+  Future<void> deleteAccount() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      // 先刷新 session 确保 token 有效
+      print('🗑️ [AuthProvider] Refreshing session before delete...');
+      final session = SupabaseConfig.auth.currentSession;
+      if (session == null) {
+        throw Exception('No active session');
+      }
+      
+      // 尝试刷新 session
+      try {
+        await SupabaseConfig.auth.refreshSession();
+        print('🗑️ [AuthProvider] Session refreshed');
+      } catch (e) {
+        print('🗑️ [AuthProvider] Refresh session failed (continuing): $e');
+      }
+      
+      // 获取最新的 access token
+      final accessToken = SupabaseConfig.auth.currentSession?.accessToken;
+      print('🗑️ [AuthProvider] Access token available: ${accessToken != null}');
+      print('🗑️ [AuthProvider] Access token length: ${accessToken?.length ?? 0}');
+      
+      // 调用 Supabase Edge Function 删除账号
+      print('🗑️ [AuthProvider] Calling delete-account function...');
+      final response = await SupabaseConfig.client.functions.invoke(
+        'delete-account',
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+        },
+      );
+      print('🗑️ [AuthProvider] Response status: ${response.status}');
+      print('🗑️ [AuthProvider] Response data: ${response.data}');
+      
+      if (response.status != 200) {
+        throw Exception('Delete failed: ${response.data}');
+      }
+
+      // 登出并清除本地状态
+      try {
+        await SupabaseConfig.auth.signOut();
+      } catch (e) {
+        // 忽略登出错误
+        print('🗑️ [AuthProvider] Sign out error (ignored): $e');
+      }
+      await _repository.clearToken();
+      state = AuthState();
+      print('🗑️ [AuthProvider] Account deleted successfully');
+    } catch (e) {
+      print('❌ [AuthProvider] Delete account error: $e');
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
 }
 
 // Auth State Provider

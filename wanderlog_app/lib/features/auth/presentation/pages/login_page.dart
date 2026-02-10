@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:wanderlog/core/supabase/supabase_config.dart';
+import 'package:wanderlog/features/auth/services/apple_auth_service.dart';
 import 'package:wanderlog/features/auth/services/google_auth_service.dart';
 import 'package:wanderlog/features/auth/providers/auth_provider.dart';
 import 'package:wanderlog/shared/widgets/custom_toast.dart';
@@ -21,6 +24,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isGoogleLoading = false;
+  bool _isAppleLoading = false;
   bool _isLoading = false;
 
   Future<void> _completeLoginSuccess() async {
@@ -220,6 +224,110 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       });
       if (mounted) {
         CustomToast.showError(context, 'Google login failed: ${e.toString()}');
+      }
+    }
+  }
+
+  Future<void> _onAppleLogin() async {
+    if (_isAppleLoading) return; // 防止重复点击
+
+    setState(() {
+      _isAppleLoading = true;
+    });
+
+    try {
+      debugPrint('🍎 [AppleLogin] Starting Apple Sign-In...');
+      final appleResult = await AppleAuthService.instance.signIn(context);
+      if (appleResult == null) {
+        // 用户取消登录
+        debugPrint('🍎 [AppleLogin] User canceled or error occurred');
+        setState(() {
+          _isAppleLoading = false;
+        });
+        return;
+      }
+
+      debugPrint('🍎 [AppleLogin] Got Apple credentials');
+
+      // 使用 Supabase Auth 进行 Apple 登录
+      debugPrint('🍎 [AppleLogin] Calling Supabase signInWithIdToken...');
+      final response = await SupabaseConfig.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: appleResult.identityToken,
+        nonce: appleResult.rawNonce,
+      );
+      debugPrint(
+          '🍎 [AppleLogin] Supabase response user: ${response.user?.id}');
+      debugPrint(
+          '🍎 [AppleLogin] Supabase response session: ${response.session != null}');
+
+      if (response.user != null) {
+        debugPrint(
+            '✅ [AppleLogin] Login successful, refreshing auth state...');
+        // 刷新 authProvider 状态
+        await ref.read(authProvider.notifier).refreshAuthState();
+        debugPrint('✅ [AppleLogin] Auth state refreshed');
+
+        // 登录成功
+        setState(() {
+          _isAppleLoading = false;
+        });
+
+        if (mounted) {
+          CustomToast.showSuccess(context, 'Apple login successful');
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          if (mounted) {
+            debugPrint('🍎 [AppleLogin] Navigating away from login page...');
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop(true);
+            } else {
+              context.go('/home');
+            }
+          }
+        }
+      } else {
+        debugPrint('❌ [AppleLogin] response.user is null');
+        setState(() {
+          _isAppleLoading = false;
+        });
+        if (mounted) {
+          CustomToast.showError(context, 'Apple login failed');
+        }
+      }
+    } on PlatformException catch (e) {
+      debugPrint('❌ [AppleLogin] PlatformException: ${e.code} - ${e.message}');
+      final hasSession = SupabaseConfig.auth.currentSession != null ||
+          SupabaseConfig.currentUser != null;
+      final isKeychainDup = e.code == '-25299' ||
+          (e.message?.toLowerCase().contains('keychain') ?? false);
+      if (isKeychainDup && hasSession) {
+        debugPrint(
+            '🍎 [AppleLogin] Keychain duplicate but session exists, completing login...');
+        await _completeLoginSuccess();
+      } else if (mounted) {
+        CustomToast.showError(context, e.message ?? 'Apple login failed');
+      }
+      setState(() {
+        _isAppleLoading = false;
+      });
+    } on AuthException catch (e) {
+      debugPrint(
+          '❌ [AppleLogin] AuthException: ${e.statusCode} - ${e.message}');
+      setState(() {
+        _isAppleLoading = false;
+      });
+      if (mounted) {
+        CustomToast.showError(context, 'Apple login failed: ${e.message}');
+      }
+    } catch (e, stackTrace) {
+      // 捕获所有异常，防止应用崩溃
+      debugPrint('❌ [AppleLogin] Unexpected error: $e');
+      debugPrint('❌ [AppleLogin] Stack trace: $stackTrace');
+      setState(() {
+        _isAppleLoading = false;
+      });
+      if (mounted) {
+        CustomToast.showError(context, 'Apple login failed: ${e.toString()}');
       }
     }
   }
@@ -511,6 +619,49 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 ),
                               ),
                             ),
+                            // Apple Sign-In button (iOS only)
+                            if (Platform.isIOS) ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 48,
+                                child: OutlinedButton.icon(
+                                  icon: _isAppleLoading
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.black,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.apple,
+                                          color: Colors.black,
+                                        ),
+                                  onPressed:
+                                      _isAppleLoading ? null : _onAppleLogin,
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(
+                                      color: Colors.black,
+                                      width: 2,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  label: Text(
+                                    _isAppleLoading
+                                        ? 'Signing in...'
+                                        : 'Continue with Apple',
+                                    style: const TextStyle(
+                                      fontFamily: 'ReemKufi',
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

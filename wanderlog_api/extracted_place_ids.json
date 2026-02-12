@@ -1,0 +1,22 @@
+[
+  {
+    "name": "MacCulloch & Wallis Ltd",
+    "url": "https://www.google.com/maps/place/MacCulloch+%26+Wallis+Ltd/@51.5153089,-0.1399827",
+    "error": "Could not extract Place ID"
+  },
+  {
+    "name": "Loop",
+    "url": "https://www.google.com/maps/place/Loop/@51.5347663,-0.1066256",
+    "error": "Could not extract Place ID"
+  },
+  {
+    "name": "Lannan Bakery & Pantry",
+    "url": "https://www.google.com/maps/place/Lannan+Bakery+%26+Pantry/@55.9597946,-3.2093113",
+    "error": "Could not extract Place ID"
+  },
+  {
+    "name": "Hobbycraft Greenwich",
+    "url": "https://www.google.com/maps/place/Hobbycraft+Greenwich/@51.4891559,0.0222923",
+    "error": "Could not extract Place ID"
+  }
+]

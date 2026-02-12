@@ -170,7 +170,9 @@ function upgradeStillUrls(customFields: any): any {
   }
 
   if (!parsed || typeof parsed !== 'object') return parsed;
-  if (!parsed.stills || !Array.isArray(parsed.stills)) return parsed;
+  if (!parsed.stills || !Array.isArray(parsed.stills)) {
+    return { ...parsed, hasStills: false };
+  }
 
   const upgraded = parsed.stills.map((still: any) => {
     if (typeof still === 'string' && still.startsWith('http://')) {
@@ -182,7 +184,7 @@ function upgradeStillUrls(customFields: any): any {
     return still;
   });
 
-  return { ...parsed, stills: upgraded };
+  return { ...parsed, stills: upgraded, hasStills: upgraded.length > 0 };
 }
 
 /**
@@ -226,6 +228,7 @@ function filterHiddenStills(customFields: any): any {
   return {
     ...parsed,
     stills: visibleStills,
+    hasStills: visibleStills.length > 0,
   };
 }
 

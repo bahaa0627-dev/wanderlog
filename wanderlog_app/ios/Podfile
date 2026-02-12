@@ -44,6 +44,14 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
       # Fix for CreateUniversalBinary error - ensure proper architecture handling
       config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES' if config.name == 'Debug'
+      
+      # 为所有 Pods 生成 dSYM 文件，特别是 Mapbox 框架
+      config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
+      
+      # 确保在 Release 和 Profile 模式下生成 dSYM
+      if config.name == 'Release' || config.name == 'Profile'
+        config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
+      end
     end
   end
 end

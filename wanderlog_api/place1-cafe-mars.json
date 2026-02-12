@@ -1,0 +1,27 @@
+{
+  "name": "Cafe & Restaurant Mars",
+  "city": "London",
+  "country": "United Kingdom",
+  "latitude": 51.526674,
+  "longitude": -0.2879562,
+  "address": "11 Hanger Grn, London W5 3EL, United Kingdom",
+  "categorySlug": "cafe",
+  "rating": 4.7,
+  "ratingCount": 67,
+  "description": "Coffee shop offering dine-in and kerbside pickup",
+  "tags": {
+    "google": ["cafe", "coffee_shop"],
+    "others": ["dine_in", "kerbside_pickup"]
+  },
+  "phoneNumber": "+44 7899 720135",
+  "openingHours": {
+    "Monday": "8 AM–9 PM",
+    "Tuesday": "8 AM–9 PM",
+    "Wednesday": "8 AM–7 PM",
+    "Thursday": "8 AM–9 PM",
+    "Friday": "8 AM–9 PM",
+    "Saturday": "9 AM–9 PM",
+    "Sunday": "9 AM–9 PM"
+  },
+  "note": "从 Google Maps 图片识别 - £10-20 per person"
+}

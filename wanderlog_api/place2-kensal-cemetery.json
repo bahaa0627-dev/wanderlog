@@ -1,0 +1,28 @@
+{
+  "name": "Kensal Green Cemetery",
+  "city": "London",
+  "country": "United Kingdom",
+  "latitude": 51.52819,
+  "longitude": -0.2198077,
+  "address": "Harrow Rd, London W10 4RA, United Kingdom",
+  "categorySlug": "cemetery",
+  "rating": 4.6,
+  "ratingCount": 62,
+  "description": "Historic cemetery in West London",
+  "tags": {
+    "google": ["cemetery"],
+    "others": ["historic", "landmark"]
+  },
+  "website": "kensalgreencemetery.com",
+  "phoneNumber": "+44 20 8969 0152",
+  "openingHours": {
+    "Monday": "8 AM–5 PM",
+    "Tuesday": "9 AM–5 PM",
+    "Wednesday": "9 AM–5 PM",
+    "Thursday": "9 AM–5 PM",
+    "Friday": "9 AM–5 PM",
+    "Saturday": "9 AM–5 PM",
+    "Sunday": "10 AM–5 PM"
+  },
+  "note": "从 Google Maps 图片识别"
+}

@@ -1,0 +1,28 @@
+{
+  "name": "Smith & Wollensky",
+  "city": "London",
+  "country": "United Kingdom",
+  "latitude": 51.5094783,
+  "longitude": -0.1249753,
+  "address": "1-11 John Adam St, London WC2N 6HT, United Kingdom (Floor 0, The Adelphi)",
+  "categorySlug": "restaurant",
+  "rating": 4.5,
+  "ratingCount": 2254,
+  "description": "American steaks and wines are the focus at this high-end spot in a white-tablecloth and wood-paneled setting with mahogany",
+  "tags": {
+    "google": ["restaurant", "steak_house"],
+    "others": ["american", "fine_dining", "upscale"]
+  },
+  "website": "smithandwollensky.co.uk",
+  "phoneNumber": "+44 20 7321 6007",
+  "openingHours": {
+    "Monday": "12–10 PM",
+    "Tuesday": "12–10 PM",
+    "Wednesday": "12–10 PM",
+    "Thursday": "12–10 PM",
+    "Friday": "12–10:30 PM",
+    "Saturday": "12–10:30 PM",
+    "Sunday": "12–9:30 PM"
+  },
+  "note": "从 Google Maps 图片识别 - £100+ per person"
+}

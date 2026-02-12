@@ -1,0 +1,28 @@
+{
+  "name": "St Andrew's Church, Kingsbury",
+  "city": "London",
+  "country": "United Kingdom",
+  "latitude": 51.5680401,
+  "longitude": -0.2643736,
+  "address": "St. Andrew, 28 Old Church Ln, St Andrews Rd, London NW9 8RZ, United Kingdom",
+  "categorySlug": "church",
+  "rating": 4.7,
+  "ratingCount": 114,
+  "description": "Anglican church in Kingsbury",
+  "tags": {
+    "google": ["church", "place_of_worship"],
+    "others": ["anglican", "historic"]
+  },
+  "website": "standrewskingsbury.org.uk",
+  "phoneNumber": "+44 20 8205 7447",
+  "openingHours": {
+    "Monday": "Closed",
+    "Tuesday": "Closed",
+    "Wednesday": "Closed",
+    "Thursday": "Closed",
+    "Friday": "Closed",
+    "Saturday": "Closed",
+    "Sunday": "9 AM–12 PM"
+  },
+  "note": "从 Google Maps 图片识别 - 仅周日开放"
+}

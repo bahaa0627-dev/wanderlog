@@ -1,0 +1,19 @@
+{
+  "name": "Test Place from Image",
+  "city": "London",
+  "country": "United Kingdom",
+  "latitude": 51.5074,
+  "longitude": -0.1278,
+  "address": "Test Address, London, UK",
+  "categorySlug": "cafe",
+  "rating": 4.5,
+  "ratingCount": 120,
+  "description": "A test place added from image recognition",
+  "tags": {
+    "google": ["cafe", "coffee_shop"],
+    "others": ["cozy", "specialty_coffee"]
+  },
+  "website": "testcafe.com",
+  "phoneNumber": "+44 20 1234 5678",
+  "note": "测试图片识别添加"
+}

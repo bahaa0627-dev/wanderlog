@@ -3082,9 +3082,17 @@
                                         '</ul>';
                                 } else if (typeof hours === 'object') {
                                     if (hours.periods && Array.isArray(hours.periods)) {
-                                        openingHoursHtml = '<span style="font-size:11px;">有营业时间数据</span>';
+                                        openingHoursHtml = '<span style="font-size:11px;">Hours available</span>';
                                     } else {
-                                        openingHoursHtml = '<span style="font-size:11px;">有营业时间</span>';
+                                        // 显示具体营业时间 (如 {Monday: "8 AM–9 PM", ...})
+                                        const entries = Object.entries(hours).slice(0, 7);
+                                        if (entries.length > 0) {
+                                            openingHoursHtml = '<ul class="opening-hours-list">' + 
+                                                entries.map(([day, time]) => `<li>${day}: ${time}</li>`).join('') + 
+                                                '</ul>';
+                                        } else {
+                                            openingHoursHtml = '<span style="font-size:11px;">Hours available</span>';
+                                        }
                                     }
                                 }
                             } catch {
@@ -3115,9 +3123,17 @@
                                     place.openingHours.weekday_text.slice(0, 7).map(t => `<li>${t}</li>`).join('') + 
                                     '</ul>';
                             } else if (place.openingHours.periods && Array.isArray(place.openingHours.periods)) {
-                                openingHoursHtml = '<span style="font-size:11px;">有营业时间数据</span>';
+                                openingHoursHtml = '<span style="font-size:11px;">Hours available</span>';
                             } else {
-                                openingHoursHtml = '<span style="font-size:11px;">有营业时间</span>';
+                                // 显示具体营业时间对象
+                                const entries = Object.entries(place.openingHours).slice(0, 7);
+                                if (entries.length > 0) {
+                                    openingHoursHtml = '<ul class="opening-hours-list">' + 
+                                        entries.map(([day, time]) => `<li>${day}: ${time}</li>`).join('') + 
+                                        '</ul>';
+                                } else {
+                                    openingHoursHtml = '<span style="font-size:11px;">Hours available</span>';
+                                }
                             }
                         }
                     } catch { openingHoursHtml = '-'; }

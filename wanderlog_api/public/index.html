@@ -2984,9 +2984,17 @@
                         } else if (typeof hours === 'object') {
                             // 尝试提取 periods 或其他格式
                             if (hours.periods && Array.isArray(hours.periods)) {
-                                openingHoursHtml = '<span style="font-size:11px;">有营业时间数据</span>';
+                                openingHoursHtml = '<span style="font-size:11px;">Hours available</span>';
                             } else {
-                                openingHoursHtml = '<span style="font-size:11px;">有营业时间</span>';
+                                // 显示具体营业时间
+                                const entries = Object.entries(hours).slice(0, 7);
+                                if (entries.length > 0) {
+                                    openingHoursHtml = '<ul class="opening-hours-list">' + 
+                                        entries.map(([day, time]) => `<li>${day}: ${time}</li>`).join('') + 
+                                        '</ul>';
+                                } else {
+                                    openingHoursHtml = '<span style="font-size:11px;">Hours available</span>';
+                                }
                             }
                         }
                     } catch { openingHoursHtml = '-'; }

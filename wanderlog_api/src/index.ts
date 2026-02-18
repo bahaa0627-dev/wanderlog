@@ -86,8 +86,18 @@ app.use((req, _res, next) => {
 // 静态文件服务 - 管理后台
 const publicPath = path.join(__dirname, '..', 'public');
 console.log(`📁 Static files path: ${publicPath}`);
-app.use('/admin', express.static(publicPath));
-app.use(express.static(publicPath)); // 也允许根路径访问静态文件
+
+// HTML 文件不允许 Cloudflare/浏览器缓存，确保每次都拿最新版本
+const staticOptions = {
+  setHeaders: (res: any, filePath: string) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+    }
+  }
+};
+app.use('/admin', express.static(publicPath, staticOptions));
+app.use(express.static(publicPath, staticOptions)); // 也允许根路径访问静态文件
 
 // Auth callback 页面 - 用于邮箱验证后的跳转
 app.get('/auth/callback', (_req, res) => {

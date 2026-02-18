@@ -5605,24 +5605,32 @@
                 // 添加 R2 URL 到剧照列表
                 for (let i = 0; i < r2Urls.length; i++) {
                     const r2Url = r2Urls[i];
-                    // 剧照格式：如果是新格式（对象），需要保持结构；否则直接添加字符串
-                    if (placeStills.length > 0 && typeof placeStills[0] === 'object' && placeStills[0].movieId) {
-                        // 如果已有新格式数据，需要找到最后一个电影ID或使用默认值
+                    // 始终使用新格式（对象），以支持隐藏、合拍等功能
+                    // 如果已有数据，继承最后一个剧照的电影信息；否则使用默认值
+                    let movieId = '_unknown_';
+                    let movieNameCn = '';
+                    let movieNameEn = '';
+                    let year = '';
+                    
+                    if (placeStills.length > 0) {
                         const lastStill = placeStills[placeStills.length - 1];
-                        const movieId = (typeof lastStill === 'object' && lastStill.movieId) ? lastStill.movieId : '_unknown_';
-                        placeStills.push({
-                            movieId: movieId,
-                            movieNameCn: typeof lastStill === 'object' ? (lastStill.movieNameCn || '') : '',
-                            movieNameEn: typeof lastStill === 'object' ? (lastStill.movieNameEn || '') : '',
-                            year: typeof lastStill === 'object' ? (lastStill.year || '') : '',
-                            url: r2Url, // 使用 R2 URL
-                            canCompare: false,
-                            isHidden: false
-                        });
-                    } else {
-                        // 旧格式：直接添加字符串URL（R2 URL）
-                        placeStills.push(r2Url);
+                        if (typeof lastStill === 'object' && lastStill.movieId) {
+                            movieId = lastStill.movieId;
+                            movieNameCn = lastStill.movieNameCn || '';
+                            movieNameEn = lastStill.movieNameEn || '';
+                            year = lastStill.year || '';
+                        }
                     }
+                    
+                    placeStills.push({
+                        movieId: movieId,
+                        movieNameCn: movieNameCn,
+                        movieNameEn: movieNameEn,
+                        year: year,
+                        url: r2Url, // 使用 R2 URL
+                        canCompare: false,
+                        isHidden: false
+                    });
                     uploadedCount++;
                     
                     // 实时更新列表显示
@@ -5755,15 +5763,18 @@
                 });
                 container.innerHTML = html;
             } else {
-                // 旧格式：简单的图片URL数组 - 支持拖拽排序
+                // 旧格式：简单的图片URL数组 - 支持拖拽排序，也添加功能按钮
                 container.innerHTML = placeStills.map((img, idx) => {
                     const imgUrl = getStillImageUrl(img);
                     const isCollectionCover = imgUrl === currentCollectionCover;
                     const coverBadge = isCollectionCover ? '<span style="position:absolute;top:2px;left:2px;font-size:8px;color:#fff;background:#0c5460;padding:1px 4px;border-radius:3px;">合集封面</span>' : '';
                     const coverBorderStyle = isCollectionCover ? 'border:2px solid #0c5460;' : '';
                     const escapedUrl = imgUrl.replace(/'/g, "\\'");
+                    // 旧格式也需要支持 canCompare 和 isHidden（从对象属性或默认false）
+                    const canCompare = typeof img === 'object' ? (img.canCompare || false) : false;
+                    const isHidden = typeof img === 'object' ? (img.isHidden || false) : false;
                     return `
-                        <div class="chip draggable-image" style="padding:4px;cursor:move;position:relative;${coverBorderStyle}"
+                        <div class="chip draggable-image" style="padding:4px;cursor:move;position:relative;${isHidden ? 'opacity:0.4;' : ''}${coverBorderStyle}"
                              draggable="true"
                              ondragstart="handleImageDragStart(event, ${idx}, 'stills')"
                              ondragend="handleImageDragEnd(event)"
@@ -5771,10 +5782,19 @@
                              ondrop="handleImageDrop(event, ${idx}, 'stills')">
                             ${coverBadge}
                             <span style="font-size:10px;color:#999;margin-right:4px;">${idx + 1}</span>
-                            <img src="${imgUrl}" style="width:80px;height:60px;object-fit:cover;border-radius:4px;cursor:pointer;" 
+                            <img src="${imgUrl}" style="width:100px;height:75px;object-fit:cover;border-radius:4px;cursor:pointer;" 
                                  onclick="showStillCoverMenu(event, '${escapedUrl}')" title="点击设为封面"
-                                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2260%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>🎬</text></svg>'">
+                                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2275%22><rect fill=%22%23ddd%22 width=%22100%25%22 height=%22100%25%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22>🎬</text></svg>'">
                             <button onclick="removePlaceStill(${idx})" style="margin-left:4px;">×</button>
+                            <div style="display:flex;gap:4px;margin-top:2px;">
+                                <label style="display:flex;align-items:center;gap:2px;font-size:10px;color:#666;cursor:pointer;" title="勾选后可在App中合拍">
+                                    <input type="checkbox" ${canCompare ? 'checked' : ''} onchange="toggleStillCompareOldFormat(${idx}, this.checked)" style="width:12px;height:12px;">
+                                    <span>📷</span>
+                                </label>
+                                <button onclick="toggleStillHiddenOldFormat(${idx})" style="font-size:10px;padding:0 4px;cursor:pointer;background:${isHidden ? '#ff6b6b' : '#51cf66'};color:white;border:none;border-radius:2px;" title="${isHidden ? '点击显示此剧照' : '点击隐藏此剧照'}">
+                                    ${isHidden ? '👁️‍🗨️' : '👁️'}
+                                </button>
+                            </div>
                         </div>
                     `;
                 }).join('');
@@ -5805,6 +5825,52 @@
                     console.log(`剧照 ${idx + 1} 隐藏状态: ${placeStills[idx].isHidden}`);
                     renderPlaceStills(); // 重新渲染以更新UI
                 }
+            }
+        }
+        
+        // 旧格式：切换剧照的可合拍状态（会自动转换为对象格式）
+        function toggleStillCompareOldFormat(idx, canCompare) {
+            if (idx >= 0 && idx < placeStills.length) {
+                const still = placeStills[idx];
+                if (typeof still === 'string') {
+                    // 将字符串转换为对象格式
+                    placeStills[idx] = {
+                        movieId: '_unknown_',
+                        movieNameCn: '',
+                        movieNameEn: '',
+                        year: '',
+                        url: still,
+                        canCompare: canCompare,
+                        isHidden: false
+                    };
+                } else if (typeof still === 'object') {
+                    placeStills[idx].canCompare = canCompare;
+                }
+                console.log(`剧照 ${idx + 1} 可合拍状态: ${canCompare}`);
+            }
+        }
+        
+        // 旧格式：切换剧照的隐藏/显示状态（会自动转换为对象格式）
+        function toggleStillHiddenOldFormat(idx) {
+            if (idx >= 0 && idx < placeStills.length) {
+                const still = placeStills[idx];
+                if (typeof still === 'string') {
+                    // 将字符串转换为对象格式，并设置为隐藏
+                    placeStills[idx] = {
+                        movieId: '_unknown_',
+                        movieNameCn: '',
+                        movieNameEn: '',
+                        year: '',
+                        url: still,
+                        canCompare: false,
+                        isHidden: true
+                    };
+                    console.log(`剧照 ${idx + 1} 隐藏状态: true (已转换为对象格式)`);
+                } else if (typeof still === 'object') {
+                    placeStills[idx].isHidden = !placeStills[idx].isHidden;
+                    console.log(`剧照 ${idx + 1} 隐藏状态: ${placeStills[idx].isHidden}`);
+                }
+                renderPlaceStills(); // 重新渲染以更新UI
             }
         }
         

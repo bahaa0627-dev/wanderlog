@@ -5718,17 +5718,24 @@
                     const eyeColor = allHidden ? '#ff6b6b' : (someHidden ? '#ffa500' : '#51cf66');
                     const eyeTitle = allHidden ? '点击显示该电影所有剧照' : '点击隐藏该电影所有剧照';
                     
+                    // 转义电影信息用于 JavaScript 调用
+                    const escapedMovieNameCn = (group.movieNameCn || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+                    const escapedMovieNameEn = (group.movieNameEn || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+                    const escapedYear = (group.year || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+                    
                     html += `
                         <div style="width:100%;margin-bottom:16px;">
                             <div style="font-weight:600;color:#667eea;margin-bottom:8px;font-size:14px;border-bottom:1px solid #eee;padding-bottom:4px;display:flex;align-items:center;gap:8px;">
                                 <span>${movieTitle}</span>
+                                <button onclick="editMovieInfo('${movieId}', '${escapedMovieNameCn}', '${escapedMovieNameEn}', '${escapedYear}')" style="font-size:10px;padding:2px 4px;cursor:pointer;background:#eee;color:#666;border:none;border-radius:3px;" title="编辑电影信息">
+                                    ✏️
+                                </button>
                                 <span style="color:#999;font-weight:normal;font-size:12px;">${group.stills.length} 张剧照</span>
                                 <button onclick="toggleMovieStillsHidden('${movieId}')" style="font-size:12px;padding:2px 6px;cursor:pointer;background:${eyeColor};color:white;border:none;border-radius:3px;margin-left:auto;" title="${eyeTitle}">
                                     ${eyeIcon} ${allHidden ? '已隐藏' : '显示中'}
                                 </button>
                             </div>
-                            <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                                ${group.stills.map(s => {
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;">${group.stills.map(s => {
                                     const isCollectionCover = s.url === currentCollectionCover;
                                     const coverBadge = isCollectionCover ? '<span style="position:absolute;top:2px;left:2px;font-size:8px;color:#fff;background:#0c5460;padding:1px 4px;border-radius:3px;">合集封面</span>' : '';
                                     const coverBorderStyle = isCollectionCover ? 'border:2px solid #0c5460;' : '';
@@ -5897,6 +5904,37 @@
             console.log(`电影 ${movieId} 剧照${newHiddenState ? '已隐藏' : '已显示'}: ${movieStills.length} 张`);
             renderPlaceStills();
             showToast(`${newHiddenState ? '已隐藏' : '已显示'}该电影 ${movieStills.length} 张剧照`, newHiddenState ? 'info' : 'success');
+        }
+        
+        // 编辑电影信息（电影名称、英文名、年份）
+        function editMovieInfo(movieId, currentNameCn, currentNameEn, currentYear) {
+            const newNameCn = prompt('请输入电影中文名：', currentNameCn || '');
+            if (newNameCn === null) return; // 用户取消
+            
+            const newNameEn = prompt('请输入电影英文名（可留空）：', currentNameEn || '');
+            if (newNameEn === null) return;
+            
+            const newYear = prompt('请输入上映年份（可留空）：', currentYear || '');
+            if (newYear === null) return;
+            
+            // 生成新的 movieId（基于电影名）
+            const newMovieId = newNameCn || newNameEn || '_unknown_';
+            
+            // 更新所有该电影的剧照
+            let updatedCount = 0;
+            placeStills.forEach(s => {
+                if (typeof s === 'object' && s.movieId === movieId) {
+                    s.movieId = newMovieId;
+                    s.movieNameCn = newNameCn;
+                    s.movieNameEn = newNameEn;
+                    s.year = newYear;
+                    updatedCount++;
+                }
+            });
+            
+            console.log(`已更新 ${updatedCount} 张剧照的电影信息`);
+            renderPlaceStills();
+            showToast(`已更新 ${updatedCount} 张剧照的电影信息`, 'success');
         }
         
         // 将剧照设置为合集封面图
